@@ -15,8 +15,17 @@ const { spawn, spawnSync } = require("child_process");
 
 const PENDING_TAB_MS = 20_000;       // an open tab answers SSE within a beat
 const PENDING_HEADLESS_MS = 90_000;  // a cold browser has to boot and load media
-const STALL_MS = 120_000;            // a running tab reports at least every few seconds
+/* A tab that claimed a job reports at least every JOB_HEARTBEAT_MS while it works (app.js runExportJob beats on
+   its own, apart from progress). Four beats missed means it is not working: Chrome runs a hidden tab's timers at
+   most once a minute once it throttles it hard, and a minimized or paused window may not run them at all. The
+   one-job queue is freed then, instead of waiting for the caller or for STALL_MS, and the job ends as failed with
+   the reason. It is not handed on to a headless browser: the quiet tab may still be half-way (a track saved into
+   the project, a file half written), and running it twice is worse than saying so. */
+const JOB_HEARTBEAT_MS = 5_000;
+const TAB_SILENT_MS = 20_000;
+const STALL_MS = 120_000;            // a headless page (nothing throttles it) reports at least every few seconds
 const KEEP_MS = 60 * 60 * 1000;
+const KIND_NAME = { scopes: "scope reading", track: "tracking job", transcribe: "transcription", lyrics: "lyrics card", export: "export" };
 
 /** A Chromium-family browser to run headless: FABLECUT_CHROME, else the usual
  *  Chrome / Edge / Chromium install paths for this platform. Null if none. */
@@ -45,12 +54,14 @@ function findBrowser(env = process.env) {
 
 /** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
  *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one,
+ *  now() → the clock (tests),
  *  onEnd(job) → a job ended without its file (failed or cancelled): stop what it left running,
  *  finished(src) → is the file an export job says it made really in place (renamed from .part)?} */
 function createExportJobs(opts) {
+  const clock = typeof opts.now === "function" ? opts.now : () => Date.now();   // late-bound: tests may stub Date.now
   function assertWhere(where = "auto") {
     if (opts.allowHeadless !== false) return;
-    // English for agents and logs; the page says errorCode in the interface language (app.js codeText)
+    // English for agents and logs; the page says errorCode in the interface language (app.js jobProblem, errorText)
     if (where === "headless") throw Object.assign(new Error("Headless system browsers are disabled in desktop mode."), { code: 409, errorCode: "HEADLESS_DISABLED" });
     if (!opts.editors()) throw Object.assign(new Error("The editor is not ready; open it and retry."), { code: 409, errorCode: "EDITOR_NOT_READY" });
   }
@@ -60,7 +71,7 @@ function createExportJobs(opts) {
   const view = (j) => ({
     id: j.id, kind: j.kind, status: j.status, via: j.via, range: j.range, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
     time: j.time ?? null, progress: j.progress, src: j.src || null, result: j.result || null, error: j.error || null,
-    created: j.created, updated: j.updated,
+    code: j.errorCode || null, created: j.created, updated: j.updated,
   });
 
   function closeBrowser(j) {
@@ -78,12 +89,12 @@ function createExportJobs(opts) {
   }
   function end(j, status, fields = {}) {
     if (isEnded(j)) return;
-    Object.assign(j, fields, { status, updated: Date.now() });
+    Object.assign(j, fields, { status, updated: clock() });
     closeBrowser(j);
     if (status !== "done" && opts.onEnd) { try { opts.onEnd(view(j)); } catch {} }
   }
   function sweep() {
-    const now = Date.now();
+    const now = clock();
     for (const j of jobs.values()) {
       if (j.status === "pending" && now - j.created > (j.via === "headless" ? PENDING_HEADLESS_MS : PENDING_TAB_MS))
         end(j, "failed", j.via !== "headless" && opts.allowHeadless === false
@@ -91,7 +102,15 @@ function createExportJobs(opts) {
           : { error: j.via === "headless"
             ? "the headless browser never picked up the job (it may have failed to start or to load the editor)"
             : "no editor tab picked up the job — is it busy exporting? Retry with where:\"headless\"" });
-      else if (j.status === "running" && now - j.updated > STALL_MS)
+      else if (j.status === "running" && j.via === "tab" && now - j.updated > TAB_SILENT_MS &&
+        (j.hidden === true || (j.tabId && opts.editorConnected?.(j.tabId) === false)))
+        // English for agents and logs; the page says errorCode in the interface language (app.js jobProblem, errorText)
+        end(j, "failed", { errorCode: "EDITOR_STOPPED_ANSWERING", error: `the editor tab stopped answering for ${TAB_SILENT_MS / 1000} s ` +
+          "(it may be in the background, minimized or paused), so the job was ended to free the queue — bring the editor to the front and retry" +
+          (opts.allowHeadless === false ? "" : ", or retry with where:\"headless\"") });
+      // headless, or a tab that never said who it is (no tabId, no hidden): main's 120 s stall (P11). Only a tab known to be
+      // visible and connected keeps its job past that.
+      else if (j.status === "running" && (j.via === "headless" || (!j.tabId && typeof j.hidden !== "boolean")) && now - j.updated > STALL_MS)
         end(j, "failed", { error: "the editor stopped reporting progress" +
           (j.kind === "export" ? ` at ${Math.round(j.progress * 100)}%${j.at != null ? ` (timeline ${j.at} s)` : ""}` : "") + " (tab closed or browser crashed)" });
       else if (isEnded(j) && now - j.updated > KEEP_MS) jobs.delete(j.id);
@@ -135,12 +154,17 @@ function createExportJobs(opts) {
       if (kind === "lyrics" && where === "headless") throw Object.assign(new Error("the lyrics card needs an open editor window: someone has to answer it"), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (time != null && !(Number.isFinite(time) && time >= 0)) throw Object.assign(new Error("time must be seconds ≥ 0"), { code: 400 });
       if (range != null && range !== "entire" && range !== "in-out") throw Object.assign(new Error("range must be \"entire\" or \"in-out\""), { code: 400 });
+      sweep();   // a job that has just run out of time must not refuse this one until the next tick
       const busy = [...jobs.values()].find((j) => !isEnded(j));
-      if (busy) throw Object.assign(new Error(`${busy.kind === "scopes" ? "scope reading" : busy.kind === "track" ? "tracking job" : busy.kind === "transcribe" ? "transcription" : busy.kind === "lyrics" ? "lyrics card" : "export"} ${busy.id} is still ${busy.status} — wait for it, or cancel it`), { code: 409 });
+      // English for agents and logs, with the exact call that frees the queue; the page says JOB_BUSY in its own words
+      if (busy) throw Object.assign(new Error(`${KIND_NAME[busy.kind] || "export"} ${busy.id} is still ${busy.status} — wait for it, or cancel it: ` +
+        `fablecut_export {cancel:"${busy.id}"} (POST /api/export/job/cancel?id=${busy.id})` +
+        (busy.via === "tab" ? `. A silent job whose editor is hidden or disconnected ends after ${TAB_SILENT_MS / 1000} s` : "")),
+      { code: 409, errorCode: "JOB_BUSY", busy: { id: busy.id, kind: busy.kind, status: busy.status, via: busy.via, progress: busy.progress, since: busy.created } });
       const tabs = opts.editors();
       if (kind === "lyrics" && !tabs) throw Object.assign(new Error("no editor window is open — the lyrics card needs one: open the editor, then try again"), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (where === "tab" && !tabs) throw Object.assign(new Error("no editor tab is open — open the editor, or use where:\"headless\""), { code: 409 });
-      const now = Date.now();
+      const now = clock();
       const j = {
         id: "x_" + Math.random().toString(36).slice(2, 10), kind, status: "pending", progress: 0,
         range: range || null, profile: profile || null, delivery: kind === "export" && delivery ? delivery : null,
@@ -164,19 +188,26 @@ function createExportJobs(opts) {
     /** What a tab needs to run the job (headless pages fetch it by id). */
     ticket(id) { const j = jobs.get(id); return j ? { id: j.id, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, lyrics: j.lyrics || null, image: !!j.image, status: j.status } : null; },
     /** First tab to claim a pending job runs it. */
-    claim(id) {
+    claim(id, { tabId, hidden } = {}) {
       const j = jobs.get(id);
       if (!j || j.status !== "pending") return false;
-      j.status = "running"; j.updated = Date.now();
+      j.status = "running"; j.updated = clock();
+      j.tabId = typeof tabId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(tabId) ? tabId : null;
+      j.hidden = typeof hidden === "boolean" ? hidden : null;
       return true;
     },
     /** Progress / result from the running tab. Returns {cancel} so a cancel reaches it. */
-    report(id, { progress, status, src, result, error, at } = {}) {
+    report(id, { progress, status, src, result, error, at, tabId, hidden } = {}) {
       const j = jobs.get(id);
       if (!j) return null;
-      if (j.status === "cancelled") return { cancel: true };
+      // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken.
+      // Ended by the queue, it is also told why, so it can say so to whoever is at it (app.js jobProblem).
+      if (j.status === "failed" && j.errorCode) return { cancel: true, code: j.errorCode, error: j.error };
+      if (j.status === "cancelled" || j.status === "failed") return { cancel: true };
       if (j.status !== "running") return { cancel: false };
-      j.updated = Date.now();
+      if (j.tabId && tabId !== j.tabId) return { cancel: true };
+      if (typeof hidden === "boolean") j.hidden = hidden;
+      j.updated = clock();   // any report counts; an empty one ({}) is the tab's heartbeat
       if (Number.isFinite(progress)) j.progress = Math.max(0, Math.min(1, progress));
       if (Number.isFinite(at)) j.at = at;   // the timeline second last drawn: where a stalled export stopped
       // done means the finished file is in place, never "ffmpeg exited" (P11): a job whose file is not there failed
@@ -193,8 +224,9 @@ function createExportJobs(opts) {
       if (!isEnded(j)) end(j, "cancelled", { error: "cancelled" });
       return view(j);
     },
+    sweep,
     shutdown() { for (const j of jobs.values()) closeBrowser(j); if (timer) clearInterval(timer); },
   };
 }
 
-module.exports = { createExportJobs, findBrowser };
+module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS };
