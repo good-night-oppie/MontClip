@@ -49,7 +49,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const start=await read(`(()=>{const bar=document.querySelector('[data-agent-modes]'),port=document.querySelector('.cindy-port');return{mode:agentPolicy.mode,buttons:[...bar.querySelectorAll('button')].map(b=>[b.textContent,b.getAttribute('aria-pressed')]),
    first:port.querySelector('[data-agent-modes]')===bar&&bar.compareDocumentPosition(port.querySelector('.cindy-thread'))===Node.DOCUMENT_POSITION_FOLLOWING,yoloMark:!document.getElementById('mcYoloMark').hidden,yoloPane:!!document.querySelector('[data-yolo-on]')};})()`);
   report.start=start;
-  assert.equal(start.mode,'manual');assert.deepEqual(start.buttons,[['计划','false'],['手动','true'],['自动','false'],['Yolo','false']]);
+  assert.equal(start.mode,'manual');assert.deepEqual(start.buttons,[['计划','false'],['手动','true'],['自动','false'],['全自动','false']]);
   assert.ok(start.first,'the switch is above the thread');assert.equal(start.yoloMark,false);assert.equal(start.yoloPane,false);
   const clips=()=>read(`project.clips.filter(c=>c.kind==='video').map(c=>c.duration).join(',')`);
   // an edit made without asking lands a moment after the reply: wait for it (up to 6 s) rather than look once
@@ -142,7 +142,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   delete process.env.MONTCLIP_SMOKE_YOLO_CONSENT;
   const y=await read(`({mode:agentPolicy.mode,mark:!document.getElementById('mcYoloMark').hidden,markText:document.getElementById('mcYoloMark').textContent,pane:document.querySelector('[data-yolo-on]')?.textContent})`);
   await shot('yolo-on');
-  report.yolo=y;assert.equal(y.mode,'yolo');assert.equal(y.mark,true);assert.equal(y.markText,'Yolo 开着');assert.match(y.pane,/^Yolo 开着/);
+  report.yolo=y;assert.equal(y.mode,'yolo');assert.equal(y.mark,true);assert.equal(y.markText,'全自动开着');assert.match(y.pane,/^全自动开着/);
   await read(`flushSave()`);await wait();
   const y0=await clips();await turn('剪掉最后 5 秒');
   assert.equal(await box(),null);assert.notEqual(await changedFrom(y0),y0,'Yolo: applied without asking');
