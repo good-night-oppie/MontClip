@@ -313,6 +313,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
   "background": "#000000",                    // canvas color behind all clips (optional)
   "revision": 7,                              // bump on every write!
   "panSchema": 1,                             // 1 = pan-aware; omit only on pre-pan projects (UI migrates once)
+  "monoPanReviewed": true,                    // optional — the left-ear mono question is settled (see "Audio mix")
   "markers": [ { "t": 2.5 }, { "t": 5.0, "label": "drop", "color": "red" } ],
   // ^ beat/cue markers: diamonds on the ruler (label shown beside them), snap
   //   targets for clip edges. color: gold (default) · red · orange · green ·
@@ -464,7 +465,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `gain` | 0 | clip gain in dB (−60…+24), applied **before** `volume`, so keyframes and fades ride on top. Set by Normalize. |
 | `channelMode` | "stereo" | stereo · mono (L+R folded to one channel) · left · right (use one side) · swap (exchange L/R). Ignored on linked stems — `audioChannel` already picks their channel. |
 | `duck` | 0 | ducking in dB (≤ 0), multiplied into `volume`. Normally keyframed by Auto-duck (`keyframes.duck`), so the clip's own volume, keyframes and fades are untouched. |
-| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
+| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). A pan the program gave a stem carries `panAuto: true`; editing the pan (the slider, a reset, a keyframe, or an agent's `updateClip` with a `pan`) removes it. Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
 | `speed` | 1 | 0.25–4× playback rate. **Keyframable → speed ramps**: with `keyframes.speed` the engine time-remaps (media time = `in` + ∫speed dt), in preview and in the export audio mix. Static case: source window consumed = `duration × speed`, so `in + duration×speed ≤ media.duration`. |
 
 **Text clips only:**
@@ -712,6 +713,18 @@ edits the key under the playhead. Agents:
   after ducking): drag it to change the level, Ctrl/Cmd-click to add a keyframe,
   drag a point to move it, Alt-click or double-click to remove one. The corner
   **fade grips** drag a constant-power fade in or out. Both edit linked stems together.
+- **Mono in the left ear (old projects)** — projects saved before mono files got a
+  centred stem can have one at `pan: -1`, which exports with sound on the left only. A
+  stem of a mono file on channel 0, at exactly −1, with no pan keyframes and no other stem
+  in its link group, might be the program's old default or the streamer's choice (no
+  `panAuto` then), so on open the editor asks once, in a toast that blocks nothing:
+  centre them (one undo step) or keep them. Showing the question writes nothing; either
+  answer sets `monoPanReviewed: true` in project.json (never the window's storage);
+  a project with no such stem (and every stem's channel count known) is set quietly, by
+  the editor or the next `fablecut_patch_project`. Until then `fablecut_status` warns;
+  centre them (`updateClip set:{props:{pan:0}}`, then `setProject {monoPanReviewed:true}`)
+  only when the user asks. The check after an export never reports these stems (no
+  `panAuto`, so the streamer's): the open-project question is their only path.
 - Use **gain** for "this clip is too quiet / loud", **volume keyframes** for
   shaping, **duck** for dipping under dialogue, the **track fader** to
   balance whole lanes (dialogue against the music bed), and a **bus** when
@@ -1876,7 +1889,7 @@ proxy only changes how smoothly the preview runs, never the result.
   `m_abc video "intro.mp4" 12.4s 1920×1080 29.97 fps h264 stereo 48 kHz 45 MB ★ #interview uses:2`.
 - `fablecut_import_media` probes the file as it imports it, so the entry it
   returns already has these fields.
-- `fablecut_status` lists offline media, and the compact view marks each
+- `fablecut_status` warns about **mono audio in the left ear only** (see "Audio mix"), and lists offline media, and the compact view marks each
   `OFFLINE (file missing — relinkMedia)` and each video with a proxy `proxy:540p`.
 - `fablecut_proxy {}` reports every video's proxy; `{create:true, mediaIds?, height?}`
   makes them (waits until done unless `wait:false`); `{delete:true, mediaIds?}`
@@ -2858,8 +2871,16 @@ A spec (every key optional — what is left out comes from its `preset`):
   size, frame rate, frame count, codec, color tags, audio codec / rate / channels,
   length, loudness against the target (±1 LU) and the true-peak ceiling, and file size
   against the platform's limit. Without a target the report says where the platform
-  plays it ("YouTube plays it 4.2 dB quieter"). The report shows in the queue, a toast
-  after a single export, and the `fablecut_export` reply.
+  plays it ("YouTube plays it 4.2 dB quieter"). A stereo file whose left and right are
+  more than 20 dB apart (each channel of the finished file measured with ffmpeg astats; the
+  louder side above −60 dB) gets a warning — "only the left channel has sound" — unless the
+  timeline puts the sound there on purpose (pan keyframes, any clip pan without `panAuto`,
+  a track or bus pan). Better to miss one than to warn wrongly: a file under 2 s, of unknown
+  length or silent all through is not judged. The file is kept either way.
+  In the editor it reads in plain words, without the numbers; when mono sounds put in that ear
+  are the cause, it has a **Play in both** button — the same fix, one undo step, as the
+  open-project question in "Audio mix".
+  The report shows in the queue, a toast after a single export, and the `fablecut_export` reply.
 - **Saved presets**: "Save preset…" in the dialog writes `library/delivery/<id>.json`,
   listed under "Saved" in every project (`GET / POST /api/export/presets`,
   `POST /api/export/presets/delete {id}`).

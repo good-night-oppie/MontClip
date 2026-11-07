@@ -52,7 +52,10 @@ test('the page: success only once saved; a cancel says how to save again; captio
   const fn = app.slice(app.indexOf('function saveDownload('), app.indexOf('\n}\n', app.indexOf('function saveDownload(')));
   a.match(fn, /if \(exportFile\) \{ window\.montclipDownloads\.expect\(name\); pendingExports\.add\(name\);/);
   a.match(fn, /if \(kind\) pendingKinds\.set\(name, kind\);/);
-  a.match(fn, /else if \(savedMsg\) toast\(savedMsg\);/, 'the browser keeps its old order');
+  a.match(fn, /else if \(savedMsg\) saySaved\(savedMsg\);/, 'the browser keeps its old order');
+  // a message is text (a toast) or a function that shows its own toast — the one-sided warning with its button (mono-pan-followups)
+  a.match(app, /function saySaved\(msg\) \{\n  if \(typeof msg === "function"\) msg\(\); else toast\(msg\);/);
+  a.match(app, /if \(state === "completed"\) \{ if \(msg\) saySaved\(msg\); \}/);
   a.match(app, /state === "cancelled"\) toast\(uiText\(wasExport \? "own\.export-save-cancelled" : kind === "captions" \? "own\.captions-save-cancelled" : "own\.save-canceled"\)\)/);
   // an export's failed save: JJ's table v2 (#116 row, with 〔换个文件夹〕; test/error-text.test.js); the general one otherwise
   a.match(app, /else if \(wasExport\) \{[^]*?toastAction\(uiText\("exportSaveFolderFailed"\)[^]*?else toast\(uiText\("own\.save-failed"\)\);/, 'a failed save: the export line for an export, the general one otherwise');
