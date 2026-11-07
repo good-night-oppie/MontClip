@@ -293,7 +293,11 @@ async function maybeFaststart(file, { onProgress } = {}) {
       timer = setInterval(() => { try { const n = fs.statSync(tmp).size; if (n) onProgress(Math.min(0.99, n / total)); } catch {} }, 500);
     }
     await new Promise((resolve, reject) => {
-      execFile(FF.path("ffmpeg"), ["-nostdin", "-n", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
+      // every stream, not ffmpeg's one-per-kind pick: an OBS recording's other audio tracks (#177, VV: a three-track
+      // MP4 came out with one), subtitles and chapters stay. Data streams (QuickTime timecode / metadata tracks) and
+      // attachments are left out: the MP4 muxer cannot write most of them, and with -c copy one would fail the whole
+      // tidy (the upload is then kept as it came, without faststart). They carry nothing MontClip reads.
+      execFile(FF.path("ffmpeg"), ["-nostdin", "-n", "-i", file, "-map", "0", "-map", "-0:d", "-map", "-0:t", "-c", "copy", "-movflags", "+faststart", tmp],
         { maxBuffer: 1 << 24, windowsHide: true }, (err) => {
           // A collision is not ours, even inside the directory we created.
           if (err?.code === "EEXIST" || /already exists/i.test(String(err?.message || ""))) outputMayBeOwned = false;

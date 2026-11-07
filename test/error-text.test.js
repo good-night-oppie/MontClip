@@ -178,7 +178,9 @@ const KNOWN = { 'own.font-net-hosts': 'Google',
   'officialPane_dataNoticeWho': 'DeepSeek,api,deepseek,com', 'officialPane_dataNoticeUseLabel': 'DeepSeek',
   'officialPane_dataNoticeUse': 'DeepSeek', 'officialPane_dataNoticeBasis': 'DeepSeek', 'officialPane_dataNoticeSound': 'DeepSeek',
   // the line when ask() is declined inside Cindy (JJ's words, 2026-11-07): the product name, (a)
-  'own.ap-embedded-declined': 'Cindy' };
+  'own.ap-embedded-declined': 'Cindy',
+  // the audio-track hint (JJ chose A on #177, 2026-11-07): the recorder's product name, (a)
+  'own.at-hint': 'OBS' };
 // the same notice writes the address api.deepseek.com: "api" there is part of a host name, not API in another casing
 const KNOWN_CASE = { 'officialPane_dataNoticeWho': ['api'] };
 test('the Chinese interface: no English word of three letters or more, beyond JJ\'s categories; names in their own casing', () => {
