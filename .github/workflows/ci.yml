@@ -1,191 +1,48 @@
 name: CI
 
-# Every PR runs, draft or not, whatever branch it targets (Deja 2026-11-02: #28 is a draft and
-# stacked PRs target other branches). Pushes to main run too, and it can be started by hand.
+# DIAGNOSTIC BRANCH for #224 only (Deja). Never merged; no PR. Measures every exported frame on Linux:
+# main's app.js against the fix, same runner image, Rea's frame-cadence-truth.cjs (unchanged, sha256 d856f384…).
 on:
-  push:
-    branches: [main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
-  # GitHub merge queue (QQ, 2026-11-07; owner approved): the queue runs the same required checks on the
-  # PR stacked on the latest main, so authors no longer re-merge main by hand.
-  merge_group:
 
 jobs:
-  test:
-    name: Tests (Node ${{ matrix.node }})
+  cadence:
+    name: cadence (${{ matrix.version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # The oldest version package.json supports, the current LTS, and latest.
-        node: ["18", "20", "22"]
+        version: ["main", "fix"]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: ${{ matrix.node }}
-
-      # MontClip runs only its bundled LGPL FFmpeg, never one on PATH. Fetch the
-      # pinned build (SHA-256 and LGPL configuration are checked) so the tests that
-      # need ffmpeg run against it. H.264 tests skip here: the runner has no
-      # graphics-card encoder and no Windows h264_mf, and the LGPL build has no libx264.
-      # One source of truth: desktop/ffmpeg-manifest.json. The archive is cached under a
-      # key made from the manifest's hash, so it is downloaded again only when the pinned
-      # build changes; fetch-ffmpeg checks the SHA-256 of a cached copy before using it.
-      # A failed download fails the job: there is no fallback to the runner's ffmpeg.
-      - name: Cache the pinned FFmpeg archive (key = manifest hash)
-        id: ffmpeg-cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: .cache/ffmpeg
-          key: ffmpeg-linux-x64-${{ hashFiles('desktop/ffmpeg-manifest.json') }}
-
-      - name: Fetch the bundled FFmpeg (pinned LGPL build)
-        run: |
-          echo "archive cache hit: ${{ steps.ffmpeg-cache.outputs.cache-hit }}"
-          start=$(date +%s)
-          node desktop/fetch-ffmpeg.cjs --platform linux-x64 --cache-dir .cache/ffmpeg
-          echo "fetch-ffmpeg took $(( $(date +%s) - start )) s"
-
-      # No install step on purpose: MontClip has no runtime dependencies and the
-      # suite uses only node:test. A missing `npm install` here is the feature.
-      - name: Run the test suite
-        run: npm test
-
-  test-windows:
-    # The H.264 export tests skip on the Linux runners (no graphics card, no h264_mf,
-    # and the LGPL build has no H.264 software encoder). Windows has h264_mf, so they
-    # run here against the bundled win32 build. MontClip is Windows-first.
-    name: Tests (Windows, Node 22)
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
-
-      - name: Cache the pinned FFmpeg archive (key = manifest hash)
-        id: ffmpeg-cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: .cache/ffmpeg
-          key: ffmpeg-win32-x64-${{ hashFiles('desktop/ffmpeg-manifest.json') }}
-
-      - name: Fetch the bundled FFmpeg (pinned LGPL build)
-        run: |
-          echo "archive cache hit: ${{ steps.ffmpeg-cache.outputs.cache-hit }}"
-          node desktop/fetch-ffmpeg.cjs --platform win32-x64 --cache-dir .cache/ffmpeg
-
-      - name: Run the test suite (skips listed)
-        run: |
-          node --test --test-reporter=tap --test-reporter-destination=windows.tap --test-reporter=spec --test-reporter-destination=stdout
-          echo "skipped:"; grep '# SKIP' windows.tap | sed 's/.*# SKIP//' | sort | uniq -c || true
-
-  check:
-    name: Syntax & sanity
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
-
-      - name: Syntax-check JavaScript
+      - name: Fetch the bundled FFmpeg (pinned LGPL build)
+        run: node desktop/fetch-ffmpeg.cjs --platform linux-x64 --cache-dir .cache/ffmpeg
+      - name: Use main's app.js
+        if: matrix.version == 'main'
+        run: git checkout 550a3bc9 -- app.js && git diff --stat HEAD
+      - name: Frame cadence, 6 exports from 0 s and 6 from 3600 s
         run: |
-          for f in *.js; do
-            echo "checking $f"
-            node --check "$f"
+          set -u
+          sha256sum scripts/diag224/frame-cadence-truth.cjs
+          D=$RUNNER_TEMP/data; mkdir -p $D/media $D/exports
+          FF=$PWD/vendor/ffmpeg/linux-x64
+          PORT=7790 FABLECUT_DATA_DIR=$D FABLECUT_NO_FS_WATCH=1 MONTCLIP_FFMPEG_DIR=$FF node server.js > $RUNNER_TEMP/server.log 2>&1 &
+          sleep 3
+          for off in 0 3600; do
+            s=$(date +%s)
+            BASE=http://127.0.0.1:7790 MEDIA=$D/media EXPORTS=$D/exports MONTCLIP_FFMPEG_DIR=$FF RUNS=6 OFFSET=$off node scripts/diag224/frame-cadence-truth.cjs || true
+            echo "offset $off wall $(( $(date +%s) - s )) s"
           done
-
-      - name: Validate JSON files
+      - name: export-start-time.test.js, 5 times
         run: |
-          for f in package.json manifest.json .mcp.json \
-                   .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
-            node -e "JSON.parse(require('fs').readFileSync('$f','utf8')); console.log('$f OK')"
+          pass=0; fail=0
+          for i in 1 2 3 4 5; do
+            if node --test test/export-start-time.test.js > $RUNNER_TEMP/est-$i.txt 2>&1; then pass=$((pass+1)); else fail=$((fail+1)); fi
+            grep -E "flashes [0-9]" $RUNNER_TEMP/est-$i.txt | head -1
           done
-
-      - name: Check the data-dir split
-        # NB: under `node -e`, __dirname is "." — compare against process.cwd(),
-        # which is the repo root here and therefore paths.js's own __dirname.
-        run: |
-          # Default: everything beside the code, as it has always been.
-          node -e "
-            const p = require('./paths');
-            if (p.SPLIT) { console.error('expected SPLIT=false with no env'); process.exit(1); }
-            if (p.PROJECT_FILE !== require('path').join(process.cwd(), 'project.json')) {
-              console.error('default project path moved:', p.PROJECT_FILE); process.exit(1);
-            }
-            console.log('default layout OK');
-          "
-          # With FABLECUT_DATA_DIR: user data moves, app files do not.
-          FABLECUT_DATA_DIR=/tmp/fc-data node -e "
-            const path = require('path');
-            const fs = require('fs');
-            const p = require('./paths');
-            const want = path.resolve(process.env.FABLECUT_DATA_DIR);
-            if (!p.SPLIT) { console.error('expected SPLIT=true'); process.exit(1); }
-            for (const [k, v] of Object.entries({
-              PROJECT_FILE: 'project.json', MEDIA_DIR: 'media',
-              EXPORTS_DIR: 'exports', ANALYSIS_DIR: 'analysis', LIBRARY_DIR: 'library',
-            })) {
-              if (p[k] !== path.join(want, v)) {
-                console.error(k, 'did not move:', p[k]); process.exit(1);
-              }
-            }
-            if (p.APP_DIR !== process.cwd()) { console.error('APP_DIR moved:', p.APP_DIR); process.exit(1); }
-            p.ensureDirs();
-            if (!fs.existsSync(path.join(want, 'library/svg/sparkles.svg'))) {
-              console.error('library was not seeded'); process.exit(1);
-            }
-            console.log('split layout OK');
-          "
-
-  release:
-    # What a release will ship — checked here, before a release, instead of
-    # after one. MontClip is not published to npm or the MCP registry (see
-    # docs/decisions/2026-11-02-brand-montclip.md). See .github/scripts/release-check.js.
-    name: Release readiness
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
-
-      - name: Versions, metadata, syntax, MCP tools vs manifest.json
-        run: node .github/scripts/release-check.js
-
-      - name: Pack and install the npm package, then check what it ships
-        run: |
-          set -euo pipefail
-          out="$RUNNER_TEMP/pkg"
-          mkdir -p "$out/app"
-          npm pack --pack-destination "$out"
-          cd "$out/app"
-          npm init -y > /dev/null
-          npm install --no-audit --no-fund "$out"/montclip-*.tgz
-          cd "$GITHUB_WORKSPACE"
-          node .github/scripts/release-check.js --installed "$out/app/node_modules/montclip"
-
-      - name: Docs and playground are rebuilt from CLAUDE.md / the editor
-        run: |
-          node docs/docs/build.js
-          node docs/demo/sync.js
-          if [ -n "$(git status --porcelain -- docs/)" ]; then
-            git status --short -- docs/
-            echo "::error::docs/ is stale — run node docs/docs/build.js and node docs/demo/sync.js, then commit"
-            exit 1
-          fi
+          echo "export-start-time: $pass passed, $fail failed"
