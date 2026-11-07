@@ -1455,6 +1455,8 @@
     // main's codes merged in after #161 (#154 AI background removal, #129 EXPORT_NO_H264, the FLV rows): their first sentence, as for the others
     "own.bgremove-export-unavailable": 1, "own.bgremove-export-realtime": 1, h264Refuse: 1,
     flvFixUnverified: 1, flvStreamsUnsupported: 1, flvSourceDamaged: 1,
+    // #132's two queue codes (JOB_BUSY, EDITOR_STOPPED_ANSWERING), merged in after #161: their first sentence, as for the others
+    "own.err-job-busy": 1, "own.err-editor-stopped": 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {
