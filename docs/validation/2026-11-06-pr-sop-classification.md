@@ -11,4 +11,4 @@
 
 旧plugins/montclip-cindy路径仅覆盖尚未关闭的迁移PR，不表示在那里继续开发。检查器run和workflow本身调用GitHub API，因此列在外发类；不上传主播素材。分类核读不修改任何人的现有PR。
 
-审查人历史review沿用现有督查标准：GoodNightOppie提交review后从requested reviewers移除仍算送审，不能当正式批准。已向Deja请求确认这一口径。
+审查人历史review沿用现有督查标准：GoodNightOppie提交review后从requested reviewers移除仍算送审，不能当正式批准。Deja已明确确认这一口径；路径分类表本身仍待核读。

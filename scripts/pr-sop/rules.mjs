@@ -17,6 +17,9 @@ export function ownerDeclaration(body, teammates, sharedAccounts = []) {
   return { state: "registered", owner, source: "pr_body_line_2" };
 }
 
+// Deja已确认：requested_reviewers含GoodNightOppie，或历史reviews含其审查，任一即算送审。
+// GitHub会在审查后清空请求；正文提名不算。历史review在这里不表示当前head正式批准。
+// 督查与CI直接共用本函数，不各写一套口径。
 export function reviewerRequested(pr, reviewer = "GoodNightOppie", allowReviewHistory = true) {
   return (pr.reviewRequests || []).some((r) => r.login === reviewer)
     || (allowReviewHistory && (pr.reviews || []).some((r) => r.author?.login === reviewer));
