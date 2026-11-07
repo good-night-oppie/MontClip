@@ -1060,6 +1060,31 @@ text or adjustment clip. On an adjustment layer they limit where its effects
 and grade apply. They run in preview and export alike. The clip draws as usual,
 the masks cut it, and then its `opacity` and `blend` composite it.
 
+**Privacy:** masks and blur are compositing effects, not a privacy guarantee.
+A blurred duplicate over a sharp original can reveal the original through
+partial alpha, including blur near the picture boundary even with zero mask
+feather. Increasing blur can make this worse. Feather, reduced opacity and
+blend modes can also expose layers underneath. Do not automatically cut holes
+in lower tracks: that changes legitimate compositions.
+
+For sensitive content, use a fully opaque, hard-edged solid shape above every
+copy of the content, with normal blend, opacity 1, no blur, feather or fade,
+and extra coverage around all edges. Shape item x/y are centres in pixels
+relative to the canvas centre (unlike mask fractions). For a 320×180 canvas,
+this covers canvas pixels x=0…96, y=0…42:
+`{kind:"shape", track:"V3", start:0, duration:1, props:{opacity:1, blend:"normal", shapes:[{type:"rect", x:-112, y:-69, w:96, h:42, radius:0, fill:"#000000"}]}}`.
+V3 must actually be above every relevant layer; extend the time range to cover
+every sensitive frame. Reposition/animate the cover after crop, movement,
+scaling or reframing. Inspect every frame in preview and in the decoded final
+export, including cuts and edges. Tracking confidence is not privacy evidence.
+Neither a blur strength nor an unverified mosaic setting guarantees unreadable
+text. See `reference/privacy-cover.md` for the synthetic test and its limits.
+This is an agent recipe, not an accepted end-to-end button workflow. The ordinary
+shape button is not a privacy preset: set square corners (`radius:0`), and do
+not assume its default track, duration or geometry covers the sensitive content.
+Manual precise placement, motion following, independent fill-change undo and
+Cindy visible-window operation have not been validated by this recipe test.
+
 ```jsonc
 "masks": [
   { "name": "Subject", "shape": "ellipse", "x": 0.52, "y": 0.45, "w": 0.4, "h": 0.7, "feather": 40 },
@@ -1258,8 +1283,10 @@ headless Chrome / Edge) and saves the result:
   `[tracks: "Logo" point 0.00–4.20 s (127 samples)]`, never their samples.
 
 Recipes: **a title that follows a car** — track a point on the car, attach
-the title; **blur a face or a plate** — an ellipse mask on a blurred copy of
-the shot on the track above, then `apply:{mask:"Face"}`; **a screen replacement** —
+the title; **a tracked artistic blur (not privacy redaction)** — an ellipse
+mask on a blurred copy of the shot on the track above, then
+`apply:{mask:"Effect"}`; for sensitive content use the opaque-cover procedure
+in Masks and check every exported frame; **a screen replacement** —
 track the screen with Scale and Rotate on and attach the new picture, cropped
 to fit; **a highlight that stays on a UI element** in a screen recording —
 track the button, attach a rect svg.
