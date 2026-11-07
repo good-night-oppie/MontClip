@@ -3103,20 +3103,48 @@ Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save
 ## Guarded local FLV preparation (clean core split)
 
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
-single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
-boolean allowTranscode:true. Decoded timestamp gaps above5ms are refused with
-FLV_TIMELINE_GAP before any MP4 allocation; this is clock quantization, not an
-AV quality guarantee. Multiple video/audio streams are refused. Source bytes
-are retained; output is a distinct MP4 and metadata carries originalSrc and
-preparation (remux/transcode), preserved by renderer serialization.
+single-video H.264 4:2:0 plus optional AAC or MP3 streams keep their picture as
+a stream copy (MP3 sound is always filled into AAC); other codecs need boolean allowTranscode:true. The check reads
+packet headers only (ffprobe packets, no decoding: seconds for a 2-hour
+recording). A break is more than 5 ms between one packet's end and the next
+one's start, per stream, measured in whole milliseconds. Every break of 0.5 s or
+less (exactly 0.5 s included), however many, imports without a question, is
+logged and marked faintly on the timeline. A break over 0.5 s answers
+FLV_TIMELINE_GAP (REST: 409) with `gaps` and `fix` (`break`) before any MP4 is
+written; with fixGaps:true or allowTranscode:true it is converted. Either way
+the picture is copied (`-c:v copy`; it holds its last frame across a break) and
+the sound is re-encoded to AAC with its holes filled with silence
+(`aresample=async=1:min_hard_comp=0.01:first_pts=0`), because the export reads
+sound with decodeAudioData, which puts samples back to back and ignores their
+timestamps: a hole left in the MP4 would make the sound after it come early.
+The sound is copied only when it is whole (no break in either stream, not
+starting after the picture, no drift); `audio` in the result says
+`copy` / `filled` / `none`. Picture and sound moving more than 40 ms apart
+during the recording (clocks jumping by different amounts, an end offset unlike
+the start's) is reported as `drifting` / `drift` (seconds) and logged, not
+converted: no conversion can know which clock is right. A fixed offset at the
+start (live recordings often start their picture 0.06–0.09 s after the sound)
+is not drift. Other codecs and a failed check re-encode the picture with the
+encoders that work here (the sound always filled). A conversion of breaks is
+then scanned and must match the original's readable length within 0.1 s and
+keep sound against picture within 40 ms; a copy that fails is re-encoded once, then
+FLV_FIX_UNVERIFIED with `check` {durationDiff, avOffset}. A conversion decodes the
+whole recording strictly: damaged bytes behind normal timestamps fail it with
+FLV_SOURCE_DAMAGED and leave no file (an export stops with
+EXPORT_SOURCE_DAMAGED when its decoder reports damage). Multiple video/audio
+streams are refused. Source bytes are retained; output is a distinct MP4 and
+metadata carries originalSrc, preparation (remux/transcode) and `gaps`
+`[{stream:"video"|"audio", at, len, big}]` (seconds from the file's first packet;
+big = over 0.5 s), preserved by renderer serialization; prepareMedia also returns
+gapsHeld:true when it converted breaks.
 
 Uncertain decoded tails/header lengths/warnings require acceptReadable:true,
 separately from codec consent. REST upload returns409 with
 FLV_READABLE_CONSENT_REQUIRED, originalSrc and decoded range. POST
-/api/prepare-media accepts {src, acceptReadable, allowTranscode}; src must resolve
+/api/prepare-media accepts {src, acceptReadable, allowTranscode, fixGaps}; src must resolve
 to a local /media/ FLV. Booleans must be true, not strings. MCP accepts the same
-two booleans on fablecut_import_media. Callers must show the detected limitation
-before accepting; these flags do not make source timing verified or authorize gaps.
+three booleans on fablecut_import_media. Callers must show the detected limitation
+before accepting; acceptReadable and allowTranscode do not make source timing verified or authorize gaps (only fixGaps converts them).
 
 Legacy upload/MCP copies are already stored before probing and remain on refusal;
 this is not native zero-allocation consent. Repeated MCP attempts can retain extra

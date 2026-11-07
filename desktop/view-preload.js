@@ -71,7 +71,8 @@ contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
 // Desktop FLV import: the page passes the File the user picked; only its path goes to the main process (read here),
 // and no path comes back to the page.
 contextBridge.exposeInMainWorld('montclipFlv',Object.freeze({
- inspect:file=>{let p='';try{p=webUtils.getPathForFile(file);}catch{}return ipcRenderer.invoke('montclip:flv:inspect',p);},
+ // id: the page names the import up front, so status() and cancel() reach it while it is being checked
+ inspect:(file,id)=>{let p='';try{p=webUtils.getPathForFile(file);}catch{}return ipcRenderer.invoke('montclip:flv:inspect',typeof id==='string'?{path:p,id}:p);},
  prepare:value=>ipcRenderer.invoke('montclip:flv:prepare',value),
  status:id=>ipcRenderer.invoke('montclip:flv:status',{id}),
  cancel:id=>ipcRenderer.invoke('montclip:flv:cancel',{id}),

@@ -348,17 +348,21 @@ async function start() {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "FLV_FORBIDDEN" };
     try {
       if (op === "inspect") {
-        if (typeof value !== "string" || !value) return { ok: false, code: "FLV_NOT_FOUND" };
-        return { ok: true, ...(await flvImports.inspect(value)) };
+        // the path, or {path, id} when the page names the import to follow its progress
+        const file = typeof value === "string" ? value : value && typeof value.path === "string" ? value.path : "";
+        const id = value && typeof value.id === "string" && /^[0-9a-f-]{36}$/.test(value.id) ? value.id : undefined;
+        if (!file) return { ok: false, code: "FLV_NOT_FOUND" };
+        return { ok: true, ...(await flvImports.inspect(file, id ? { id } : {})) };
       }
       const id = value && typeof value.id === "string" ? value.id : null;
       if (!id) return { ok: false, code: "FLV_IMPORT_EXPIRED" };
-      if (op === "prepare") return { ok: true, ...(await flvImports.prepare(id, { allowTranscode: value.allowTranscode === true, acceptReadable: value.acceptReadable === true })) };
+      if (op === "prepare") return { ok: true, ...(await flvImports.prepare(id, { allowTranscode: value.allowTranscode === true, acceptReadable: value.acceptReadable === true, fixGaps: value.fixGaps === true })) };
       if (op === "status") return { ok: true, status: flvImports.status(id) };
       flvImports[op](id);
       return { ok: true };
     } catch (error) {
-      return { ok: false, code: FLV_CODES.has(error.code) ? error.code : publicPreparationError(error).code };
+      // a converted MP4 that did not match its original: by how much, for the page to say
+      return { ok: false, code: FLV_CODES.has(error.code) ? error.code : publicPreparationError(error).code, ...(error.check ? { check: error.check } : {}) };
     }
   });
   win.webContents.on("render-process-gone", () => { flvImports.shutdown().catch(() => {}); });
