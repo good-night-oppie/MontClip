@@ -23921,8 +23921,8 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
    (MontClipPlan.stepDetail, 「保留 0:00–1:55」, 15 px), the capability's plain sentence under it (never its internal name), what
    it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
 const agentApprovals=MontClipApproval.create({onChange:()=>{if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();},context:()=>JSON.stringify(agentProjectContext()),
- // inside Cindy: 「不同意」 at once (HOST_EMBEDDED), and her line about it — own.ap-embedded, TODO(JJ): shown once JJ has written it
- embedded:()=>agentEmbedded,onEmbedded:()=>{const line=uiText('own.ap-embedded');if(line)toast(line);}});
+ // inside Cindy: 「不同意」 at once (HOST_EMBEDDED), and her line about it (own.ap-embedded-declined, JJ's words)
+ embedded:()=>agentEmbedded,onEmbedded:()=>toast(uiText('own.ap-embedded-declined'))});
 // the last step's toast goes first, so the two never sit one over the other (VV, #134)
 function askAgentApproval(d,options={}){dismissToast();return agentApprovals.ask(d,options);}
 const agentApprovalView=(result)=>agentApprovals.view(result,uiText,project.name||'');

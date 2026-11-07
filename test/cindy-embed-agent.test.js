@@ -4,7 +4,7 @@
       messages) is never called, its mode and sound facts are not read; the desktop main process refuses its requests
       from such a page too, and its preload gives such a page no assistant service;
    2. agentApprovals.ask() inside Cindy settles 「不同意」 at once with code HOST_EMBEDDED: no card, nothing waits, nothing
-      runs. Her line about it is own.ap-embedded — empty until JJ writes it (TODO), so nothing is shown yet.
+      runs. Her line about it is own.ap-embedded-declined, JJ's words (2026-11-07), word for word.
    Outside Cindy the approval card is #120's, unchanged (test/approval-card.test.js). The lyrics card (#164) is the page's
    own dialog and still shows inside Cindy. The page checks run in a real headless browser (test/browser-contrast.js),
    with stand-ins for the desktop bridges that count every call; skipped where there is none. */
@@ -55,12 +55,26 @@ test("not embedded: ask() is #120's card — it waits for a button; no HOST_EMBE
   }
 });
 
-test("her line about it is a key with no words yet: own.ap-embedded, empty in both languages until JJ writes it", () => {
-  assert.equal(View.t("en", "own.ap-embedded"), "");
-  assert.equal(View.t("zh-CN", "own.ap-embedded"), "");
-  assert.match(read("ui-preferences.js"), /TODO\(JJ\)[^\n]*\n\s*"ap-embedded": \["", ""\],/);
-  // the editor shows the line only once it has words
-  assert.match(read("app.js"), /embedded:\(\)=>agentEmbedded,onEmbedded:\(\)=>\{const line=uiText\('own\.ap-embedded'\);if\(line\)toast\(line\);\}\}\);/);
+// JJ定稿 (2026-11-07, via Deja), word for word, punctuation too
+const DECLINED = {
+  "zh-CN": "这一步没有做，什么都没改。在 Cindy 里用 AI，请直接在 Cindy 的对话里说你想做什么。",
+  en: "This step was not done; nothing was changed. In Cindy, ask the AI in Cindy's own chat instead.",
+};
+test("her line about it: own.ap-embedded-declined, JJ's words exactly, in Chinese", () => {
+  assert.equal(View.t("zh-CN", "own.ap-embedded-declined"), DECLINED["zh-CN"]);
+});
+test("her line about it: own.ap-embedded-declined, JJ's words exactly, in English", () => {
+  assert.equal(View.t("en", "own.ap-embedded-declined"), DECLINED.en);
+});
+test("her line names none of the code's words: agentApprovals, embedded, 内置, 嵌入", () => {
+  for (const lang of ["zh-CN", "en"]) {
+    const line = View.t(lang, "own.ap-embedded-declined");
+    assert.ok(line.length > 0, lang);
+    for (const word of ["agentApprovals", "embedded", "内置", "嵌入"]) assert.ok(!line.toLowerCase().includes(word.toLowerCase()), `${lang}: ${word}`);
+  }
+});
+test("the editor shows her line when ask() is denied inside Cindy", () => {
+  assert.match(read("app.js"), /embedded:\(\)=>agentEmbedded,onEmbedded:\(\)=>toast\(uiText\('own\.ap-embedded-declined'\)\)\}\);/);
 });
 
 test("the desktop: no assistant service for an embedded page, and the main process refuses its requests", () => {
@@ -114,7 +128,7 @@ test("inside Cindy the built-in assistant sends nothing: no bridge call, no requ
     // the fallback: ask() in the page settles at once, with HOST_EMBEDDED; nothing waits
     r.ask = await evaluate(`(async () => { const p = askAgentApproval({ ticket: "t", choices: ["once", "session", "deny"], label: "x" }, {});
       const v = await Promise.race([p, new Promise((res) => setTimeout(() => res("HUNG"), 200))]);
-      return { v, code: p.code, waiting: agentApprovals.waiting() }; })()`);
+      return { v, code: p.code, waiting: agentApprovals.waiting(), line: document.getElementById("toast").textContent, lang: mcView.get().language }; })()`);
     // the lyrics card (#164): its own <dialog>, shown and answered as before
     r.lyrics = await evaluate(`(async () => { const p = lyricsCard({ k: 1, n: 2, m: 1, lines: [{ text: "第一句", matched: true }, { text: "第二句", matched: false }] }, null);
       await new Promise((res) => setTimeout(res, 100));
@@ -133,7 +147,8 @@ test("inside Cindy the built-in assistant sends nothing: no bridge call, no requ
   assert.deepEqual(out.assistantFetches, [], "no sound facts read");
   assert.equal(out.paneMounted, 0, "the pane is not mounted");
   assert.equal(out.panelHidden, true);
-  assert.deepEqual(out.ask, { v: "deny", code: "HOST_EMBEDDED", waiting: false });
+  assert.deepEqual([out.ask.v, out.ask.code, out.ask.waiting], ["deny", "HOST_EMBEDDED", false]);
+  assert.equal(out.ask.line, DECLINED[out.ask.lang === "en" ? "en" : "zh-CN"], "her line is shown, in the editor's language");
   assert.deepEqual(out.lyrics, { shown: true, lines: 2, answer: "place" });
 });
 
