@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "reviewer": "GoodNightOppie",
+  "allowReviewHistory": true,
+  "sharedAccounts": [
+    "EdwardTang",
+    "GoodNightOppie",
+    "good-night-oppie"
+  ],
+  "repositories": {
+    "good-night-oppie/MontClip": {
+      "av": [
+        "export*.js",
+        "render*.js",
+        "compositor*.js",
+        "clip*.js",
+        "timeline*.js",
+        "trim*.js",
+        "segment-edits.js",
+        "sequences.js",
+        "reframe.js",
+        "ffmpeg*.js",
+        "media*.js",
+        "desktop/ffmpeg*.js",
+        "desktop/repair*.js",
+        "desktop/desktop-export*.js",
+        "server.js",
+        "audio*.js",
+        "auto-slices.js",
+        "range-plan.js",
+        "retime.js",
+        "silence.js",
+        "desktop/*export*",
+        "desktop/*ffmpeg*",
+        "desktop/*repair*",
+        "desktop/*flv*",
+        "plugins/montclip-cindy/node/**",
+        "plugins/montclip-cindy/embed/*.js",
+        "plugins/montclip-cindy/main*.js",
+        "plugins/montclip-cindy/frame*.js",
+        "plugins/montclip-cindy/build.cjs"
+      ],
+      "outbound": [
+        "agent-conversation.js",
+        "agent-facts.js",
+        "agent-policy.js",
+        "external-limits.js",
+        "import-url*.js",
+        "transcribe.js",
+        "desktop/agent*.js",
+        "desktop/asr*.js",
+        "desktop/asr*.json",
+        "desktop/*download*.js",
+        "desktop/*fetch*.cjs",
+        "desktop/main.js",
+        "scripts/pr-sop/run.mjs",
+        ".github/workflows/pr-sop.yml",
+        "server.js",
+        "desktop/*consent*",
+        "plugins/montclip-cindy/node/**",
+        "plugins/montclip-cindy/main.js",
+        "plugins/montclip-cindy/build.cjs"
+      ]
+    },
+    "good-night-oppie/MontClip-Cindy": {
+      "av": [
+        "node/lib.cjs",
+        "node/worker.cjs",
+        "embed/panel*.js",
+        "main.js",
+        "frame.js",
+        "build.cjs",
+        "engine"
+      ],
+      "outbound": [
+        "node/lib.cjs",
+        "node/worker.cjs",
+        "main.js",
+        "build.cjs",
+        "ffmpeg-banner.js",
+        "scripts/pr-sop/run.mjs",
+        ".github/workflows/pr-sop.yml",
+        "engine"
+      ]
+    }
+  }
+}

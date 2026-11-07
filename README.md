@@ -44,3 +44,7 @@ the project end. Direct REST callers can supply `frames` with `fps`; see the
 Bounded ProRes preserves filters selected by the output stream index, including
 muted audio after explicit stream reordering. Unsupported mappings or filter
 selectors are refused instead of silently replacing an existing audio filter.
+
+## PR 送审提示检查
+
+正文第一行写「QQ 请审」，第二行写实际伙伴负责人。改动、复现、测试、依赖及按文件触发的音画同步/外发说明见 [规则与模板](scripts/pr-sop/README.md)。当前工作流只提示，不修改必过检查；例外仅核格式，仍须 QQ 核验。规则源和工作流内嵌字节有一致性测试。
