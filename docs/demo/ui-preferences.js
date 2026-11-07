@@ -927,6 +927,8 @@
     "ap-done-stale": ["The project changed; this step was not done", "项目改过了，这一步没有做"],
     "ap-done-left": ["You left this chat; this step was not done", "你离开了这个聊天，这一步没有做"],
     "ap-denied": ["Not done. Nothing changed.", "没有做这一步，什么都没改。"],
+    // the line for her when ask() is denied inside Cindy (HOST_EMBEDDED; QQ on #219). JJ定稿 (2026-11-07, via Deja; zh and en), word for word
+    "ap-embedded-declined": ["This step was not done; nothing was changed. In Cindy, ask the AI in Cindy's own chat instead.", "这一步没有做，什么都没改。在 Cindy 里用 AI，请直接在 Cindy 的对话里说你想做什么。"],
     "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
     "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],
     "ap-refused-mode": ["The assistant has no mode chosen right now, so nothing was done. Choose a mode at the top of the assistant.", "助手现在没有选模式，所以什么都没做。请在助手顶部选一种模式。"],
