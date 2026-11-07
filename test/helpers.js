@@ -64,7 +64,7 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
       stdio: ["ignore", "pipe", "pipe"],
     });
     let exited = null;
-    child.on("exit", (code) => { exited = code; });
+    child.on("exit", (code, signal) => { exited = code ?? signal ?? "exited"; });   // killed: code is null, so stop() twice would wait forever
     let stderr = "";
     child.stderr.on("data", (c) => { stderr += c; });
     child.stdout.resume();

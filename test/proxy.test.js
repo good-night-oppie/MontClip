@@ -56,6 +56,8 @@ test("/api/proxy makes a frame-accurate H.264 proxy, serves it, reports it, dele
   const { base, port } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
   const h264 = await (await fetch(base + "/api/export/h264")).json();
   if (!h264.encoder) return t.skip("no H.264 encoder on this machine: " + h264.reason);
+  // proxies use the bundled build's own H.264 encoder only, never libx264 from PATH or a chosen FFmpeg
+  if (h264.encoders.every((e) => e === "libx264")) return t.skip("only libx264 from a local FFmpeg here; proxies use the bundled build");
   const post = async (p, body) => (await fetch(base + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
   const src = "/media/clip%20a.mp4";
   assert.equal((await post("/api/proxy/status", { srcs: [src] })).status[src].state, "none");

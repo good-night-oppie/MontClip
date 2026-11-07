@@ -38,7 +38,8 @@ test("FLV probe, unsupported layout and missing component return stable codes", 
   execFileSync(FF.path("ffmpeg"), ["-v","error","-f","lavfi","-i","sine=frequency=440","-t","0.1","-c:a","aac",audio]);
   const unsupported = await (await upload(base,fs.readFileSync(audio))).json();
   assert.equal(unsupported.code,"FLV_STREAMS_UNSUPPORTED"); assert.equal(unsupported.error,unsupported.code);
-  const noTools = await startServer(t, makeDataDir(t), {FABLECUT_NO_FS_WATCH:"1",MONTCLIP_FFMPEG:path.join(dir,"missing","ffmpeg.exe"),MONTCLIP_FFPROBE:path.join(dir,"missing","ffprobe.exe")});
+  // nothing anywhere: not the bundled build, not PATH (JJ P1 looks there), no saved choice
+  const noTools = await startServer(t, makeDataDir(t), {FABLECUT_NO_FS_WATCH:"1",MONTCLIP_FFMPEG:path.join(dir,"missing","ffmpeg.exe"),MONTCLIP_FFPROBE:path.join(dir,"missing","ffprobe.exe"),PATH:path.join(dir,"missing"),Path:path.join(dir,"missing"),MONTCLIP_EXTERNAL_FFMPEG_SETTINGS:path.join(dir,"missing","x.json")});
   const missing = await (await upload(noTools.base,Buffer.from("no tool needed to expose missing tool"))).json();
   assert.equal(missing.code,"FLV_COMPONENT_MISSING"); assert.equal(missing.error,missing.code);
 });
