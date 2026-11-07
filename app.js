@@ -13634,7 +13634,9 @@ async function noteBgRemove() {
   else toastAction(uiText("own.bgremove-fallback"), uiText("own.font-fallback-load"), () => requestBgRemove());
 }
 function bgRemoveExportError(clipId, realtime = false) {
-  return new Error(`BG_REMOVE_UNAVAILABLE: ${uiText(realtime ? "own.bgremove-export-realtime" : "own.bgremove-export-unavailable")} (${clipId})`);
+  // the code picks JJ's sentence in the plain-words table (ui-preferences.js ERROR_TEXT); the message stays for the log
+  return Object.assign(new Error(`BG_REMOVE_UNAVAILABLE: ${uiText(realtime ? "own.bgremove-export-realtime" : "own.bgremove-export-unavailable")} (${clipId})`),
+    { code: realtime ? "BG_REMOVE_REALTIME" : "BG_REMOVE_UNAVAILABLE" });
 }
 /* A fresh/headless page cannot inherit consent. Refuse before starting an encoder, then verify every frame below. */
 function noteExportBgRemove(range = exportRange(), realtime = false) {
@@ -21115,7 +21117,7 @@ async function startExport() {
   if (!project.clips.length) { alert("Timeline is empty — add some clips first."); return; }
   // Realtime recording uses asynchronous preview masks, so it cannot promise frame-exact cut-outs.
   try { noteExportBgRemove(exportRange(), true); }
-  catch (e) { alert(uiText("own.export-failed-prefix") + e.message); return; }
+  catch (e) { sayExportFailure(e); return; }   // in plain words, no alert (#129: an export failure never pops up)
   const mime = pickMime();
   if (!mime) { alert("MediaRecorder is not supported in this browser."); return; }
   ensureAudio();

@@ -168,6 +168,8 @@ const Z = require('./zh-shown');
 // Strings outside this PR that still break the rule, for JJ to finalise in a PR of their own (key → the words): not rewritten here.
 // (main fixed every earlier one: #144, wip2-zh-labels; #151's font sentence names Google, for JJ: a product name, (a)?)
 const KNOWN = { 'own.font-net-hosts': 'Google',
+  // #154's 「要联网下载 AI 抠像吗」 (JJ's words): the products it names and the site it downloads from
+  'own.bgremove-net-what': 'Google,MediaPipe', 'own.bgremove-net-hosts': 'jsDelivr',
   // main's 「AI 数据说明」 for the private DeepSeek package (c446c0c9, JJ's words): the product name, and its address
   'officialPane_dataNoticeWho': 'DeepSeek,api,deepseek,com', 'officialPane_dataNoticeUseLabel': 'DeepSeek',
   'officialPane_dataNoticeUse': 'DeepSeek', 'officialPane_dataNoticeBasis': 'DeepSeek', 'officialPane_dataNoticeSound': 'DeepSeek' };
