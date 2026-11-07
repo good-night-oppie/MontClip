@@ -45,4 +45,4 @@ MontClip npm test 1995项：1848通过、15失败、132跳过；15项失败名�
 
 替代pull_request为可信pull_request_target；替代标签/时间为GoodNightOppie当前head APPROVED/COMMENTED review的精确逐项行；QQ从实现名册移除；server.js双类均要求。仅read权限，无checkout、PR代码/依赖执行、cache/artifact/secrets。
 
-尚待裁决：pull_request_review同样取PR merge workflow，直接并入同名检查会重开绕过，当前候选没有启用此不可信自动入口。澄清投递被WAIT_FOR_PEER阻止；不是已获得新裁决。主分支无此工作流，首次PR不能取得自身target实测；提供本地可信基线实际执行与攻击负控，旧CI只算历史。来源：https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target 。此增量的测试数字见送审包，未宣布生效。
+主人本轮已明确选择「仅target，人工重跑」，替代追加pull_request_review自动触发的要求。QQ提交绑定当前head的核验review后人工重跑匹配当前head/正文/规则版本的最新可信target；重跑沿用原SHA/ref，变化后需触发新target，不沿用旧成功。检查器权限仍仅三个read，不新增actions:write。此前澄清投递被WAIT_FOR_PEER阻止，但本次主人选择已解决该技术取舍。主分支尚无此工作流，首次PR不能取得自身target实测；本地攻击回归与真实API验证如实区分，QQ复审与合入后的真实target验证仍待完成。来源：https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target ；https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs 。

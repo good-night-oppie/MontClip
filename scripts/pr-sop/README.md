@@ -20,11 +20,15 @@ PR中格式：「SOP 例外：测试 — 原因 — 证据：<HTTPS链接或消�
 
 已知限制：GoodNightOppie是团队共享审批账号，只证明该账号做过操作，不能证明QQ本人。主人已接受该分工；QQ仍须在review说明核了什么，真实性靠人工把关。机器通过不替代正式批准、媒体/界面验收或main CI。
 
-## 信任边界与尚待裁决的触发
+## 信任边界与人工重检
 
 当前候选只启用pull_request_target的opened、edited、synchronize、ready_for_review、reopened、review_requested、review_request_removed，工作流与job名固定sop-pr-lint。静态Node检查器内嵌并核SHA256；不checkout、不执行PR代码/依赖、不使用cache/artifact/secrets。只有contents:read、pull-requests:read、issues:read，无写权限、无路径过滤。PR正文、标题、分支名不插入shell；正文只从事件/API JSON读取。
 
-**尚未完成Deja要求的pull_request_review自动触发。** GitHub官方明确该事件仍从PR merge commit取workflow，若让它生成同名必过检查，会重新引入PR自改检查的绕过。因此没有直接启用该入口，需Deja/QQ单点裁决；向Deja的澄清消息被WAIT_FOR_PEER阻止，未重发绕过。当前可用的人工方式是QQ留下review后重跑最新可信target运行，或编辑PR正文触发target edited；不冒称自动重查已完成。
+**主人本轮已选择「仅target，人工重跑」**，取代此前追加pull_request_review自动触发的要求。唯一检查入口为pull_request_target；不启用PR可改的review工作流。QQ提交当前head的例外核验review后，人工重跑匹配当前完整head、正文及规则版本的最新可信target运行。若head、正文或可信规则版本已变，先触发新的target（例如编辑PR正文），不重用旧结果。
+
+人工操作：打开对应仓库Actions里的最新sop-pr-lint运行，核对完整head/规则哈希后选择Re-run jobs / Re-run all jobs。重跑沿用原运行SHA、ref及权限，需有仓库write权限的操作者执行；检查器本身仍只读，不增加actions:write。不能重跑旧pull_request运行冒充target。核验review发生后本程序每次都会重新从API读取review。
+
+重跑语义来源：https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs
 
 官方来源：https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
 
@@ -32,4 +36,4 @@ PR中格式：「SOP 例外：测试 — 原因 — 证据：<HTTPS链接或消�
 
 ## 复现
 
-运行 `node scripts/pr-sop/make-workflow.mjs` 后执行 `node --test scripts/pr-sop/*.test.mjs`。规则、runner、名单和分类应两仓逐字节一致。首次main启用与review自动触发的可信方案尚待处理，不能宣布统一生效。
+运行 `node scripts/pr-sop/make-workflow.mjs` 后执行 `node --test scripts/pr-sop/*.test.mjs`。规则、runner、名单和分类应两仓逐字节一致。触发方案已按主人选择确定；首次main启用、真实target验证与QQ安全复审仍须完成，不能仅凭本地测试宣布统一生效。

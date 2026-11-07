@@ -27,7 +27,7 @@ name: sop-pr-lint
 on:
   # Trusted default/base workflow only. Never checkout or run PR code/dependencies.
   # No cache, artifacts, secrets, or PR text interpolated into shell commands.
-  # pull_request_review uses the PR merge workflow: automatic review trigger pending Deja ruling.
+  # Owner decision: target-only; QQ manually reruns the trusted check after exception review.
   pull_request_target:
     types: [opened, edited, synchronize, ready_for_review, reopened, review_requested, review_request_removed]
 permissions:
