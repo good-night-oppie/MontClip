@@ -62,6 +62,10 @@ Every Claude Code session then has these tools:
 - `fablecut_transcribe` — turn speech into words with times (on this computer: sherpa-onnx Paraformer zh),
   read them on the timeline, find a phrase and cut it out. See "Transcripts and
   text-based editing" below.
+- `fablecut_lyrics` — line up lyrics the user pasted with the singing (on this computer, nothing
+  sent): a proposal only, each line `{text, start, end, matched, confidence}` with `n` and `k`.
+  `fablecut_lyrics_apply {proposalId}` then asks the user on the editor's card and, if they agree,
+  puts the lines on a new caption track (unmatched lines grey), one undo step. It never names a song.
 - `fablecut_captions` — caption clips from the transcript, timed word by word (subtitle,
   karaoke, highlight, word pop); export or import SRT / WebVTT. See "Captions" below.
 - `fablecut_export` — render the timeline to a file in `exports/` with the editor's own

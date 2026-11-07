@@ -21032,6 +21032,7 @@ async function runExportJob(ticket) {
   if (ticket.kind === "scopes") return runScopesJob(ticket, fail);
   if (ticket.kind === "track") return runTrackJob(ticket, fail);
   if (ticket.kind === "transcribe") return runTranscribeJob(ticket, fail);
+  if (ticket.kind === "lyrics") return runLyricsJob(ticket, fail);
   if (!state.ffmpeg) {
     const j = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
     state.ffmpeg = !!j.available;
@@ -21077,6 +21078,78 @@ async function runExportJob(ticket) {
 }
 /* fablecut_track: follow a region of a clip in this tab, store the track,
    optionally bake it into a mask or another clip, save, and report. */
+/* fablecut_lyrics_apply (JJ, 2026-11-05; docs/decisions/2026-11-05-lyrics-align-agent-tool.md): the agent's lyrics proposal
+   (lyrics-track.js) is put on the timeline only when the streamer agrees on this card — 〔放到时间线上〕 / 〔先不用〕 under
+   「AI 想做这一步」. The host's permission mode is asked first (fablecut_lyrics_apply is undoable in capabilities.js): plan
+   mode only lists it, a refused step is refused; in every other mode the card is shown, because asking before changing
+   is this feature's own rule. Agreed, the lines go on a NEW caption track — existing captions are not touched — the
+   lines that didn't match grey (disabled) for her to drag, in one undo step. */
+function lyricsCard(p, d) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "lt-card"; dialog.setAttribute("data-lt-card", "");
+    const say = (k, v) => escapeHtml(uiText("own." + k, v));
+    dialog.innerHTML = `<form method="dialog"><h3>${say("ap-title")}</h3><p class="lt-detail" data-lt-summary></p>
+      <p class="lt-what" data-lt-label></p><ol class="lt-lines" data-lt-lines></ol><p data-lt-target></p>
+      <div class="tr-row"><button type="button" class="btn primary" data-lt-choice="place">${say("lt-place")}</button>
+      <button type="button" class="btn" data-lt-choice="not-now">${say("lt-not-now")}</button></div></form>`;
+    dialog.querySelector("[data-lt-summary]").textContent = uiText("own.lt-preview", { k: p.k, n: p.n, m: p.m });
+    dialog.querySelector("[data-lt-label]").textContent = d ? d.label : "";   // the capability's plain sentence, from the host
+    dialog.querySelector("[data-lt-target]").textContent = uiText("own.ap-project", { name: project.name || "" });
+    const list = dialog.querySelector("[data-lt-lines]");
+    for (const l of p.lines) {
+      const li = document.createElement("li");
+      li.textContent = l.text;
+      if (!l.matched) { li.className = "lt-grey"; li.dataset.ltGrey = ""; }
+      list.append(li);
+    }
+    let answer = "not-now";
+    for (const b of dialog.querySelectorAll("[data-lt-choice]")) b.addEventListener("click", () => { answer = b.dataset.ltChoice; dialog.close(); });
+    dialog.addEventListener("close", () => { dialog.remove(); resolve(answer); });
+    document.body.append(dialog); dialog.showModal(); dialog.querySelector('[data-lt-choice="not-now"]').focus();
+    lyricsCard.close = () => { if (dialog.open) dialog.close(); };
+  });
+}
+async function runLyricsJob(ticket, fail) {
+  const p = ticket.lyrics, LT = typeof MontClipLyricsTrack !== "undefined" ? MontClipLyricsTrack : null;
+  if (!LT) return fail("the lyrics module is missing — reload the editor");
+  if (!p || p.code !== "OK" || !Array.isArray(p.lines)) return fail("not a lyrics proposal that can be placed");
+  const changed = () => LT.scopeSig(projectJSON(), p.clipIds) !== p.sig;
+  if (changed()) return fail("the clips with the singing changed since the proposal (moved, trimmed or cut) — nothing placed; run fablecut_lyrics again");
+  if (!LT.newTrack(projectJSON())) return fail(`there are ${MAX_TRACKS_PER_KIND} video tracks already — no room for a new caption track`);
+  const done = (result) => reportExportJob(ticket.id, { status: "done", result }, true);
+  // the host's permission mode first (desktop only): plan mode lists the step, a refused step is refused. The step comes
+  // from MCP, not from a chat, so it has the fixed session "mcp" (the card offers only once / deny, never 「都批准」)
+  let d = null;
+  if (window.montclipAgentPolicy) {
+    try { d = await window.montclipAgentPolicy.decide({ sessionId: "mcp", capability: "fablecut_lyrics_apply", target: { kind: "project", value: runtime.projectId } }); } catch { d = null; }
+    if (!d || !d.ok || d.action === "refuse") { toast(d && d.ok ? agentRefusalText(d) : uiText("own.ap-refused-mode")); return done({ applied: false, reason: "REFUSED" }); }
+    if (d.action === "list") { toast(uiText("own.ap-listed")); return done({ applied: false, reason: "LISTED" }); }
+  }
+  // the card waits for her: a heartbeat keeps the job alive, and the agent's cancel closes it
+  renderCancelled = false;
+  const beat = setInterval(() => { reportExportJob(ticket.id, { progress: 0 }, true).then(() => { if (renderCancelled) lyricsCard.close?.(); }); }, 10000);
+  let answer;
+  try { answer = await lyricsCard(p, d); } finally { clearInterval(beat); }
+  // the host's ticket gets the card's answer: 〔放到时间线上〕 is 「只批准这次」, 〔先不用〕 is 「不同意」
+  const choice = answer === "place" ? "once" : "deny";
+  if (d && d.action === "ask" && d.ticket) { try { await window.montclipAgentPolicy.answer({ticket:d.ticket,choice}); } catch { } }
+  if (renderCancelled) return;
+  if (answer !== "place") { toast(uiText("own.lt-not-placed")); return done({ applied: false, reason: "DECLINED" }); }
+  // the CAS: nothing the proposal rests on changed while the card was open
+  if (changed()) { toast(uiText("own.ap-stale")); return fail("the clips with the singing changed while the card was open — nothing placed; run fablecut_lyrics again"); }
+  const snap = undoSnapshot();
+  const tr = addTimelineTrack("video");
+  if (!tr) return fail("no room for a new caption track");
+  const list = LT.clips(p, { track: tr.id, width: project.width, height: project.height, id: () => "c_" + uid() });
+  project.clips.push(...list);
+  pushUndo(snap, { capability: "fablecut_lyrics_apply", args: { proposalId: p.id } });
+  const depth = runtime.undo.length;
+  state.dirtyTimeline = true; scheduleSave(); renderTranscript(true); renderInspector(); drawFrame();
+  toastAction(uiText("own.lt-done"), uiText("own.as-undo"), () => { if (runtime.undo.length === depth) undo(); });
+  const saved = await flushSave();
+  return done({ applied: true, track: tr.id, placed: list.filter((c) => !c.disabled).length, grey: list.filter((c) => c.disabled).length, saved, revision: project.revision });
+}
 async function runTrackJob(ticket, fail) {
   const spec = ticket.track || {}, c = getClip(spec.clip);
   if (!c) return fail(`no clip ${spec.clip}`);

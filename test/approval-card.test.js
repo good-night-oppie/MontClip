@@ -44,8 +44,8 @@ test('the buttons answer the waiting card only, once; the answer goes to the mai
   a.equal(await q, 'deny');
   // app.js: each card's answer is sent with its own ticket, nothing else approves
   const app = read('app.js');
-  // onAgentReply, agentReframeFlow (#175) and runAgentPlanStep
-  a.equal((app.match(/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g) || []).length, 3);
+  // onAgentReply, agentReframeFlow (#175), runAgentPlanStep, and runLyricsJob (#164: its own card's answer, 〔放到时间线上〕 = once)
+  a.equal((app.match(/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g) || []).length, 4);
   a.match(app, /answerApproval:\(id,choice\)=>agentApprovals\.answer\(id,choice\)/);
   // the main process: a ticket answers once
   const host = Host.createPolicyHost({ confirmYolo: async () => true });

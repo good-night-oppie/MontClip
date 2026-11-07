@@ -1512,6 +1512,80 @@ async function trackTool(args) {
   return ProjectOps.describeTrack(job.result || {});
 }
 
+/* fablecut_lyrics / fablecut_lyrics_apply (JJ, 2026-11-05; docs/decisions/2026-11-05-lyrics-align-agent-tool.md): the
+   pasted lyrics lined up with the transcript on this computer (lyrics-track.js), first as a proposal that changes nothing,
+   then — only after the streamer agrees on the editor's card — on a new caption track, one undo step. Proposals are kept
+   in analysis/lyrics-proposals/ (the newest 50), so the apply can come from another session. */
+const LYRICS_DIR = path.join(ANALYSIS_DIR, "lyrics-proposals");
+function lyricsMessage(key, v) {
+  const View = require("./ui-preferences.js");
+  return { "zh-CN": View.t("zh-CN", "own." + key, v), en: View.t("en", "own." + key, v) };
+}
+function lyricsReply(p, extra = {}) {
+  const LT = require("./lyrics-track.js");
+  const body = { ...extra, ...LT.forAgent(p) };
+  if (!p.ok) body.code = p.code;
+  body.message = lyricsMessage(LT.messageKey(p), p.ok ? { k: p.k, n: p.n, m: p.m } : {});
+  if (p.code === "OK") body.next = "Show the user the message and a few lines (never the whole lyrics), then call fablecut_lyrics_apply {proposalId} — the editor asks the user on a card before anything is placed.";
+  return JSON.stringify(body, null, 1);
+}
+async function lyricsTool(args) {
+  const LT = require("./lyrics-track.js"), LA = require("./lyrics-align.js");
+  if (typeof args.lyrics !== "string") throw new Error("lyrics must be the pasted lyrics, one line per line of the song");
+  if (!LA.lines(args.lyrics).length) return lyricsReply({ ok: false, code: "NO_LYRICS" });
+  let r;
+  try { r = await speechWords({ clipIds: args.clipIds, language: args.language, timeout: args.timeout }, false); }
+  catch (e) {
+    // the transcription itself could not run (the engine, the job, the editor server): say so in the streamer's words
+    if (/transcri|editor server is not running|EDITOR_NOT_READY|HEADLESS_DISABLED/i.test(String(e.message || e))) return lyricsReply({ ok: false, code: "ASR_UNAVAILABLE" }, { detail: String(e.message || e) });
+    throw e;
+  }
+  const lo = Number.isFinite(args.from) ? args.from : -Infinity, hi = Number.isFinite(args.to) ? args.to : Infinity;
+  const words = r.words.filter((w) => (w.s + w.e) / 2 >= lo && (w.s + w.e) / 2 <= hi);
+  const p = LT.propose(words, args.lyrics);
+  if (!p.ok || p.code !== "OK") return lyricsReply(p);
+  const clipIds = [...new Set(words.map((w) => w.clip).filter(Boolean))];
+  const id = "ly_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const stored = { ...p, id, created: new Date().toISOString(), clipIds, sig: LT.scopeSig(r.doc, clipIds), revision: r.readRev };
+  fs.mkdirSync(LYRICS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(LYRICS_DIR, id + ".json"), JSON.stringify(stored));
+  // keep the newest 50
+  const old = fs.readdirSync(LYRICS_DIR).filter((f) => /^ly_[a-z0-9]+\.json$/.test(f)).sort().slice(0, -50);
+  for (const f of old) try { fs.unlinkSync(path.join(LYRICS_DIR, f)); } catch {}
+  return lyricsReply(p, { proposalId: id });
+}
+async function lyricsApplyTool(args) {
+  const LT = require("./lyrics-track.js");
+  const id = String(args.proposalId || "");
+  if (!/^ly_[a-z0-9]{6,40}$/.test(id)) throw new Error("proposalId must be the id fablecut_lyrics returned");
+  let p;
+  try { p = JSON.parse(fs.readFileSync(path.join(LYRICS_DIR, id + ".json"), "utf8")); }
+  catch { throw new Error("no such proposal " + id + " — run fablecut_lyrics again"); }
+  if (p.code !== "OK") return lyricsReply(p, { proposalId: id, applied: false });
+  if (LT.scopeSig(readProject(), p.clipIds) !== p.sig) throw new Error("the clips with the singing changed since this proposal (moved, trimmed or cut) — nothing placed; run fablecut_lyrics again");
+  if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT}`);
+  const r0 = await apiJSON("POST", "/api/lyrics/request", { proposal: p });
+  if (r0.status !== 200) throw new Error(r0.body?.error || `lyrics request failed (${r0.status})`);
+  let job = r0.body;
+  const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 600);
+  while (job.status === "pending" || job.status === "running") {
+    if (Date.now() > deadline) {
+      await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(job.id));
+      throw new Error("the user did not answer the lyrics card in time — nothing placed");
+    }
+    await sleep(500);
+    const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
+    if (q.status !== 200) throw new Error(q.body?.error || "lost track of the lyrics card");
+    job = q.body;
+  }
+  if (job.status !== "done") throw new Error(`lyrics card ${job.status}: ${job.error || "no reason given"}`);
+  const res = job.result || {};
+  if (res.revision) lastReadRevision = res.revision;
+  return JSON.stringify({ proposalId: id, applied: res.applied === true, track: res.track || null, placed: res.placed || 0, grey: res.grey || 0,
+    ...(res.reason ? { reason: res.reason } : {}),
+    message: res.applied === true ? lyricsMessage("lt-done") : lyricsMessage("lt-not-placed") }, null, 1);
+}
+
 /* ── Tool implementations ── */
 async function callTool(name, args, attempt = 0) {
   switch (name) {
@@ -1537,6 +1611,10 @@ async function callTool(name, args, attempt = 0) {
       return audioTrackTool(args);
     case "fablecut_transcribe":
       return transcribeTool(args);
+    case "fablecut_lyrics":
+      return lyricsTool(args);
+    case "fablecut_lyrics_apply":
+      return lyricsApplyTool(args);
     case "fablecut_captions":
       return captionsTool(args);
     case "fablecut_denoise":
