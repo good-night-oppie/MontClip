@@ -1,38 +1,23 @@
-# PR 送审提示检查
+# PR 送审检查 sop-pr-lint
 
-两仓使用同字节的`rules.mjs`、`policy.json`、`teammates.json`与runner。无npm依赖。当前仅提示：步骤`continue-on-error: true`，不改分支保护或规则集；CI作业绿灯不等于模板通过，更不等于QQ批准。摘要区分通过、缺项、Draft跳过、需要QQ核验。
+两仓与本地督查使用逐字节一致的共享规则，无新增依赖。固定检查名为 sop-pr-lint；缺项、API失败、未核验例外返回非零退出码。没有允许失败或路径过滤。草稿成功跳过，转为待审重新检查。
 
-## 正文格式
+正文前两行必须为「QQ 请审」和「负责人：<伙伴名>」。名单为 Deja、QQ、Rea、VV、JJ、DD、BB、GG、Cindy；共用账号无效。改动、复现、测试不能为空；测试每个非空行须有结果数字，或「没跑」加具体原因。依赖写「无」或「#123（硬依赖，类型：代码）」；软依赖写清软依赖。请求审查人须有GoodNightOppie，或已留下review（沿用督查口径，待Deja确认；不代表批准）。
 
-前两行必须为：
+文件分类见policy.json和docs/validation/2026-11-06-pr-sop-classification.md。剪辑/导出须音画同步行；联网/外发须「外发：内容：…；接收方：…；能否关闭：…」。重命名前路径也核对。机器只核格式，不证明说明或测试真实。
 
-```text
-QQ 请审
-负责人：BB
-```
+## 例外与标签
 
-后续写非空的`改动：`、`复现：`、`测试：`。测试每个非空行必须有结果数字（如23/23、通过23失败0），或`没跑：具体原因`，不能只写通过、版本数字或没跑。HTML模板注释不算内容。
+格式：「SOP 例外：测试 — 当前先做文档核读 — 证据：https://github.com/good-night-oppie/MontClip/issues/200」。项目可为首行、负责人、改动、复现、测试、依赖、审查人、音画同步、外发；证据须HTTPS链接或稳定消息号。
 
-写`依赖：无`，或`依赖：#123（硬依赖，类型：代码）`；多项用分号分开。已明确软依赖可写`#123（软依赖）`。这是格式核验，不证明依赖无环或已完成。
+格式错失败。格式正确也先失败并提示「等 QQ 核验」。只有当前存在sop-exception-verified标签，且完整issue events里最后一次相关增删记录为GoodNightOppie添加，例外项才放行。他人重加、标签已移除、事件不全不放行。标签不能豁免其他缺项或API错误。
 
-GoodNightOppie须在API的请求审查人列表中，或已在该PR留下review（沿用督查既有“审过不算没送审”标准，口径另交Deja确认）；正文提名不算审查请求，review在此也不是批准。
+限制：标签事件不记录添加当时正文和完整head，不是当前head的正式批准；本程序不宣称证明QQ核验了新版本的具体材料。QQ须在例外材料变化后重新核验；自动版本绑定的进一步规则待Deja/QQ裁决，不以updatedAt假装版本证据。
 
-文件分类见`policy.json`，两仓条目相同文件内分开列，交Deja确认：剪辑/导出触及`av`路径须有`音画同步：`；联网/外发触及`outbound`路径须有`外发：内容：…；接收方：…；能否关闭：…`。重命名前路径也检查。机器不证明读数或说明真实。
+## 安全、权限与生效
 
-## 例外
+只监听pull_request：opened、edited、synchronize、ready_for_review、reopened、labeled、unlabeled、review_requested、review_request_removed。无路径过滤。只读contents、pull-requests和issues；增加issues:read仅为读取每个PR的标签增删执行人事件，不开写权限。API固定GitHub官方地址，仅GET，分页有界，前后核head/正文/Draft/标签和事件变动。旧正文事件不能覆盖新正文检查。
 
-```text
-SOP 例外：测试 — 当前先做文档核读 — 证据：c1c25e38
-```
+无checkout、PR代码执行、安装依赖或打印token。静态检查器字节嵌入工作流并核哈希，支持首次新增检查器PR；哈希只证明一致性，QQ仍需核工作流本身。规则源改动后运行node scripts/pr-sop/make-workflow.mjs，并运行node --test scripts/pr-sop/rules.test.mjs。
 
-项目用首行、负责人、改动、复现、测试、依赖、审查人、音画同步、外发之一；证据为HTTPS链接或稳定消息号。仅核格式，任何有效例外仍为“需要 QQ 核验”，不会返回机器通过。不读取外部证据、不宣称证明“无可辩驳”。错误格式不能豁免缺项。
-
-## 安全与维护
-
-新工作流仅`pull_request`的opened/edited/synchronize/ready_for_review/reopened；token权限仅contents/read与pull-requests/read。没有checkout、npm安装、PR源码导入或执行。`make-workflow.mjs`把本目录四份检查器文件以固定字节嵌入工作流，临时目录仅写这些静态字节并核SHA256；事件正文与GitHub API数据不进入shell、eval或动态导入。只有官方API被请求，不打印token、PR正文、patch、例外原因或链接。
-
-文件API只使用文件名及previous_filename，review API只使用审查人元数据；文件未分页取全、API失败或PR已push会报检查未完成，不当通过。正文使用触发事件版本，edited事件会重新计算；后续head变化须使用最新事件。
-
-嵌入方式使首次新增检查器的真实PR可运行，而不先把未审脚本写进main。工作流本身仍需QQ审查；修改检查器的PR不能用自身CI证明代码安全。将来改为必过检查，须QQ审过并向主人申请；本PR不改规则集，届时还需审查提示模式到阻挡模式的改动。
-
-本地：`node --test scripts/pr-sop/rules.test.mjs`。修改规则后执行`node scripts/pr-sop/make-workflow.mjs`；测试核对生成内容与四份源文件哈希，不能仅手改workflow绕开一致性检查。
+主人已同意必过方向，但生效顺序仍为BB交PR→QQ审→Deja定合并及生效时间→QQ用GoodNightOppie设置两仓main必过检查并读回。BB不改规则集；工作流返回失败不等于规则集已经生效。生效前现有PR缺项仅列清单，不改别人的PR。

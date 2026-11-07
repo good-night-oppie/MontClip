@@ -81,7 +81,17 @@ export function classifyFiles(files, profile) {
   return { av: paths.some((p) => profile.av.some((g) => matches(p, g))), outbound: paths.some((p) => profile.outbound.some((g) => matches(p, g))) };
 }
 
-export function checkPR({ pr, files, repo, policy, teammates }) {
+export const EXCEPTION_LABEL = "sop-exception-verified";
+export function exceptionVerified(pr, events) {
+  if (!(pr.labels || []).some((label) => (typeof label === "string" ? label : label?.name) === EXCEPTION_LABEL) || !Array.isArray(events)) return false;
+  const changes = events.filter((e) => ["labeled", "unlabeled"].includes(e.event) && e.label?.name === EXCEPTION_LABEL);
+  if (!changes.length || changes.some((e) => !/^\d+$/.test(String(e.id)) || !e.actor?.login)) return false;
+  changes.sort((a, b) => BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0);
+  const last = changes.at(-1);
+  return last.event === "labeled" && last.actor.login === "GoodNightOppie";
+}
+
+export function checkPR({ pr, files, repo, policy, teammates, labelEvents }) {
   if (pr.isDraft) return { status: "skipped", issues: [], exceptions: [], owner: { state: "skipped" } };
   const issues = [], exception = exceptionsOf(pr.body);
   const add = (item, message) => { if (!exception.valid.some((e) => e.item === item)) issues.push({ item, message }); };
@@ -108,10 +118,11 @@ export function checkPR({ pr, files, repo, policy, teammates }) {
       add("outbound", "改了联网或外发文件，请补外发：内容：…；接收方：…；能否关闭：…");
     }
   }
-  return { status: issues.length ? "failed" : exception.valid.length ? "needs_qq" : "passed", issues, exceptions: exception.valid, owner, categories };
+  const verified = exception.valid.length > 0 && exceptionVerified(pr, labelEvents);
+  return { status: issues.length ? "failed" : exception.valid.length && !verified ? "needs_qq" : "passed", issues, exceptions: exception.valid, exceptionVerified: verified, owner, categories };
 }
 
 export function formatReport(result) {
   const label = { passed: "模板检查通过（不代替审查批准）", skipped: "Draft：跳过送审模板检查", failed: "模板检查需补齐", needs_qq: "需要 QQ 核验：仅确认例外格式，机器未证明例外成立" }[result.status];
-  return [label, ...result.issues.map((i) => `- ${i.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，需要 QQ 核验`)].join("\n");
+  return [label, ...result.issues.map((i) => `- ${i.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对标签由GoodNightOppie添加；不等于正式批准" : "等 QQ 核验：请GoodNightOppie添加sop-exception-verified标签后重跑"}`)].join("\n");
 }
