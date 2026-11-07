@@ -60,6 +60,15 @@
     extSaveFailed: "The choice could not be saved. Choose again.",
     extRemoveFailed: "Could not stop using this FFmpeg. Try again.",
   });
+  // No H.264 encoder at all, said when export is clicked, before anything renders (ADR 2026-11-02, point 3; Deja C,
+  // 2026-11-04). h264None* are worded for Settings ("below"); this one is for the export itself, one sentence on every
+  // platform. JJ, 2026-11-04 错误白话表 v2 (FLV_ENCODER_MISSING row, export variant).
+  Object.assign(text["zh-CN"], {
+    h264Refuse: "这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。",
+  });
+  Object.assign(text.en, {
+    h264Refuse: "This computer has no video encoder MontClip can use, so it couldn't export this time. Update the graphics driver and try again.",
+  });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {
     "zh-CN": { h264_nvenc: "显卡编码（NVIDIA）", h264_mf: "Windows 自带编码", h264_qsv: "显卡编码（Intel）", h264_amf: "显卡编码（AMD）",
@@ -80,6 +89,12 @@
     else s = fill(s, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])));
     if (/^h264None/.test(r.code) && r.featurePack) s += t.h264NeedFeaturePack;
     return s;
+  }
+  /** An export refused before it started: "no H.264 encoder" in export words, any other code as h264Message says it. */
+  function h264Refusal(language, r) {
+    const t = text[lang(language)];
+    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return t.h264Refuse;
+    return h264Message(language, r);
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
   const own = {
@@ -159,6 +174,12 @@
     "q-list": ["Export queue", "导出队列"],
     "q-list-n": ["Export queue · {n}", "导出队列 · {n}"],
     "q-saved": ["Saved", "已保存"],
+    "q-reveal": ["Show in folder", "在文件夹里显示"],
+    "reveal-in-folder": ["Show in folder", "在文件夹里显示"],
+    "reveal-offline": ["The file is offline", "文件不在，先重新链接"],
+    "reveal-failed": ["Couldn't open the folder", "没能打开文件夹"],
+    "reveal-not-found": ["The file isn't there any more", "文件已经不在了"],
+    "needs-desktop": ["Only in the desktop app", "只在桌面版里能用"],
     "export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"],
     "captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"],
     "save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"],
@@ -844,6 +865,13 @@
     "ap-once": ["Allow this once", "只批准这次"],
     "ap-session": ["Allow for this chat", "这个聊天中都批准"],
     "ap-deny": ["Don't allow", "不同意"],
+    // v7.2 §2, step 3: the card, once answered, is one line saying what was chosen. New copy, for JJ.
+    "ap-done-once": ["✓ You allowed this once", "✓ 你批准了这一次"],
+    "ap-done-session": ["✓ You allowed this kind of change for this chat", "✓ 这个聊天中，这类修改你都批准了"],
+    "ap-done-deny": ["You didn't allow it; this step was not done", "你没有同意，这一步没有做"],
+    // settled by the host, not clicked (QQ/DD on #120): the line must not say 「你没有同意」. Copy for JJ to finalize.
+    "ap-done-stale": ["The project changed; this step was not done", "项目改过了，这一步没有做"],
+    "ap-done-left": ["You left this chat; this step was not done", "你离开了这个聊天，这一步没有做"],
     "ap-denied": ["Not done. Nothing changed.", "没有做这一步，什么都没改。"],
     "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
     "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],
@@ -1322,10 +1350,10 @@
   Object.assign(officialPaneText.en,{more:'More',projectNotReady:'This project is not saved yet, so nothing was sent. Your edits are still here. Click Save project and try again.',saveProject:'Save project'});
   Object.assign(officialPaneText['zh-CN'],{more:'更多',projectNotReady:'这个项目还没保存好，所以没有发送。你的剪辑都还在。请点「保存项目」后再试。',saveProject:'保存项目'});
   // P4: the mode switch at the top of the assistant (the AI cannot change it). New copy, for JJ.
-  Object.assign(officialPaneText.en,{modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
+  Object.assign(officialPaneText.en,{approvalWaiting:'Waiting for your decision',modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
    modePlanTip:'Only plans; changes nothing.',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone. This is the default.',modeAutoTip:'Does what can be undone; asks before what can\'t.',modeYoloTip:'Does every step without asking you; anything sent out is still shown to you first. You\'ll be asked once more before it turns on.',
    yoloOn:'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary_one:'Made a plan of {count} step. See the list below.',planSummary_other:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still follows the mode you chose.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
-  Object.assign(officialPaneText['zh-CN'],{modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
+  Object.assign(officialPaneText['zh-CN'],{approvalWaiting:'等你决定',modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
    modePlanTip:'只出计划，不改项目。',modeManualTip:'改项目前先问你；撤不回的每次都问。默认是这个。',modeAutoTip:'能撤销的直接做，撤不回的先问你。',modeYoloTip:'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。',
    yoloOn:'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
@@ -1435,5 +1463,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, flvConvertedMessage, flvGapMark, flvEta, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, flvConvertedMessage, flvGapMark, flvEta, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, h264Refusal };
 });

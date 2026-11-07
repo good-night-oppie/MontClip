@@ -425,7 +425,9 @@ async function deliveryEncoders() {
 function bundledEncoders() {
   if (deliveryEncodersP) return deliveryEncodersP;
   deliveryEncodersP = (async () => {
-    const listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
+    let listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
+    // test/export-h264-precheck.test.js: a computer with no H.264 encoder (Linux with the LGPL build, no graphics card)
+    if (process.env.MONTCLIP_TEST_NO_H264 === "1") listed = new Set([...listed].filter((e) => !Delivery.encodersFor("h264", new Set([e])).length));
     const usable = new Set([...listed].filter((e) => !Delivery.ENCODERS[e]?.hw));
     await Promise.all([...listed].filter((e) => Delivery.ENCODERS[e]?.hw).map(async (e) => {
       const r = await runFfmpeg(["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
@@ -447,6 +449,11 @@ async function exportBinary(useX264) {
   throw Object.assign(new Error(ext.reason === "none"
     ? "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
     : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code });
+}
+/** No H.264 encoder at all (bundled, graphics card or the user's x264): the refusal, before anything renders (ADR 2026-11-02, 3). */
+async function noH264Error() {
+  if (Delivery.encodersFor("h264", await deliveryEncoders()).length) return null;
+  return Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
 }
 /** What H.264 export will use here, for the export dialog and agents. */
 async function h264Status() {
@@ -493,8 +500,8 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   if (off.length) throw new Error(off.map(([o, i]) => `output ${i + 1} asks for ${o.spec.fps} fps but this render is ${rate} fps`).join("; ") + " — render each frame rate separately");
   const input = outs.some((o) => Delivery.frameInput(o.spec) === "rgba") ? "rgba" : "jpeg";
   // H.264 with no encoder at all: say why now, not after the render
-  if (outs.some((o) => o.spec.video.codec === "h264") && !Delivery.encodersFor("h264", available).length)
-    throw Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
+  const noH264 = outs.some((o) => o.spec.video.codec === "h264") && await noH264Error();
+  if (noH264) throw noH264;
   const ext = await externalFfmpeg.current();
   for (const o of outs) {
     o.binary = await exportBinary(X.isExternalJob(o.spec));
@@ -626,6 +633,9 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const profile = resolveProfile(profileId);
   const never = Delivery.forbiddenEncoder(profile.args);
   if (never) throw Object.assign(new Error(`profile "${profile.id}" encodes with ${never}, which MontClip never uses`), { status: 400 });
+  // a raw H.264 profile on a computer with no H.264 encoder at all: say why, not "choose your own FFmpeg" for x264 alone
+  const noH264 = X.argsUseH264(profile.args) && await noH264Error();
+  if (noH264) throw noH264;
   // a raw profile that encodes with libx264 needs the user's local FFmpeg
   const binary = await exportBinary(X.argsUseX264(profile.args));
   const dry = await dryRunProfile(profile, { fps: rate, hasAudio, bin: binary });

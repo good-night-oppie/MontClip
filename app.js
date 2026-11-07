@@ -1310,6 +1310,13 @@ let toastTimer = null;
    once saved its copy in exports/ may go (desktop/export-downloads.js); a cancel keeps it and says where it is, and
    its queue row then says it was saved. The browser shows the message as before. */
 const pendingSaves = new Map(), pendingExports = new Set(), pendingKinds = new Map();   // name → success message · exports · kind
+/* Show a workspace file in the desktop shell (an export, or a media/library src). The page passes only the same
+   /exports/… or /media|/library/… name it already serves; the shell resolves it inside the data folder. */
+async function revealFileBySrc(src) {
+  if (!window.montclipReveal || !isLocalSrc(src) && !String(src || "").startsWith("/exports/")) return;
+  const r = await window.montclipReveal.show(src).catch(() => ({ ok: false }));
+  if (!r || r.ok !== true) toast(uiText(r && r.code === "REVEAL_NOT_FOUND" ? "own.reveal-not-found" : "own.reveal-failed"));
+}
 function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } = {}) {
   const a = document.createElement("a");
   a.href = href; a.download = name;
@@ -3092,6 +3099,7 @@ function showMediaMenu(x, y, m) {
   };
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
   item(uiText("own.mm-open-source"), () => loadSourceFromMedia(m));
+  item(uiText("own.reveal-in-folder"), () => revealFileBySrc(m.src), isMediaOffline(m.id) ? uiText("own.reveal-offline") : (!isLocalSrc(m.src) || !window.montclipReveal ? uiText("own.needs-desktop") : null));
   item(uiText("own.mm-instances", { n: uses }), () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
   item(uiText("own.mm-info"), () => showMediaInfo(m, x, y));
   const relinkItem = item(isMediaOffline(m.id) ? uiText("term.relink") : uiText("own.off-other-copy"), () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
@@ -11604,10 +11612,10 @@ function autoClick(e) {
   if (act === "place") { autoPlace(st.clips.filter((x) => x.on)); return; }
   if (act === "export") { autoExportConfirm(); return; }
   if (act === "ex-go") { autoExport(); return; }
-  if (act === "ex-cancel") { autoRender("review"); return; }
+  if (act === "ex-cancel") { autoExNext(); autoRender("review"); return; }
   if (act === "retry") { autoExportRun(); return; }
   if (act === "open-queue") { AUTO.el.close(); openQueue(); return; }
-  if (act === "back-review") { autoRender("review"); return; }
+  if (act === "back-review") { autoExNext(); autoRender("review"); return; }
   if (act === "another") { st.clips = []; st.recs = []; st.dropped = []; autoRender("start"); return; }
   if (!c) return;
   if (act === "nudge") {
@@ -11770,7 +11778,12 @@ function toastAction(msg, label, onClick) {
 }
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
+/** A new request number for the export confirm page: drawing it, 〔导出〕, 〔返回〕 each make the earlier ones stale. */
+function autoExNext() { const st = autoState(); st.exReq = (st.exReq || 0) + 1; return st.exReq; }
+/** After an await: the dialog is still open, still on the export confirm page, and nothing was asked since request `req`. */
+const autoExLive = (req) => !!(AUTO.el && AUTO.el.open && autoState().exReq === req && AUTO.el.querySelector("[data-as-body] .as-ex"));
 function autoExportConfirm() {
+  const req = autoExNext();
   const st = autoState(), on = st.clips.filter((c) => c.on), body = AUTO.el.querySelector("[data-as-body]");
   body.innerHTML = `<section class="as-card-box as-ex"><h2>${autoSay("as-ex-title", { n: on.length })}</h2>
     <ul>${on.map((c) => `<li>${escapeHtml(autoName(c))} <span class="as-muted">· ${escapeHtml(autoDur(c.e - c.s))}</span></li>`).join("")}</ul>
@@ -11778,8 +11791,25 @@ function autoExportConfirm() {
     ${st.subs && autoSubMode() === "none" ? `<p class="as-small as-warn" data-as-ex-nosub>${autoSay("as-ex-nosub")}</p>` : ""}
     <div class="as-row"><button type="button" class="btn primary" data-as-act="ex-go">${autoSay("as-ex-go")}</button><button type="button" class="btn" data-as-act="ex-cancel">${autoSay("as-ex-cancel")}</button></div></section>`;
   AUTO.el.querySelector("[data-as-footer]").hidden = true;
+  // no H.264 encoder: said on this page, and 〔导出〕 is off — nothing is put on the timeline or rendered
+  exportH264Refusal(deliveryIsH264(sliceDeliverySpec())).then((refused) => {
+    if (!refused || !autoExLive(req)) return;   // left the page, or 〔导出〕 was clicked meanwhile (it says it itself)
+    const go = AUTO.el.querySelector('[data-as-act="ex-go"]');
+    if (!go || AUTO.el.querySelector("[data-as-ex-noh264]")) return;
+    go.disabled = true;
+    go.closest(".as-row").insertAdjacentHTML("beforebegin", `<p class="as-small as-warn" data-as-ex-noh264 role="alert">${escapeHtml(refused)}</p>`);
+  });
 }
 async function autoExport() {
+  const go = AUTO.el && AUTO.el.querySelector('[data-as-act="ex-go"]');
+  if (go) { if (go.disabled) return; go.disabled = true; }
+  const req = autoExNext();
+  if (!deliveryInfo.encoders) await fetchDeliveryInfo();
+  if (!autoExLive(req)) return;
+  const refused = await exportH264Refusal(deliveryIsH264(sliceDeliverySpec()));
+  // 〔返回〕, closing the dialog or another 〔导出〕 while the precheck was out: nothing is placed or exported
+  if (!autoExLive(req)) return;
+  if (refused) { autoExportConfirm(); return; }
   const st = autoState(), on = st.clips.filter((c) => c.on);
   const r = placeAutoSlices(on);
   if (!r.ok) { autoToast(uiText("own.as-place-failed", { why: r.why }), false); autoRender("review"); return; }
@@ -11788,7 +11818,6 @@ async function autoExport() {
   let at = r.at0;
   const segments = on.map((c) => { const d = Math.round((c.e - c.s) * 1000) / 1000, s = { output: { start: at, end: Math.round((at + d) * 1000) / 1000 } }; at = s.output.end; return s; });
   const before = new Set(exportQueue.map((q) => q.id));
-  if (!deliveryInfo.encoders) await fetchDeliveryInfo();   // sliceDeliverySpec needs to know the encoders
   queueSlices(segments, names, { open: false });
   st.exportIds = exportQueue.filter((q) => !before.has(q.id)).map((q) => q.id);
   st.exportNames = on.map(autoName);
@@ -11800,7 +11829,7 @@ async function autoExportRun() {
   autoRender("done");
   // the page follows the queue while it runs (each file's percent), then shows what was made
   const live = setInterval(() => { if (AUTO.el && AUTO.el.open && autoState().step === "done") autoRender("done"); }, 700);
-  try { if (!queueRunning) await runQueue(); } finally { clearInterval(live); }
+  try { if (!queueRunning) await runQueue({ quiet: true }); } finally { clearInterval(live); }
   if (AUTO.el && AUTO.el.open) autoRender("done");
 }
 /** Why exports failed, in plain words (the queue keeps the detail). */
@@ -11817,7 +11846,7 @@ function autoDoneHtml() {
   const title = busy ? autoSay("as-exporting", { n: items.length }) : failed.length ? autoSay("as-done-partial", { n: done.length, failed: failed.length }) : autoSay("as-done-title", { n: done.length });
   return `<h1>${title}</h1><p class="as-sub">${busy ? "" : autoSay("as-done-sub")}</p>
     <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
-    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: uiText("own." + autoFailWhy(failed)) })}</b>
+    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: failed.some((q) => q.noH264) ? failed.find((q) => q.noH264).error.replace(/[。.]$/, "") : uiText("own." + autoFailWhy(failed)) })}</b>
       <div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${autoSay("as-retry")}</button></div></section>` : ""}
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
@@ -20296,6 +20325,17 @@ async function prepareFrameAssets(t) {
  *  opts.deliveries: [{delivery, name?}] — several files from one render (same fps).
  *  opts.silent: no overlay, alert or download (the export queue shows it);
  *  opts.onProgress(0…1). Resolves {outputs:[{file, ok, src?, error?}]} or {error, cancelled}. */
+/* No H.264 encoder on this computer (Linux with the bundled LGPL FFmpeg and no graphics card, Windows N without Media
+   Foundation): an H.264 export is refused when it is clicked, in plain words, before the audio mix or any frame is
+   rendered (ADR 2026-11-02 point 3). null = go ahead; the server still refuses at /api/export/begin. */
+const deliveryIsH264 = (spec) => !!spec && normalizeDelivery(spec).spec.video.codec === "h264";
+const profileIsH264 = (id) => /-c:v\s+(libx264|h264_\w+)/.test(exportProfileMeta(id).summary || "");
+async function exportH264Refusal(h264) {
+  if (!h264 || !state.connected || !state.ffmpeg) return null;
+  let st = null;
+  try { st = await (await fetch("/api/export/h264", { cache: "no-store" })).json(); } catch { return null; }
+  return st && !st.encoder && st.reason ? MontClipView.h264Refusal(mcView.get().language, st.reason) : null;
+}
 async function fastExport(opts = {}) {
   if (state.exporting) return { error: "an export is already running" };
   const job = opts.job || null;
@@ -20316,11 +20356,15 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
+    const profileId = opts.profile || effectiveEncodeProfileId();
+    // no H.264 encoder here: said now, before the audio mix and the frames (the server refuses at begin too). Said before
+    // the AI background-removal check too (Deja, 2026-11-07): without an encoder nothing can export, so that comes first.
+    const refused = await exportH264Refusal(deliveries ? deliveries.some((d) => deliveryIsH264(d.delivery)) : profileIsH264(profileId));
+    if (refused) throw new Error(refused);
     noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
-    const profileId = opts.profile || effectiveEncodeProfileId();
     const cv = deliveryCanvas();
     const begin = await fetch("/api/export/begin", {
       method: "POST",
@@ -20338,7 +20382,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code });
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code });
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -20553,6 +20597,7 @@ function renderQueue() {
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
       q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
+      q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${q.id}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
       q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
@@ -20574,12 +20619,21 @@ function renderQueueProgress() {
     if (st) st.textContent = `Rendering… ${Math.round(q.progress * 100)}%`;
   }
 }
-async function runQueue() {
+async function runQueue(opts) {
+  const quiet = !!(opts && opts.quiet);   // the auto-slices dialog says a refusal on its own page
   if (queueRunning || state.exporting) return;
   if (!(state.connected && state.ffmpeg)) { alert("The export queue needs the server and ffmpeg (Fast export)."); return; }
   queueRunning = true; queueStop = false;
   renderQueue();
   try {
+    // no H.264 encoder: every waiting H.264 output is refused now, in plain words, and none is rendered; the others go out
+    const h264Waiting = exportQueue.filter((q) => q.status === "pending" && deliveryIsH264(q.spec));
+    const refused = h264Waiting.length ? await exportH264Refusal(true) : null;
+    if (refused) {
+      for (const q of h264Waiting) Object.assign(q, { status: "failed", error: refused, noH264: true });
+      renderQueue();
+      if (!quiet) alert(refused);
+    }
     while (!queueStop) {
       const first = exportQueue.find((q) => q.status === "pending");
       if (!first) break;
@@ -20590,7 +20644,7 @@ async function runQueue() {
         renderQueue(); continue;
       }
       const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);
-      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; }
+      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; q.noH264 = false; }
       renderQueue();
       exportRangeForced = first.range && typeof first.range === "object" ? first.range : first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
       let res;
@@ -21065,7 +21119,7 @@ async function webCodecsExport() {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
@@ -21337,9 +21391,11 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
-  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave;
-  const q = exportQueue.find((v) => v.id === (r || x || s));
+  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, rv = e.target.dataset.qReveal;
+  const q = exportQueue.find((v) => v.id === (r || x || s || rv));
   if (!q) return;
+  // show the exported file in its folder (desktop shell; a browser keeps the status line)
+  if (rv) { revealFileBySrc(q.src); return; }
   // save this export again: it names itself, so the copy goes only once a save completes
   if (s) { if (q.saving) return; q.saving = true; renderQueue(); saveDownload(q.src, q.file || decodeURIComponent(q.src.split("/").pop()), { exportFile: true }); return; }
   if (r) { q.status = "pending"; q.error = null; q.progress = 0; }
@@ -23614,31 +23670,18 @@ async function setAgentMode(mode){
 }
 /** The Yolo mark in the top bar, shown all the time Yolo is on (the assistant has its own mark in the pane). */
 function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(mark)mark.hidden=agentPolicy.mode!=='yolo';if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();}
-/** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
- *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
-function askAgentApproval(d,{summary='',content=null,detail=''}={}){
- // the last step's toast goes first, so the two never sit one over the other (VV)
- dismissToast();
- return new Promise((resolve)=>{
-  const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
-  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
-  // v7.2 (VV on #84): first what this step changes (MontClipPlan.stepDetail, 「保留 0:00–1:55」), the plain sentence under it, small;
-  // a step with nothing concrete to say (an export) keeps the plain sentence first
-  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3>'+(detail?'<p class="agent-approval-detail" data-ap-detail></p>':'')+'<p data-ap-label'+(detail?' class="agent-approval-what"':'')+'></p><p data-ap-summary></p><p data-ap-target></p>'
-   +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
-   +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
-   +'<div class="tr-row">'+d.choices.map(choice).join('')+'</div></form>';
-  if(detail)dialog.querySelector('[data-ap-detail]').textContent=detail;
-  dialog.querySelector('[data-ap-label]').textContent=d.label;
-  dialog.querySelector('[data-ap-summary]').textContent=summary;
-  dialog.querySelector('[data-ap-target]').textContent=d.risk==='external'?uiText('own.ap-sends-to',{domain:d.target}):uiText('own.ap-project',{name:project.name||''});
-  if(content!=null)dialog.querySelector('[data-ap-content]').textContent=content;
-  let answer='deny';
-  for(const b of dialog.querySelectorAll('[data-choice]'))b.addEventListener('click',()=>{answer=b.dataset.choice;dialog.close();});
-  dialog.addEventListener('close',()=>{dialog.remove();resolve(answer);});
-  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-choice="deny"]').focus();
- });
-}
+/* The host's approval card (QQ 4: only the host shows it; v7.2 §2 and Deja's step 3: in the assistant's message stream, under
+   the reply or its plan, no longer a box over the page). A card is the host's own state, made only here, from a decision the
+   main process issued with a ticket (d.ticket); a reply's words never make one, and the stream shows them as plain text. It
+   belongs to the reply (or plan) it is about. Its buttons settle that card once; the caller sends the answer to the main
+   process with the ticket, which answers once. Until then the AI's step waits: nothing after it runs, and nothing can be sent.
+   Leaving the chat, or the project changing, while a card waits is a 「不同意」. The card says what this step changes
+   (MontClipPlan.stepDetail, 「保留 0:00–1:55」, 15 px), the capability's plain sentence under it (never its internal name), what
+   it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
+const agentApprovals=MontClipApproval.create({onChange:()=>{if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();},context:()=>JSON.stringify(agentProjectContext())});
+// the last step's toast goes first, so the two never sit one over the other (VV, #134)
+function askAgentApproval(d,options={}){dismissToast();return agentApprovals.ask(d,options);}
+const agentApprovalView=(result)=>agentApprovals.view(result,uiText,project.name||'');
 /** Bytes for the streamer: KB under a megabyte, else MB, one decimal at most (1 KB = 1024 bytes). */
 function byteText(n){const mb=n/1048576;return mb>=1?(Math.round(mb*10)/10)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
 /** Why a step was refused, in plain words; over a cap it says by how much (Deja on #83: never cut down to fit). */
@@ -23675,7 +23718,7 @@ async function onAgentReply(result){
  // (d.byApproval, 「这个聊天中都批准」); or run by 自动 / Yolo without asking
  const asked=d.action==='ask';
  if(asked){
-  const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
+  const choice=await askAgentApproval(d,{result,summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
  }
@@ -23801,7 +23844,7 @@ async function agentReframeFlow(response,result){
   let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':error.message==='PROPOSAL_UNCHANGED'?'own.rf-same':'own.ap-invalid'));return;}
   const {proposal,ev}=step,aspect=proposal.aspect;
   const box=d||{choices:['once','deny'],label:MontClipCapabilities.label('reframe',lang),risk:'sensitive'};
-  const choice=await askAgentApproval(box,{summary:uiText('own.ap-sum-reframe',{aspect}),detail:MontClipPlan.stepDetail({capability:'reframe',args:{aspect}},lang)});
+  const choice=await askAgentApproval(box,{result,summary:uiText('own.ap-sum-reframe',{aspect}),detail:MontClipPlan.stepDetail({capability:'reframe',args:{aspect}},lang)});
   let yes=choice==='once';
   if(d){let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}yes=!!(a&&a.ok&&a.run);}
   if(!yes){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
@@ -23850,7 +23893,7 @@ async function runAgentPlanStep(s,entry,result){
  catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
  const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
  if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),detail:MontClipPlan.stepDetail(s,mcView.get().language)});
+  const choice=await askAgentApproval(d,{result,summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),detail:MontClipPlan.stepDetail(s,mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
  }
@@ -23938,6 +23981,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  beforeReview:agentSoundFacts,
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
+  getApprovals:agentApprovalView,answerApproval:(id,choice)=>agentApprovals.answer(id,choice),approvalPending:()=>agentApprovals.waiting(),approvalLeave:()=>agentApprovals.leave(),
   planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
  getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),
  isOpen:()=>!document.getElementById("mcAssistantPanel").classList.contains("hidden"),
@@ -23950,7 +23994,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(MontClipCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
-setInterval(()=>mcAgent.sync(),500);
+setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
 /* 设置 › AI 助手 (Deja and JJ, 2026-11-04): the switch the main process keeps — off, it refuses every send — and the
    「AI 数据说明」 again. Desktop only: the browser editor has no assistant service. */
 { const box=$("setAi"),box2=$("setAiEnabled"),svc=window.montclipAgentService;

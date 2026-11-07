@@ -230,3 +230,12 @@ describe("Deja追加的七项独立阻断回归", () => {
   it("核验review不是GoodNightOppie提交仍等QQ",()=>assert.equal(run(body,{pr:{body,headRefOid:"a".repeat(40),reviewRequests:[{login:"GoodNightOppie"}],reviews:[{author:{login:"BB"},commit:{oid:"a".repeat(40)},state:"COMMENTED",body:"SOP 例外已核验：测试"}]}}).status,"needs_qq"));
   it("材料齐全无例外通过",()=>assert.equal(run().status,"passed"));
 });
+
+it("SHA256SUMS 与 scripts/pr-sop 实际文件逐项一致", () => {
+  const rows = fs.readFileSync(new URL("SHA256SUMS", import.meta.url), "utf8").trim().split(/\r?\n/)
+    .map((line) => /^([a-f0-9]{64})  (.+)$/.exec(line)).filter(Boolean);
+  assert.ok(rows.length >= 9, "SHA256SUMS 条目过少");
+  for (const [, expected, name] of rows) {
+    assert.equal(createHash("sha256").update(fs.readFileSync(new URL(name, import.meta.url))).digest("hex"), expected, name);
+  }
+});
