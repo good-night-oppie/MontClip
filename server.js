@@ -26,6 +26,7 @@ const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
 const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
+const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
 /* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
 const externalFfmpeg = X.createExternal();
 
@@ -75,6 +76,7 @@ const Delivery = require("./delivery");
 const ExportCleanup = require("./export-cleanup");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
+const { createEmbed } = require("./embed");
 
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
@@ -85,6 +87,12 @@ const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
 const DESKTOP_TOKEN = process.env.MONTCLIP_SESSION_TOKEN;
 if (DESKTOP && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(DESKTOP_TOKEN || "")))
   throw new Error("Desktop requires loopback binding and a fresh session token");
+/* Embedded in Cindy (MONTCLIP_HOST=cindy, the MontClip-Cindy plugin): only requests carrying the plugin's session
+   token get in — X-MontClip-Session, or the cookie a page load with ?token= trades for (embed.js). Unset, nothing
+   here changes. */
+const EMBED = process.env.MONTCLIP_HOST === "cindy";
+if (EMBED && (DESKTOP || HOST !== "127.0.0.1"))
+  throw new Error("Embedding in Cindy requires loopback binding (HOST=127.0.0.1) and cannot run in desktop mode");
 let boundPort = PORT;
 const serverOrigin = () => `http://127.0.0.1:${boundPort}`;
 
@@ -102,6 +110,7 @@ function hostAllowed(value) {
   const host = value.replace(/^(\[[^\]]*\]|[^:]+)(:\d+)?$/, "$1").toLowerCase();
   return ALLOWED_HOSTS.has(host);
 }
+const embed = EMBED ? createEmbed({ token: process.env.MONTCLIP_EMBED_TOKEN, hostAllowed }) : null;
 function requestAllowed(req) {
   if (DESKTOP) {
     if (req.headers.host !== `127.0.0.1:${boundPort}` ||
@@ -109,6 +118,7 @@ function requestAllowed(req) {
     return !req.headers.origin || req.headers.origin === serverOrigin();
   }
   if (!hostAllowed(req.headers.host)) return false;
+  if (embed && !embed.authorized(req)) return false;
   const origin = req.headers.origin;
   if (origin) {
     try { return hostAllowed(new URL(origin).host); } catch { return false; }
@@ -506,7 +516,9 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
       frame = Delivery.reframe(spec, canvasW, canvasH, region);
     }
     if (avail !== available && !avail.has(spec.video.encoder))
-      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall", params: { w: frame.outW, h: frame.outH } });
+      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall",
+        // n: the smallest side the page names (JJ: one number for width and height): the largest minimum of the encoders refused
+        params: { w: frame.outW, h: frame.outH, n: Math.max(...[...available].map((e) => Delivery.ENCODERS[e]?.min || []).flat()) } });
     return { spec, notes, noteCodes: [], name: d && typeof d.name === "string" ? d.name : name, frame };
   });
   // one render has one frame rate: an output asking for another needs a render of its own
@@ -547,7 +559,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   }
   const sess = {
     mode: "jpeg", proc: null, fps: rate, outputs: outs, input, canvasW, canvasH, duration,
-    hasAudio: !!hasAudio, dir, wav: null, partPath: null, outPath: null,
+    hasAudio: !!hasAudio, panIntent: !!extra.panIntent, dir, wav: null, partPath: null, outPath: null,
     stderr: "", done: null, lastTouch: Date.now(), err: () => "",
   };
   sess.writeLock = Promise.resolve();
@@ -562,6 +574,11 @@ async function measureLoudness(file, timeout = 10 * 60 * 1000) {
   const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout);
   return r.code === 0 ? Delivery.parseEbur128(r.stderr) : null;
 }
+/** Each channel's level (dB) of a file's first audio stream, or null. */
+async function measureChannelLevels(file, timeout = 10 * 60 * 1000) {
+  const r = await runFfmpeg(Delivery.CHANNEL_LEVEL_ARGS(file), timeout);
+  return r.code === 0 ? Delivery.parseChannelLevels(r.stderr) : null;
+}
 function ffprobeJSON(file) {
   return new Promise((resolve) => {
     execFile(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file], { timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
@@ -574,13 +591,14 @@ async function verifyDeliveryOutput(sess, o, file) {
   const failed = (text) => ({ ok: false, checks: [{ ok: false, text }], line: "⚠ " + text });
   try {
     const loudWanted = o.spec.audio.codec !== "none" && !!sess.wav;
-    const [probe, loud] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null]);
+    const [probe, loud, channelLevels] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null,
+      loudWanted && o.spec.audio.channels === 2 ? measureChannelLevels(file, VERIFY_LOUDNESS_MS) : null]);
     if (!probe) return failed("could not read the file back to check it (ffprobe)");
     let size = 0;
     try { size = fs.statSync(file).size; } catch {}
     return Delivery.verify(o.spec, probe, {
       fps: sess.fps, frames: sess.frames || (sess.duration ? Math.round(sess.duration * sess.fps) : null), duration: sess.duration,
-      size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav,
+      size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav, channelLevels, panIntent: sess.panIntent,
     });
   } catch (e) { return failed("could not check the file: " + (e.message || e)); }
 }
@@ -781,7 +799,8 @@ const freshExports = new Set();
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
-  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
+  // embedded: a one-time ticket the page trades for the session cookie — the token itself stays off the command line
+  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
   editors: () => sseClients.size,
   // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
@@ -840,6 +859,10 @@ const server = http.createServer((req, res) => {
   });
 });
 async function handleRequest(req, res) {
+  if (embed) {
+    res.setHeader("Referrer-Policy", "no-referrer");  // embedded pages never pass their address on
+    if (embed.bootstrap(req, res)) return;
+  }
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
@@ -1623,6 +1646,14 @@ async function handleRequest(req, res) {
       touchExport(sess);
       sendJSON(res, 200, { ok: true });
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
+    return;
+  }
+  /* 〔复制问题信息〕 (JJ's table v2): {text} → the same text with viewers, keys and user folders taken out, by the rules
+     the page has too (problem-redact.js), with this computer's home folder. */
+  if (p === "/api/problem-details" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
+    sendJSON(res, 200, { text: Redact.redactProblem(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform }) });
     return;
   }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */

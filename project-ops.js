@@ -348,6 +348,9 @@
               refuseLocked("updateClip", `track ${op.set.track} is locked`, op);
           }
           mergeInto(c, op.set);
+          // a pan set on purpose is no longer the program's default (panAuto), unless the op says so
+          const setPan = op.set && ((op.set.props && "pan" in op.set.props && !("panAuto" in op.set.props)) || (op.set.keyframes && "pan" in op.set.keyframes));
+          if (setPan && c.props) delete c.props.panAuto;
           checkMasks(c, "updateClip");
           if (op.set && op.set.props && "tracks" in op.set.props) checkTracks(c, "updateClip");
           if (op.set && op.set.props && "shapes" in op.set.props) checkShapes(c, "updateClip");
@@ -1128,9 +1131,10 @@
           break;
         }
         case "setProject": {
-          const allowed =["name", "width", "height", "fps", "background", "markers", "disabledTracks", "lockedTracks", "untargetedTracks", "exportFrame", "encodeProfile", "delivery", "outputs", "master", "inPoint", "outPoint"];
+          const allowed =["name", "width", "height", "fps", "background", "markers", "disabledTracks", "lockedTracks", "untargetedTracks", "exportFrame", "encodeProfile", "delivery", "outputs", "master", "inPoint", "outPoint", "monoPanReviewed"];
           for (const [k, v] of Object.entries(op.set || {})) {
             if (!allowed.includes(k)) throw new Error(`setProject: '${k}' not settable (allowed: ${allowed.join(", ")})`);
+            if (k === "monoPanReviewed" && v != null && typeof v !== "boolean") throw new Error("setProject: monoPanReviewed is true or false (null clears it)");
             if ((k === "inPoint" || k === "outPoint") && v != null && (typeof v !== "number" || !Number.isFinite(v) || v < 0))
               throw new Error(`setProject: ${k} must be seconds ≥ 0 (null clears it)`);
             if (k === "encodeProfile" && v != null) {
@@ -1189,6 +1193,7 @@
             "addSequence|openSequence|updateSequence|removeSequence|inSequence)");
       }
     } };
+    EditOps.settleMonoPanReview(proj);   // before the ops: a −1 they set on a mono stem is then the agent's on purpose
     applyOps(ops);
     return { notes, toSave };
   }

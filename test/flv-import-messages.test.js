@@ -20,7 +20,6 @@ const JJ = {
     flvConvertedMany: '已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。',
     flvConvert: '帮我转', flvNotNow: '先不转',
     flvNeedsDesktop: '导入 FLV 需要用 MontClip 桌面版打开。',
-    flvDiskFull: '电脑空间不够，这个文件没导进来。清理一些空间后再试。',
   },
   en: {
     flvTimingUnverified: 'This recording has a break in it (the stream or the recorder may have stopped for a moment), so it needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is; it takes a few minutes.',
@@ -34,12 +33,14 @@ const JJ = {
 const CASES = {
   // a break, an unconfirmed end and a codec MontClip cannot cut are converted on her yes (JJ v2)
   FLV_TIMELINE_GAP: 'flvTimingUnverified', FLV_FIX_UNVERIFIED: 'flvFixUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
-  FLV_DISK_FULL: 'flvDiskFull', NO_SERVER: 'flvNeedsDesktop',
+  // JJ's error table v2 (2026-11-04, #129): disk full is its own row (errDiskFull); FLV_PROBE_FAILED says the recording
+  // can't be read (flvUnreadable); anything else keeps main's flvUploadFailed, said in a dialog (Deja on #129)
+  FLV_DISK_FULL: 'errDiskFull', NO_SERVER: 'flvNeedsDesktop',
   // more than one picture or sound track: the conversion does not handle it, so 「现在导不进来」 and why
   FLV_TRANSCODE_REQUIRED: 'flvNeedsConvert', FLV_STREAMS_UNSUPPORTED: 'flvStreamsUnsupported', FLV_ENCODER_MISSING: 'flvNoEncoder',
   FLV_SOURCE_DAMAGED: 'flvSourceDamaged',
   FLV_COMPONENT_MISSING: 'flvComponentMissing',
-  UPLOAD_FAILED: 'flvUploadFailed', IMPORT_FAILED: 'flvUploadFailed', FLV_PROBE_FAILED: 'flvUploadFailed',
+  UPLOAD_FAILED: 'flvUploadFailed', IMPORT_FAILED: 'flvUploadFailed', FLV_PROBE_FAILED: 'flvUnreadable',
   FLV_PREPARATION_FAILED: 'flvUploadFailed', SOMETHING_NEW: 'flvUploadFailed', '': 'flvUploadFailed',
 };
 
