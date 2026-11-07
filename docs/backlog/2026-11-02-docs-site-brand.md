@@ -26,6 +26,13 @@
 
 这些都在 `docs/docs/build.js`（页头页脚模板和 `SITE`）和 `docs/docs/*.md` 里，改完运行 `node docs/docs/build.js` 重新生成所有页面。
 
+## 现状补充（2026-11-05，GG）
+
+- 2026-11-05 用 GitHub 账号 `EdwardTang`（对本仓库有 admin 权限）查询：`GET /repos/good-night-oppie/MontClip` 返回 `has_pages: false`，`GET /repos/good-night-oppie/MontClip/pages` 返回 404。这只是该身份当时的查询结果；据此判断，这个文档站目前没有通过本仓库的 Pages 对外发布。
+- 原来的 `docs/CNAME`（`fablecut.space`）是上游作者 2026-09-23 加的，该域名现在显示的是上游 FableCut 自己的站。本改动删掉了它，免得将来开启 Pages 时去认领上游的域名。MontClip 自己用什么域名，由主人决定。
+- `DEVELOPMENT.md` 原来把开发者带到上游的 `fablecut.space/docs`，已经改成说明文档在本地生成、暂未发布。
+- `docs/showcase/` 和站点首页的示例是上游的作品，不能当作 MontClip 的成果展示；文档站上线前要么下架，要么注明作者和出处（Deja，2026-11-05）。
+
 ## 需要先定的
 
 - 我们自己的站点地址是什么（替换 `SITE`）；没有的话，canonical 和分享卡片是先删掉，还是先留空。

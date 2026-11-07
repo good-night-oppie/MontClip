@@ -668,6 +668,8 @@ function timelineSig(doc) {
   return JSON.stringify([doc.fps, doc.lockedTracks || [], doc.untargetedTracks || [], doc.disabledTracks || [],
     (doc.clips || []).map((c) => [c.id, c.track, c.start, c.in, c.duration, c.mediaId, c.props?.speed ?? 1, c.keyframes?.speed ?? null, !!c.locked, !!c.disabled])]);
 }
+/** A file longer than this is listened to only where its clips play, when they cover less than half of it. */
+const LONG_FILE_S = 600;
 /* The words said on the timeline (or in whole files, mediaIds): transcribes what has no
    transcript yet as a job in an open tab, else headless, then lays the words out. Shared by
    fablecut_transcribe and fablecut_captions. */
@@ -708,10 +710,29 @@ async function speechWords(args, fileMode) {
   if (st.status !== 200) throw new Error(st.body?.error || "could not read the transcripts");
   const gone = srcs.filter((s) => st.body.status[s] === null);
   if (gone.length) throw new Error("these files are missing (offline): " + gone.join(", "));
-  const todo = args.again === true ? srcs : srcs.filter((s) => !st.body.status[s]);
+  // a long recording's clips are listened to in their windows only (P8: three clips of a two-hour replay), and only
+  // the parts its transcript has not covered yet; a short file, or mediaIds, is listened to whole
+  const rangesOf = new Map();
+  if (!fileMode) for (const m of files) {
+    const dur = +m.duration || 0;
+    if (!(dur > LONG_FILE_S)) continue;
+    const rs = T.clipRanges(entries.filter((e) => e.media.src === m.src).map((e) => e.clip), { duration: dur });
+    if (rs.length && T.rangeSeconds(rs) < dur / 2) rangesOf.set(m.src, rs);
+  }
+  const ask = {};
+  const todo = srcs.filter((s) => {
+    const info = st.body.status[s], rs = rangesOf.get(s);
+    if (rs) {
+      const left = args.again === true ? rs : T.missingSpans(info || null, rs);
+      if (left.length) ask[s] = left;
+      return left.length > 0;
+    }
+    return args.again === true || !info || Array.isArray(info.spans);   // parts of it only: now the whole file
+  });
   let note = "";
   if (todo.length) {
-    const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto", transcribe: { srcs: todo, model, language, again: args.again === true } });
+    const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto",
+      transcribe: { srcs: todo, model, language, again: args.again === true, ...(Object.keys(ask).length ? { ranges: ask } : {}) } });
     if (r.status !== 200) throw new Error(r.body?.error || `transcribe request failed (${r.status})`);
     let job = r.body;
     const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 1800);
@@ -725,7 +746,13 @@ async function speechWords(args, fileMode) {
       if (q.status !== 200) throw new Error(q.body?.error || "lost track of the transcription job");
       job = q.body;
     }
-    if (job.status !== "done") throw new Error(`transcription ${job.status}: ${job.error || "no reason given"}`);
+    if (job.status !== "done") {
+      const why = String(job.error || "");
+      const S = require("./asr-status");
+      const code = Object.keys(S.SAY).find((c) => new RegExp("\\b" + c + "\\b").test(why));   // ASR_MANIFEST_MISSING · ASR_ENGINE_MISSING · ASR_MODEL_MISSING
+      if (code) throw new Error(S.SAY[code]);
+      throw new Error(`transcription ${job.status}: ${why || "no reason given"}`);
+    }
     const res = job.result || {};
     const partial = (res.done || []).filter((d) => d.gaps);
     note = (partial.length ? `PARTLY transcribed: ${partial.reduce((n, d) => n + d.gaps, 0)} part(s) could not be read (${Math.round(partial.reduce((t, d) => t + (d.gapSeconds || 0), 0))} s in all) and have no words — no subtitles there; the rest is below. ` : "") +
@@ -1294,6 +1321,13 @@ async function frameTool(args) {
     const res = job.result || {};
     const onScreen = (res.clips || []).map((c) => `${c.id} ${c.track} ${c.kind}`).join(", ") || "nothing";
     const head = `Timeline at ${res.time}s (${res.frame?.w}x${res.frame?.h}) — on screen: ${onScreen}`;
+    /* Say how the image maps to the frame: it is the whole frame scaled down, and an agent that reads a position
+       off the picture (to place a mask or a crop) must divide by these sizes, not by the `width` default. */
+    const sized = res.imageSize && res.frame
+      ? `
+Image ${res.imageSize.w}x${res.imageSize.h} px = the whole ${res.frame.w}x${res.frame.h} frame (1 image px = ${(res.frame.w / res.imageSize.w).toFixed(2)} frame px). ` +
+        "Crop and mask numbers are not canvas positions: crop is a percent of each clip's whole source frame, and a mask's x, y (its centre), w, h are fractions of the picture left after the crop, before the clip's scale and x / y — see \"Mask and crop coordinates\" in the docs."
+      : "";
 
     /* Text mode: the scopes reading measured this exact frame already, and its
        numbers are the same family as the source-frame measurements — so a
@@ -1304,7 +1338,7 @@ async function frameTool(args) {
     }
     const img = imageBlockFromDataUrl(res.image);
     if (!img) throw new Error("the editor rendered the frame but could not encode it as an image (a cross-origin source taints the canvas)");
-    return [{ type: "text", text: head }, img];
+    return [{ type: "text", text: head + sized }, img];
   }
 
   /* Source mode: ffmpeg on the server. Looking must not have side effects, so

@@ -39,6 +39,23 @@ let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
+/** At ≤560 px (style.css) the open bin takes the whole width and the player gives way (VV on #162). */
+const mcMediaNarrow = matchMedia("(max-width:560px)");
+/** The top bar's media button: 返回播放器 / ← Player while the open bin covers the player (JJ: aria-label and tooltip
+ *  say it in full, Back to player), else 素材; aria-expanded either way. */
+function syncMediaToggle() {
+  const b = document.getElementById("mcMediaToggle"), open = document.getElementById("app").classList.contains("media-open");
+  const back = open && mcMediaNarrow.matches, label = uiText(back ? "own.media-back" : "own.media-toggle");
+  if (b.textContent !== label) b.textContent = label;
+  if (back) { const full = uiText("own.media-back-full"); b.setAttribute("aria-label", full); b.title = full; }
+  else { b.removeAttribute("aria-label"); b.removeAttribute("title"); }
+  b.setAttribute("aria-expanded", String(open));
+}
+/** A double-click that loaded a file into Source puts the covering bin away, so the player shows it (VV on #162). */
+function closeNarrowMedia(id) {
+  if (state.source.mediaId !== id || !mcMediaNarrow.matches) return;
+  document.getElementById("app").classList.remove("media-open");
+}
 /** A keyed term in Chinese, the page's own English word in English (for a term whose English row reads differently). */
 const uiOr = (key, english) => (mcView.get().language === "en" ? english : uiText(key));
 /** A stored default name ("Main", "Title") as the interface language shows it; the user's own names as they are. */
@@ -71,7 +88,7 @@ function shortcutKeys(keys) {
 }
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
-  document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
+  document.getElementById("mcAssistantTab").textContent=t.assistant;syncMediaToggle();
   mcAgent?.render();
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
@@ -1731,6 +1748,7 @@ function applyProject(data, opts = {}) {
   // AV links aren't always on disk (older saves / agents) — rebuild from matching timing.
   relinkClips();
   noteProjectFonts(); // titles in a font that would have to come from outside: the fallback face, and one hint
+  noteBgRemove();     // clips with AI background removal that would have to load it from outside: uncut, and one hint
   // reset runtime playback elements so they rebuild against new data
   if (state.audioHold) setAudioHold(false);
   else stopAudioHoldNodes();
@@ -2664,6 +2682,7 @@ function renderBin() {
       } else {
         loadSourceFromMedia(m);
       }
+      closeNarrowMedia(m.id);
       if (getSetting("linkSelect")) flashMonitorAttention();
     });
     item.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); showMediaMenu(e.clientX, e.clientY, m); });
@@ -7988,6 +8007,11 @@ function renderInspector(lite) {
           : input.value;
       if (k === "weight") v = +v || 0;
       if (k === "font") requestFonts([String(v)]);
+      // asks first (the host, download only); a "no" (or desktop, which can't) turns it back off
+      if (k === "bgRemove" && v) requestBgRemove().then((ok) => {
+        if (ok !== null) return;
+        c.props.bgRemove = false; scheduleSave(); renderInspector();
+      });
       if (k === "name") { c.name = String(v); state.dirtyTimeline = true; }
       else if (k === "start") { c.start = Math.max(0, +v || 0); state.dirtyTimeline = true; inspPropGen++; }
       else if (k === "duration") { c.duration = Math.max(MIN_DUR, +v || MIN_DUR); state.dirtyTimeline = true; inspPropGen++; }
@@ -10213,9 +10237,10 @@ async function asrGetPunct() {
   await loadAsrStatus();
   paintSettingsAsr();
 }
-/** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
-async function transcribeFile(src) {
-  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src }) });
+/** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. `ranges`: only those
+ *  parts of it ([[from, to], …] file seconds — a long recording's clips), added to what its transcript covers. */
+async function transcribeFile(src, ranges = null, again = false) {
+  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src, ...(ranges ? { ranges } : {}), ...(again ? { again: true } : {}) }) });
   let j = {};
   try { j = await r.json(); } catch { }
   if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
@@ -10238,14 +10263,14 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       paintTranscribeBusy();
       busy.beat();
       try {
-        const r = await transcribeFile(srcs[i]);
+        const r = await transcribeFile(srcs[i], (opts.ranges && opts.ranges[srcs[i]]) || null, !!opts.again);
         const gaps = r.doc.gaps || [];
         out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved,
           status: gaps.length ? "partial" : "complete", gaps: gaps.length, gapSeconds: Math.round(gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10 });
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
-        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING") break;   // the rest would fail the same way
+        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING" || e.code === "ASR_MANIFEST_MISSING") break;   // the rest would fail the same way
       }
     }
   } finally {
@@ -10288,7 +10313,9 @@ function transcribeTargets() {
   }
   const srcs = [...new Set(groups.map((g) => getMedia(g[0].mediaId).src))];
   const sel = srcs.filter((s) => picked.has(s));
-  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter((s) => transcriptCache.get(s) === false), selected: false };
+  // a transcript of some parts only (a long recording's clips) counts as none here: the whole file is wanted
+  const none = (s) => { const d = transcriptCache.get(s); return d === false || (!!d && !(d instanceof Promise) && Array.isArray(d.spans)); };
+  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter(none), selected: false };
 }
 /** What the words' places depend on: the timeline and the transcripts. */
 function transcriptWordsSig() {
@@ -11101,7 +11128,8 @@ async function autoRun() {
       const danmaku = autoDanmaku(m);
       run.phase = 1; tick();
       // 听写成文字: with subtitles on and the model installed, a recording without a transcript is transcribed (#70)
-      if (st.subs && autoSubMode() === "local" && !(await loadTranscript(m.src))) {
+      const had = st.subs && autoSubMode() === "local" ? await loadTranscript(m.src) : null;
+      if (st.subs && autoSubMode() === "local" && (!had || had.spans)) {
         try { await transcribeSrcs([m.src]); } catch { }
         if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
       }
@@ -11935,23 +11963,25 @@ async function runTranscribeJob(ticket, fail) {
   const spec = ticket.transcribe || {};
   if (typeof MontClipTranscribe === "undefined") return fail("the transcript module is missing — reload the editor");
   if (trState.busy) return fail("this editor tab is already transcribing — wait for it, or cancel it there");
-  const srcs = [], skipped = [];
+  const srcs = [], skipped = [], ranges = spec.ranges || {};
   for (const src of spec.srcs || []) {
-    if (!spec.again && await loadTranscript(src, true)) { skipped.push(src); continue; }
+    const have = spec.again ? null : await loadTranscript(src, true);
+    // a long recording's clips (P8): only their windows, and only what its transcript does not cover yet
+    if (have && (ranges[src] ? !MontClipTranscribe.missingSpans(have, ranges[src]).length : !have.spans)) { skipped.push(src); continue; }
     srcs.push(src);
   }
   const report = (body, force) => fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify(body) })
     .then((r) => r.json()).then((r) => { if (r?.cancel) cancelTranscribe(); }).catch(() => { });
   if (!srcs.length) return report({ status: "done", result: { done: [], skipped, failed: [] } });
   let last = 0;
-  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null }, (f) => {
+  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null, ranges, again: !!spec.again }, (f) => {
     const t = performance.now();
     if (t - last > 1000) { last = t; report({ progress: f }); }
   }).catch((e) => ({ done: [], failed: srcs.map((src) => ({ src, error: e.message })) }));
   for (const d of out.done) if (!d.saved) out.failed.push({ src: d.src, error: "transcribed, but the server didn't save it" });
   out.done = out.done.filter((d) => d.saved);
   if (out.cancelled) return report({ status: "failed", error: "cancelled" });
-  if (!out.done.length && out.failed.length) return fail(out.failed.map((f) => `${f.src}: ${f.error}`).join(" · "));
+  if (!out.done.length && out.failed.length) return fail(out.failed.map((f) => `${f.src}: ${f.error}${f.code ? ` (${f.code})` : ""}`).join(" · "));
   return report({ status: "done", result: { done: out.done, skipped, failed: out.failed } });
 }
 function clearSilences() {
@@ -13601,10 +13631,17 @@ async function prepareSvgFrame(c, t) {
 }
 
 /* ═════════════ AI BACKGROUND REMOVAL (MediaPipe selfie segmentation) ════════
-   Loaded lazily from CDN the first time a clip sets props.bgRemove. Produces a
-   per-clip person mask consumed by the pixel pipeline below. Degrades politely
-   when offline. */
-const bgSeg = { seg: null, loading: null, failed: false, queue: Promise.resolve(), masks: new Map() };
+   Fixed-version CDN bytes are all verified, then served to MediaPipe from local
+   blob URLs — only after the streamer said yes this session (Deja, 11-04: before
+   going online, show where and what is sent). Turning it on in the Inspector
+   asks; opening a project, drawing and exporting never do, and never go online:
+   preview stays uncut; export refuses unavailable masks. Desktop never
+   tries (desktop/main.js blocks every non-local request). Produces a per-clip
+   person mask consumed by the pixel pipeline below; the frames stay on this
+   computer. */
+const BG_REMOVE_HOSTS = ["cdn.jsdelivr.net"];
+const bgSeg = { seg: null, loading: null, failed: false, consent: false, hinted: false, queue: Promise.resolve(), masks: new Map() };
+const bgRemoveDesktop = () => !!window.montclipViewSettings;
 function loadScript(src) {
   return new Promise((res, rej) => {
     const s = document.createElement("script");
@@ -13614,10 +13651,12 @@ function loadScript(src) {
 }
 function ensureBgSeg() {
   if (bgSeg.seg || bgSeg.failed) return bgSeg.loading || Promise.resolve();
+  if (bgRemoveDesktop() || !bgSeg.consent) return Promise.resolve();   // never online without a yes
   if (!bgSeg.loading) {
-    const base = "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation";
-    bgSeg.loading = loadScript(`${base}/selfie_segmentation.js`).then(() => {
-      const seg = new SelfieSegmentation({ locateFile: (f) => `${base}/${f}` });
+    bgSeg.loading = window.MontClipBgAssets.load(bgSeg.consent).then(async (assets) => {
+      bgSeg.assets = assets;
+      await loadScript(assets.locateFile("selfie_segmentation.js"));
+      const seg = new SelfieSegmentation({ locateFile: (f) => assets.locateFile(f) });
       seg.setOptions({ modelSelection: 1 });
       seg.onResults((r) => {
         if (!bgSeg.currentClip) return;
@@ -13628,27 +13667,85 @@ function ensureBgSeg() {
       });
       bgSeg.seg = seg;
     }).catch(() => {
+      bgSeg.assets?.dispose(); bgSeg.assets = null;
       bgSeg.failed = true;
-      toast("Background removal unavailable — couldn't load MediaPipe (offline?). Using chroma key still works.");
+      toast(uiText("own.bgremove-assets-failed"));
     });
   }
   return bgSeg.loading;
+}
+/* The streamer turned AI background removal on. True when it is ready, false when it couldn't be loaded, null when
+   the streamer said no (or on desktop, where the page never goes online). Asks every time until a yes. */
+async function requestBgRemove() {
+  if (bgSeg.seg) return true;
+  if (bgRemoveDesktop()) { toast(uiText("own.bgremove-desktop")); return null; }
+  if (!bgSeg.consent) {
+    const yes = await askNetConsent("bgRemove", uiText("own.bgremove-net-title"), [
+      uiText("own.bgremove-net-what"),
+      uiText("own.bgremove-net-hosts", { hosts: BG_REMOVE_HOSTS.join(uiText("own.font-list-sep")) }),
+      uiText("own.bgremove-net-sent"),
+      uiText("own.bgremove-net-no"),
+    ], uiText("own.font-net-deny"), uiText("own.font-net-allow"));
+    if (!yes) return null;
+    bgSeg.consent = true;
+  }
+  // Only an explicit user retry clears failure; preview/export never retry a download.
+  if (bgSeg.failed) { bgSeg.failed = false; bgSeg.loading = null; }
+  await ensureBgSeg();
+  return !!bgSeg.seg;
+}
+const bgRemoveClips = () => mediaClips().filter((c) => c.props?.bgRemove && !c.disabled && (c.kind === "video" || c.kind === "image"));
+/* After a project opens: clips with AI background removal that can't have it yet show uncut; told once a session.
+   In the browser the hint offers to load it, which asks first. */
+async function noteBgRemove() {
+  if (bgSeg.seg || bgSeg.hinted || !bgRemoveClips().length) return;
+  bgSeg.hinted = true;
+  if (bgRemoveDesktop()) toast(uiText("own.bgremove-desktop"));
+  else toastAction(uiText("own.bgremove-fallback"), uiText("own.font-fallback-load"), () => requestBgRemove());
+}
+function bgRemoveExportError(clipId, realtime = false) {
+  return new Error(`BG_REMOVE_UNAVAILABLE: ${uiText(realtime ? "own.bgremove-export-realtime" : "own.bgremove-export-unavailable")} (${clipId})`);
+}
+/* A fresh/headless page cannot inherit consent. Refuse before starting an encoder, then verify every frame below. */
+function noteExportBgRemove(range = exportRange(), realtime = false) {
+  const c = mediaClips().find((c) => {
+    if (!clipRenders(c) || (c.kind !== "video" && c.kind !== "image")) return false;
+    const start = Math.max(c.start, range.start), end = Math.min(clipEnd(c), range.end);
+    if (start >= end) return false;
+    // File/API keyframes can override even a false static prop. Use the same effective value as drawing.
+    return evalProps(c, start).bgRemove || evalProps(c, Math.max(start, end - 1e-9)).bgRemove ||
+      (c.keyframes?.bgRemove || []).some((k) => k.t + c.start >= start && k.t + c.start < end && k.v);
+  });
+  if (c && (!bgSeg.seg || realtime)) throw bgRemoveExportError(c.id, realtime);
 }
 /* Serialize sends; returns a promise that resolves once the mask is refreshed.
    Preview calls are dropped while one is in flight (masks lag a frame at most);
    the exporter passes force=true and awaits the exact mask. */
 bgSeg.pending = 0;
-function requestMask(clipId, el, force = false) {
-  ensureBgSeg();
+async function requestMask(clipId, el, force = false) {
+  if (force) await ensureBgSeg();
+  else ensureBgSeg();
+  if (force && !bgSeg.seg) throw bgRemoveExportError(clipId);
   if (!bgSeg.seg) return bgSeg.loading || Promise.resolve();
   if (!force && bgSeg.pending > 0) return Promise.resolve();
   bgSeg.pending++;
-  bgSeg.queue = bgSeg.queue.then(async () => {
-    if ((el.videoWidth || el.naturalWidth || 0) === 0) return;
+  const task = bgSeg.queue.then(async () => {
+    if (force) bgSeg.masks.delete(clipId); // a stale preview mask cannot certify this frame
+    if (!el || (el.videoWidth || el.naturalWidth || 0) === 0) {
+      if (force) throw bgRemoveExportError(clipId);
+      return;
+    }
     bgSeg.currentClip = clipId;
-    try { await bgSeg.seg.send({ image: el }); } catch { }
+    try {
+      await bgSeg.seg.send({ image: el });
+      const mask = bgSeg.masks.get(clipId);
+      if (force && (!mask || !mask.width || !mask.height)) throw bgRemoveExportError(clipId);
+    } catch {
+      if (force) { bgSeg.masks.delete(clipId); throw bgRemoveExportError(clipId); }
+    } finally { bgSeg.currentClip = null; }
   }).finally(() => { bgSeg.pending--; });
-  return bgSeg.queue;
+  bgSeg.queue = task.catch(() => {}); // keep later sends usable after a failed export
+  return task;
 }
 
 /* ═══════════ PIXEL PIPELINE (chroma key · temperature · tint · mask) ═══════
@@ -18467,21 +18564,28 @@ async function requestFonts(names) {
 /* The box before going online: for every font not yet confirmed this session, in every permission mode. "Not now"
    is focused, and Esc is "Not now". */
 function askFontConsent(names) {
+  return askNetConsent("font", uiText("own.font-net-title"), [
+    uiText("own.font-net-fonts", { names: fontNames(names) }),
+    uiText("own.font-net-hosts", { hosts: GOOGLE_FONT_HOSTS.join(uiText("own.font-list-sep")) }),
+    uiText("own.font-net-sent"),
+    uiText("own.font-net-no"),
+  ], uiText("own.font-net-deny"), uiText("own.font-net-allow"));
+}
+/* The box before going online, shared by everything the page may fetch from outside (Google Fonts, MediaPipe): a
+   title, the lines (what, where, what is sent, what happens without it), "Not now" focused and Esc = "Not now".
+   `kind` names the buttons' data attribute (data-font-consent, data-bg-remove-consent). Resolves true for yes. */
+function askNetConsent(kind, titleText, lines, denyText, allowText) {
   return new Promise((resolve) => {
-    const dlg = document.createElement("dialog"), title = document.createElement("h3"), fonts = document.createElement("p");
-    dlg.className = "font-consent-dialog"; dlg.dataset.fontConsentDialog = "";
-    const hosts = document.createElement("p"), sent = document.createElement("p"), after = document.createElement("p"),
-      row = document.createElement("div"), deny = document.createElement("button"), allow = document.createElement("button");
-    title.textContent = uiText("own.font-net-title");
-    fonts.textContent = uiText("own.font-net-fonts", { names: fontNames(names) });
-    hosts.textContent = uiText("own.font-net-hosts", { hosts: GOOGLE_FONT_HOSTS.join(uiText("own.font-list-sep")) });
-    sent.textContent = uiText("own.font-net-sent");
-    after.textContent = uiText("own.font-net-no");
+    const dlg = document.createElement("dialog"), title = document.createElement("h3");
+    dlg.className = "font-consent-dialog"; dlg.dataset[kind + "ConsentDialog"] = "";
+    const row = document.createElement("div"), deny = document.createElement("button"), allow = document.createElement("button");
+    title.textContent = titleText;
+    const ps = lines.map((line) => { const p = document.createElement("p"); p.textContent = line; return p; });
     deny.type = allow.type = "button";
-    deny.className = "btn"; deny.dataset.fontConsent = "deny"; deny.textContent = uiText("own.font-net-deny");
-    allow.className = "btn primary"; allow.dataset.fontConsent = "allow"; allow.textContent = uiText("own.font-net-allow");
+    deny.className = "btn"; deny.dataset[kind + "Consent"] = "deny"; deny.textContent = denyText;
+    allow.className = "btn primary"; allow.dataset[kind + "Consent"] = "allow"; allow.textContent = allowText;
     row.className = "font-consent-row"; row.append(deny, allow);
-    dlg.append(title, fonts, hosts, sent, after, row);
+    dlg.append(title, ...ps, row);
     let answer = false;
     deny.addEventListener("click", () => { answer = false; dlg.close(); });
     allow.addEventListener("click", () => { answer = true; dlg.close(); });
@@ -20179,9 +20283,9 @@ async function prepareFrameAssets(t) {
   for (const c of mediaClips()) {
     if (!activeAt(c, t) || !clipRenders(c)) continue;
     if (c.kind === "svg") await prepareSvgFrame(c, t);
-    if (c.props?.bgRemove && (c.kind === "video" || c.kind === "image")) {
+    if ((c.kind === "video" || c.kind === "image") && evalProps(c, t).bgRemove) {
       const el = c.kind === "video" ? getClipEl(c) : runtime.mediaAux.get(c.mediaId)?.img;
-      if (el) { try { await requestMask(c.id, el, true); } catch { } }
+      await requestMask(c.id, el, true);
     }
   }
 }
@@ -20212,6 +20316,7 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
+    noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
@@ -20873,7 +20978,8 @@ async function runScopesJob(ticket, fail) {
         ...(c.props.blend && c.props.blend !== "normal" ? { blend: c.props.blend } : {}),
       };
     });
-    await reportExportJob(ticket.id, { status: "done", result: { time: +t.toFixed(3), frame: { w: Math.round(r.w), h: Math.round(r.h) }, stats, clips, matte, mask, image } }, true);
+    // imageSize: the still is the whole frame scaled to sw × sh — agents reading pixel positions off it need both sizes
+    await reportExportJob(ticket.id, { status: "done", result: { time: +t.toFixed(3), frame: { w: Math.round(r.w), h: Math.round(r.h) }, stats, clips, matte, mask, image, ...(image ? { imageSize: { w: sw, h: sh } } : {}) } }, true);
   } catch (err) {
     fail("could not measure the frame: " + (err && err.message || err));
   } finally {
@@ -20944,6 +21050,7 @@ async function webCodecsExport() {
   const setError = (err) => { if (!uploadError) uploadError = err; };
   let up = null;
   try {
+    noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
@@ -21073,6 +21180,9 @@ function pickMime() {
 async function startExport() {
   if (state.exporting) return;
   if (!project.clips.length) { alert("Timeline is empty — add some clips first."); return; }
+  // Realtime recording uses asynchronous preview masks, so it cannot promise frame-exact cut-outs.
+  try { noteExportBgRemove(exportRange(), true); }
+  catch (e) { alert(uiText("own.export-failed-prefix") + e.message); return; }
   const mime = pickMime();
   if (!mime) { alert("MediaRecorder is not supported in this browser."); return; }
   ensureAudio();
@@ -23811,6 +23921,7 @@ document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc
 // a narrow window's assistant lies over the editor under the top bar (style.css, max-width 760px): the bar's height, kept current
 {const bar=document.querySelector(".app > .topbar"),set=()=>document.documentElement.style.setProperty("--mc-topbar-h",Math.ceil(bar.getBoundingClientRect().bottom)+"px");set();if(typeof ResizeObserver!=="undefined")new ResizeObserver(set).observe(bar);addEventListener("resize",set);}
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
+new MutationObserver(syncMediaToggle).observe(document.getElementById("app"),{attributes:true,attributeFilter:["class"]});mcMediaNarrow.addEventListener("change",syncMediaToggle);syncMediaToggle();
 mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:agentProjectContext,ensureProject:ensureAgentProject,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,

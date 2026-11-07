@@ -36,7 +36,8 @@ operate the editor end to end.
 
 > 📖 **Browsable docs:** the same manual as web pages, one page per topic
 > (MCP tools, the `project.json` schema, clip props, recipes, REST API,
-> export): **[fablecut.space/docs](https://fablecut.space/docs/)**.
+> export), generated into `docs/docs/` by `node docs/docs/build.js`. MontClip
+> does not publish them yet; fablecut.space is the upstream project's site.
 
 Three equivalent control surfaces:
 
