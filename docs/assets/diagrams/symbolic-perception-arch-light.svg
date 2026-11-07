@@ -3,7 +3,7 @@
 
   <!-- Title -->
   <text x="60" y="68" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#090D16">Inspect first. Request images when needed.</text>
-  <text x="60" y="100" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#475569">Read project state as data; render frames only when the agent is visually uncertain.</text>
+  <text x="60" y="100" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#475569">State first, images on demand</text>
   <line x1="60" y1="118" x2="1220" y2="118" stroke="#090D16" stroke-width="1.5"/>
 
   <!-- Agent -->
