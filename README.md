@@ -7,8 +7,8 @@ Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT)
 [简体中文](docs/i18n/README.zh-CN.md)
 
 <p align="center">
-  <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="One frame from the MontClip demo: on the left, the original picture of a synthetic live room; on the right, the MontClip export after cropping, zooming in and hiding one area. The footage is synthetic, not a real recording.">
-  <br><sub>Demo (22 seconds, synthetic footage, not a real recording). Video pending release.</sub>
+  <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="Illustration (synthetic; not a real recording and not a frame exported by MontClip): on the left, a synthetic live room with the stream picture, chat and gift bar; on the right, a mock-up of the same picture cropped and zoomed in to the streamer.">
+  <br><sub>The picture above is a synthetic illustration, not a frame exported by MontClip. Demo video (22 seconds, synthetic footage, not a real recording): pending release.</sub>
 </p>
 
 <picture>
