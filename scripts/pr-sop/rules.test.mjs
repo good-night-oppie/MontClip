@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkPR, classifyFiles, ownerDeclaration, testLineHasResult, EXCEPTION_LABEL, formatReport } from "./rules.mjs";
+import { checkPR, classifyFiles, ownerDeclaration, testLineHasResult, EXCEPTION_LABEL, formatReport, exceptionVerified, headEnteredAt } from "./rules.mjs";
 import { collectMetadata, main } from "./run.mjs";
 import { workflowText, FILES } from "./make-workflow.mjs";
 import { createHash } from "node:crypto";
@@ -107,15 +107,15 @@ describe("PR SOP：逐项正负控", () => {
   });
   it("例外只有QQ最后添加且当前仍存在的标签才放行", () => {
     const body = BODY.replace("- 单元：23/23", "- 单元：没跑") + "\nSOP 例外：测试 — 当前先做文档核读 — 证据：https://github.com/good-night-oppie/MontClip/issues/200";
-    const pr = { body, labels: [{ name: EXCEPTION_LABEL }], reviewRequests: [{ login: "GoodNightOppie" }] };
-    const event = (id, actor, kind = "labeled") => ({ id, event: kind, actor: { login: actor }, label: { name: EXCEPTION_LABEL } });
+    const pr = { body, headRefOid: "a".repeat(40), labels: [{ name: EXCEPTION_LABEL }], reviewRequests: [{ login: "GoodNightOppie" }] };
+    const event = (id, actor, kind = "labeled") => ({ id, created_at:"2026-11-07T00:02:00Z", event: kind, actor: { login: actor }, label: { name: EXCEPTION_LABEL } });
     assert.equal(run(body, { pr }).status, "needs_qq");
-    assert.equal(run(body, { pr, labelEvents: [event(1, "BB")] }).status, "needs_qq");
-    assert.equal(run(body, { pr, labelEvents: [event(1, "GoodNightOppie")] }).status, "passed");
-    assert.equal(run(body, { pr, labelEvents: [event(1, "GoodNightOppie"), event(2, "BB", "unlabeled")] }).status, "needs_qq");
-    assert.equal(run(body, { pr, labelEvents: [event(3, "BB"), event(1, "GoodNightOppie")] }).status, "needs_qq");
+    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(1, "BB")] }).status, "needs_qq");
+    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(1, "GoodNightOppie")] }).status, "passed");
+    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(1, "GoodNightOppie"), event(2, "BB", "unlabeled")] }).status, "needs_qq");
+    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(3, "BB"), event(1, "GoodNightOppie")] }).status, "needs_qq");
     assert.equal(run(body, { pr: { ...pr, labels: [] }, labelEvents: [event(1, "GoodNightOppie")] }).status, "needs_qq");
-    assert.equal(run(body, { pr, labelEvents: [event("bad", "GoodNightOppie")] }).status, "needs_qq");
+    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event("bad", "GoodNightOppie")] }).status, "needs_qq");
     assert.equal(run(body, { pr: { ...pr, body: body.replace("负责人：BB", "负责人：EdwardTang") }, labelEvents: [event(1, "GoodNightOppie")] }).status, "failed");
   });
   it("文件列表未知不能通过，事件正文改动立即重算", () => {
@@ -136,17 +136,17 @@ describe("只读API及工作流安全", () => {
       calls.push(route);
       if (/\/files\?/.test(route)) return [{ filename: "docs/a.md", patch: "throw Error('do not execute')" }];
       if (route.endsWith("/requested_reviewers")) return { users: [{ login: "GoodNightOppie" }] };
-      if (/\/reviews\?/.test(route)) return [];
+      if (/\/(?:reviews|timeline)\?/.test(route)) return [];
       if (/\/events\?/.test(route)) return [];
       return { ...eventPR, changed_files: 1 };
     };
     const m = await collectMetadata({ get, repo: REPO, number: 1, eventPR });
     assert.deepEqual(m.files, [{ filename: "docs/a.md", previous_filename: undefined }]);
-    assert.equal(m.pr.body, BODY); assert.equal(calls.length, 7);
+    assert.equal(m.pr.body, BODY); assert.equal(calls.length, 9);
   });
   it("文件未取全、PR已push时明确失败", async () => {
     await assert.rejects(collectMetadata({ get: async () => ({ head: { sha: "b".repeat(40) } }), repo: REPO, number: 1, eventPR }), /PR_CHANGED/);
-    const get = async (r) => /files\?/.test(r) ? [] : r.endsWith("requested_reviewers") ? { users: [] } : /(?:reviews|events)\?/.test(r) ? [] : { ...eventPR, changed_files: 2 };
+    const get = async (r) => /files\?/.test(r) ? [] : r.endsWith("requested_reviewers") ? { users: [] } : /(?:reviews|events|timeline)\?/.test(r) ? [] : { ...eventPR, changed_files: 2 };
     await assert.rejects(collectMetadata({ get, repo: REPO, number: 1, eventPR }), /API_INCOMPLETE/);
     await assert.rejects(collectMetadata({ get: async () => ({ ...eventPR, draft: false }), repo: REPO, number: 1, eventPR: { ...eventPR, draft: true } }), /PR_CHANGED/);
   });
@@ -165,7 +165,7 @@ describe("只读API及工作流安全", () => {
     const get = async (r) => {
       if (/files\?/.test(r)) return [];
       if (r.endsWith("requested_reviewers")) return { users: [] };
-      if (/reviews\?/.test(r)) return [];
+      if (/(?:reviews|timeline)\?/.test(r)) return [];
       if (/events\?/.test(r)) return ++reads === 1 ? [] : [{ id: 2, event: "labeled", actor: { login: "BB" }, label: { name: EXCEPTION_LABEL } }];
       return { ...eventPR, changed_files: 0 };
     };
@@ -181,6 +181,7 @@ describe("只读API及工作流安全", () => {
       if (route.includes("/files?")) return [];
       if (route.endsWith("requested_reviewers")) return { users: requested };
       if (route.includes("/reviews?")) return reviewRows;
+      if (route.includes("/timeline?")) return [{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}];
       if (route.includes("/events?")) return events;
       return { ...current, changed_files: 0 };
     } });
@@ -190,7 +191,7 @@ describe("只读API及工作流安全", () => {
       fs.writeFileSync(event, JSON.stringify({ pull_request: current })); assert.equal(await main(env), 1);
       current = { ...eventPR, body: BODY + "\nSOP 例外：测试 — 暂时人工核验 — 证据：c1c25e38", labels: [{ name: EXCEPTION_LABEL }] };
       fs.writeFileSync(event, JSON.stringify({ pull_request: current })); assert.equal(await main(env), 1);
-      events = [{ id: 1, event: "labeled", actor: { login: "GoodNightOppie" }, label: { name: EXCEPTION_LABEL } }];
+      events = [{ id: 1, created_at:"2026-11-07T00:02:00Z", event: "labeled", actor: { login: "GoodNightOppie" }, label: { name: EXCEPTION_LABEL } }];
       assert.equal(await main(env), 0);
       current = { ...eventPR, body: BODY };
       requested = []; reviewRows = [{ user: { login: "GoodNightOppie" }, commit_id: "b".repeat(40), submitted_at: "2026-11-07T00:00:00Z" }];
@@ -227,4 +228,36 @@ describe("Deja追加的七项独立阻断回归", () => {
   it("例外格式对但没有标签仍等QQ",()=>assert.equal(run(body).status,"needs_qq"));
   it("标签由非GoodNightOppie添加仍等QQ",()=>assert.equal(run(body,{pr:{body,labels:[{name:EXCEPTION_LABEL}],reviewRequests:[{login:"GoodNightOppie"}]},labelEvents:[{id:1,event:"labeled",actor:{login:"BB"},label:{name:EXCEPTION_LABEL}}]}).status,"needs_qq"));
   it("材料齐全无例外通过",()=>assert.equal(run().status,"passed"));
+});
+
+describe("例外标签绑定当前head的正负控", () => {
+  const head="a".repeat(40), other="b".repeat(40);
+  const pr={headRefOid:head,labels:[{name:EXCEPTION_LABEL}]};
+  const move=(sha=head,time="2026-11-07T00:01:00Z")=>({event:"head_ref_force_pushed",commit_id:sha,created_at:time});
+  const label=(time="2026-11-07T00:02:00Z",actor="GoodNightOppie")=>({id:1,event:"labeled",created_at:time,actor:{login:actor},label:{name:EXCEPTION_LABEL}});
+  it("QQ在当前head进入之后加标签才有效",()=>assert.equal(exceptionVerified(pr,[label()],[move()]),true));
+  it("先加标签再推新head无效",()=>assert.equal(exceptionVerified(pr,[label("2026-11-07T00:00:00Z")],[move()]),false));
+  it("同秒不是晚于，不放行",()=>assert.equal(exceptionVerified(pr,[label("2026-11-07T00:01:00Z")],[move()]),false));
+  it("有QQ标签但没有可靠timeline时间仍失败",()=>{for(const timeline of [undefined,[],[{event:"committed",sha:head,committer:{date:"2026-11-07T00:01:00Z"}}]])assert.equal(exceptionVerified(pr,[label()],timeline),false);});
+  it("最新强推事件是别的head不能沿用早前匹配事件",()=>assert.equal(exceptionVerified(pr,[label()],[move(),move(other)]),false));
+  it("推新head后QQ重新加标签有效，移除或他人重加无效",()=>{
+    const old=label("2026-11-07T00:00:00Z"), remove={...label(),id:2,event:"unlabeled"}, again={...label(),id:3};
+    assert.equal(exceptionVerified(pr,[old,remove,again],[move()]),true);
+    assert.equal(exceptionVerified(pr,[old,remove],[move()]),false);
+    assert.equal(exceptionVerified(pr,[old,remove,{...again,actor:{login:"BB"}}],[move()]),false);
+  });
+  it("缺失/非法/未来事件时间与不完整head从严失败",()=>{
+    for(const time of [undefined,"bad","2099-01-01T00:00:00Z"])assert.equal(exceptionVerified(pr,[{...label(),created_at:time}],[{...move(),created_at:time}]),false);
+    assert.equal(headEnteredAt({...pr,headRefOid:"abcd"},[move()]),null);
+  });
+  it("正文不绑定，但job摘要保留人工核验提醒",()=>{
+    assert.equal(exceptionVerified({...pr,body:"例外行文字被修改"},[label()],[move()]),true);
+    assert.match(fs.readFileSync(new URL("run.mjs",import.meta.url),"utf8"),/例外内容以 QQ 加标签时的正文为准，改了例外行请重新请 QQ 核验/);
+  });
+  it("timeline前后不一致、或API缺失均不能完成检查",async()=>{
+    const e={number:1,head:{sha:head},body:BODY,user:{login:"EdwardTang"}};let reads=0;
+    const get=async route=>{if(route.includes('/timeline?'))return ++reads===1?[move()]:[move(other)];if(route.includes('/files?')||route.includes('/reviews?')||route.includes('/events?'))return [];if(route.endsWith('/requested_reviewers'))return {users:[]};return {...e,changed_files:0};};
+    await assert.rejects(collectMetadata({get,repo:REPO,number:1,eventPR:e}),/TIMELINE_CHANGED/);
+    await assert.rejects(collectMetadata({get:async route=>route.includes('/timeline?')?{}:get(route),repo:REPO,number:1,eventPR:e}),/API_SHAPE/);
+  });
 });

@@ -98,16 +98,33 @@ export function classifyFiles(files, profile) {
 }
 
 export const EXCEPTION_LABEL = "sop-exception-verified";
-export function exceptionVerified(pr, events) {
+// Commit author/committer dates are author-controlled, not PR arrival times.
+// Only an explicit timeline event timestamp can establish a head boundary.
+export function headEnteredAt(pr, timeline) {
+  if (!/^[a-f0-9]{40}$/.test(pr.headRefOid || "") || !Array.isArray(timeline)) return null;
+  const moves = timeline.filter(e => ["committed", "head_ref_force_pushed"].includes(e.event));
+  const last = moves.at(-1);
+  if (!last) return null;
+  const sha = last.event === "committed" ? last.sha : last.commit_id;
+  const time = eventTime(last.created_at);
+  return sha === pr.headRefOid && time !== null ? time : null;
+}
+function eventTime(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(value)) return null;
+  const n = Date.parse(value);
+  return Number.isFinite(n) && n <= Date.now() ? n : null;
+}
+export function exceptionVerified(pr, events, timeline) {
   if (!(pr.labels || []).some((label) => (typeof label === "string" ? label : label?.name) === EXCEPTION_LABEL) || !Array.isArray(events)) return false;
   const changes = events.filter((e) => ["labeled", "unlabeled"].includes(e.event) && e.label?.name === EXCEPTION_LABEL);
   if (!changes.length || changes.some((e) => !/^\d+$/.test(String(e.id)) || !e.actor?.login)) return false;
   changes.sort((a, b) => BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0);
   const last = changes.at(-1);
-  return last.event === "labeled" && last.actor.login === "GoodNightOppie";
+  const entered = headEnteredAt(pr, timeline), labeled = eventTime(last.created_at);
+  return last.event === "labeled" && last.actor.login === "GoodNightOppie" && entered !== null && labeled !== null && labeled > entered;
 }
 
-export function checkPR({ pr, files, repo, policy, teammates, labelEvents }) {
+export function checkPR({ pr, files, repo, policy, teammates, labelEvents, timeline }) {
   if (pr.isDraft) return { status: "skipped", issues: [], exceptions: [], owner: { state: "skipped" } };
   const issues = [], exception = exceptionsOf(pr.body);
   const notice = policy?.allowReviewHistory ? reviewerNotice(pr, policy.reviewer) : null;
@@ -136,11 +153,11 @@ export function checkPR({ pr, files, repo, policy, teammates, labelEvents }) {
       add("outbound", "改了联网或外发文件，请补外发：内容：…；接收方：…；能否关闭：…");
     }
   }
-  const verified = exception.valid.length > 0 && exceptionVerified(pr, labelEvents);
+  const verified = exception.valid.length > 0 && exceptionVerified(pr, labelEvents, timeline);
   return { status: issues.length ? "failed" : exception.valid.length && !verified ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, owner, categories };
 }
 
 export function formatReport(result) {
   const label = { passed: "模板检查通过（不代替审查批准）", skipped: "Draft：跳过送审模板检查", failed: "模板检查需补齐", needs_qq: "需要 QQ 核验：仅确认例外格式，机器未证明例外成立" }[result.status];
-  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对标签由GoodNightOppie添加；不等于正式批准" : "等 QQ 核验：请GoodNightOppie添加sop-exception-verified标签后重跑"}`)].join("\n");
+  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对QQ标签晚于当前head进入PR；不等于正式批准" : "等 QQ 重新核验：需可靠的当前head进入PR时间，及此后由GoodNightOppie重新添加的sop-exception-verified标签"}`)].join("\n");
 }

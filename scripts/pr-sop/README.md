@@ -12,7 +12,7 @@
 
 格式错失败。格式正确也先失败并提示「等 QQ 核验」。只有当前存在sop-exception-verified标签，且完整issue events里最后一次相关增删记录为GoodNightOppie添加，例外项才放行。他人重加、标签已移除、事件不全不放行。标签不能豁免其他缺项或API错误。
 
-限制：标签事件不记录添加当时正文和完整head，不是当前head的正式批准；本程序不宣称证明QQ核验了新版本的具体材料。QQ须在例外材料变化后重新核验；自动版本绑定的进一步规则待Deja/QQ裁决，不以updatedAt假装版本证据。
+标签必须由GoodNightOppie最后添加，且当前仍存在，添加事件时间严格晚于当前head进入PR的可靠timeline事件时间。只看timeline最后一条committed/head_ref_force_pushed；完整SHA不匹配、缺事件时间或API不完整均等QQ重新核验。committer/author date不是进入PR时间，不能代用，普通REST committed记录常缺事件时间，故从严失败。推新head须QQ重新加标签。正文不自动绑定：例外内容以 QQ 加标签时的正文为准，改了例外行请重新请 QQ 核验。此提醒会进入job摘要，人工把关不代表正式批准。
 
 ## 安全、权限与生效
 

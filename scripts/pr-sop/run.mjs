@@ -25,11 +25,13 @@ export async function collectMetadata({ get, repo, number, eventPR }) {
     throw Error("API_INCOMPLETE");
   }
   const issue = `/repos/${repo}/issues/${number}`;
-  const [fileRows, requested, reviews, labelEvents] = await Promise.all([pages("files"), get(`${prefix}/requested_reviewers`), pages("reviews"), pages("events", issue)]);
+  const [fileRows, requested, reviews, labelEvents, timeline] = await Promise.all([pages("files"), get(`${prefix}/requested_reviewers`), pages("reviews"), pages("events", issue), pages("timeline", issue)]);
   if (fileRows.length !== first.changed_files) throw Error("API_INCOMPLETE");
-  const finalEvents = await pages("events", issue);
-  const fingerprint = (events) => JSON.stringify(events.filter((e) => ["labeled", "unlabeled"].includes(e.event) && e.label?.name === EXCEPTION_LABEL).map((e) => [e.id, e.event, e.actor?.login]));
+  const [finalEvents, finalTimeline] = await Promise.all([pages("events", issue), pages("timeline", issue)]);
+  const fingerprint = (events) => JSON.stringify(events.filter((e) => ["labeled", "unlabeled"].includes(e.event) && e.label?.name === EXCEPTION_LABEL).map((e) => [e.id, e.event, e.actor?.login, e.created_at]));
   if (fingerprint(labelEvents) !== fingerprint(finalEvents)) throw Error("LABEL_CHANGED");
+  const headFingerprint = rows => JSON.stringify(rows.filter(e => ["committed", "head_ref_force_pushed"].includes(e.event)).map(e => [e.event, e.sha, e.commit_id, e.created_at]));
+  if (headFingerprint(timeline) !== headFingerprint(finalTimeline)) throw Error("TIMELINE_CHANGED");
   const last = await get(prefix);
   if (!same(last, first)) throw Error("PR_CHANGED");
   if (!Array.isArray(requested.users)) throw Error("API_SHAPE");
@@ -37,6 +39,7 @@ export async function collectMetadata({ get, repo, number, eventPR }) {
     pr: { body: eventPR.body || "", isDraft: !!eventPR.draft, headRefOid: eventPR.head.sha, author: { login: eventPR.user?.login },
       labels: first.labels || [], reviewRequests: requested.users.map((u) => ({ login: u.login })), reviews: reviews.map((r) => ({ author: { login: r.user?.login }, commit: { oid: r.commit_id }, submittedAt: r.submitted_at })) },
     labelEvents,
+    timeline: timeline.filter(e => ["committed", "head_ref_force_pushed"].includes(e.event)).map(e => ({event:e.event,sha:e.sha,commit_id:e.commit_id,created_at:e.created_at})),
     files: fileRows.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename }))
   };
 }
@@ -57,7 +60,7 @@ export async function main(env = process.env) {
   console.log(text); // only fixed messages; never PR body, token, exception reasons or URLs
   for (const warning of result.warnings || []) console.log(`::notice::${warning.message}`);
   const fingerprints = ["rules.mjs", "policy.json", "teammates.json"].map((name) => `${name}: ${createHash("sha256").update(fs.readFileSync(new URL(name, import.meta.url))).digest("hex")}`).join("\n");
-  if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## sop-pr-lint\n\n${text}\n\nHead: ${pr.head.sha}\n\n\`\`\`text\n${fingerprints}\n\`\`\`\n例外须QQ标签核验；此结果不等于正式批准。\n`);
+  if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## sop-pr-lint\n\n${text}\n\nHead: ${pr.head.sha}\n\n\`\`\`text\n${fingerprints}\n\`\`\`\n例外须QQ标签核验；此结果不等于正式批准。\n例外内容以 QQ 加标签时的正文为准，改了例外行请重新请 QQ 核验。\n`);
   if (!["passed", "skipped"].includes(result.status)) {
     console.log("::warning::PR送审信息需补齐或需要QQ核验，请查看本步骤摘要。");
     return 1;

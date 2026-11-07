@@ -31,3 +31,11 @@
 两仓规则/runner/分类表逐字节一致，见scripts/pr-sop/SHA256SUMS。规则回归37/37；联网扫描回归9/9；合计46/46。扫描固定main全SHA，只读blob不执行。MontClip main 542脚本，排除39份docs/demo副本，扫描503份，80份潜在联网接口均已分类；Cindy main 23脚本，7份潜在接口均已分类。README恢复原始基线；文档改在AGENTS Review handoff及开发流程ADR第5条。
 
 MontClip npm test 1995项：1848通过、15失败、132跳过；15项失败名称与先前同分支干净基线完全一致。Cindy npm test 27/27通过。没跑：真人媒体、人工GUI和音画同步验收，本轮没有修改产品执行路径。实际PR正负控CI及只读缺项审计随送审包附上；本文件不冒称尚未完成的CI通过。
+
+
+## 标签绑定head增量
+
+按Deja裁决：核验GoodNightOppie加标签执行人、之后未移除、created_at严格晚于当前完整head可靠timeline事件时间。缺可靠时间失败，禁止把Git提交时间/PR updatedAt当进入时间。正文不绑定，摘要提示人工重新核验例外行。GitHub官方committed字段无created_at，当前真实#200/#21无强推记录，不能以提交时间给例外放行。普通无例外PR不受此限制。
+真源：https://docs.github.com/en/rest/using-the-rest-api/issue-event-types#committed
+
+标签绑定本轮：规则46/46，联网覆盖9/9，两仓各55/55通过；督查共享适配5/5。全库媒体证据沿用上轮70a40253/444abc9c，不冒称在新head重新执行。只改标签元数据路径，相关增量回归已执行。
