@@ -1,6 +1,6 @@
 'use strict';
 // The README, the docs home and the docs/start page say only what JJ's copy says
-// (test/fixtures/montclip-public-copy-v1.md), word for word, in Chinese and English.
+// (test/fixtures/montclip-public-copy-v2.md), word for word, in Chinese and English.
 // Rule 7 of that copy: the optional AI assistant is a verified ability only once PR #26
 // (desktop/agent-service.js) is on this branch; until then it sits under "Planned".
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');

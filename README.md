@@ -6,21 +6,19 @@ Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT)
 
 [简体中文](docs/i18n/README.zh-CN.md)
 
-<!-- README visuals (draft for PR review). Every TBD below is copy that JJ writes; Rea checks it word for word. -->
-<!-- Video: link added only after Deja approves publishing the Release asset. Until then the cover is not a link. -->
 <p align="center">
-  <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="TBD (JJ): demo cover alt text">
-  <br><sub>TBD (JJ): demo caption · video pending release</sub>
+  <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="One frame from the MontClip demo: on the left, the original picture of a synthetic live room; on the right, the MontClip export after cropping, zooming in and hiding one area. The footage is synthetic, not a real recording.">
+  <br><sub>Demo (22 seconds, synthetic footage, not a real recording). Video pending release.</sub>
 </p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="TBD (JJ): diagram 1 alt text">
+  <img src="docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="Diagram (for developers): an agent that controls MontClip through the MCP interface reads a text summary of the project first, and asks for a few frames only when it is unsure. Those frames are returned to that agent.">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="TBD (JJ): diagram 2 alt text">
+  <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="Diagram (current version): how an imported FLV recording is checked. MontClip looks at the streams, then scans the readable range; if a gap is longer than 5 ms it refuses and explains why; with no gap and compatible streams it remuxes, otherwise it transcodes only with your explicit consent; the output is then checked.">
 </picture>
 
 ## What MontClip is

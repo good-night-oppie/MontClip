@@ -6,21 +6,19 @@
 
 [English](../../README.md)
 
-<!-- README visuals (draft for PR review). Every TBD below is copy that JJ writes; Rea checks it word for word. -->
-<!-- Video: link added only after Deja approves publishing the Release asset. Until then the cover is not a link. -->
 <p align="center">
-  <img src="../../docs/assets/demo/readme-demo-cover.png" width="720" alt="TBD (JJ): demo cover alt text">
-  <br><sub>TBD (JJ): demo caption · video pending release</sub>
+  <img src="../../docs/assets/demo/readme-demo-cover.png" width="720" alt="MontClip 演示片的一帧：左边是合成直播间的原画，右边是 MontClip 裁切、放大并遮住一块区域后的导出画面。画面是合成的，不是真实录像。">
+  <br><sub>演示片（22 秒，合成素材，不是真实录像）。视频待发布。</sub>
 </p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="../../docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="TBD (JJ): diagram 1 alt text">
+  <img src="../../docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="示意图（给开发者看）：通过 MCP 接口控制 MontClip 的智能体，先读项目的文字摘要，只有拿不准时才请求几张画面；这些画面会返回给它。">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="../../docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="TBD (JJ): diagram 2 alt text">
+  <img src="../../docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="示意图（当前版本）：导入 FLV 录像时的检查流程。先看有哪些流，再扫描能读的范围；断点超过 5 毫秒就拒绝并说明原因；没有断点、流也兼容就直接重新封装，否则只在你明确同意后才转码；最后检查输出。">
 </picture>
 
 ## MontClip 是什么
