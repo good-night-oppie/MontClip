@@ -81,7 +81,8 @@ test("the strings: Cindy's own for zh-CN and en, at 43001ea, the same keys in bo
   assert.deepEqual(keys(own['zh-CN']).sort(), keys(own.en).sort());
   // the mode switch words, and the two words the build puts in ThinkingCard's JSX (PATCHES)
   assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.') || ['chat.thinking.inProgress', 'chat.thinking.hidden', 'chat.thinking.completed', 'chat.thinking.aborted', 'chat.workGroup.worked'].includes(k)), 'MontClip replaces only the mode switch words here');
-  assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, 'Yolo');
+  assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, '全自动');
+  assert.equal(own.en.newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, 'Full auto');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].ask.label, '手动');
 });
 
@@ -106,7 +107,7 @@ test("the mode capsule says each mode in JJ's final words (c604fd65 MODES): word
   assert.equal(desc('en', 'auto'), "Does what can be undone; asks before what can't.");
   assert.equal(desc('en', 'bypassPermissions'), "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
   // the Yolo bar is its own sentence, unchanged
-  assert.equal(View.text['zh-CN'].officialPane_yoloOn, 'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
+  assert.equal(View.text['zh-CN'].officialPane_yoloOn, '全自动开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
   // the old wording is gone
   assert.ok(!JSON.stringify(own).includes('全都直接做'));
 });

@@ -18,7 +18,7 @@
   "use strict";
   const MODES = Object.freeze(["plan", "manual", "auto", "yolo"]);
   const DEFAULT_MODE = "manual";
-  const NAMES = Object.freeze({ "zh-CN": { plan: "计划", manual: "手动", auto: "自动", yolo: "Yolo" }, en: { plan: "Plan", manual: "Manual", auto: "Auto", yolo: "Yolo" } });
+  const NAMES = Object.freeze({ "zh-CN": { plan: "计划", manual: "手动", auto: "自动", yolo: "全自动" }, en: { plan: "Plan", manual: "Manual", auto: "Auto", yolo: "Full auto" } });
   // read-only steps 手动 runs without asking (only looking at the project's own summary); the rest ask the first time
   const DEFAULT_WHITELIST = Object.freeze(["fablecut_status", "fablecut_docs", "fablecut_get_project", "fablecut_encode_profiles"]);
   const ALL = Object.freeze(["once", "session", "deny"]), EVERY_TIME = Object.freeze(["once", "deny"]);

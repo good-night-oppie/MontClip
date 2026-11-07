@@ -1,0 +1,168 @@
+{
+  "utc": "2026-11-05T08:53:16.719372+00:00",
+  "assets": [
+    {
+      "path": "diagrams/symbolic-perception-arch-dark.svg",
+      "model_requested": "anthropic/claude-opus-5.5",
+      "model_returned": "anthropic/claude-opus-5.5",
+      "request_id": "gen-1793868492-r0Gp1ZQgMI6CQUqfeKyR",
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "prompt": "Precision Cinema Engineering. Flat, sharp geometric industrial editorial design, generous whitespace, crisp typography, no robots, no 3D, no neon cyberpunk, no gradients. Accent colors #3B82F6 timeline blue, #F59E0B crop amber, #EF4444 privacy red. Use real editable SVG text, system sans-serif fonts, large readable labels, not outlined text. No scripts, animation, external fonts, images, href, foreignObject, CSS imports, links or embedded base64. All text must fit. Output ONLY one complete SVG, no Markdown fences. SVG namespace http://www.w3.org/2000/svg. Do not invent performance numbers, repair success, independent AST APIs, dedicated zoom-in tools or zero-drift guarantees. Canvas viewBox=\"0 0 1280 720\"; width=1280 height=720. Theme dark: background #090D16, foreground #F8FAFC. Title: Inspect first. Request images when needed. Show Agent <-> MCP state inspection <-> Symbolic timeline, then branching only on visual uncertainty to Contact sheet and Selected source frame. Exact API labels: fablecut_get_project {compact:true}, fablecut_patch_project, fablecut_frame {path,frames,from,to}, fablecut_frame {path,t}. Arrows return visual results to Agent. Bottom compare two workflows: Full-frame sampling: image evidence throughout; MontClip workflow: state summary, then selected images. Add: No token or latency benchmark claimed. Local FFmpeg and browser compositor; external AI service is optional. Do not imply semantic recognition happens locally. Never use url(), marker, filter, gradient, pattern, style attributes or style elements; draw arrowheads as small polygon elements and use only plain fill/stroke attributes.",
+      "sha256": "09c9f76bb0cc5c279fefff30b1207260eaa00e5c3bfa4bddce32b49266fb97e6",
+      "usage": {
+        "prompt_tokens": 632,
+        "completion_tokens": 8544,
+        "total_tokens": 9176,
+        "cost": 0.173408,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.173408,
+          "upstream_inference_prompt_cost": 0.002528,
+          "upstream_inference_completions_cost": 0.17088
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 3958,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "validated": "SVG element/attribute allowlist (generate-assets.py validate_svg) re-run after editing; visual review by GG",
+      "generated_sha256": "4511924da0476f1021a9437ddbd0a4dc7ca98483e09611ff7169a984c78e091c",
+      "hand_edited": {
+        "date": "2026-11-07",
+        "by": "GG",
+        "what": "Subtitle text \"Precision Cinema Engineering · state inspection before visual evidence\" replaced by \"State first, images on demand\" (JJ final copy, PR #187 issuecomment-6699283246). Nothing else changed; the prompt above is the original generation record and is kept as is.",
+        "reviewed_by": "JJ (copy)"
+      }
+    },
+    {
+      "path": "diagrams/symbolic-perception-arch-light.svg",
+      "model_requested": "anthropic/claude-opus-5.5",
+      "model_returned": "anthropic/claude-opus-5.5",
+      "request_id": "gen-1793868569-xbNnLODFxPHKuRXl7MuT",
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "prompt": "Precision Cinema Engineering. Flat, sharp geometric industrial editorial design, generous whitespace, crisp typography, no robots, no 3D, no neon cyberpunk, no gradients. Accent colors #3B82F6 timeline blue, #F59E0B crop amber, #EF4444 privacy red. Use real editable SVG text, system sans-serif fonts, large readable labels, not outlined text. No scripts, animation, external fonts, images, href, foreignObject, CSS imports, links or embedded base64. All text must fit. Output ONLY one complete SVG, no Markdown fences. SVG namespace http://www.w3.org/2000/svg. Do not invent performance numbers, repair success, independent AST APIs, dedicated zoom-in tools or zero-drift guarantees. Canvas viewBox=\"0 0 1280 720\"; width=1280 height=720. Theme light: background #F8FAFC, foreground #090D16. Title: Inspect first. Request images when needed. Show Agent <-> MCP state inspection <-> Symbolic timeline, then branching only on visual uncertainty to Contact sheet and Selected source frame. Exact API labels: fablecut_get_project {compact:true}, fablecut_patch_project, fablecut_frame {path,frames,from,to}, fablecut_frame {path,t}. Arrows return visual results to Agent. Bottom compare two workflows: Full-frame sampling: image evidence throughout; MontClip workflow: state summary, then selected images. Add: No token or latency benchmark claimed. Local FFmpeg and browser compositor; external AI service is optional. Do not imply semantic recognition happens locally. Never use url(), marker, filter, gradient, pattern, style attributes or style elements; draw arrowheads as small polygon elements and use only plain fill/stroke attributes.",
+      "sha256": "613569b81280c54a0b0b43a72ecbc687c6a23806cfd6fa96e25e865437bbfdbb",
+      "usage": {
+        "prompt_tokens": 631,
+        "completion_tokens": 8596,
+        "total_tokens": 9227,
+        "cost": 0.174444,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.174444,
+          "upstream_inference_prompt_cost": 0.002524,
+          "upstream_inference_completions_cost": 0.17192
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2724,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "validated": "SVG element/attribute allowlist (generate-assets.py validate_svg) re-run after editing; visual review by GG",
+      "generated_sha256": "84f9e570ba382b8749fadd92042bccef587d48134fbbe779ed48a31b2c3e6004",
+      "hand_edited": {
+        "date": "2026-11-07",
+        "by": "GG",
+        "what": "Subtitle text \"Read project state as data; render frames only when the agent is visually uncertain.\" replaced by \"State first, images on demand\" (JJ final copy, PR #187 issuecomment-6699283246). Nothing else changed; the prompt above is the original generation record and is kept as is.",
+        "reviewed_by": "JJ (copy)"
+      }
+    },
+    {
+      "path": "diagrams/flv-input-checks-dark.svg",
+      "model_requested": "anthropic/claude-opus-5.5",
+      "model_returned": "anthropic/claude-opus-5.5",
+      "request_id": "gen-1793868638-rsMbAofTqrcXqOpYrXrO",
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "prompt": "Precision Cinema Engineering. Flat, sharp geometric industrial editorial design, generous whitespace, crisp typography, no robots, no 3D, no neon cyberpunk, no gradients. Accent colors #3B82F6 timeline blue, #F59E0B crop amber, #EF4444 privacy red. Use real editable SVG text, system sans-serif fonts, large readable labels, not outlined text. No scripts, animation, external fonts, images, href, foreignObject, CSS imports, links or embedded base64. All text must fit. Output ONLY one complete SVG, no Markdown fences. SVG namespace http://www.w3.org/2000/svg. Do not invent performance numbers, repair success, independent AST APIs, dedicated zoom-in tools or zero-drift guarantees. Canvas viewBox=\"0 0 1280 720\"; width=1280 height=720. Theme dark: background #090D16, foreground #F8FAFC. Title: Input checks today. Source-space redaction proposed. Left half CURRENT IMPLEMENTATION: Recording -> Probe streams -> Scan readable range -> decision: gaps above 5ms? Yes: reject with explanation. No: compatible stream remux, otherwise explicitly consented transcode -> Inspect output. Small note: genpts occurs in export mux, not damaged-input repair. Right half PROPOSED, NOT IMPLEMENTED: source frame rectangle with top-left (0,0) bottom-right (1,1), red sensitive rectangle -> source-space redaction before crop/zoom -> rendered coverage tests required. Add current limitation: existing masks use the fitted/cropped picture. No repair success badge, no claim that proposed redaction works today. Never use url(), marker, filter, gradient, pattern, style attributes or style elements; draw arrowheads as small polygon elements and use only plain fill/stroke attributes.",
+      "usage": {
+        "prompt_tokens": 651,
+        "completion_tokens": 5189,
+        "total_tokens": 5840,
+        "cost": 0.106384,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.106384,
+          "upstream_inference_prompt_cost": 0.002604,
+          "upstream_inference_completions_cost": 0.10378
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2062,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "validated": "SVG element/attribute allowlist re-run after editing; visual review by GG and JJ",
+      "generated_as": "diagrams/repair-and-redaction-pipeline-dark.svg",
+      "generated_sha256": "84c53098d588a62a31c4a06906f58f1a34cc7f5504c1b673f24216f0dcd62b84",
+      "sha256": "2f01a9151fe91a06b5b32d2e70d89dae90d99f9c79decf78ec17a8ee1c386c75",
+      "hand_edited": {
+        "date": "2026-11-05",
+        "by": "GG",
+        "what": "Kept only the CURRENT IMPLEMENTATION half; retitled; notes rechecked against d51b27a (prepare-media.js:76, make-editable.js:148).",
+        "reviewed_by": "JJ (copy and claims)"
+      }
+    },
+    {
+      "path": "diagrams/flv-input-checks-light.svg",
+      "model_requested": "anthropic/claude-opus-5.5",
+      "model_returned": "anthropic/claude-opus-5.5",
+      "request_id": "gen-1793868682-ZEnKySpXrqyaP0XMNpu4",
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "prompt": "Precision Cinema Engineering. Flat, sharp geometric industrial editorial design, generous whitespace, crisp typography, no robots, no 3D, no neon cyberpunk, no gradients. Accent colors #3B82F6 timeline blue, #F59E0B crop amber, #EF4444 privacy red. Use real editable SVG text, system sans-serif fonts, large readable labels, not outlined text. No scripts, animation, external fonts, images, href, foreignObject, CSS imports, links or embedded base64. All text must fit. Output ONLY one complete SVG, no Markdown fences. SVG namespace http://www.w3.org/2000/svg. Do not invent performance numbers, repair success, independent AST APIs, dedicated zoom-in tools or zero-drift guarantees. Canvas viewBox=\"0 0 1280 720\"; width=1280 height=720. Theme light: background #F8FAFC, foreground #090D16. Title: Input checks today. Source-space redaction proposed. Left half CURRENT IMPLEMENTATION: Recording -> Probe streams -> Scan readable range -> decision: gaps above 5ms? Yes: reject with explanation. No: compatible stream remux, otherwise explicitly consented transcode -> Inspect output. Small note: genpts occurs in export mux, not damaged-input repair. Right half PROPOSED, NOT IMPLEMENTED: source frame rectangle with top-left (0,0) bottom-right (1,1), red sensitive rectangle -> source-space redaction before crop/zoom -> rendered coverage tests required. Add current limitation: existing masks use the fitted/cropped picture. No repair success badge, no claim that proposed redaction works today. Never use url(), marker, filter, gradient, pattern, style attributes or style elements; draw arrowheads as small polygon elements and use only plain fill/stroke attributes.",
+      "usage": {
+        "prompt_tokens": 650,
+        "completion_tokens": 5819,
+        "total_tokens": 6469,
+        "cost": 0.11898,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.11898,
+          "upstream_inference_prompt_cost": 0.0026,
+          "upstream_inference_completions_cost": 0.11638
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1881,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "validated": "SVG element/attribute allowlist re-run after editing; visual review by GG and JJ",
+      "generated_as": "diagrams/repair-and-redaction-pipeline-light.svg",
+      "generated_sha256": "e04aa95fd0be29441eda15526315e5936133af6b30756667b523afa4f1d3d61b",
+      "sha256": "d88f00cc08b63253a66e944a240524e4de7f56430f20e8eac2638f5a02ffcd51",
+      "hand_edited": {
+        "date": "2026-11-05",
+        "by": "GG",
+        "what": "Kept only the CURRENT IMPLEMENTATION half; retitled; notes rechecked against d51b27a (prepare-media.js:76, make-editable.js:148).",
+        "reviewed_by": "JJ (copy and claims)"
+      }
+    }
+  ],
+  "note": "Only files committed in docs/assets are listed. Hand-edited files keep the original generation record (generated_as, generated_sha256) plus what was changed. Banners and the social card are under VV's visual review and not in the repository yet."
+}

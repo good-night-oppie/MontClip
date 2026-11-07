@@ -55,7 +55,11 @@ test('JJ v2, word for word: the rows this PR owns', () => {
     'This didn\'t finish because of a problem we didn\'t expect. The original is unchanged. Try again; if it still fails, use "Copy problem details" and send it to us.'];
   for (const e of [{ code: 'SOMETHING_NEW' }, new Error("Unknown encoder 'libx264'"), 'boom', null, { code: 'FLV_PREPARATION_FAILED' }])
     a.deepEqual([V.errorText('zh-CN', e).text, V.errorText('en', e).text], other, String(e && (e.code || e.message || e)));
-  a.deepEqual([V.flvImportMessage('zh-CN', 'FLV_PREPARATION_FAILED'), V.flvImportMessage('en', 'FLV_PREPARATION_FAILED')], other, 'never 「先把它转成 MP4」');
+  // an FLV that didn't import keeps main's sentence: it is said in a dialog with no 〔复制问题信息〕, so not the last row,
+  // which sends her to that button (Deja on #129)
+  const flvFailed = ['这个 FLV 没导进来：MontClip 处理这个文件时出了问题。原片没有改动。再试一次。',
+    'This FLV was not imported: something went wrong while MontClip was handling it. The original is unchanged. Try again.'];
+  a.deepEqual([V.flvImportMessage('zh-CN', 'FLV_PREPARATION_FAILED'), V.flvImportMessage('en', 'FLV_PREPARATION_FAILED')], flvFailed, 'never 「先把它转成 MP4」');
   // the copy button and its small print
   a.deepEqual([zh('btnCopyProblem'), en('btnCopyProblem')], ['复制问题信息', 'Copy problem details']);
   a.deepEqual([zh('copyProblemNote'), en('copyProblemNote')], ['复制的内容不含你的文件夹路径、密钥和观众信息。', "What's copied leaves out your folder paths, keys and viewer details."]);
@@ -246,7 +250,8 @@ test('the page: nothing raw on screen; the copy button with its small print; the
   a.match(queue, /MontClipView\.batchReason\(/);
   a.match(queue, /uiText\("btnRetryThis"\)/);
   const run = fnBody(app, 'async function runQueue(');
-  a.ok(!/Export queue: |alert\(/.test(run));
+  // the one alert is main's no-encoder precheck (#125), and it says h264Refuse, not a raw error
+  a.ok(!/Export queue: |alert\((?!refused\))/.test(run));
   a.match(run, /MontClipView\.exportResult\(/);
   a.match(run, /uiText\("btnCopyProblem"\)/);
   const done = fnBody(app, 'function autoDoneHtml(');
