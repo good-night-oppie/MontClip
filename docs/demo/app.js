@@ -20830,7 +20830,8 @@ async function runScopesJob(ticket, fail) {
         ...(c.props.blend && c.props.blend !== "normal" ? { blend: c.props.blend } : {}),
       };
     });
-    await reportExportJob(ticket.id, { status: "done", result: { time: +t.toFixed(3), frame: { w: Math.round(r.w), h: Math.round(r.h) }, stats, clips, matte, mask, image } }, true);
+    // imageSize: the still is the whole frame scaled to sw × sh — agents reading pixel positions off it need both sizes
+    await reportExportJob(ticket.id, { status: "done", result: { time: +t.toFixed(3), frame: { w: Math.round(r.w), h: Math.round(r.h) }, stats, clips, matte, mask, image, ...(image ? { imageSize: { w: sw, h: sh } } : {}) } }, true);
   } catch (err) {
     fail("could not measure the frame: " + (err && err.message || err));
   } finally {
