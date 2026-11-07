@@ -2,13 +2,14 @@
 
 Everything in this folder is synthetic: no real stream recordings, chat (danmaku), viewer or
 streamer names, and no credentials. The demo scripts draw a synthetic live room with a placeholder
-streamer and placeholder viewer names (观众A/B/C). Nothing here is referenced from the README yet; the
-diagrams are not meant for the README.
+streamer and placeholder viewer names (观众A/B/C). The README shows the two diagram pairs and the
+demo cover (decision by Deja, 2026-11-07; this replaces the earlier note that the diagrams were not meant for the README).
 
 | Files | How they were made |
 |---|---|
 | `diagrams/symbolic-perception-arch-{dark,light}.svg` | Written as SVG text by `anthropic/claude-opus-5.5` through the OpenRouter chat API with `scripts/readme-demo/generate-assets.py`, then one line edited by hand: the subtitle now reads "State first, images on demand" (JJ, 2026-11-07). |
 | `diagrams/flv-input-checks-{dark,light}.svg` | Generated the same way, then edited by hand: the "proposed" half was removed and the notes were checked against the code at d51b27a. |
+| `demo/readme-demo-cover.png` | One frame (t = 2.0 s) of the synthetic 22 s demo video built by `scripts/readme-demo/build.sh` at `cdc3aea1`; the video passed the six acceptance gates (`report.json` sha256 `e431ede66f27e9208b72001055881c3461324a3b22299e2c4d9fc27fce597cec`). The frame shows the synthetic / placeholder notices. |
 
 The four SVGs in `diagrams/` are released under the MIT License, the same license as this repository
 (see `LICENSE`), as decided by Deja on 2026-11-06 (recorded in the PR #187 discussion).
