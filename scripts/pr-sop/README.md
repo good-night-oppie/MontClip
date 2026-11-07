@@ -26,7 +26,9 @@ PR中格式：「SOP 例外：测试 — 原因 — 证据：<HTTPS链接或消�
 
 **主人本轮已选择「仅target，人工重跑」**，取代此前追加pull_request_review自动触发的要求。唯一PR检查入口为pull_request_target；不启用pull_request_review。该事件运行时GITHUB_SHA是PR最后merge commit、GITHUB_REF是refs/pull/N/merge，即使用PR可修改的工作流，会重新打开「PR改检查放行自己」的入口；QQ在当前head的CHANGES_REQUESTED也确认当前没有review触发是对的。QQ提交当前head的例外核验review后，人工重跑匹配当前完整head、正文及规则版本的最新可信target运行。若head、正文或可信规则版本已变，先触发新的target（例如编辑PR正文），不重用旧结果。
 
-人工操作：打开对应仓库Actions里的最新sop-pr-lint运行，核对完整head/规则哈希后选择Re-run jobs / Re-run all jobs。重跑沿用原运行SHA、ref及权限，需有仓库write权限的操作者执行；检查器本身仍只读，不增加actions:write。不能重跑旧pull_request运行冒充target。核验review发生后本程序每次都会重新从API读取review。
+同名伪造残余风险：PR可新增`on: pull_request`工作流，把job也取名sop-pr-lint并让它永远成功。当前防线是工作流/动作文件改动一律判needs_qq、QQ必审、按run核对event与head，不接受同名成功；根治为规则集「Require workflows to pass before merging」，能力核查与未决项见`docs/decisions/ADR-004-pr-sop-workflow-trust.md`。BB不改规则集。
+
+人工操作：QQ用GoodNightOppie执行`gh run rerun <run-id>`重跑最近一次sop-pr-lint；重跑前核对run的完整head、事件和规则哈希。也可在Actions页面选Re-run jobs / Re-run all jobs。重跑沿用原运行SHA、ref及权限，需有仓库write权限的操作者执行；检查器本身仍只读，不增加actions:write。不能重跑旧pull_request运行冒充target。核验review发生后本程序每次都会重新从API读取review。
 
 重跑语义来源：https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs
 
