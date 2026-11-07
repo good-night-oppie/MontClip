@@ -203,6 +203,19 @@ const TOOLS = [
     },
   },
   {
+    name: "fablecut_audio_track",
+    description: "A recording with several audio tracks (OBS can record up to six — e.g. the microphone, the game and the music each on its own): list them, cut a few seconds of each to play to the streamer, or pick the one that is the streamer's voice. It is the track the sound is analysed from — songs, loudness, the transcript and captions, beats, silences, highlights; the exported sound (and normalize / auto-duck, which work on it) always uses track 0, so picking the microphone never strips the game and music out of the video. The default is the first (track 0), which in an OBS recording is usually everything mixed together, so change it only when the streamer says her voice is on another track. {mediaId} lists the tracks (number, channels, the name OBS wrote) · {mediaId, listen: seconds} writes 6 s of each track from that point to analysis/listen/ · {mediaId, track} picks one (one undo step; the songs found from the old track are dropped — run fablecut_songs and fablecut_transcribe again). Numbers here start at 0; the editor shows them from 1 (its 「第 1 轨」 is track 0), so say 「第 N+1 轨」 to the streamer. The compact view shows it as audioTrack:N of [...].",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mediaId: { type: "string", description: "The recording (a video or audio media entry)" },
+        track: { type: "integer", minimum: 0, description: "The audio track that is the streamer's voice, 0 = the first" },
+        listen: { type: "number", minimum: 0, description: "Cut 6 s of each audio track from this many seconds in, to play" },
+      },
+      required: ["mediaId"],
+    },
+  },
+  {
     name: "fablecut_songs",
     description: "Find each song in a long recording (a livestream replay with singing between talk): where every song starts and ends, from the sound alone — no transcript, no model, nothing leaves the machine. Until song finding meets its accuracy gate (precision@15 ≥ 0.6 and recall@10 ≥ 0.6; it measures 0.12 and 0.38 now), when you talk to the streamer call what it finds 「可能在唱歌的段落」 (parts that are possibly singing): never 「第几首歌」 (song numbers), and never a song's name unless the streamer named it herself. ffmpeg reads the file's sound every 0.5 s in 5-minute segments; each segment is kept as it is read (analysis/songs/), so a call that stops part-way carries on from where it stopped next time. Singing holds its level, talk pauses between words: a stretch is singing when it rarely drops well below its own level. Each song is likely (「比较可能」, no spot was guessed — not a promise that it is right), or estimated (「估的」) with the spots that were guessed: split (two songs with no clear gap, split at the quietest one), merged (a break inside was bridged), edge (it runs to the start or end of the recording), unread (it runs into the part not read yet), limit. The songs are kept in the project (project.songs, one entry per file, file seconds) in one revision, and the reply lists them. Default files: every video / audio file with clips on the open timeline. Needs ffmpeg.",
     inputSchema: {

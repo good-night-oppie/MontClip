@@ -35,14 +35,15 @@ const { CLOCK_FILTER } = require("./audio-window");
  *  −105 ms when the picture starts late, and an FLV lost its first ~1.2 s of sound (Rea on #165). */
 const SEEK_MIN = 3;
 /** ffmpeg's arguments for 16 kHz mono PCM of `file` (all of it, or from…to) on the media's own clock.
+ *  track: which audio stream (-map 0:a:track); none: ffmpeg picks (transcribe always names one, #177).
  *  → {args, start}: start is the media time of the first sample (0, or `from` when it seeks). */
-function readArgs({ file, from = null, to = null, rate = RATE, channels = 1 } = {}) {
+function readArgs({ file, from = null, to = null, rate = RATE, channels = 1, track = null } = {}) {
   const f = from == null ? 0 : Math.max(0, +from || 0);
   const seek = from != null && f >= SEEK_MIN;
   const start = seek ? f : 0;
   const t = to == null ? null : Math.max(0, +to - start);
   return { start, args: ["-nostdin", "-v", "error", ...(seek ? ["-ss", String(f)] : []), "-i", file, ...(t != null ? ["-t", String(Math.round(t * 1e6) / 1e6)] : []),
-    "-vn", "-af", CLOCK_FILTER, "-ac", String(channels), "-ar", String(rate), "-f", "s16le", "-acodec", "pcm_s16le", "-"] };
+    "-vn", ...(track != null ? ["-map", "0:a:" + track] : []), "-af", CLOCK_FILTER, "-ac", String(channels), "-ar", String(rate), "-f", "s16le", "-acodec", "pcm_s16le", "-"] };
 }
 
 const crypto = require("node:crypto");
@@ -151,8 +152,11 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
 
   /** ranges: [[from, to], …] in file seconds — listen to those parts only (a long recording's clips), each read from
    *  the file with ffmpeg -ss / -t, so nothing before or after them is decoded; times stay file seconds. None: all of it.
-   *  duration: the file's length (progress, and the result's duration when only parts are read). */
-  async function transcribe(file, { signal, onProgress = () => {}, duration = null, ranges = null } = {}) {
+   *  duration: the file's length (progress, and the result's duration when only parts are read).
+   *  track: which audio stream (the media entry's audioTrack). Always named: left to itself ffmpeg takes the stream
+   *  marked default, else the one with the most channels, which need not be the one songs, loudness and export read
+   *  (docs/validation/2026-11-05-audio-tracks). */
+  async function transcribe(file, { signal, onProgress = () => {}, duration = null, ranges = null, track = 0 } = {}) {
     const st = status();
     if (!st.engine.ready || !st.vad.ready) throw Object.assign(new Error("the speech engine is missing from this copy of MontClip"), { code: "ASR_ENGINE_MISSING" });
     const dir = store.dir("asr");
@@ -171,7 +175,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
         // another part's (or nobody's), so only words and gaps whose middle is at or after it are this part's — two
         // reads that both start at 0 never keep a word twice (Rea on #165, 17:14)
         const from = part ? part[0] : 0, mine = (a, b) => (a + b) / 2 >= from;
-        const { samples: got, at } = await listen(S, r, p, file, part, { signal,
+        const { samples: got, at } = await listen(S, r, p, file, part, { signal, track,
           onSegment: (one, len) => { words.push(...one.words.filter((w) => mine(w[1], w[2]))); const g = one.gaps.filter((x) => mine(x.start, x.end)); gaps.push(...g);
             if (one.read) read++; if (g.length) skipped++; speech += len; segments++; },
           onSamples: (n) => { if (want > 0) onProgress(Math.min(0.99, (samples + n) / RATE / want)); } });
@@ -189,8 +193,8 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   /** One stretch of the file (`part` [from, to], or null for all of it) through ffmpeg (16 kHz mono) and a fresh VAD;
    *  each segment's words go to onSegment with file times. Read by readArgs on the media's own clock: a part that
    *  starts before 3 s is read from the start of the file (Rea on #165). -> {samples, at}: what was read, from where. */
-  async function listen(S, r, p, file, part, { signal, onSegment, onSamples }) {
-    const plan = readArgs({ file, from: part ? part[0] : null, to: part ? part[1] : null });
+  async function listen(S, r, p, file, part, { signal, track, onSegment, onSamples }) {
+    const plan = readArgs({ file, from: part ? part[0] : null, to: part ? part[1] : null, track });
     const at = plan.start;
     const vad = new S.Vad({ sileroVad: { model: vadFile, ...VAD }, sampleRate: RATE, debug: false, numThreads: 1 }, 60);
     const proc = spawn(ffmpeg, plan.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
