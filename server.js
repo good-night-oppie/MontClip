@@ -78,6 +78,7 @@ const ExportCleanup = require("./export-cleanup");
 const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
+const { createEmbed } = require("./embed");
 
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
@@ -88,6 +89,12 @@ const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
 const DESKTOP_TOKEN = process.env.MONTCLIP_SESSION_TOKEN;
 if (DESKTOP && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(DESKTOP_TOKEN || "")))
   throw new Error("Desktop requires loopback binding and a fresh session token");
+/* Embedded in Cindy (MONTCLIP_HOST=cindy, the MontClip-Cindy plugin): only requests carrying the plugin's session
+   token get in — X-MontClip-Session, or the cookie a page load with ?token= trades for (embed.js). Unset, nothing
+   here changes. */
+const EMBED = process.env.MONTCLIP_HOST === "cindy";
+if (EMBED && (DESKTOP || HOST !== "127.0.0.1"))
+  throw new Error("Embedding in Cindy requires loopback binding (HOST=127.0.0.1) and cannot run in desktop mode");
 let boundPort = PORT;
 const serverOrigin = () => `http://127.0.0.1:${boundPort}`;
 
@@ -105,6 +112,7 @@ function hostAllowed(value) {
   const host = value.replace(/^(\[[^\]]*\]|[^:]+)(:\d+)?$/, "$1").toLowerCase();
   return ALLOWED_HOSTS.has(host);
 }
+const embed = EMBED ? createEmbed({ token: process.env.MONTCLIP_EMBED_TOKEN, hostAllowed }) : null;
 function requestAllowed(req) {
   if (DESKTOP) {
     if (req.headers.host !== `127.0.0.1:${boundPort}` ||
@@ -112,6 +120,7 @@ function requestAllowed(req) {
     return !req.headers.origin || req.headers.origin === serverOrigin();
   }
   if (!hostAllowed(req.headers.host)) return false;
+  if (embed && !embed.authorized(req)) return false;
   const origin = req.headers.origin;
   if (origin) {
     try { return hostAllowed(new URL(origin).host); } catch { return false; }
@@ -214,20 +223,34 @@ const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR
 // P2 songs: each file read in segments, each kept as it is read (analysis/songs/), so a stopped scan carries on
 const Songs = require("./songs");
 const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
-const songJobs = new Map();   // src → {state, done, total, ctrl, error, code}
+const songJobs = new Map();   // src (+ "|a<track>" for another audio stream) → {state, done, total, ctrl, error, code}
+/* Which audio stream of a file is analysed — songs, loudness, the transcript: `given` (a request's
+   `track`) when there is one, else the open project's media entry for that src (its audioTrack, media-lib.js
+   audioTrackOf), else 0. One answer for every reader, so they never read different streams
+   (docs/validation/2026-11-05-audio-tracks). → an integer, or NaN for a `given` that is not one. */
+function audioTrackFor(src, given) {
+  if (given != null && given !== "") { const n = Number(given); return Number.isInteger(n) && n >= 0 && n < 64 ? n : NaN; }
+  try {
+    const doc = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, ""));
+    const m = (Array.isArray(doc.media) ? doc.media : []).find((x) => x && x.src === src);
+    return m ? MediaLib.audioTrackOf(m) : 0;
+  } catch { return 0; }
+}
+const BAD_TRACK = { error: "track is an audio stream number: 0 for the first", code: "BAD_TRACK" };
+const songJobKey = (src, track) => (track > 0 ? src + "|a" + track : src);
 // the drive the song analysis is written to ("C" on Windows), for 「{drive} 盘空间不够」 — never the path
 const songDrive = () => { const root = path.parse(path.resolve(ANALYSIS_DIR)).root; return /^[A-Za-z]:/.test(root) ? root[0].toUpperCase() : root; };
-async function startSongScan(src, file, again) {
-  const old = songJobs.get(src);
+async function startSongScan(src, file, again, track = 0) {
+  const old = songJobs.get(songJobKey(src, track));
   if (old && old.state === "running") return old;
-  if (again) songScan.forget(file);
+  if (again) songScan.forget(file, track);
   let total = null;
   try { const info = await probeFile(file); if (info && info.duration > 0) total = Math.max(1, Math.ceil(info.duration / songScan.SEGMENT)); } catch { /* unknown length */ }
-  const job = { state: "running", done: songScan.cached(file).done, total, ctrl: new AbortController(), error: null };
-  songJobs.set(src, job);
-  const tell = () => broadcast("songs", JSON.stringify({ src, state: job.state, done: job.done, total: job.total }));
-  songScan.scan(file, { signal: job.ctrl.signal, onSegment: (i) => { job.done = i + 1; tell(); } })
-    .then((r) => { job.state = r.complete ? "done" : "stopped"; job.done = songScan.cached(file).done; })
+  const job = { state: "running", done: songScan.cached(file, track).done, total, ctrl: new AbortController(), error: null };
+  songJobs.set(songJobKey(src, track), job);
+  const tell = () => broadcast("songs", JSON.stringify({ src, track, state: job.state, done: job.done, total: job.total }));
+  songScan.scan(file, { signal: job.ctrl.signal, track, onSegment: (i) => { job.done = i + 1; tell(); } })
+    .then((r) => { job.state = r.complete ? "done" : "stopped"; job.done = songScan.cached(file, track).done; })
     .catch((e) => { job.state = e.code === "SONGS_STOPPED" ? "stopped" : "failed"; job.error = X.maskUserPath(String(e.message)); job.code = e.code === "ENOSPC" ? "ENOSPC" : "SONGS_FAILED"; })
     .finally(tell);
   return job;
@@ -792,7 +815,8 @@ const freshExports = new Set();
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
-  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
+  // embedded: a one-time ticket the page trades for the session cookie — the token itself stays off the command line
+  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
   editors: () => sseClients.size,
   // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
@@ -851,6 +875,10 @@ const server = http.createServer((req, res) => {
   });
 });
 async function handleRequest(req, res) {
+  if (embed) {
+    res.setHeader("Referrer-Policy", "no-referrer");  // embedded pages never pass their address on
+    if (embed.bootstrap(req, res)) return;
+  }
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
@@ -1054,7 +1082,9 @@ async function handleRequest(req, res) {
   if (p === "/api/signals/loudness" && req.method === "GET") {
     const file = resolveSrc(url.searchParams.get("src") || "");
     if (!file) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
-    try { sendJSON(res, 200, await signals.loudness(file)); }
+    const track = audioTrackFor(url.searchParams.get("src") || "", url.searchParams.get("track"));
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+    try { sendJSON(res, 200, { ...(await signals.loudness(file, { track })), track }); }
     catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SIGNALS_FAILED" }); }   // no local paths in the answer (QQ, #52)
     return;
   }
@@ -1063,6 +1093,7 @@ async function handleRequest(req, res) {
                                        not read yet; again:true forgets what was read
        GET  /api/songs?src=          → {src, key, state, done, total, complete, scanned, songs} — songs in file seconds
        POST /api/songs/cancel {src}  → {src, state} — stops the scan; what was read is kept
+     `track` (query or body) picks the audio stream; without it, the media entry's audioTrack (audioTrackFor).
      state: running · done · stopped (part read, nothing running) · failed · none. SSE event `songs` {src, state, done, total}. */
   if ((p === "/api/songs" || p === "/api/songs/cancel") && (req.method === "POST" || (req.method === "GET" && p === "/api/songs"))) {
     let src = url.searchParams.get("src") || "", body = {};
@@ -1073,21 +1104,23 @@ async function handleRequest(req, res) {
     }
     const file = resolveSrc(src);
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
+    const track = audioTrackFor(src, body.track != null ? body.track : url.searchParams.get("track"));
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
     try {
       if (p === "/api/songs/cancel") {
-        const job = songJobs.get(src);
+        const job = songJobs.get(songJobKey(src, track));
         if (job && job.state === "running") job.ctrl.abort();
         sendJSON(res, 200, { src, state: job ? job.state : "none" });
         return;
       }
       if (req.method === "POST") {
-        const job = await startSongScan(src, file, body.again === true);
-        sendJSON(res, 202, { src, state: job.state, done: job.done, total: job.total });
+        const job = await startSongScan(src, file, body.again === true, track);
+        sendJSON(res, 202, { src, track, state: job.state, done: job.done, total: job.total });
         return;
       }
-      const have = songScan.load(file), job = songJobs.get(src);
+      const have = songScan.load(file, track), job = songJobs.get(songJobKey(src, track));
       const state = job && job.state === "running" ? "running" : have.complete ? "done" : job ? job.state : have.done ? "stopped" : "none";
-      sendJSON(res, 200, { src, key: have.key, state, done: have.done, total: job ? job.total : null, complete: have.complete, scanned: have.scanned,
+      sendJSON(res, 200, { src, track, key: have.key, state, done: have.done, total: job ? job.total : null, complete: have.complete, scanned: have.scanned,
         songs: have.rows.length ? Songs.find(have.rows.map((r) => r[0]), { step: have.step, complete: have.complete }) : [],
         ...(job && job.state === "failed" ? { error: job.error, code: job.code, ...(job.code === "ENOSPC" ? { drive: songDrive() } : {}) } : {}) });
     } catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SONGS_FAILED", ...(e.code === "ENOSPC" ? { drive: songDrive() } : {}) }); }
@@ -1159,7 +1192,9 @@ async function handleRequest(req, res) {
      Saves and deletes also arrive as SSE event "transcript" ({src}). */
   if (p === "/api/transcript" && req.method === "GET") {
     const src = url.searchParams.get("src") || "";
-    const d = transcripts.get(src);
+    const track = audioTrackFor(src, url.searchParams.get("track"));
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+    const d = transcripts.get(src, track);
     if (d === null) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
     if (d === false) { sendJSON(res, 200, { transcript: null }); return; }   // none yet: not an error
     sendJSON(res, 200, { transcript: d });
@@ -1170,16 +1205,20 @@ async function handleRequest(req, res) {
       const body = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       if (p === "/api/transcript") {
         const src = url.searchParams.get("src") || body.src || "";
-        const d = transcripts.put(src, body);
+        const track = audioTrackFor(src, url.searchParams.get("track"));
+        if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+        const d = transcripts.put(src, body, track);
         broadcast("transcript", JSON.stringify({ src }));
         sendJSON(res, 200, { src, words: d.words.length });
       } else if (p === "/api/transcript/delete") {
-        const deleted = transcripts.remove(String(body.src || ""));
+        const track = audioTrackFor(String(body.src || ""), body.track);
+        if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+        const deleted = transcripts.remove(String(body.src || ""), track);
         if (deleted) broadcast("transcript", JSON.stringify({ src: String(body.src) }));
         sendJSON(res, 200, { deleted });
       } else {
         const status = {};
-        for (const src of (Array.isArray(body.srcs) ? body.srcs.slice(0, 2000).map(String) : [])) status[src] = transcripts.info(src);
+        for (const src of (Array.isArray(body.srcs) ? body.srcs.slice(0, 2000).map(String) : [])) status[src] = transcripts.info(src, audioTrackFor(src));
         sendJSON(res, 200, { status });
       }
     } catch (e) { sendJSON(res, e.code === 404 ? 404 : 400, { error: String(e.message || e) }); }
@@ -1773,13 +1812,16 @@ async function handleRequest(req, res) {
     if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
     if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
     const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"));
+    // the exported sound is track 0 whatever the entry picks for analysis (JJ on #177); `track` names another (试听)
+    const track = audioTrackFor(url.searchParams.get("src") || "", url.searchParams.get("track") || "0");
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
     if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to - from > 3600) {
       sendJSON(res, 400, { error: "from and to are seconds, 0 ≤ from < to, at most an hour apart" }); return;
     }
     // written to a file (never held in memory: an hour of stereo is 1.4 GB), then streamed and removed
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-aw-")), out = path.join(tmpDir, "window.wav");
     const cleanup = () => { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { } };
-    const proc = spawn(FF.path("ffmpeg"), AudioWindow.windowArgs(file, from, to - from, out), { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    const proc = spawn(FF.path("ffmpeg"), AudioWindow.windowArgs(file, from, to - from, out, track), { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     let err = "", gone = false;
     proc.stderr.on("data", (d) => { err = (err + d).slice(-1000); });
     proc.on("error", () => { cleanup(); if (!res.headersSent) sendJSON(res, 500, { error: "ffmpeg could not be started" }); });
@@ -2038,6 +2080,8 @@ async function handleRequest(req, res) {
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {src}" }); return; }
     const src = typeof body.src === "string" ? body.src : "", file = src ? resolveSrc(src) : null;
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
+    const track = audioTrackFor(src, body.track);
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
     // ranges: [[from, to], …] file seconds — listen only there (a long recording's clips, P8); none: the whole file
     let ranges = null;
     if (body.ranges != null) {
@@ -2056,9 +2100,9 @@ async function handleRequest(req, res) {
     let last = 0;
     try {
       const TR = require("./transcribe.js");
-      // the parts of the ranges this file's transcript has not listened to yet (all of them with again:true), read with a
+      // the parts of the ranges this file's transcript (of this audio track, #177) has not listened to yet (all of them with again:true), read with a
       // pad either side; only each part's core is kept (Rea on #165: no lead-in doubled a word cut at the border)
-      const had = ranges ? transcripts.get(src) || null : null;
+      const had = ranges ? transcripts.get(src, track) || null : null;
       const info = await probeFile(file);
       const dur = info && info.duration;
       let plan = ranges ? TR.refillPlan(body.again === true ? null : had, ranges, { pad: 1.5, duration: dur }) : null;
@@ -2068,13 +2112,13 @@ async function handleRequest(req, res) {
           skippedSegments: 0, words: had.words.length, duration: had.duration, speech: 0, punctuated: null, spans: had.spans || null, already: true });
         return;
       }
-      const r = await A.transcribe(file, { signal: ac.signal, duration: dur, ranges: plan ? plan.read : null,
+      const r = await A.transcribe(file, { signal: ac.signal, duration: dur, ranges: plan ? plan.read : null, track,
         onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
       let add = TR.validate({ src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
         gaps: r.gaps.map((g) => [g.start, g.end, g.reason]), ...(r.spans ? { spans: r.spans } : {}) });
       if (r.spans && plan) add = TR.keepIn(add, plan.core);
       // what was listened to before (other clips' windows of this file) stays; a new part replaces its own stretch
-      const doc = transcripts.put(src, r.spans ? TR.mergeDocs(transcripts.get(src) || null, add) : add);
+      const doc = transcripts.put(src, r.spans ? TR.mergeDocs(transcripts.get(src, track) || null, add) : add, track);
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
       sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated, spans: doc.spans || null });

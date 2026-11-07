@@ -54,6 +54,9 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
+- `fablecut_audio_track` — a recording with several audio tracks (OBS: microphone, game,
+  music…): list them, cut a few seconds of each to listen to, pick the streamer's voice.
+  See "Media management" below.
 - `fablecut_songs` — where each song in a long recording starts and ends, from the sound
   alone, with the guessed spots marked; kept in the project. See "Songs in a recording" below.
 - `fablecut_transcribe` — turn speech into words with times (on this computer: sherpa-onnx Paraformer zh),
@@ -178,6 +181,28 @@ reports the real paths.
 `MONTCLIP_SHELL`, else `desktop` or `server`). Another one started on the same
 folder — the Windows app and the Cindy plugin pointed at one folder, say —
 refuses to start and names the first. A lock whose process is gone is taken over.
+
+**Embedded in Cindy** (the MontClip-Cindy plugin, see its README) the engine runs
+with `MONTCLIP_HOST=cindy` and a fresh 64-hex `MONTCLIP_EMBED_TOKEN`, bound to
+`127.0.0.1` only (anything else, or desktop mode, refuses to start). It answers
+only requests that carry the token: as `X-MontClip-Session` (the plugin worker, and
+`mcp-server.js` when it runs with the same two variables), or as the
+`montclip_embed` cookie (HttpOnly, `SameSite=None; Secure; Partitioned`), which a
+page load (GET) of any URL with `?token=<token>` receives together with a 302 to the
+same URL without it. The cookie is not the token: each such page load gets its own
+random session, which the server remembers (the newest 64) and can end on its own.
+Everything else gets 403. Every answer says
+`Referrer-Policy: no-referrer`, and the token is never put in a redirect, a log
+line or an error. A headless export or measurement browser gets a one-time ticket
+(one use, one minute) in its URL instead of the token. Without
+`MONTCLIP_HOST=cindy` none of this applies.
+
+The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
+assistant (Cindy's chat takes its place) and follows Cindy's theme: `?theme=light|dark`
+at load (any other value is ignored), then `postMessage({type:"montclip-host-theme", scheme})`,
+taken only when it comes from the framing page: `event.source` is `window.parent` and
+`event.origin` is that page's origin (`location.ancestorOrigins`, else the referrer;
+when neither names one, no message is taken).
 
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
@@ -364,6 +389,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
       "duration": 12.4, "width": 1920, "height": 1080,
       "fps": 29.97, "codec": "h264", "audioCodec": "aac", "audioChannels": 2, "sampleRate": 48000,
       "size": 45200000, "bitrate": 29300000, // probed from the file (read-only; see "Media management")
+      // "audioTracks": [ {"channels": 2, "title": "Mic"}, … ], "audioTrack": 1,  // several audio streams: which one is read
       "favorite": true, "tags": [ "interview", "day 1" ],   // optional: bin organization
       "folderId": null },                    // optional: id of a folders[] entry
     { "id": "m_abd", "name": "intro.denoise-medium.flac", "kind": "audio", "src": "/media/intro.denoise-medium.flac",
@@ -1753,6 +1779,7 @@ entry. These fields are read-only — they describe the file:
 | `fps` | video frame rate (29.97, 25, 59.94 …); absent for stills and audio |
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
+| `audioTracks` | only for a file with two or more audio streams (OBS records up to six): `[{channels, title?, default?}]` in stream order, `title` being the name the recorder wrote |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
 | `start` · `audioOffset` | only on a file whose clock doesn't start at 0 (an OBS recording whose timestamps start at 3600 s, an MP4 edit list): `start` is where media time 0 — the file's start, the 0 of `ffmpeg -ss` — sits on the file's own clock, seconds; `audioOffset` is where its decoded sound starts in media time (−0.021 for the AAC priming ahead of such a recording). The editor's players, the export's decoder and its audio mix are shifted by them, so `in` and every media time mean the same thing as for any other file |
 | `storedWidth` · `storedHeight` | only when the pixels aren't square: the size the file stores (the compact view prints `2389×1920 (stored as 1080×1920)`). Agents read `width` / `height` |
@@ -1881,6 +1908,28 @@ proxy only changes how smoothly the preview runs, never the result.
 - `{op:"updateMedia", id | ids, set:{name?, favorite?, tags?, folderId?}, addTags?, removeTags?}`
   — organize files (`favorite:false` unstars; `tags:[]` clears). Metadata keys
   are refused: they come from the file.
+- **Audio tracks.** A recording with several audio streams (`audioTracks`) has
+  one its sound is *analysed* from: `audioTrack` (0 = the first, the default,
+  and not stored). Songs, loudness, the transcript and captions, beats,
+  silences and highlights listen to it. The *exported* sound — the export mix,
+  the waveform, the stems, and normalize / auto-duck, which work on it — is
+  always track 0, so picking the microphone for better song finding never
+  strips the game and the music out of the video. In an OBS recording the first
+  track is usually everything mixed together, so change it only when the
+  streamer's voice is on its own track. `{op:"setAudioTrack", id, track}` picks
+  one (only tracks the file has; the songs found from the old one are dropped),
+  or `fablecut_audio_track {mediaId}` lists them, `{mediaId, listen: seconds}`
+  cuts 6 s of each into `analysis/listen/` to play, `{mediaId, track}` picks one.
+  Loudness, songs and transcripts are kept per track, so going back finds the
+  first results again. The REST readers `/api/signals/loudness`, `/api/songs`,
+  `/api/transcript` and `/api/asr/transcribe` take `track`, and without it read
+  the open project's `audioTrack` for that file; `/api/audio-window` reads
+  track 0 unless `track` names another. In the editor: right-click the file →
+  **Media info…** lists the tracks with **Listen**. Picking one reads the songs
+  and loudness again in the background; captions are made again from the new
+  track unless they were edited (a caption keeps the text it was made with in
+  `props.captionMade`; captions without it, or imported from a subtitle file,
+  count as edited), and then **Redo subtitles from this track** offers it.
 - `{op:"setCollection", id?, name?, media?, add?, remove?}` creates a collection
   (a new `id`, or a `name` no collection has) or changes one: `media` replaces
   its list, `add` / `remove` edit it. `{op:"removeCollection", id}` deletes it;

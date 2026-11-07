@@ -54,6 +54,7 @@
     reframe: ["sensitive", "做一份竖屏或方形的新序列，画面跟着人走，并切换过去", "Make a vertical or square copy of the sequence that follows the person, and switch to it"],
     fablecut_highlights: ["undoable", "从长录像里挑精彩片段，剪成一个新序列", "Cut the best moments of long footage into a new sequence"],
     fablecut_danmaku: ["undoable", "给一场录像导入录播姬或 B 站的弹幕文件，也可以移除已经导入的弹幕", "Import BililiveRecorder or Bilibili danmaku for a recording, or remove them"],
+    fablecut_audio_track: ["undoable", "分轨录像里，选哪条音轨是主播的声音", "In a multi-track recording, pick the audio track that is the streamer's voice"],
     fablecut_songs: ["undoable","找出录像里可能在唱歌的段落，标出估的地方", "Find the parts of a recording that are possibly singing, marking the guessed spots"],
     fablecut_transcribe: ["undoable", "把说话听写成带时间的文字，可按文字剪", "Turn speech into timed words; cut by text"],
     fablecut_captions: ["sensitive", "加字幕、导入字幕，或把字幕导出成文件", "Add or import captions, or export them as a file"],
