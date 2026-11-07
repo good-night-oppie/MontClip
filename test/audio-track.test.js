@@ -184,7 +184,7 @@ test('the editor: the media info lists the tracks with 试听, picking one is an
  a.match(app,/const buf = await getAudioBuffer\(media, \{ analysis: true \}\);/,'highlights listen to the picked track');
  a.match(app,/const have = runtime\.wavePeaks\.get\(m\.id\), src = m\.src;/,'the waveform is the exported sound');
  a.match(app,/if \(MediaLib\.audioTrackOf\(m\)\) mo\.audioTrack = m\.audioTrack;/,'the save keeps the pick (the media list is written field by field)');
- a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0 \}\)/,'transcription names the track');
+ a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0[ ,]/,'transcription names the track (with main\'s ranges / again after it)');
  a.match(app,/"\/api\/transcript\?src=" \+ encodeURIComponent\(src\) \+ "&track=" \+ track/);
  a.match(app,/uiText\("own\.at-found", \{ name: noticed\[0\]\.name, n: noticed\[0\]\.audioTracks\.length, go: uiText\("own\.at-go"\), menu: uiText\("own\.at-menu"\) \}\)/,'the menu name is the menu item\'s own (「选音轨…」, VV on #177)');
  a.match(app,/uiText\("own\.at-captions-edited", \{ n: track \+ 1, button: uiText\("own\.at-captions-redo"\) \}\)/,'the button name is the button\'s own');
@@ -317,4 +317,20 @@ test('MCP fablecut_audio_track {listen} with a hostile media id writes inside an
  const listen=fs.realpathSync(path.join(dir,'analysis','listen'));
  for(const f of files){a.ok(fs.existsSync(f));a.equal(path.dirname(fs.realpathSync(f)),listen,f);}
  a.ok(!fs.existsSync(path.join(dir,'..','pwn-track0-90s.wav'))&&!fs.readdirSync(dir).some(f=>/pwn/.test(f)));
+});
+test('merged with #165 (listening to parts only): every read of the transcript names the picked track, whole or in windows; readArgs alone stays as #149 left it',()=>{
+ const {readArgs}=require('../asr-local');
+ for(const r of [readArgs({file:'f',track:1}),readArgs({file:'f',from:0.4,to:2.7,track:1}),readArgs({file:'f',from:5,to:9.5,track:2})]){
+  const i=r.args.indexOf('-map');a.ok(i>r.args.indexOf('-i'),'-map after -i');a.match(r.args[i+1],/^0:a:[12]$/);
+  a.deepEqual(r.args.slice(-9),['-ac','1','-ar','16000','-f','s16le','-acodec','pcm_s16le','-']);}
+ a.equal(readArgs({file:'f',from:5,to:9.5,track:2}).args[readArgs({file:'f',from:5,to:9.5,track:2}).args.indexOf('-map')+1],'0:a:2');
+ a.ok(!readArgs({file:'f'}).args.includes('-map'),'no track named: no -map (callers other than transcribe)');
+ const src=fs.readFileSync(path.join(__dirname,'..','asr-local.js'),'utf8');
+ a.match(src,/track = 0 \} = \{\}\) \{/,'transcribe defaults to track 0, never ffmpeg\'s pick');
+ a.match(src,/listen\(S, r, p, file, part, \{ signal, track,/,'each part is read from the picked track');
+ a.match(src,/readArgs\(\{ file, from: part \? part\[0\] : null, to: part \? part\[1\] : null, track \}\)/);
+ const srv=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
+ a.match(srv,/transcripts\.get\(src, track\) \|\| null : null/,'the refill plan reads this track\'s transcript');
+ a.match(srv,/ranges: plan \? plan\.read : null, track,/);
+ a.match(srv,/TR\.mergeDocs\(transcripts\.get\(src, track\) \|\| null, add\) : add, track\)/,'and saves into it');
 });

@@ -147,6 +147,19 @@ const ASR_DIR = path.resolve(process.env.MONTCLIP_ASR_DIR || path.join(APP_DIR, 
 const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.join(DATA_DIR, "asr-models"));
 let asrLocal = null;
 const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
+/** The speech engine's front, or null when this copy of MontClip cannot even load it (P8: a copy without
+ *  desktop/asr-manifest.json threw here and took the whole server down). Never throws. */
+let asrLoadError = null, asrLoadCode = null;
+const AsrStatus = require("./asr-status");
+const asrOrNull = () => {
+  try { return asr(); }
+  catch (e) {
+    asrLoadError = AsrStatus.hidePaths(String((e && e.message) || e).split("\n")[0]).slice(0, 200);   // never a local path
+    asrLoadCode = /asr-manifest\.json/.test(asrLoadError) ? "ASR_MANIFEST_MISSING" : "ASR_ENGINE_MISSING";
+    return null;
+  }
+};
+const ASR_NONE = { ready: false, where: null, missing: [], bad: [] };
 const asrJob = { running: null };
 
 ensureDirs();
@@ -426,7 +439,9 @@ async function deliveryEncoders() {
 function bundledEncoders() {
   if (deliveryEncodersP) return deliveryEncodersP;
   deliveryEncodersP = (async () => {
-    const listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
+    let listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
+    // test/export-h264-precheck.test.js: a computer with no H.264 encoder (Linux with the LGPL build, no graphics card)
+    if (process.env.MONTCLIP_TEST_NO_H264 === "1") listed = new Set([...listed].filter((e) => !Delivery.encodersFor("h264", new Set([e])).length));
     const usable = new Set([...listed].filter((e) => !Delivery.ENCODERS[e]?.hw));
     await Promise.all([...listed].filter((e) => Delivery.ENCODERS[e]?.hw).map(async (e) => {
       const r = await runFfmpeg(["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
@@ -448,6 +463,11 @@ async function exportBinary(useX264) {
   throw Object.assign(new Error(ext.reason === "none"
     ? "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
     : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code });
+}
+/** No H.264 encoder at all (bundled, graphics card or the user's x264): the refusal, before anything renders (ADR 2026-11-02, 3). */
+async function noH264Error() {
+  if (Delivery.encodersFor("h264", await deliveryEncoders()).length) return null;
+  return Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
 }
 /** What H.264 export will use here, for the export dialog and agents. */
 async function h264Status() {
@@ -494,8 +514,8 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   if (off.length) throw new Error(off.map(([o, i]) => `output ${i + 1} asks for ${o.spec.fps} fps but this render is ${rate} fps`).join("; ") + " — render each frame rate separately");
   const input = outs.some((o) => Delivery.frameInput(o.spec) === "rgba") ? "rgba" : "jpeg";
   // H.264 with no encoder at all: say why now, not after the render
-  if (outs.some((o) => o.spec.video.codec === "h264") && !Delivery.encodersFor("h264", available).length)
-    throw Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
+  const noH264 = outs.some((o) => o.spec.video.codec === "h264") && await noH264Error();
+  if (noH264) throw noH264;
   const ext = await externalFfmpeg.current();
   for (const o of outs) {
     o.binary = await exportBinary(X.isExternalJob(o.spec));
@@ -627,6 +647,9 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const profile = resolveProfile(profileId);
   const never = Delivery.forbiddenEncoder(profile.args);
   if (never) throw Object.assign(new Error(`profile "${profile.id}" encodes with ${never}, which MontClip never uses`), { status: 400 });
+  // a raw H.264 profile on a computer with no H.264 encoder at all: say why, not "choose your own FFmpeg" for x264 alone
+  const noH264 = X.argsUseH264(profile.args) && await noH264Error();
+  if (noH264) throw noH264;
   // a raw profile that encodes with libx264 needs the user's local FFmpeg
   const binary = await exportBinary(X.argsUseX264(profile.args));
   const dry = await dryRunProfile(profile, { fps: rate, hasAudio, bin: binary });
@@ -807,7 +830,16 @@ function serveFile(req, res, filePath) {
 }
 
 /* ── Server ── */
-const server = http.createServer(async (req, res) => {
+/* Every request's handler runs here: whatever it throws is answered (500, JSON) and logged, never left as an
+   unhandled rejection that ends the process (P8: a missing speech manifest took the Cindy plugin's engine down). */
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((e) => {
+    console.error("[montclip] request failed: " + req.method + " " + String(req.url).split("?")[0] + ": " + ((e && e.stack) || e));
+    if (!res.headersSent) { try { sendJSON(res, 500, { code: "INTERNAL", error: String((e && e.message) || e) }); } catch { } }
+    else { try { res.end(); } catch { } }
+  });
+});
+async function handleRequest(req, res) {
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
@@ -1167,8 +1199,21 @@ const server = http.createServer(async (req, res) => {
       if (missing) { sendJSON(res, 404, { error: "no such file: " + missing }); return; }
       const TR = require("./transcribe.js");
       let spec;
-      try { spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true }; }
-      catch (e) { sendJSON(res, 400, { error: e.message }); return; }
+      try {
+        spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true };
+        // ranges: {src: [[from, to], …]} — a long file's clips are listened to in their windows only (P8)
+        if (t.ranges != null) {
+          if (!t.ranges || typeof t.ranges !== "object" || Array.isArray(t.ranges)) throw new Error("ranges must be {src: [[from, to], …]}");
+          const out = {};
+          for (const [src, list] of Object.entries(t.ranges)) {
+            if (!spec.srcs.includes(src)) throw new Error("ranges for a file not in srcs: " + src);
+            if (!Array.isArray(list) || !list.length || list.length > 500 || !list.every((x) => Array.isArray(x) && Number.isFinite(x[0]) && Number.isFinite(x[1]) && x[0] >= 0 && x[1] > x[0]))
+              throw new Error("ranges must be {src: [[from, to], …]} in file seconds (1–500 each), with to > from ≥ 0");
+            out[src] = list.map((x) => [x[0], x[1]]);
+          }
+          if (Object.keys(out).length) spec.ranges = out;
+        }
+      } catch (e) { sendJSON(res, 400, { error: e.message }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "transcribe", where: opts.where, transcribe: spec }));
     } catch (e) {
       sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
@@ -1270,7 +1315,7 @@ const server = http.createServer(async (req, res) => {
       const ticket = url.searchParams.get("ticket");
       await faststart(target, /^[A-Za-z0-9_-]{1,40}$/.test(ticket || "") ? { onProgress: (frac) => broadcast("upload", JSON.stringify({ ticket, frac })) } : undefined);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1282,8 +1327,8 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 400, { code:"FLV_SOURCE_REQUIRED", error:"FLV_SOURCE_REQUIRED" });
         return;
       }
-      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable}) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable, fixGaps: body.fixGaps}) });
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1927,13 +1972,21 @@ const server = http.createServer(async (req, res) => {
 
   /* API: on-device transcription (asr-local.js; #70). One file at a time; the transcript is saved like a tab's.
        GET  /api/asr/status            → {model, engine, vad, asr, punct}   (asr / punct: {ready, where, missing, bad})
-       POST /api/asr/transcribe {src}  → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated} once the
+       POST /api/asr/transcribe {src, ranges?, again?} → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated, spans}
+                                         (ranges: [[from, to], …] file seconds — only those parts are read and added to what the
+                                         file's transcript already covers; spans: what it covers now, null = the whole file) once the
                                          transcript is saved; status complete or partial (gaps: how many parts could not
                                          be read, kept with the transcript); 500 {code: ASR_FAILED} when nothing could;
                                          progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
                                          engine is missing, or when cancelled. Nothing is downloaded here.
        POST /api/asr/cancel            → {cancelled} */
-  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asr().status()); return; }
+  if (p === "/api/asr/status" && req.method === "GET") {
+    const A = asrOrNull();
+    const st = A ? A.status() : { model: null, engine: { ready: false, why: asrLoadError }, vad: { ready: false }, asr: ASR_NONE, punct: ASR_NONE };
+    // code: why transcription cannot run here (asr-status.js), null when it can
+    sendJSON(res, 200, { ...st, code: A ? AsrStatus.code(st) : asrLoadCode });
+    return;
+  }
   if (p === "/api/asr/cancel" && req.method === "POST") {
     const j = asrJob.running;
     if (j) j.ac.abort();
@@ -1947,26 +2000,49 @@ const server = http.createServer(async (req, res) => {
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
     const track = audioTrackFor(src, body.track);
     if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+    // ranges: [[from, to], …] file seconds — listen only there (a long recording's clips, P8); none: the whole file
+    let ranges = null;
+    if (body.ranges != null) {
+      const ok = Array.isArray(body.ranges) && body.ranges.length >= 1 && body.ranges.length <= 500
+        && body.ranges.every((x) => Array.isArray(x) && Number.isFinite(x[0]) && Number.isFinite(x[1]) && x[0] >= 0 && x[1] > x[0]);
+      if (!ok) { sendJSON(res, 400, { error: "ranges must be [[from, to], …] in file seconds (1–500), each with to > from ≥ 0" }); return; }
+      ranges = body.ranges.map((x) => [x[0], x[1]]);
+    }
     if (asrJob.running) { sendJSON(res, 409, { code: "ASR_BUSY", error: "already transcribing " + asrJob.running.src }); return; }
-    const st = asr().status();
+    const A = asrOrNull(), st = A ? A.status() : null;
+    if (!st) { sendJSON(res, 409, { code: asrLoadCode, error: "the speech engine cannot be loaded in this copy of MontClip: " + asrLoadError }); return; }
     if (!st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" }); return; }
     if (!st.asr.ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st.asr.missing, bad: st.asr.bad }); return; }
     const ac = new AbortController(), job = asrJob.running = { src, ac };
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
     let last = 0;
     try {
-      const info = await probeFile(file);
-      const r = await asr().transcribe(file, { signal: ac.signal, duration: info && info.duration, track,
-        onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
       const TR = require("./transcribe.js");
-      const doc = transcripts.put(src, { src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
-        gaps: r.gaps.map((g) => [g.start, g.end, g.reason]) }, track);
+      // the parts of the ranges this file's transcript (of this audio track, #177) has not listened to yet (all of them with again:true), read with a
+      // pad either side; only each part's core is kept (Rea on #165: no lead-in doubled a word cut at the border)
+      const had = ranges ? transcripts.get(src, track) || null : null;
+      const info = await probeFile(file);
+      const dur = info && info.duration;
+      let plan = ranges ? TR.refillPlan(body.again === true ? null : had, ranges, { pad: 1.5, duration: dur }) : null;
+      if (plan && !plan.read.length && !had) plan = { read: ranges, core: ranges };   // only slivers asked for, and nothing yet: read them as asked
+      if (plan && !plan.read.length) {
+        sendJSON(res, 200, { src, status: TR.status(had), gaps: had.gaps.length, gapSeconds: Math.round(had.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10,
+          skippedSegments: 0, words: had.words.length, duration: had.duration, speech: 0, punctuated: null, spans: had.spans || null, already: true });
+        return;
+      }
+      const r = await A.transcribe(file, { signal: ac.signal, duration: dur, ranges: plan ? plan.read : null, track,
+        onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
+      let add = TR.validate({ src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
+        gaps: r.gaps.map((g) => [g.start, g.end, g.reason]), ...(r.spans ? { spans: r.spans } : {}) });
+      if (r.spans && plan) add = TR.keepIn(add, plan.core);
+      // what was listened to before (other clips' windows of this file) stays; a new part replaces its own stretch
+      const doc = transcripts.put(src, r.spans ? TR.mergeDocs(transcripts.get(src, track) || null, add) : add, track);
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
-      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
+      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated, spans: doc.spans || null });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: AsrStatus.hidePaths(String(e.message || e)) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }
@@ -1984,7 +2060,7 @@ const server = http.createServer(async (req, res) => {
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
-});
+}
 
 /* Auto-save versions of the open project while it changes (every FABLECUT_AUTO_VERSION_MIN
    minutes at most, default 10), whoever edits it: the editor, an agent, a script. */

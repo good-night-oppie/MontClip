@@ -13,7 +13,21 @@ function checkContext(context){if(!context||typeof context.projectId!=='string'|
 function noOverlap(keep){for(let i=0;i<keep.length;i++)for(let j=0;j<i;j++)if(Math.min(keep[i].to,keep[j].to)>Math.max(keep[i].from,keep[j].from))fail('PROPOSAL_OVERLAP');}
 function result(response,doc,context,keep,extra){
  const plan=R.create(doc,keep); // existing lock/ramp/provenance/timing checks; no mutation
- return {type:response.type,outputMode:'one_file',labels:keep.map(()=>null),...extra,context:JSON.stringify(context),signature:JSON.stringify(doc),keep,duration:plan.duration,tracks:[...new Set(doc.clips.map(c=>c.track))]};
+ const p={type:response.type,outputMode:'one_file',labels:keep.map(()=>null),...extra,context:JSON.stringify(context),signature:JSON.stringify(doc),keep,duration:plan.duration,tracks:[...new Set(doc.clips.map(c=>c.track))]};
+ p.unchanged=unchanged(doc,p);
+ return p;
+}
+/* A proposal that would leave the timeline playing exactly as it does (JJ via Deja, 2026-11-05): one video, its ranges
+   one after another with no gap between them, from the timeline's start to its end — 「保留 1 段」 that is the whole edit,
+   or an edit already shorter than the length asked for. Decided here, from the numbers, not by the model: the pane then
+   shows no 〔查看剪辑建议〕 and says so. per_range is never unchanged: it adds a file per range to the export queue. */
+function unchanged(doc,p){
+ if(p.outputMode!=='one_file'||!p.keep.length)return false;
+ const tol=R.boundaryTolerance(doc.fps),end=Math.max(0,...doc.clips.map(c=>c.start+c.duration));
+ if(p.keep[0].from>tol||p.keep.at(-1).to<end-tol)return false;
+ // Half-frame rounding applies to the whole edit, not independently to every gap.
+ if(Math.abs(end-p.duration)>tol)return false;
+ return p.keep.every((r,i)=>i===0||Math.abs(r.from-p.keep[i-1].to)<=tol);
 }
 function sentences(response,{doc,context,references}){
  exact(response,['type','ranges']);
@@ -66,10 +80,22 @@ function ranges(response,{doc}){
  noOverlap(keep);
  return result(response,doc,null,keep,{outputMode:response.output_mode,labels:parsed.map(r=>r.label),source:parsed.map(r=>({clipId:r.clipId,from:r.from,to:r.to}))});
 }
+/* reframe (Deja, 2026-11-05): {"type":"reframe","aspect":"9:16"|"1:1"|"4:5"} and nothing else — a copy of the open sequence
+   on that shape whose shots follow the subject (app.js runAgentReframe). Only the shapes in ASPECTS; any other key, or
+   another value, is refused. A sequence already of that shape is refused too (PROPOSAL_UNCHANGED): nothing to make. */
+const ASPECTS=Object.freeze({'9:16':[9,16],'1:1':[1,1],'4:5':[4,5]});
+function reframe(response,{doc,context}){
+ exact(response,['type','aspect']);
+ if(typeof response.aspect!=='string'||!Object.hasOwn(ASPECTS,response.aspect))fail('PROPOSAL_INVALID');
+ const [w,h]=ASPECTS[response.aspect];
+ if(!(doc.width>0&&doc.height>0))fail('PROPOSAL_INVALID');
+ if(doc.width*h===doc.height*w)fail('PROPOSAL_UNCHANGED');
+ return {type:'reframe',aspect:response.aspect,outputMode:null,keep:[],labels:[],context:JSON.stringify(context),signature:JSON.stringify(doc),unchanged:false};
+}
 function prepare(response,{doc,context,references=[]}){
  checkContext(context);
  const type=plain(response)?response.type:null;
- const p=type==='keep_sentences'?sentences(response,{doc,context,references}):type==='keep_ranges'?ranges(response,{doc}):fail('PROPOSAL_INVALID');
+ const p=type==='keep_sentences'?sentences(response,{doc,context,references}):type==='keep_ranges'?ranges(response,{doc}):type==='reframe'?reframe(response,{doc,context}):fail('PROPOSAL_INVALID');
  p.context=JSON.stringify(context);return p;
 }
 function current(p,doc,context){return !!p&&p.context===JSON.stringify(context)&&p.signature===JSON.stringify(doc);}
@@ -83,10 +109,10 @@ function sliceNames(labels,projectName,safe){
    has the shape {id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}.
    args holds the checked values only, never the model's reply. Events are not changed in place. */
 const {STATES,transition}=Events; // one definition: agent-events.js
-const CAPABILITIES=['keep_sentences','keep_ranges'];
+const CAPABILITIES=['keep_sentences','keep_ranges','reframe'];
 function shell(m,capability,state,args){return {id:String(m.id),runId:String(m.runId),step:m.step,capability,args,actor:m.actor||'ai',risk:'edit',state,revisionBefore:m.revision??null,revisionAfter:null,at:m.at};}
 function event(p,m){
- const args=p.type==='keep_ranges'
+ const args=p.type==='reframe'?{aspect:p.aspect}:p.type==='keep_ranges'
   ?{output_mode:p.outputMode,ranges:p.source.map((r,i)=>p.labels[i]==null?{...r}:{...r,label:p.labels[i]})}
   :{ranges:p.sentences.map(r=>({...r}))};
  return shell(m,p.type,'has_result',args);
@@ -95,5 +121,5 @@ function failedEvent(error,m){
  const code=error&&/^PROPOSAL_[A-Z_]+$/.test(error.message)?error.message:'PROPOSAL_INVALID';
  return shell(m,CAPABILITIES.includes(m.capability)?m.capability:'unknown','failed',{error:code});
 }
-return {prepare,current,sliceNames,event,failedEvent,transition,STATES,MAX_RANGES,MIN_RANGE};
+return {prepare,current,sliceNames,event,failedEvent,transition,STATES,MAX_RANGES,MIN_RANGE,ASPECTS};
 });
