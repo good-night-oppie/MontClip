@@ -51,12 +51,12 @@
 
 ## C. MontClip 的证据
 
-依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `b3441ba`（2026-11-06，和 GitHub 上一致；含 #173、#169、#148）。读法是只读的浅克隆；本机工作区落后 main 很多个提交，所以没有用工作区。
+依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `101a0826`（2026-11-06，和 GitHub 上一致；含 #109、#176、#175、#159、#193、#190、#172、#170、#137）。读法是只读的浅克隆；本机工作区落后 main 很多个提交，所以没有用工作区。
 
-**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `85c8183`，2026-11-06 复查无变化）：
+**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `762bc090`，2026-11-06 复查）：
 - 工具定义在 `ghost.json`：`montclip_status`、`list_tools`、`call_tool`、`montclip_undo`、`montclip_redo`、`montclip_seek`、`montclip_export`、`montclip_install_ffmpeg`、`montclip_open_task_view`。
 - 分类和转发在 `main.js` 第 6–20 行和第 361–378 行。
-- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `b3441ba`：main 上有 142 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...b3441ba`，status=diverged）。上一轮写的「落后 88 个提交」是用 rev-list 算的旧数字，方向不同，不直接可比。
+- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `101a0826`：main 上有 263 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...101a0826`，status=diverged）。MontClip-Cindy 本轮实质增量只有 #11（独立插件包隐藏状态覆盖层），没有更新引擎；#10 是 skill 文档合并。
 
 **工具名和参数**：都在 `mcp-tools.js`（main），按行号：
 
@@ -73,44 +73,55 @@
 | `fablecut_highlights` | 191 | `fablecut_danmaku` | 416 |
 
 - 找歌没达标的说法（0.12 / 0.38，门槛 0.6）出自 `mcp-tools.js` 里 `fablecut_songs` 的描述，以及 `auto-slices.js` 的 `SONG_GATE` / `SONG_MEASURED`。
-- 打码做法来源：`CLAUDE.md` 的 Adjustment layers（约第 525 行）、Masks（约第 1054 行）、motion tracking 那节的「blur a face or a plate」配方（约第 1261 行）；属性面板 blur 滑块的范围 0–20 px 在 `app.js` 第 7662 行。
+- 打码做法来源：`CLAUDE.md` 的 Adjustment layers（约第 525 行）、Masks（约第 1054 行）、motion tracking 那节的「blur a face or a plate」配方（约第 1261 行）；属性面板 blur 滑块的范围 0–20 px 在 `app.js` 第 7710 行。
 - 导出预设和响度：`delivery.js` 第 179–195 行（`youtube-shorts`、`tiktok` 都是 1080×1920）；第 240 行写明平台响度只是参考值，只有设了 `audio.loudness` 才会做响度归一。
-- 配方 E（〔帮我修好〕）：按钮和文案在 `ui-preferences.js` 第 256–272 行（`repair-button`「帮我修好」、`repair-menu`、`repair-done`、`media-slow-mark`、`media-duration-unknown`）；Agent 行为在 `mcp-tools.js` 第 281 行 `fablecut_repair_media` 的描述（job / result.mediaId / REPAIR_FAILED），实现是 `make-editable.js` 和 `mcp-server.js` 第 1061 行起。
+- 配方 E（〔帮我修好〕）：按钮和文案在 `ui-preferences.js` 第 322–334 行（`repair-button`「帮我修好」、`repair-menu`、`repair-done`、`media-slow-mark`、`media-duration-unknown`）；Agent 行为在 `mcp-tools.js` 第 281 行 `fablecut_repair_media` 的描述（job / result.mediaId / REPAIR_FAILED），实现是 `make-editable.js` 和 `mcp-server.js` 第 1061 行起。
 - 失败导出清理（#178）：`export-cleanup.js` 的 `stopSessions`（先停 ffmpeg 再删 `.part` 半成品，`server.js` 第 707 行调用）。
 - 单声道居中（#179）：`edit-ops.js` 第 139 行 `defaultPanForChannel(ch, count)`——单声道唯一一条 stem 的 `pan` 默认 `0`（居中）。
-- 「导出画面」下拉框按界面语言显示（#173）：`app.js` 第 262 行 `EXPORT_FRAME_ASPECTS`，文案 `ui-preferences.js` 第 941–947 行（`ef-title`「导出画面」、`ef-9-16`「9:16 竖屏」等）。
+- 「导出画面」下拉框按界面语言显示（#173）：`app.js` 第 262 行 `EXPORT_FRAME_ASPECTS`，文案 `ui-preferences.js` 第 1031–1036 行（`ef-title`「导出画面」、`ef-9-16`「9:16 竖屏」等）。
+- 桌面助手空方案与限制提示（#172，合并提交 `299bdaefd4b0`）：`chat-proposal.js` 的 `unchanged` 判断、`agent-limits.js`、`agent-format.js`；〔查看剪辑建议〕按钮行为在 `agent-ui/pane.tsx`。
+- 桌面助手改比例（#175，合并提交 `aba11e3fc782`）：`capabilities.js` 第 29–31、51–54、135–138 行（只允许 9:16 / 1:1 / 4:5，`reframe` 为 sensitive 且每次确认）；`app.js` 第 23480–23598 行（先读画面、进度与取消、建成新序列、一次撤销返回）；中文文案 `ui-preferences.js` 第 844–858 行。
+- Reframe 末帧（#176，合并提交 `8545430d52e2`）：`reframe.js` 第 20、125–136 行（每秒 5 帧加 `sampleTimes` 的最后一帧）；编辑器、桌面助手和 MCP 共用，`CLAUDE.md` 第 2030–2055 行说明老项目只有重新执行才会重算。
+- 显示尺寸（#159，合并提交 `df2811d23991`）：`media-lib.js` 第 29–30、184–196、223–235 行（`width` / `height` 是显示尺寸，`storedWidth` / `storedHeight` 记录不同的原始尺寸）；界面文案 `ui-preferences.js` 第 763 行。
+- 找回录像（#137，合并提交 `8eaad3ce84d3`；#193，合并提交 `1b6054a13543`）：按钮和导出提醒在 `ui-preferences.js` 第 96–116 行，「找回录像」18 处文案在第 120–148 行；自动接回只接受同名同大小且唯一的候选，见 `media-lib.js` 第 491–497 行 `autoRelinkPick` 和 `app.js` 第 3338–3348 行。
+- 「AI 数据说明」v3（#170，合并提交 `412f36c45cf1`）：`desktop/agent-data-notice.js` 第 8–9 行 `NOTICE_VERSION = 3`；「只是数字、不是录音、声音本身不发」在 `ui-preferences.js` 第 1193、1222 行。
+- ProRes 项目末尾声音（#190，合并提交 `d74716a8548e`）：范围、48 kHz 采样边界、自定义映射与拒绝条件见 `docs/decisions/2026-11-05-prores-project-end.md` 第 11–33 行；界面拒绝文案在 `ui-preferences.js` 第 802 行 `export-profile-unsupported`。
 
 **界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里）：
 
 | 文案 | 位置 |
 |---|---|
-| 「✨ 自动出切片」 | `as-open`，第 311 行 |
+| 「✨ 自动出切片」 | `as-open`，第 374 行 |
 | 「这场主要在干什么？」 | `as-kind-title` |
-| 「只要最好听的一部分（约 45 秒）」 | `as-len-hook`，第 352 行 |
-| 「唱歌的段落整段出」 | `as-len-song-maybe`，第 351 行；没达标时 `app.js` 的 `autoSongKey` 显示 -maybe 版本 |
-| 「按歌词校准字幕」 | `ly-open`，第 423 行 |
-| 「字幕大小和位置」 | `cq-open`，第 579 行 |
-| 「按句选段」 | `tr-sentences`，第 95 行 |
-| 「导入弹幕…」 | `dm-import`，第 636 行 |
-| 「高光候选」 | `hl-open`，第 282 行 |
+| 「只要最好听的一部分（约 45 秒）」 | `as-len-hook`，第 415 行 |
+| 「唱歌的段落整段出」 | `as-len-song-maybe`，第 414 行；没达标时 `app.js` 的 `autoSongKey` 显示 -maybe 版本 |
+| 「按歌词校准字幕」 | `ly-open`，第 486 行 |
+| 「字幕大小和位置」 | `cq-open`，第 642 行 |
+| 「按句选段」 | `tr-sentences`，第 153 行 |
+| 「导入弹幕…」 | `dm-import`，第 699 行 |
+| 「高光候选」 | `hl-open`，第 345 行 |
 | 「+ 调节层」 | `add-adjust`，第 90 行 |
-| 「发往：{domain}」 | `ap-sends-to`，第 757 行 |
-| 「AI 想做这一步」「只批准这次」「不同意」 | `ap-title` / `ap-once` / `ap-deny`（第 755 / 760 / 762 行） |
-| 「帮我修好」 | `repair-button` / `repair-menu` / `repair-done` / `media-slow-mark` / `media-duration-unknown`，第 259–271 行 |
-| 「导出画面」 | `ef-title`，第 947 行 |
+| 「发往：{domain}」 | `ap-sends-to`，第 822 行 |
+| 「AI 想做这一步」「只批准这次」「不同意」 | `ap-title` / `ap-once` / `ap-deny`（第 820 / 825 / 827 行） |
+| 「帮我修好」 | `repair-button` / `repair-menu` / `repair-done` / `media-slow-mark` / `media-duration-unknown`，第 322–334 行 |
+| 「导出画面」 | `ef-title`，第 1036 行 |
+| 「找回录像」「找到它…」「先找回来…」「照样导出」 | `rl-title`、`off-find-it`、`off-find-first`、`off-export-anyway`，第 96–148 行 |
 | 「导出单帧」「导出队列」「轨道锁」「属性面板 → 蒙版」「新建序列…」「查找词」「添加字幕」「文稿」 | `ui-terms.js` |
-| 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 584、627、631 行，对应 `help-4`、`help-27`、`help-31` |
+| 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 585、628、632 行，对应 `help-4`、`help-27`、`help-31` |
 
 属性面板里只有英文的标签，都在 `app.js`：
-- `Reframe` / `Follow subject`：第 7636–7647 行
-- `Normalize` / `Apply` / `Noise`：第 7693–7698 行
-- `Silence`（`Below` / `At least` / `Keep` / `Find` / `Cut N`）：第 7705–7718 行
-- `Beats`（`Find beats` / `Mark` / `Snap cuts` / `Re-cut`）：第 7729–7733 行
-- 「新建序列…」弹窗里的 `Canvas` / `Start from a copy of …` / `Follow the subject in each shot` / `Create`：第 14414–14417 行；`9:16 · Reel 1080×1920` 是第 252 行的 `ASPECT_PRESETS`
+- `Reframe` / `Follow subject`：第 7690–7697 行
+- `Normalize` / `Apply` / `Noise`：第 7741–7747 行
+- `Silence`（`Below` / `At least` / `Keep` / `Find` / `Cut N`）：第 7756–7766 行
+- `Beats`（`Find beats` / `Mark` / `Snap cuts` / `Re-cut`）：第 7773–7784 行
+- 「新建序列…」弹窗里的 `Canvas` / `Start from a copy of …` / `Follow the subject in each shot` / `Create`：第 14466–14471 行；`9:16 · Reel 1080×1920` 是第 252 行的 `ASPECT_PRESETS`
 
 **PR 证据**：
 - 已合并、本 skill 用到的：#53（弹幕导入）、#52（高光候选）、#70（本机听写）、#75（找歌）、#77（自动出切片）、#81（字幕大小和位置）、#85 / #100（按歌词校准字幕）、#127（自动出切片的首次使用修复）、#149（长录像导出不再静音）、#156（Highlights 修复）、#169（助手附上唱歌段落和音量数字，「附上唱歌段和音量」开关）、#157（〔帮我修好〕一键修复、`fablecut_repair_media`，2026-11-05 17:22Z 合并）、#178（失败/取消导出立刻停 ffmpeg、删 `.part`，17:17Z）、#179（单声道 stem 居中导出，17:17Z）、#173（「导出画面」下拉框按界面语言显示，2026-11-06 09:43Z）。
-- 未合并，列在「即将可用」：#163、#164、#161、#175、#172、#170、#146、#138、#133、#165、#125、#155。
-- 其它本轮合并但未进 skill 的：#131（一位主播的私下测试包，桌面打包功能，与剪辑操作无关）、#174（sherpa-onnx-linux-x64 许可证文档）、#143（Windows 关机误报的排查文档）、#181（下一批特性的 ADR）。
+- 本轮新增收进：#137 / #193（找回录像与中文对话框）、#159（显示尺寸）、#170（AI 数据说明 v3）、#172（空方案不出按钮、做不到的事先说）、#175 / #176（桌面助手改比例与末帧跟随）、#190（限定路径的 ProRes 末尾声音修复）。合并提交见上方逐条证据。
+- 未合并，列在「即将可用」：#163、#164、#161、#146、#138、#133、#165、#125、#155。#170、#172、#175 已在本轮移除。
+- 仍开放且改到 `skills/` 的 PR：#186（撤回隐私模糊配方，改不透明覆盖块）和 #163（一步打码）。本轮只以 main 为底本，没有采用或回写它们的未合并改动，也没有改 §4 的打码配方，避免互相覆盖。
+- 其它本轮合并但未进 skill 的：#109（Cindy 助手面板样式与主题）、#134（批准后的 toast 措辞）、#139（声道提示中文）、#195（ProRes 参数优先级文档）、#197（测试桩）、#192（上一轮 skill 同步，只改 `skills/`）。纯样式、文案微调、测试和内部文档不作为新剪辑能力。
+- MontClip-Cindy：#11（隐藏独立插件包状态覆盖层）不改变剪辑操作，未收；#10 是上一轮 skill 文档合并。仓库 main 现为 `762bc090`，插件版本和引擎锁未变。
 
-用 `gh pr list -R good-night-oppie/MontClip --state all --limit 60`（以及 `--state merged --limit 200`）查到，时间 2026-11-06。
+用 `gh api repos/good-night-oppie/<repo>/compare/<旧>...main` 读增量，并用 `gh pr list` / `gh pr view` 核对合并与开放 PR，时间 2026-11-06。
