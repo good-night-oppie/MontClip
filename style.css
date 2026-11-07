@@ -5088,6 +5088,8 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .as-preview { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(720px, 92vw); padding: 14px; }
 .as-preview::backdrop { background: #000a; }
 .as-preview video, .as-preview audio { width: 100%; max-height: 60vh; background: #000; }
+/* a held line with no button (toastHeld): the pointer on it keeps it (VV, #221) */
+#toast.held { pointer-events: auto; }
 #toast.has-action { pointer-events: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
 #toast .toast-note { flex-basis: 100%; font-size: 11px; opacity: .75; }
 .mc-auto-slices { white-space: nowrap; }
