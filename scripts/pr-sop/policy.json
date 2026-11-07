@@ -89,7 +89,9 @@
         "desktop/*-perf.cjs",
         "desktop/m0-smoke.js",
         "scripts/readme-demo/montclip_session.py",
-        "docs/validation/2026-11-05-audio-tracks/*.cjs"
+        "docs/validation/2026-11-05-audio-tracks/browser-tracks.cjs",
+        "docs/validation/2026-11-05-audio-tracks/e2e-export.cjs",
+        "docs/validation/2026-11-05-audio-tracks/ui-smoke.cjs"
       ]
     },
     "good-night-oppie/MontClip-Cindy": {
