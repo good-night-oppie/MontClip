@@ -5105,6 +5105,8 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 #toast.held { pointer-events: auto; }
 #toast.has-action { pointer-events: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
 #toast .toast-note { flex-basis: 100%; font-size: 11px; opacity: .75; }
+/* #161: the mailbox after 〔复制问题信息〕 — selectable as a whole, copied by hand (no second copy button) */
+#toast .toast-email { user-select: all; -webkit-user-select: all; cursor: text; font-weight: 600; }
 .mc-auto-slices { white-space: nowrap; }
 .auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
 .auto-slices .as-tag-likely { color: var(--dim); border-color: var(--border); }

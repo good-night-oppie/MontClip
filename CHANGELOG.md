@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   confirms that a short but decodable remux is still refused.
 - Send background duration metadata through the editor server so an open editor can save it alongside pending
   timeline edits. Server errors no longer fall back to a direct project write.
+- A recording whose timestamps don't start at 0 (an OBS MKV that starts at 3600 s, an MP4 edit list) exported as
+  black, its sound 21 ms late, and the export said done. The file's start and the offset of its decoded sound are now
+  read with ffprobe (`start`, `audioOffset`), and the players, the export's decoder and its audio mix use them; the
+  preview showed the first frame frozen and is fixed with it. An export that comes out black or silent from start to
+  end while the footage is not now fails and says so in plain words, instead of finishing (Deja; Rea, #152).
 - A reload no longer adds an empty undo step: loading relinks the picture to its audio stems under new ids, which the
   kept undo history took for an edit made elsewhere (VV, #111). The undo of a real outside edit now says so in the
   interface language.

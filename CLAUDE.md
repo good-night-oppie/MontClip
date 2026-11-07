@@ -1784,6 +1784,7 @@ entry. These fields are read-only — they describe the file:
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
 | `audioTracks` | only for a file with two or more audio streams (OBS records up to six): `[{channels, title?, default?}]` in stream order, `title` being the name the recorder wrote |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
+| `start` · `audioOffset` | only on a file whose clock doesn't start at 0 (an OBS recording whose timestamps start at 3600 s, an MP4 edit list): `start` is where media time 0 — the file's start, the 0 of `ffmpeg -ss` — sits on the file's own clock, seconds; `audioOffset` is where its decoded sound starts in media time (−0.021 for the AAC priming ahead of such a recording). The editor's players, the export's decoder and its audio mix are shifted by them, so `in` and every media time mean the same thing as for any other file |
 | `storedWidth` · `storedHeight` | only when the pixels aren't square: the size the file stores (the compact view prints `2389×1920 (stored as 1080×1920)`). Agents read `width` / `height` |
 | `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). `width` × `height` is the **display** size: a file with non-square pixels shows as it is drawn (a replay stored as 1080×1920 with pixels 896:405 is 2389×1920), and an entry that still holds the stored size is corrected when the agent or the editor reads it. An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
@@ -2548,7 +2549,7 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 - Fast / WebCodecs export (browser compositor → server ffmpeg):
   `GET /api/export/ffmpeg` → `{available}` · `GET /api/export/profiles[?detail=1]` →
   `{default, profiles, issues}` · `POST /api/export/begin`
-  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?}` → `{id,mode,profile?,label,summary}`
+  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?,check?}` → `{id,mode,profile?,label,summary}`
   (`fps` is required — pass `project.fps`, no server-side default;
   `mode` is `"jpeg"` (default, Fast) or `"annexb"` (WebCodecs H.264 elementary stream);
   jpeg **400** if `profile` is not a defined id, or if ffmpeg rejects its args in the dry run;
@@ -2557,7 +2558,9 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   used `pixelFormat:"rgba"`; Annex-B for annexb — one POST may concatenate frames
   or AUs. Must be after audio; ffmpeg is spawned on the first frame in both modes)
   · `POST /api/export/audio?id=` (WAV body — must be sent before the first frame)
-  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`
+  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`; **500** with `code`
+  `EXPORT_BLANK_PICTURE` / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH` when the file came out black or
+  silent from start to end while the footage in `check` (`{video:[{t, src, at}], audio:[{src, at, dur}]}`) is not
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
   `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
   (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
@@ -2933,6 +2936,12 @@ A spec (every key optional — what is left out comes from its `preset`):
   are the cause, it has a **Play in both** button — the same fix, one undo step, as the
   open-project question in "Audio mix".
   The report shows in the queue, a toast after a single export, and the `fablecut_export` reply.
+- **Never done when blank.** An export whose file is black from start to end, or silent, while the footage on the
+  timeline at those moments is not, fails instead of finishing: the editor says so in plain words (`EXPORT_BLANK_PICTURE`
+  / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH`), `fablecut_export` returns the reason, and the file stays in
+  `exports/`. The editor sends what to compare with (`check` on `/api/export/begin`: at 8 moments, the video clips on
+  screen and where in their file they are; up to 8 stretches of sound), and the server reads 8 frames of the finished
+  file — about 0.4 s for 10 minutes of 1080p — and the sources only when the file looks blank.
 - **Saved presets**: "Save preset…" in the dialog writes `library/delivery/<id>.json`,
   listed under "Saved" in every project (`GET / POST /api/export/presets`,
   `POST /api/export/presets/delete {id}`).
@@ -2975,7 +2984,7 @@ ones and starts.
 - REST: `POST /api/export/begin {deliveries:[{delivery, name}, …], canvasW, canvasH,
   region?, duration, fps, hasAudio}` → `{id, input, jpegQuality, outputs:[{file, spec,
   summary, notes, size}]}`; frames and audio as for one output; `/api/export/end` →
-  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error}]}`.
+  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error, code?}]}`.
 
 ### Encoding profiles (`encoding-profiles.json`)
 
