@@ -1,4 +1,5 @@
 'use strict';
+
 const test=require('node:test'), a=require('node:assert/strict');
 const {hidePaths}=require('../asr-status');
 const paths=require('./fixtures/private-paths.cjs');
@@ -20,4 +21,15 @@ test('hidePaths keeps ordinary errors, web URLs and relative saved paths intact'
   a.equal(hidePaths('open '+first+' failed while reading C:/Users/someone/y.bin'),'open …/x.json failed while reading …/y.bin');
  }
  a.equal(hidePaths('failed C:/Users/someone/x.json see https://example.com/help'),'failed …/x.json see https://example.com/help');
+});
+test('QQ: Windows and UNC spaces are private, POSIX paths stop at whitespace',()=>{
+ for(const p of [String.raw`C:\Users\Some One\x.json`, '//server/share/Some One/x.json', 'file:///C:/Users/Some One/x.json']){
+  const out=hidePaths(p); a.equal(out,'…/x.json');
+  a.doesNotMatch(out,/Some|One|server|share|Users/);
+ }
+ a.equal(hidePaths('/home/someone/x.json 后面的中文不能吞掉 a/b'), '…/x.json 后面的中文不能吞掉 a/b');
+ a.equal(hidePaths('file:///home/someone/x.json 后面的中文不能吞掉 a/b'), '…/x.json 后面的中文不能吞掉 a/b');
+ for(const p of ['C:/Users/Some One/x.json','//server/share/Some One/x.json']){
+  a.equal(hidePaths('无法打开'+p+'，后面的中文不能吞掉 a/b；请重试。'), '无法打开…/x.json，后面的中文不能吞掉 a/b；请重试。');
+ }
 });

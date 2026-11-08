@@ -72,13 +72,17 @@ const SAY = {};
 for (const c of CODES) Object.defineProperty(SAY, c, { enumerable: true, get: () => say(c) });
 
 /* Recognize local roots, including file URLs and both UNC spellings, but not web URLs, relative paths or our
-   own …/ replacement. Directory components can contain internal spaces (e.g. "Some One"). A component cannot
+   own …/ replacement. Windows directory components can contain internal spaces (e.g. "Some One"). A component cannot
    end in whitespace: that separates the path from prose before another path. Keep the final filename and
    surrounding quotes/punctuation so errors remain useful, and a second pass produces exactly the same text. */
-const PATH_ROOT = String.raw`(?<![\w.:/\\…])(?:file:[\\/]+(?:[a-z]:[\\/])?|[\\/]{2}\?[\\/](?:UNC[\\/]|[a-z]:[\\/])|[a-z]:[\\/]|[\\/]{2}|~[\\/]|/(?=[^\s/]))`;
-const PATH_COMPONENT = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。！？：](?:[^\\/'"\x60\r\n,;:()<>\[\]{}。！？：]*[^\\/'"\x60\s,;:()<>\[\]{}。！？：])?[\\/]`;
-const PATH_END = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。！？：]*`;
-const PATHS = new RegExp(PATH_ROOT + '(?:' + PATH_COMPONENT + ')*' + PATH_END, 'gi');
+const PATH_BOUNDARY = String.raw`(?<![\w.:/\\…])`;
+const WINDOWS_ROOT = String.raw`(?:file:[\\/]+[a-z]:[\\/]|file:[\\/]{2}(?![\\/])[^\\/\s]+[\\/]|[\\/]{2}\?[\\/](?:UNC[\\/]|[a-z]:[\\/])|[a-z]:[\\/]|[\\/]{2}(?=[^\\/\s]))`;
+const POSIX_ROOT = String.raw`(?:file:/+|~[\\/]|/(?=[^\s/]))`;
+const PATH_COMPONENT = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：](?:[^\\/'"\x60\r\n,;:()<>\[\]{}。，；！？：]*[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：])?[\\/]`;
+const PATH_END = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：]*`;
+// Only Windows roots admit spaces inside directories; POSIX whitespace starts ordinary message text.
+const PATHS = new RegExp(PATH_BOUNDARY + '(?:' + WINDOWS_ROOT + '(?:' + PATH_COMPONENT + ')*' + PATH_END
+  + '|' + POSIX_ROOT + '(?:' + PATH_END + '[\\/])*' + PATH_END + ')', 'gi');
 function hidePaths(text) {
   return String(text == null ? "" : text).replace(PATHS, (p) => {
     const last = p.split(/[\\/]+/).filter(Boolean).pop();
