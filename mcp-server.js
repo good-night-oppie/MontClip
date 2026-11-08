@@ -1156,7 +1156,7 @@ function describeExportJob(j) {
   }
   // fablecut_export {cancel} also frees the queue of a scope reading, frame, tracking or transcription job
   const noun = { scopes: "Scope reading / frame", track: "Tracking job", transcribe: "Transcription" }[j.kind] || "Export";
-  if (j.status === "failed" || j.status === "cancelled") return `${noun} ${j.id} ${j.status}: ${publicError(j.error || "no reason given")}`;
+  if (j.status === "failed" || j.status === "cancelled") return `${noun} ${j.id} ${j.status}${j.code ? ` (${publicError(j.code)})` : ""}: ${publicError(j.error || "no reason given")}`;
   return `Export ${j.id} ${j.status}${j.status === "running" ? ` — ${pct}%` : ""} (in ${j.via === "headless" ? "a headless browser" : "the open editor tab"}). ` +
     `Check again with fablecut_export {job:"${j.id}"}, or stop it with {cancel:"${j.id}"}.`;
 }

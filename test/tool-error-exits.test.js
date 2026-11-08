@@ -14,7 +14,7 @@ test('failed jobs: direct, durable receipt and old replay all keep errors privat
   else if(req.url==='/api/transcript/status')out={status:{'/media/a.wav':false}};
   else if(req.url==='/api/transcribe/request'){submitted++;out={id:'failure-job',status:'running'};}
   else if(req.url.includes('export-check'))out={id:'export-check',status:'done',src:'/exports/a.mp4',result:{outputs:[{ok:true,file:'a.mp4',report:{ok:false,line:'could not check '+path.join(dir,'private.bin')}}]}};
-  else if(req.url.startsWith('/api/export/job'))out={id:'failure-job',status:'failed',error};
+  else if(req.url.startsWith('/api/export/job'))out={id:'failure-job',status:'failed',code:'EXPORT_AUDIO_FAILED',error};
   res.end(JSON.stringify(out));
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
@@ -36,6 +36,10 @@ test('failed jobs: direct, durable receipt and old replay all keep errors privat
   const replay=JSON.parse((await mcp.callTool('fablecut_transcribe',{taskId:result.taskId,wait_ms:0})).text);
   a.deepEqual(replay,result);
  }
+ error='decode failed: C:/Users/Some One/private.bin';
+ const exportFailure=await mcp.callTool('fablecut_export',{job:'failure-job'});
+ a.match(exportFailure.text,/\(EXPORT_AUDIO_FAILED\): decode failed: …\/private.bin/);
+ privateFree(exportFailure);
  const exported=await mcp.callTool('fablecut_export',{job:'export-check'});
  a.match(exported.text,/CHECK: could not check …\/private.bin/);
  privateFree(exported.text.split('CHECK: ')[1]);

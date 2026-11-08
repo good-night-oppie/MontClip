@@ -259,12 +259,18 @@ test('MC-15: a crashed export page\'s half-written file is deleted (onEnd → cl
   a.match(server, /exportSessions\.get\(begun\.id\)\.job = opts\.job/, 'a session knows its job from /api/export/begin');
 });
 
-test('MC-15 on Linux: the headless browser is started as the first thing the kernel kills when memory runs out, not the engine', () => {
-  const { browserCommand } = require('../export-jobs');
-  const lin = browserCommand('/usr/bin/chromium', ['--headless=new', 'http://x/'], 'linux');
-  a.equal(lin.cmd, '/bin/sh');
-  a.deepEqual(lin.args, ['-c', 'echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec "$0" "$@"', '/usr/bin/chromium', '--headless=new', 'http://x/']);
-  for (const p of ['win32', 'darwin']) a.deepEqual(browserCommand('C:/b.exe', ['--x'], p), { cmd: 'C:/b.exe', args: ['--x'] });
+/* MC-15, the truth (Video on europa, #231 issuecomment-6715105038): #231's `echo 1000 > /proc/self/oom_score_adj` before
+   the browser did not hold — Chrome sets its own per process type (0 / 200 / renderer 300) as it starts, so it was
+   removed. MontClip claims nothing about which process the kernel kills first; what it does claim is tested above: a page
+   that dies ends its own job (EXPORT_PAGE_CRASHED). */
+test('MC-15: the headless browser is started as itself — no oom_score_adj line that Chrome overrides, and no claim that it works', () => {
+  const jobs = read('export-jobs.js');
+  a.equal(require('../export-jobs').browserCommand, undefined);
+  a.doesNotMatch(jobs.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, ''), /oom_score_adj|\/bin\/sh/, 'no wrapper in the code');
+  a.ok(jobs.includes('const proc = spawn(exe, args, { stdio: "ignore", windowsHide: true });'));
+  // the comment says what is true: Chrome's own values, not ours
+  a.ok(jobs.includes('renderer (the export page) 300')); a.ok(jobs.includes("that is Chrome's default, not ours"));
+  a.doesNotMatch(jobs, /first thing the kernel's out-of-memory/);
 });
 
 /* QQ on #229: why did #161's self-check say "passed"? (1) It only reads the sources when the WHOLE export is silent
