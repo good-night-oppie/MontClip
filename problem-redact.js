@@ -38,7 +38,7 @@
     [/\bAIza[0-9A-Za-z_-]{20,}/g, "AIza…"],
     [/\bAKIA[0-9A-Z]{12,}/g, "AKIA…"],
     [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, "eyJ…"],   // a JWT
-    [/\b(authorization|x-api-key|x-goog-api-key|api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|token|secret|client[_-]?secret|password|passwd|pwd|key|sig|signature|session|sessdata|bili_jct|csrf)(["']?\s*[:=]\s*["']?)[^\s"',;&]+/gi, "$1$2…"],
+    [/\b(authorization|x-api-key|x-goog-api-key|api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|token|ticket|secret|client[_-]?secret|password|passwd|pwd|key|sig|signature|session|sessdata|bili_jct|csrf)(["']?\s*[:=]\s*["']?)[^\s"',;&]+/gi, "$1$2…"],
     // accounts
     [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "<email>"],
     [/(^|[^\d])1[3-9]\d{9}(?!\d)/g, "$1<phone>"],

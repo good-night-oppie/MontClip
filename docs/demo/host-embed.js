@@ -42,6 +42,41 @@
     return !!origin && e.source === win.parent && e.origin === origin;
   }
 
+  /* Which Cindy task this editor belongs to (MontClip-Cindy#18, QQ option ①). The worker registers a one-time ticket
+     for the task; the frame's first address carries it once (?ticket=). The page takes it out of its address at once
+     and hands it in with the id of its event stream (SSE event "conn"), which binds that one connection to the task
+     on the server (POST /api/embed/claim). A ticket is never used twice: when the stream reconnects, the page asks the
+     page that frames it for a new one — {type:"montclip-need-ticket"} out, {type:"montclip-host-ticket", ticket} back,
+     taken only from that page (window and origin). The page itself never learns the task's id. */
+  const TICKET_RE = /^[a-f0-9]{64}$/;
+  /** The task ticket in a page URL's query (?ticket=), or null for anything that is not one. */
+  function ticketFrom(search) {
+    const t = new URLSearchParams(search || "").get("ticket");
+    return TICKET_RE.test(t || "") ? t : null;
+  }
+  /** A ticket message's ticket, or null for anything else. */
+  function ticketMessage(data) {
+    return data && typeof data === "object" && data.type === "montclip-host-ticket" && TICKET_RE.test(data.ticket || "") ? data.ticket : null;
+  }
+  /** opts: {initial ticket or null, ask() → asks the framing page for a ticket, claim(ticket, conn)}.
+   *  → {connected(conn): a new event stream; ticket(t): a ticket from the framing page} */
+  function taskBinding({ initial = null, ask, claim }) {
+    let unused = initial, waiting = null;
+    return {
+      connected(conn) {
+        if (typeof conn !== "string" || !conn) return;
+        if (unused) { const t = unused; unused = null; waiting = null; claim(t, conn); return; }
+        waiting = conn;
+        ask();
+      },
+      ticket(t) {
+        if (!t || !waiting) return;                   // nobody asked: not kept for later
+        const conn = waiting; waiting = null;
+        claim(t, conn);
+      },
+    };
+  }
+
   function install(win) {
     const doc = win.document, el = doc.documentElement;
     const host = hostFrom(win.location.search);
@@ -50,14 +85,30 @@
     const apply = (scheme) => { if (scheme) el.dataset.hostTheme = scheme; };
     apply(schemeFrom(new URLSearchParams(win.location.search).get("theme")) || "dark");
     const origin = parentOrigin(win);
+    // the ticket leaves the address before anything else can read it (history, a reload, an error report)
+    const initial = ticketFrom(win.location.search);
+    const q = new URLSearchParams(win.location.search);
+    if (q.has("ticket")) {
+      q.delete("ticket");
+      try { win.history.replaceState(win.history.state, "", win.location.pathname + (q.toString() ? "?" + q : "") + win.location.hash); } catch { }
+    }
+    const binding = taskBinding({
+      initial,
+      ask: () => { if (origin) try { win.parent.postMessage({ type: "montclip-need-ticket" }, origin); } catch { } },
+      claim: (ticket, conn) => {
+        win.fetch("/api/embed/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket, conn }) }).catch(() => { });
+      },
+    });
     win.addEventListener("message", (e) => {
       if (!fromParent(e, win, origin)) return;      // only the page that frames the editor
       apply(themeMessage(e.data));
+      binding.ticket(ticketMessage(e.data));
     });
-    return { embedded: true, host };
+    return { embedded: true, host, taskConnected: binding.connected };
   }
 
-  const api = { hostFrom, embeddedUrl, schemeFrom, themeMessage, parentOrigin, fromParent, install, embedded: false, host: null };
+  const api = { hostFrom, embeddedUrl, schemeFrom, themeMessage, ticketFrom, ticketMessage, taskBinding, parentOrigin, fromParent, install,
+    embedded: false, host: null, taskConnected() { } };
   if (typeof window !== "undefined" && window.document) Object.assign(api, install(window));
   return api;
 });

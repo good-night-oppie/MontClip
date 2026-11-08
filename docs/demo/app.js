@@ -2184,6 +2184,11 @@ function listenSSE() {
   es.addEventListener("transcript", (e) => onTranscriptEvent(e.data));
   es.addEventListener("asr", (e) => onAsrEvent(e.data));
   es.addEventListener("ui-command", (e) => onUiCommand(e.data));
+  // embedded in Cindy: this stream's own id, bound to the task by its one-time ticket (host-embed.js, MontClip-Cindy#18)
+  es.addEventListener("conn", (e) => {
+    try { runtime.sseConn = JSON.parse(e.data).conn; } catch { return; }
+    if (typeof MontClipHost !== "undefined") MontClipHost.taskConnected(runtime.sseConn);
+  });
   es.addEventListener("versions", (e) => {
     let d = {};
     try { d = JSON.parse(e.data); } catch { }
@@ -21598,7 +21603,7 @@ function jobProblem(id, reply) {
 const JOB_HEARTBEAT_MS = 5000;
 async function runExportJob(ticket) {
   if (!ticket?.id || state.exporting) return; // a busy tab leaves it for another
-  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden }) })
+  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden, conn: runtime.sseConn || undefined }) })
     .then((r) => r.ok).catch(() => false);
   if (!claimed) return;
   let running = true;
