@@ -199,7 +199,9 @@ Everything else gets 403. Every answer says
 `Referrer-Policy: no-referrer`, and the token is never put in a redirect, a log
 line or an error. A headless export or measurement browser gets a one-time ticket
 (one use, one minute) in its URL instead of the token. Without
-`MONTCLIP_HOST=cindy` none of this applies.
+`MONTCLIP_HOST=cindy` none of this applies. The plugin downloads FFmpeg itself and sets
+`MONTCLIP_FFMPEG_REMEDY` to the advice `ffmpeg-path.js` adds when that copy is missing (unset or blank:
+"Reinstall MontClip to restore it.", the Windows app's advice).
 
 **Which task an embedded editor belongs to** (MontClip-Cindy#18, QQ's option ①) is bound to its event-stream
 connection, never to the cookie: one Cindy page frames every task's editor, and they share one cookie jar (the cookie

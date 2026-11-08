@@ -17,6 +17,14 @@ commit is a license reference, not a verified build provenance claim.
 The desktop app runs only the FFmpeg it ships in `resources/ffmpeg/`
 (see `ffmpeg-path.js`); it never uses an FFmpeg found on `PATH`.
 
+The Cindy plugin ([MontClip-Cindy](https://github.com/good-night-oppie/MontClip-Cindy)) does not ship
+FFmpeg. On first use it downloads the archive pinned below for its platform, through Cindy's download service,
+into `~/MontClip-Cindy/ffmpeg/<platform>/` (or under `MONTCLIP_CINDY_DATA`), checks its size and SHA-256,
+runs the same LGPL check on the unpacked `ffmpeg` before putting it in place, and keeps the archive's
+`LICENSE.txt` beside it. It tells the engine what to do when that copy is missing through
+`MONTCLIP_FFMPEG_REMEDY` instead of "reinstall MontClip". An MP4 may instead be encoded by an FFmpeg the
+user installed themselves (one with libx264); that program is the user's own and is not distributed by MontClip.
+
 - Version: FFmpeg `n9.0.2-42-gd7643a0fe3`
 - License: **LGPL-3.0-or-later** (configured with `--enable-version3`, without
   `--enable-gpl` and without `--enable-nonfree`). The full license text ships as
