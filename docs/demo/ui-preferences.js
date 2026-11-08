@@ -1507,6 +1507,8 @@
     "own.err-job-busy": 1, "own.err-editor-stopped": 1,
     // MC-14 / MC-15: what happened is the first sentence
     "own.export-audio-failed": 1, "own.export-audio-failed-track": 1, "own.err-export-page-crashed": 1,
+    // #231 follow-up (draft for JJ): listed in WHAT_TEXT too, which says it
+    "own.export-clip-unchecked": 1, "own.export-clip-unchecked-track": 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {
@@ -1516,6 +1518,9 @@
     extRemoveFailed: { "zh-CN": "没能停用这个 FFmpeg。", en: "Could not stop using this FFmpeg." },
     extNeeded: { "zh-CN": "这个导出设置要用 x264，需要一个带 x264 的 FFmpeg。", en: "This export setting uses x264, which needs an FFmpeg that includes x264." },
     extNotFullPath: { "zh-CN": "选的不是 FFmpeg 程序文件本身。", en: "The selected item isn't the FFmpeg program file itself." },
+    // #231 follow-up, DRAFT for JJ (Deja 2026-11-08): a piece that couldn't be checked in time; the file was kept
+    "own.export-clip-unchecked": { "zh-CN": "有一段声音这次没能核对完，成片已经导出。", en: "The sound of one part couldn't be fully checked this time. The export was made." },
+    "own.export-clip-unchecked-track": { "zh-CN": "有一段声音这次没能核对完，成片已经导出。", en: "The sound of one part couldn't be fully checked this time. The export was made." },
   };
   const sentencesOf = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim());
   /* Reassurance (「原片没有改动」, "the original is unchanged") is for the streamer, not for the developers the copy goes to
