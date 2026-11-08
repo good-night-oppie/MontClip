@@ -254,8 +254,15 @@ test("mcp-server.js sends X-MontClip-Session to an embedded engine", async (t) =
   const res = JSON.parse(r.out || "{}");
   assert.equal(res.up, true, r.out + r.err);
   const text = JSON.stringify(res.v);
-  assert.ok(!/forbidden|403/.test(text), text);
+  assert.ok(!REFUSED.test(text), text);
   assert.ok(!res.v?.isError, text);
+});
+
+// "403" on its own, not inside a random project id like p_c548403b33 (#257)
+const REFUSED = /\bforbidden\b|\b403\b/i;
+test("the refusal check reads 403 as a word, not inside a project id", () => {
+  assert.ok(!REFUSED.test('"No versions of p_c548403b33 yet."'));
+  for (const s of ["403 Forbidden", "request failed (403)", "forbidden"]) assert.ok(REFUSED.test(s), s);
 });
 
 test("the cookie's attributes are written in one place: COOKIE_ATTRS in embed.js", () => {
