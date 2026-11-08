@@ -41,6 +41,8 @@ function toolError(value,{dataDir,legacy=false,result=false}={}) {
     // an embedded editor's one-time task ticket or launch token, in a page address or a request body (MontClip-Cindy#18);
     // the same key shape problem-redact.js uses
     s=s.replace(/\b((?:ticket|token)["']?\s*[:=]\s*["']?)[^&\s"',;#<>]+/gi,'$1…');
+    // a task's BroadcastChannel suffix (#215 E3): only its 32-hex shape, so "{channel: [{t, v}]}" stays readable
+    s=s.replace(/\b(channel["']?\s*[:=]\s*["']?)[a-f0-9]{32}\b/gi,'$1…');
     return legacy?s.replace(/\uE000(\d+)\uE001/g,(_,i)=>routes[+i]):s;
   };
   const visit=(v,key)=>{
@@ -61,8 +63,8 @@ function toolError(value,{dataDir,legacy=false,result=false}={}) {
       if(Array.isArray(v))return v.map(relative).filter(p=>p!==null);
       if(typeof v==='string')return relative(v);
     }
-    // a bare ticket or token under its own key has no "ticket=" in its text to match (#255)
-    if(typeof v==='string' && /^(ticket|token)$/i.test(key||'')) return '…';
+    // a bare ticket, token or task channel under its own key has no "ticket=" in its text to match (#255, #215 E3)
+    if(typeof v==='string' && /^(ticket|token|channel)$/i.test(key||'')) return '…';
     if(typeof v==='string') return text(v,key);
     if(v instanceof Error){
       const out=new Error(text(String(v.message||v)));

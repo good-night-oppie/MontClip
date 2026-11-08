@@ -215,6 +215,17 @@ task's bound connections alone (none: 409 `NO_EDITOR` at once), and the answer i
 never by what the page says about itself. Error text drops `ticket=` / `token=` (tool-error.js, problem-redact.js);
 the engine keeps no access log.
 
+**The side panel and its task's editor** (MontClip#215 E3) talk over `BroadcastChannel("montclip-editor:<channel>")`.
+Every page of the engine's origin shares channel names, so `<channel>` is the task's own: 32 hex of an HMAC-SHA256 of
+`project + "\0" + session` under a key drawn when the engine starts (not the embed token; a restart changes it). The
+claim answers `{bound: true, channel}`; the panel trades its own task ticket with `POST /api/embed/channel {ticket}`
+→ `{channel}`, which binds no connection and gets no UI commands (refused like a claim: 403 `TASK_TICKET_REFUSED`).
+No channel, no BroadcastChannel: the editor never falls back to a shared name. The editor sends
+`{type:"editor-state", time, playing, selId, revision}` on a change and at least once a second, and takes
+`{type:"seek", t}` and `{type:"hello"}` only; messages carry no project, session, ticket or channel. The channel
+stays in the page's memory; a `channel` key, and a 32-hex value after `channel=` / `channel:`, are dropped from
+error text like a ticket.
+
 The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
 assistant (Cindy's chat takes its place) and keeps it from sending anything: it reads no
 service key, reaches no AI service and sends no message (the desktop main process refuses its

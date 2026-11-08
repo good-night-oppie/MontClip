@@ -1035,7 +1035,10 @@ async function handleRequest(req, res) {
      (256 bits, 60 s) and returns {ticket, expiresInMs}; the parent page puts it once in the frame's first URL (?ticket=).
      POST /api/embed/claim {ticket, conn} — the page — trades it for its own event stream: that connection is bound to
      the task until it closes. A reused, expired or unknown ticket (another engine's) is 403 and binds nothing; so is a
-     connection that is not open here or is already bound. */
+     connection that is not open here or is already bound. The answer carries the task's BroadcastChannel suffix,
+     {bound, channel} (embed.js channelFor, MontClip#215 E3).
+     POST /api/embed/channel {ticket} — the side panel — trades a task ticket for that suffix alone, {channel}: no
+     connection is bound and no UI command reaches it. Refused like a claim. */
   if (embed && p === "/api/embed/ticket" && req.method === "POST") {
     if (!embed.worker(req)) { sendJSON(res, 403, { error: "forbidden: only the plugin worker registers task tickets" }); return; }
     try { sendJSON(res, 200, embed.taskTicket(JSON.parse((await readBody(req)).toString("utf8") || "{}"))); }
@@ -1049,7 +1052,15 @@ async function handleRequest(req, res) {
     const conn = task && [...sseClients].find((r) => typeof a.conn === "string" && sameSecret(a.conn, r.montclipConn));
     if (!task || !conn || conn.montclipTask) { sendJSON(res, 403, { error: "forbidden: wrong, used or expired task ticket", code: "TASK_TICKET_REFUSED" }); return; }
     conn.montclipTask = task;
-    sendJSON(res, 200, { bound: true });
+    sendJSON(res, 200, { bound: true, channel: embed.channelFor(task) });
+    return;
+  }
+  if (embed && p === "/api/embed/channel" && req.method === "POST") {
+    let a = {};
+    try { a = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { }
+    const channel = embed.redeemChannel(a.ticket);   // used up, whatever happens next
+    if (!channel) { sendJSON(res, 403, { error: "forbidden: wrong, used or expired task ticket", code: "TASK_TICKET_REFUSED" }); return; }
+    sendJSON(res, 200, { channel });
     return;
   }
   if (p === "/api/ui/command" && req.method === "POST") {
