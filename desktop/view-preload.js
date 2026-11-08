@@ -1,12 +1,19 @@
 'use strict';
 const {contextBridge,ipcRenderer,webUtils}=require('electron');
-contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
+// The editor inside another app (?host=cindy, host-embed.js) gets no assistant service: its assistant sends nothing (QQ on #219).
+if(new URLSearchParams(location.search).get('host')!=='cindy')contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  reset:()=>ipcRenderer.invoke('montclip:agent:reset'),
  deleteConnection:()=>ipcRenderer.invoke('montclip:agent:deleteConnection'),
  get:()=>ipcRenderer.invoke('montclip:agent:get'),
  configure:value=>ipcRenderer.invoke('montclip:agent:configure',value),
  send:value=>ipcRenderer.invoke('montclip:agent:send',value),
- cancel:id=>ipcRenderer.invoke('montclip:agent:cancel',id)
+ cancel:id=>ipcRenderer.invoke('montclip:agent:cancel',id),
+ // the 「AI 数据说明」, read before the first request (desktop/agent-data-notice.js)
+ noticeGet:()=>ipcRenderer.invoke('montclip:agent:noticeGet'),
+ noticeAck:version=>ipcRenderer.invoke('montclip:agent:noticeAck',version),
+ // the 「AI 助手」 switch in 设置 (desktop/agent-switch.js)
+ switchGet:()=>ipcRenderer.invoke('montclip:agent:switchGet'),
+ switchSet:enabled=>ipcRenderer.invoke('montclip:agent:switchSet',enabled)
 }));
 // The AI's permission mode and the host's approval box (P4): the main process decides; the page answers a ticket only.
 contextBridge.exposeInMainWorld('montclipAgentPolicy',Object.freeze({
@@ -65,7 +72,8 @@ contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
 // Desktop FLV import: the page passes the File the user picked; only its path goes to the main process (read here),
 // and no path comes back to the page.
 contextBridge.exposeInMainWorld('montclipFlv',Object.freeze({
- inspect:file=>{let p='';try{p=webUtils.getPathForFile(file);}catch{}return ipcRenderer.invoke('montclip:flv:inspect',p);},
+ // id: the page names the import up front, so status() and cancel() reach it while it is being checked
+ inspect:(file,id)=>{let p='';try{p=webUtils.getPathForFile(file);}catch{}return ipcRenderer.invoke('montclip:flv:inspect',typeof id==='string'?{path:p,id}:p);},
  prepare:value=>ipcRenderer.invoke('montclip:flv:prepare',value),
  status:id=>ipcRenderer.invoke('montclip:flv:status',{id}),
  cancel:id=>ipcRenderer.invoke('montclip:flv:cancel',{id}),
@@ -76,3 +84,5 @@ contextBridge.exposeInMainWorld('montclipFlv',Object.freeze({
 // copy was removed; and, before its own export's download, which file that is
 contextBridge.exposeInMainWorld('montclipDownloads',Object.freeze({onDone:cb=>{ipcRenderer.on('montclip:download:done',(_e,v)=>cb({state:String(v&&v.state),name:String(v&&v.name),removed:v&&v.removed===true}));},expect:name=>ipcRenderer.send('montclip:downloads:expect',String(name))}));
 contextBridge.exposeInMainWorld('montclipAgentSessions',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:sessions:get'),set:value=>ipcRenderer.sendSync('montclip:sessions:set',value)}));
+// The desktop shell's own "show in folder": only a workspace name (/exports/…, /media/…, /library/…), resolved in main.
+contextBridge.exposeInMainWorld('montclipReveal',Object.freeze({show:src=>ipcRenderer.invoke('montclip:reveal',String(src))}));

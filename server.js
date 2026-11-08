@@ -26,7 +26,13 @@ const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
 const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
-/* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
+/* Where a chosen FFmpeg is saved: the desktop app names its own file; otherwise it lives with the user's data, so the
+   web / server mode and the Cindy plugin keep a choice across restarts too (JJ P1). */
+if (!process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS)
+  process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(require("./paths").DATA_DIR, "external-ffmpeg.json");
+const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
+const ProblemFiles = require("./problem-files");   // 〔复制问题信息〕: a named file's size, by its name only (#161)
+/* A local FFmpeg with libx264 for H.264 export (external-ffmpeg.js): the user's choice, the server's variable, or PATH. */
 const externalFfmpeg = X.createExternal();
 
 const { analyze, frame, frameGrid } = require("./analyze");
@@ -38,12 +44,15 @@ const {
   listProfilesPublic,
   profileSummary,
   buildExportArgs,
+  proresProjectEnd,
+  proresFilterPlan,
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
 const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
 const { createExportJobs } = require("./export-jobs");
+const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
 const {
@@ -62,14 +71,18 @@ try {
   }
 } catch {}
 const Templates = require("./templates");
-const { probeFile } = require("./media-probe");
+const { probeFile, infoForEntry } = require("./media-probe");
+const MakeEditable = require("./make-editable");
+const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
 const MediaLib = require("./media-lib");
-const { createProxies } = require("./proxy");
+const { createProxies, PROXY_H264 } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
 const Delivery = require("./delivery");
 const ExportCleanup = require("./export-cleanup");
+const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
+const { createEmbed } = require("./embed");
 
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
@@ -80,24 +93,12 @@ const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
 const DESKTOP_TOKEN = process.env.MONTCLIP_SESSION_TOKEN;
 if (DESKTOP && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(DESKTOP_TOKEN || "")))
   throw new Error("Desktop requires loopback binding and a fresh session token");
-/* Embedded in Cindy (plugins/montclip-cindy): the plugin's pages frame this server, and a frame cannot add a
-   request header. The worker starts the engine with a fresh random token; the frame's first page load carries it
-   once in the URL (?token=), gets it back as an HttpOnly cookie, and every later request carries the cookie.
-   The worker's own calls send it as X-MontClip-Session. Anything else on this machine gets 403. */
+/* Embedded in Cindy (MONTCLIP_HOST=cindy, the MontClip-Cindy plugin): only requests carrying the plugin's session
+   token get in — X-MontClip-Session, or the cookie a page load with ?token= trades for (embed.js). Unset, nothing
+   here changes. */
 const EMBED = process.env.MONTCLIP_HOST === "cindy";
-const EMBED_TOKEN = process.env.MONTCLIP_EMBED_TOKEN;
-if (EMBED && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(EMBED_TOKEN || "")))
-  throw new Error("Embedding in Cindy requires loopback binding and a fresh session token");
-const EMBED_COOKIE = "montclip_embed";
-const sameToken = (a) => typeof a === "string" && a.length === EMBED_TOKEN.length &&
-  crypto.timingSafeEqual(Buffer.from(a), Buffer.from(EMBED_TOKEN));
-function embedCookie(req) {
-  for (const part of String(req.headers.cookie || "").split(";")) {
-    const i = part.indexOf("=");
-    if (i > 0 && part.slice(0, i).trim() === EMBED_COOKIE) return part.slice(i + 1).trim();
-  }
-  return null;
-}
+if (EMBED && (DESKTOP || HOST !== "127.0.0.1"))
+  throw new Error("Embedding in Cindy requires loopback binding (HOST=127.0.0.1) and cannot run in desktop mode");
 let boundPort = PORT;
 const serverOrigin = () => `http://127.0.0.1:${boundPort}`;
 
@@ -115,6 +116,7 @@ function hostAllowed(value) {
   const host = value.replace(/^(\[[^\]]*\]|[^:]+)(:\d+)?$/, "$1").toLowerCase();
   return ALLOWED_HOSTS.has(host);
 }
+const embed = EMBED ? createEmbed({ token: process.env.MONTCLIP_EMBED_TOKEN, hostAllowed }) : null;
 function requestAllowed(req) {
   if (DESKTOP) {
     if (req.headers.host !== `127.0.0.1:${boundPort}` ||
@@ -122,42 +124,39 @@ function requestAllowed(req) {
     return !req.headers.origin || req.headers.origin === serverOrigin();
   }
   if (!hostAllowed(req.headers.host)) return false;
-  if (EMBED && !sameToken(req.headers["x-montclip-session"]) && !sameToken(embedCookie(req))) return false;
+  if (embed && !embed.authorized(req)) return false;
   const origin = req.headers.origin;
   if (origin) {
     try { return hostAllowed(new URL(origin).host); } catch { return false; }
   }
   return true;
 }
-/** Embedded: a page load that brings the token in its URL gets it back as a cookie, and is sent on to the same
- *  URL without it (so the token does not stay in the frame's address or its history). True when answered. */
-function embedBootstrap(req, res) {
-  if (!EMBED || req.method !== "GET" || !hostAllowed(req.headers.host)) return false;
-  const url = new URL(req.url, "http://localhost");
-  const token = url.searchParams.get("token");
-  if (token === null) return false;
-  if (!sameToken(token)) { sendJSON(res, 403, { error: "forbidden: wrong session token" }); return true; }
-  url.searchParams.delete("token");
-  // SameSite=None + Partitioned: the frame sits inside Cindy's own page (another site); Secure is allowed on loopback
-  res.writeHead(302, {
-    "Set-Cookie": `${EMBED_COOKIE}=${EMBED_TOKEN}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned`,
-    Location: url.pathname + url.search, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
-  });
-  res.end();
-  return true;
+/* ffmpeg powers preview niceties (proxies, frames, conversions) and export. Everything else works without it:
+   browsing media and marking clips never need it. Which program runs is ffmpeg-path.js's answer (bundled → PATH →
+   the user's choice); FFMPEG_MISSING says in plain words why it is unavailable. detectFfmpeg() runs again for
+   「重新检测」 and after a choice, without a restart. */
+let HAS_FFMPEG = false, FFMPEG_MISSING = "", FFMPEG_MISSING_CODE = "ffmpegDev";
+/* Never start a program from a folder this server writes: an upload named ffmpeg.exe lands in media/ (QQ, 2026-11-05).
+   The plugin's download folder (MONTCLIP_FFMPEG_DIR, under the data folder) is the one allowed place. */
+FF.setPlaces({ deny: [MEDIA_DIR, LIBRARY_DIR, UPLOADS_DIR, ANALYSIS_DIR, PROXIES_DIR, FRAMES_DIR, EXPORTS_DIR, path.join(DATA_DIR, "projects")],
+  allow: [process.env.MONTCLIP_FFMPEG_DIR] });
+function detectFfmpeg() {
+  FF.refresh();
+  HAS_FFMPEG = false;
+  FFMPEG_MISSING = FF.reason("ffmpeg");
+  /* the page says "ffmpegMissing" in its language; the English reasons of a development setup stay English */
+  FFMPEG_MISSING_CODE = FF.missingCode({ source: FF.source("ffmpeg"), tooOld: !!FF.status().ffmpeg.tooOld });
+  if (!FFMPEG_MISSING) {
+    try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
+    if (!HAS_FFMPEG) FFMPEG_MISSING = `The ffmpeg MontClip found (${X.maskUserPath(FF.path("ffmpeg"))}) could not be started.`;
+  }
 }
-
-/* ffmpeg powers optional niceties (faststart remux on upload, fast export).
-   Everything else works without it. It is always the bundled build
-   (ffmpeg-path.js); FFMPEG_MISSING says in plain words why it is unavailable. */
-let HAS_FFMPEG = false;
-let FFMPEG_MISSING = FF.reason("ffmpeg");
-/* the page says "ffmpegMissing" in its language; the English reasons of a development setup stay English */
-const FFMPEG_MISSING_CODE = FF.missingCode({ source: FF.source("ffmpeg") });
-if (!FFMPEG_MISSING) {
-  try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
-  if (!HAS_FFMPEG) FFMPEG_MISSING = `MontClip's bundled ffmpeg (${FF.path("ffmpeg")}) could not be started. Reinstall MontClip to restore it.`;
+/** What every "no usable FFmpeg" answer carries: the reason, its code, and for FFMPEG_TOO_OLD the version (no path). */
+function ffmpegMissingBody() {
+  const f = FF.status().ffmpeg;
+  return { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE, ...(f.tooOld ? { version: f.version || null, why: f.why || "options" } : {}) };
 }
+detectFfmpeg();
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -177,7 +176,20 @@ const MIME = {
 const ASR_DIR = path.resolve(process.env.MONTCLIP_ASR_DIR || path.join(APP_DIR, "vendor", "asr"));
 const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.join(DATA_DIR, "asr-models"));
 let asrLocal = null;
-const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
+const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: () => FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
+/** The speech engine's front, or null when this copy of MontClip cannot even load it (P8: a copy without
+ *  desktop/asr-manifest.json threw here and took the whole server down). Never throws. */
+let asrLoadError = null, asrLoadCode = null;
+const AsrStatus = require("./asr-status");
+const asrOrNull = () => {
+  try { return asr(); }
+  catch (e) {
+    asrLoadError = AsrStatus.hidePaths(String((e && e.message) || e).split("\n")[0]).slice(0, 200);   // never a local path
+    asrLoadCode = /asr-manifest\.json/.test(asrLoadError) ? "ASR_MANIFEST_MISSING" : "ASR_ENGINE_MISSING";
+    return null;
+  }
+};
+const ASR_NONE = { ready: false, where: null, missing: [], bad: [] };
 const asrJob = { running: null };
 
 ensureDirs();
@@ -218,31 +230,67 @@ function broadcast(event = "change", data = event) {
   const payload = `event: ${event}\ndata: ${data}\n\n`;
   for (const res of sseClients) res.write(payload);
 }
-const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
-  // proxies are for preview: the bundled build's own H.264 encoder only, never the user's FFmpeg
-  encoder: async () => Delivery.encodersFor("h264", await bundledEncoders()).find((e) => e !== "libx264") || null,
+/* Proxies are H.264 (ADR 2026-11-02 as amended 2026-11-05): the bundled build's own encoder; with none (Linux, LGPL,
+   no graphics card), the local FFmpeg (chosen, MONTCLIP_EXTERNAL_FFMPEG or PATH) makes the proxy. Each program is
+   probed itself — its own -encoders, and a 2-frame test encode with the proxy's arguments — so an encoder is never
+   taken from one program and run on another. encoder() answers {encoder, bin}; proxy.js runs that bin. */
+const proxyTrials = new Map();
+function proxyTrial(bin, e) {
+  let key = `${bin}|${e}`;
+  try { const st = fs.statSync(bin); key += `|${st.size}|${st.mtimeMs}`; } catch { return Promise.resolve(false); }
+  if (!proxyTrials.has(key)) proxyTrials.set(key, runFfmpeg(["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
+    "-frames:v", "2", ...PROXY_H264[e], "-f", "null", "-"], 15000, bin).then((r) => r.code === 0));
+  return proxyTrials.get(key);
+}
+async function proxyEncoder() {
+  for (const e of Delivery.encodersFor("h264", await bundledEncoders()))
+    if (PROXY_H264[e] && await proxyTrial(FF.path("ffmpeg"), e)) return { encoder: e, bin: FF.path("ffmpeg") };
+  const ext = await externalFfmpeg.current();
+  if (!ext.ok) return null;
+  // its own -encoders, then a 2-frame test of each H.264 one (and nothing else: no HEVC or other test encodes on it)
+  const listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"], 15000, ext.path)).stdout);
+  for (const e of Delivery.encodersFor("h264", listed))
+    if (PROXY_H264[e] && await proxyTrial(ext.path, e)) return { encoder: e, bin: ext.path };
+  return null;
+}
+const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: () => FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
+  encoder: proxyEncoder,
   noEncoder: () => X.noH264Reason({ mediaFoundation: hasMediaFoundation() }) });
 /* Word transcripts, one per version of a file (fablecut_transcribe, the Transcript tab). */
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
 // P2 highlight signals: each file's loudness, read once by ffmpeg as a stream and cached per file version
-const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: FF.path("ffmpeg") });
+const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: () => FF.path("ffmpeg") });
 // P2 songs: each file read in segments, each kept as it is read (analysis/songs/), so a stopped scan carries on
 const Songs = require("./songs");
-const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
-const songJobs = new Map();   // src → {state, done, total, ctrl, error, code}
+const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: () => FF.path("ffmpeg") });
+const songJobs = new Map();   // src (+ "|a<track>" for another audio stream) → {state, done, total, ctrl, error, code}
+/* Which audio stream of a file is analysed — songs, loudness, the transcript: `given` (a request's
+   `track`) when there is one, else the open project's media entry for that src (its audioTrack, media-lib.js
+   audioTrackOf), else 0. One answer for every reader, so they never read different streams
+   (docs/validation/2026-11-05-audio-tracks). → an integer, or NaN for a `given` that is not one. */
+function audioTrackFor(src, given) {
+  if (given != null && given !== "") { const n = Number(given); return Number.isInteger(n) && n >= 0 && n < 64 ? n : NaN; }
+  try {
+    const doc = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, ""));
+    const m = (Array.isArray(doc.media) ? doc.media : []).find((x) => x && x.src === src);
+    return m ? MediaLib.audioTrackOf(m) : 0;
+  } catch { return 0; }
+}
+const BAD_TRACK = { error: "track is an audio stream number: 0 for the first", code: "BAD_TRACK" };
+const songJobKey = (src, track) => (track > 0 ? src + "|a" + track : src);
 // the drive the song analysis is written to ("C" on Windows), for 「{drive} 盘空间不够」 — never the path
 const songDrive = () => { const root = path.parse(path.resolve(ANALYSIS_DIR)).root; return /^[A-Za-z]:/.test(root) ? root[0].toUpperCase() : root; };
-async function startSongScan(src, file, again) {
-  const old = songJobs.get(src);
+async function startSongScan(src, file, again, track = 0) {
+  const old = songJobs.get(songJobKey(src, track));
   if (old && old.state === "running") return old;
-  if (again) songScan.forget(file);
+  if (again) songScan.forget(file, track);
   let total = null;
   try { const info = await probeFile(file); if (info && info.duration > 0) total = Math.max(1, Math.ceil(info.duration / songScan.SEGMENT)); } catch { /* unknown length */ }
-  const job = { state: "running", done: songScan.cached(file).done, total, ctrl: new AbortController(), error: null };
-  songJobs.set(src, job);
-  const tell = () => broadcast("songs", JSON.stringify({ src, state: job.state, done: job.done, total: job.total }));
-  songScan.scan(file, { signal: job.ctrl.signal, onSegment: (i) => { job.done = i + 1; tell(); } })
-    .then((r) => { job.state = r.complete ? "done" : "stopped"; job.done = songScan.cached(file).done; })
+  const job = { state: "running", done: songScan.cached(file, track).done, total, ctrl: new AbortController(), error: null };
+  songJobs.set(songJobKey(src, track), job);
+  const tell = () => broadcast("songs", JSON.stringify({ src, track, state: job.state, done: job.done, total: job.total }));
+  songScan.scan(file, { signal: job.ctrl.signal, track, onSegment: (i) => { job.done = i + 1; tell(); } })
+    .then((r) => { job.state = r.complete ? "done" : "stopped"; job.done = songScan.cached(file, track).done; })
     .catch((e) => { job.state = e.code === "SONGS_STOPPED" ? "stopped" : "failed"; job.error = X.maskUserPath(String(e.message)); job.code = e.code === "ENOSPC" ? "ENOSPC" : "SONGS_FAILED"; })
     .finally(tell);
   return job;
@@ -427,52 +475,94 @@ function attachProc(sess, proc) {
    Which encoders exist: `ffmpeg -encoders`, and for the hardware ones a 2-frame
    test encode, because a build lists h264_nvenc / _qsv / _amf whether or not
    this machine has the GPU. Asked once, in the background, on first use. */
-let deliveryEncodersP = null;
+/** What the page's FFmpeg card shows (ffmpeg-card.js): one of ready · missing · noProbe · noH264, the same answer in
+ *  every run mode. No paths: only where each tool came from. */
+async function ffmpegStatus() {
+  const probe = FF.status().ffprobe, found = FF.status().ffmpeg, tooOld = !HAS_FFMPEG && !!found.tooOld;
+  const h264 = HAS_FFMPEG ? Delivery.encodersFor("h264", await deliveryEncoders()) : [];
+  // tooOld: the FFmpeg named in MONTCLIP_FFMPEG, or found with no bundled build, fails the gate (ffmpeg-path.js): FFMPEG_TOO_OLD
+  const state = HAS_FFMPEG ? (probe.ok ? (h264.length ? "ready" : "noH264") : "noProbe") : tooOld ? "tooOld" : "missing";
+  return { state, platform: process.platform, setup: externalFfmpeg.setup, picker: false,
+    ffmpeg: { ok: HAS_FFMPEG, source: FF.source("ffmpeg"), ...(tooOld ? { code: "FFMPEG_TOO_OLD", version: found.version || null, why: found.why || "options" } : {}) }, ffprobe: { ok: probe.ok, source: probe.source }, encoder: h264[0] || null };
+}
+/** 「重新检测」: look again, forget the encoder list, answer the new state. */
+async function redetectFfmpeg() {
+  detectFfmpeg();   // encodersOf() probes again only a program it hasn't seen (path, size, time)
+  return ffmpegStatus();
+}
 function runFfmpeg(args, timeout = 15000, bin = FF.path("ffmpeg")) {
   return new Promise((resolve) => {
     execFile(bin, args, { timeout, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
       (err, stdout, stderr) => resolve({ code: err ? (err.code ?? 1) : 0, stdout: String(stdout || ""), stderr: String(stderr || "") }));
   });
 }
-/** Encoders an export may use: the bundled build's (checked once), plus libx264 while
- *  the user's local FFmpeg checks out (re-checked when the setting or file changes). */
+/** Encoders an export may use: the picked program's own (libx264 included when it has it), plus libx264 from the
+ *  user's x264 choice / MONTCLIP_EXTERNAL_FFMPEG while that checks out. */
 async function deliveryEncoders() {
   if (!HAS_FFMPEG) return new Set();
-  return externalFfmpeg.available(await bundledEncoders());
+  const own = await bundledEncoders();
+  return externalFfmpeg.available(own, { ownX264: own.has("libx264") });
 }
-function bundledEncoders() {
-  if (deliveryEncodersP) return deliveryEncodersP;
-  deliveryEncodersP = (async () => {
-    const listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
+/** The general program's encoders: the bundled build (or, with none, the FFmpeg used for everything). */
+function bundledEncoders() { return encodersOf(FF.path("ffmpeg")); }
+/* One program's usable encoders: `ffmpeg -encoders`, and for the hardware ones a 2-frame test encode, because a build
+   lists h264_nvenc / _qsv / _amf whether or not this machine has the GPU. Kept per program (path, size, time), so
+   「重新检测」 with the same programs answers at once and a new one is probed. */
+const encoderCache = new Map();
+function encodersOf(bin) {
+  let key = bin;
+  try { const st = fs.statSync(bin); key += `|${st.size}|${st.mtimeMs}`; } catch { }
+  if (encoderCache.has(key)) return encoderCache.get(key);
+  const p = (async () => {
+    let listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"], 15000, bin)).stdout);
+    // test/export-h264-precheck.test.js: a computer whose bundled build has no H.264 encoder (Linux with the LGPL build,
+    // no graphics card). Only the bundled program: a local FFmpeg keeps its libx264 (proxies probe it here too).
+    if (process.env.MONTCLIP_TEST_NO_H264 === "1" && bin === FF.path("ffmpeg")) listed = new Set([...listed].filter((e) => !Delivery.encodersFor("h264", new Set([e])).length));
     const usable = new Set([...listed].filter((e) => !Delivery.ENCODERS[e]?.hw));
     await Promise.all([...listed].filter((e) => Delivery.ENCODERS[e]?.hw).map(async (e) => {
       const r = await runFfmpeg(["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
-        "-frames:v", "2", "-c:v", e, "-pix_fmt", Delivery.ENCODERS[e].hw === "nvenc" ? "yuv420p" : "nv12", "-f", "null", "-"]);
+        "-frames:v", "2", "-c:v", e, "-pix_fmt", Delivery.ENCODERS[e].hw === "nvenc" ? "yuv420p" : "nv12", "-f", "null", "-"], 15000, bin);
       if (r.code === 0) usable.add(e);
     }));
     return usable;
   })();
-  return deliveryEncodersP;
+  encoderCache.set(key, p);
+  return p;
 }
 /** Windows has Media Foundation (missing on "N" editions without the Media Feature Pack). */
 const hasMediaFoundation = () => process.platform !== "win32" ||
   fs.existsSync(path.join(process.env.SystemRoot || "C:/Windows", "System32", "mfplat.dll"));
+/** What the no-encoder reason may point at: Settings on the desktop, MONTCLIP_EXTERNAL_FFMPEG in web / server mode. */
+function noH264Where() { return { mediaFoundation: hasMediaFoundation(), setup: externalFfmpeg.setup }; }
 /** The program that encodes an export: the user's local FFmpeg only for libx264, else the bundled one. */
 async function exportBinary(useX264) {
   if (!useX264) return FF.path("ffmpeg");
   const ext = await externalFfmpeg.current();
   if (ext.ok) return ext.path;
+  if ((await bundledEncoders()).has("libx264")) return FF.path("ffmpeg");   // no bundled build: the full FFmpeg used for everything
+  const setup = externalFfmpeg.setup, how = {
+    settings: "choose it in Settings",
+    server: "start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to its full path",
+    plugin: "in Cindy, name it for MontClip to use",
+  }[setup] || "choose it in Settings";
   throw Object.assign(new Error(ext.reason === "none"
-    ? "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
-    : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code });
+    ? `libx264 is only available from your own FFmpeg: ${how}, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder).`
+    : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)),
+  { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code, ...(setup !== "settings" ? { setup } : {}) });
+}
+/** No H.264 encoder at all (bundled, graphics card or the user's x264): the refusal, before anything renders (ADR 2026-11-02, 3). */
+async function noH264Error() {
+  if (Delivery.encodersFor("h264", await deliveryEncoders()).length) return null;
+  return Object.assign(new Error(X.noH264Reason(noH264Where())), { status: 400, ...X.noH264(noH264Where()) });
 }
 /** What H.264 export will use here, for the export dialog and agents. */
 async function h264Status() {
   const available = await deliveryEncoders();
   const list = Delivery.encodersFor("h264", available);
   const ext = await externalFfmpeg.current();
-  return { encoder: list[0] || null, encoders: list, external: ext.ok ? { ok: true } : { ok: false, code: ext.code },
-    reason: list.length ? null : X.noH264({ mediaFoundation: hasMediaFoundation() }) };
+  return { encoder: list[0] || null, encoders: list, setup: externalFfmpeg.setup,
+    external: ext.ok ? { ok: true, source: ext.source } : { ok: false, code: ext.code },
+    reason: list.length ? null : X.noH264(noH264Where()) };
 }
 /** Saved delivery presets: library/delivery/<id>.json, each a spec plus a label. */
 function savedDeliveryPresets() { return Delivery.savedPresets(readSaved("delivery")); }
@@ -503,7 +593,9 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
       frame = Delivery.reframe(spec, canvasW, canvasH, region);
     }
     if (avail !== available && !avail.has(spec.video.encoder))
-      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall", params: { w: frame.outW, h: frame.outH } });
+      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall",
+        // n: the smallest side the page names (JJ: one number for width and height): the largest minimum of the encoders refused
+        params: { w: frame.outW, h: frame.outH, n: Math.max(...[...available].map((e) => Delivery.ENCODERS[e]?.min || []).flat()) } });
     return { spec, notes, noteCodes: [], name: d && typeof d.name === "string" ? d.name : name, frame };
   });
   // one render has one frame rate: an output asking for another needs a render of its own
@@ -511,8 +603,8 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   if (off.length) throw new Error(off.map(([o, i]) => `output ${i + 1} asks for ${o.spec.fps} fps but this render is ${rate} fps`).join("; ") + " — render each frame rate separately");
   const input = outs.some((o) => Delivery.frameInput(o.spec) === "rgba") ? "rgba" : "jpeg";
   // H.264 with no encoder at all: say why now, not after the render
-  if (outs.some((o) => o.spec.video.codec === "h264") && !Delivery.encodersFor("h264", available).length)
-    throw Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
+  const noH264 = outs.some((o) => o.spec.video.codec === "h264") && await noH264Error();
+  if (noH264) throw noH264;
   const ext = await externalFfmpeg.current();
   for (const o of outs) {
     o.binary = await exportBinary(X.isExternalJob(o.spec));
@@ -544,7 +636,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   }
   const sess = {
     mode: "jpeg", proc: null, fps: rate, outputs: outs, input, canvasW, canvasH, duration,
-    hasAudio: !!hasAudio, dir, wav: null, partPath: null, outPath: null,
+    hasAudio: !!hasAudio, panIntent: !!extra.panIntent, dir, wav: null, partPath: null, outPath: null,
     stderr: "", done: null, lastTouch: Date.now(), err: () => "",
   };
   sess.writeLock = Promise.resolve();
@@ -556,8 +648,13 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
 }
 /** Integrated loudness and true peak of a file's first audio stream (ffmpeg ebur128). */
 async function measureLoudness(file, timeout = 10 * 60 * 1000) {
-  const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout);
+  const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout);   // the bundled build (ADR 2026-11-05 supplement)
   return r.code === 0 ? Delivery.parseEbur128(r.stderr) : null;
+}
+/** Each channel's level (dB) of a file's first audio stream, or null. */
+async function measureChannelLevels(file, timeout = 10 * 60 * 1000) {
+  const r = await runFfmpeg(Delivery.CHANNEL_LEVEL_ARGS(file), timeout);
+  return r.code === 0 ? Delivery.parseChannelLevels(r.stderr) : null;
 }
 function ffprobeJSON(file) {
   return new Promise((resolve) => {
@@ -571,15 +668,31 @@ async function verifyDeliveryOutput(sess, o, file) {
   const failed = (text) => ({ ok: false, checks: [{ ok: false, text }], line: "⚠ " + text });
   try {
     const loudWanted = o.spec.audio.codec !== "none" && !!sess.wav;
-    const [probe, loud] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null]);
+    const [probe, loud, channelLevels] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null,
+      loudWanted && o.spec.audio.channels === 2 ? measureChannelLevels(file, VERIFY_LOUDNESS_MS) : null]);
+    o.loud = loud;   // the self-check reads its silence (blankCheck)
     if (!probe) return failed("could not read the file back to check it (ffprobe)");
     let size = 0;
     try { size = fs.statSync(file).size; } catch {}
     return Delivery.verify(o.spec, probe, {
       fps: sess.fps, frames: sess.frames || (sess.duration ? Math.round(sess.duration * sess.fps) : null), duration: sess.duration,
-      size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav,
+      size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav, channelLevels, panIntent: sess.panIntent,
     });
   } catch (e) { return failed("could not check the file: " + (e.message || e)); }
+}
+/** The self-check of a finished file (export-check.js): null when it may be called done, else {code, error, check}.
+ *  `loud`: the file's measured loudness (a delivery report), when there is one; `soundless`: the output was asked to
+ *  have no sound (a delivery with audio codec none), so its silence is not checked. */
+async function blankCheck(sess, file, loud, soundless = false) {
+  const plan = sess.check && (soundless ? { ...sess.check, audio: [], silent: [] } : sess.check);
+  if (!plan || (!plan.video.length && !plan.audio.length && !plan.silent.length)) return null;
+  try {
+    const r = await ExportCheck.check({ ffmpeg: FF.path("ffmpeg"), file, plan, resolve: resolveSrc,
+      silent: !sess.wav ? true : loud ? !!loud.silent : null, mix: sess.wav });
+    if (process.env.MONTCLIP_EXPORT_CHECK_LOG) console.log("[export-check] " + JSON.stringify(r));
+    sess.quiet = r.quiet;   // pieces silent in their files too: a warning in the report (ExportCheck.withQuiet)
+    return r.ok ? null : { code: ExportCheck.failCode(r), params: ExportCheck.failParams(r), error: ExportCheck.failText(r), check: r };
+  } catch { return null; }   // a check that cannot run never fails an export
 }
 /** Spawn one ffmpeg per output of a delivery session. */
 function startDeliveryEncoders(sess) {
@@ -616,6 +729,11 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
     throw new Error("export width/height required for rgba");
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
+  if (m === "jpeg") {
+    const rawProfile = resolveProfile(profileId);
+    if (proresProjectEnd(rawProfile, { fps: rate, frames: extra.frames, pixelFormat }))
+      proresFilterPlan(rawProfile.args, !!hasAudio);
+  }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
@@ -639,6 +757,9 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const profile = resolveProfile(profileId);
   const never = Delivery.forbiddenEncoder(profile.args);
   if (never) throw Object.assign(new Error(`profile "${profile.id}" encodes with ${never}, which MontClip never uses`), { status: 400 });
+  // a raw H.264 profile on a computer with no H.264 encoder at all: say why, not "choose your own FFmpeg" for x264 alone
+  const noH264 = X.argsUseH264(profile.args) && await noH264Error();
+  if (noH264) throw noH264;
   // a raw profile that encodes with libx264 needs the user's local FFmpeg
   const binary = await exportBinary(X.argsUseX264(profile.args));
   const dry = await dryRunProfile(profile, { fps: rate, hasAudio, bin: binary });
@@ -648,7 +769,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const { outPath, partPath } = reserveExportPaths(EXPORTS_DIR, safe, profile.extension);
   const sess = {
     mode: m, proc: null, fps: rate, profile, name: safe, hasAudio: !!hasAudio, binary,
-    pixelFormat, width, height,
+    pixelFormat, width, height, frames: extra.frames,
     dir, wav: null, partPath, outPath,
     stderr: "", done: null, lastTouch: Date.now(),
     err: () => sess.stderr.trim().split("\n").filter(Boolean).slice(-3)
@@ -663,7 +784,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
 function startEncoder(sess) {
   if (sess.outputs) return startDeliveryEncoders(sess);
   const args = buildExportArgs(sess.profile, {
-    fps: sess.fps, wavPath: sess.wav, outPath: sess.partPath,
+    fps: sess.fps, frames: sess.frames, wavPath: sess.wav, outPath: sess.partPath,
     pixelFormat: sess.pixelFormat, width: sess.width, height: sess.height,
   });
   const proc = spawn(sess.binary || FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] });
@@ -770,9 +891,21 @@ const freshExports = new Set();
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
-  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${EMBED ? "&token=" + EMBED_TOKEN : ""}`,
+  // embedded: a one-time ticket the page trades for the session cookie — the token itself stays off the command line
+  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
   editors: () => sseClients.size,
+  editorConnected: (id) => [...sseClients].some((res) => res.montclipTabId === id),
+  // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
+  // 10-minute idle sweep, while a retry was already writing the next file (P11, europa 2026-11-05)
+  onEnd: (j) => { for (const [id, s] of [...exportSessions]) if (s.job === j.id) cleanupExport(id); },
+  // an export is done when its file is in exports/ under its own name (the .part is renamed only after ffmpeg exits)
+  finished: (src) => {
+    let name = "";
+    try { name = decodeURIComponent(String(src).split("?")[0].replace(/^\/exports\//, "")); } catch { return false; }
+    if (!name || name !== path.basename(name) || /\.part\.[^.]+$/i.test(name)) return false;
+    try { return fs.statSync(path.join(EXPORTS_DIR, name)).isFile(); } catch { return false; }
+  },
 });
 
 /* Static file with HTTP Range support (required for <video> seeking) */
@@ -809,8 +942,20 @@ function serveFile(req, res, filePath) {
 }
 
 /* ── Server ── */
-const server = http.createServer(async (req, res) => {
-  if (embedBootstrap(req, res)) return;
+/* Every request's handler runs here: whatever it throws is answered (500, JSON) and logged, never left as an
+   unhandled rejection that ends the process (P8: a missing speech manifest took the Cindy plugin's engine down). */
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((e) => {
+    console.error("[montclip] request failed: " + req.method + " " + String(req.url).split("?")[0] + ": " + ((e && e.stack) || e));
+    if (!res.headersSent) { try { sendJSON(res, 500, { code: "INTERNAL", error: String((e && e.message) || e) }); } catch { } }
+    else { try { res.end(); } catch { } }
+  });
+});
+async function handleRequest(req, res) {
+  if (embed) {
+    res.setHeader("Referrer-Policy", "no-referrer");  // embedded pages never pass their address on
+    if (embed.bootstrap(req, res)) return;
+  }
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
@@ -1017,7 +1162,9 @@ const server = http.createServer(async (req, res) => {
   if (p === "/api/signals/loudness" && req.method === "GET") {
     const file = resolveSrc(url.searchParams.get("src") || "");
     if (!file) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
-    try { sendJSON(res, 200, await signals.loudness(file)); }
+    const track = audioTrackFor(url.searchParams.get("src") || "", url.searchParams.get("track"));
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+    try { sendJSON(res, 200, { ...(await signals.loudness(file, { track })), track }); }
     catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SIGNALS_FAILED" }); }   // no local paths in the answer (QQ, #52)
     return;
   }
@@ -1026,6 +1173,7 @@ const server = http.createServer(async (req, res) => {
                                        not read yet; again:true forgets what was read
        GET  /api/songs?src=          → {src, key, state, done, total, complete, scanned, songs} — songs in file seconds
        POST /api/songs/cancel {src}  → {src, state} — stops the scan; what was read is kept
+     `track` (query or body) picks the audio stream; without it, the media entry's audioTrack (audioTrackFor).
      state: running · done · stopped (part read, nothing running) · failed · none. SSE event `songs` {src, state, done, total}. */
   if ((p === "/api/songs" || p === "/api/songs/cancel") && (req.method === "POST" || (req.method === "GET" && p === "/api/songs"))) {
     let src = url.searchParams.get("src") || "", body = {};
@@ -1036,21 +1184,25 @@ const server = http.createServer(async (req, res) => {
     }
     const file = resolveSrc(src);
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
+    const track = audioTrackFor(src, body.track != null ? body.track : url.searchParams.get("track"));
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
     try {
       if (p === "/api/songs/cancel") {
-        const job = songJobs.get(src);
+        const job = songJobs.get(songJobKey(src, track));
         if (job && job.state === "running") job.ctrl.abort();
         sendJSON(res, 200, { src, state: job ? job.state : "none" });
         return;
       }
       if (req.method === "POST") {
-        const job = await startSongScan(src, file, body.again === true);
-        sendJSON(res, 202, { src, state: job.state, done: job.done, total: job.total });
+        // P10: never hand song-scan's filter to an FFmpeg that can't run it (raw "Option 'measure' not found")
+        if (!HAS_FFMPEG) { sendJSON(res, 503, ffmpegMissingBody()); return; }
+        const job = await startSongScan(src, file, body.again === true, track);
+        sendJSON(res, 202, { src, track, state: job.state, done: job.done, total: job.total });
         return;
       }
-      const have = songScan.load(file), job = songJobs.get(src);
+      const have = songScan.load(file, track), job = songJobs.get(songJobKey(src, track));
       const state = job && job.state === "running" ? "running" : have.complete ? "done" : job ? job.state : have.done ? "stopped" : "none";
-      sendJSON(res, 200, { src, key: have.key, state, done: have.done, total: job ? job.total : null, complete: have.complete, scanned: have.scanned,
+      sendJSON(res, 200, { src, track, key: have.key, state, done: have.done, total: job ? job.total : null, complete: have.complete, scanned: have.scanned,
         songs: have.rows.length ? Songs.find(have.rows.map((r) => r[0]), { step: have.step, complete: have.complete }) : [],
         ...(job && job.state === "failed" ? { error: job.error, code: job.code, ...(job.code === "ENOSPC" ? { drive: songDrive() } : {}) } : {}) });
     } catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SONGS_FAILED", ...(e.code === "ENOSPC" ? { drive: songDrive() } : {}) }); }
@@ -1122,7 +1274,9 @@ const server = http.createServer(async (req, res) => {
      Saves and deletes also arrive as SSE event "transcript" ({src}). */
   if (p === "/api/transcript" && req.method === "GET") {
     const src = url.searchParams.get("src") || "";
-    const d = transcripts.get(src);
+    const track = audioTrackFor(src, url.searchParams.get("track"));
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+    const d = transcripts.get(src, track);
     if (d === null) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
     if (d === false) { sendJSON(res, 200, { transcript: null }); return; }   // none yet: not an error
     sendJSON(res, 200, { transcript: d });
@@ -1133,16 +1287,20 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       if (p === "/api/transcript") {
         const src = url.searchParams.get("src") || body.src || "";
-        const d = transcripts.put(src, body);
+        const track = audioTrackFor(src, url.searchParams.get("track"));
+        if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+        const d = transcripts.put(src, body, track);
         broadcast("transcript", JSON.stringify({ src }));
         sendJSON(res, 200, { src, words: d.words.length });
       } else if (p === "/api/transcript/delete") {
-        const deleted = transcripts.remove(String(body.src || ""));
+        const track = audioTrackFor(String(body.src || ""), body.track);
+        if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+        const deleted = transcripts.remove(String(body.src || ""), track);
         if (deleted) broadcast("transcript", JSON.stringify({ src: String(body.src) }));
         sendJSON(res, 200, { deleted });
       } else {
         const status = {};
-        for (const src of (Array.isArray(body.srcs) ? body.srcs.slice(0, 2000).map(String) : [])) status[src] = transcripts.info(src);
+        for (const src of (Array.isArray(body.srcs) ? body.srcs.slice(0, 2000).map(String) : [])) status[src] = transcripts.info(src, audioTrackFor(src));
         sendJSON(res, 200, { status });
       }
     } catch (e) { sendJSON(res, e.code === 404 ? 404 : 400, { error: String(e.message || e) }); }
@@ -1162,9 +1320,38 @@ const server = http.createServer(async (req, res) => {
       if (missing) { sendJSON(res, 404, { error: "no such file: " + missing }); return; }
       const TR = require("./transcribe.js");
       let spec;
-      try { spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true }; }
-      catch (e) { sendJSON(res, 400, { error: e.message }); return; }
+      try {
+        spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true };
+        // ranges: {src: [[from, to], …]} — a long file's clips are listened to in their windows only (P8)
+        if (t.ranges != null) {
+          if (!t.ranges || typeof t.ranges !== "object" || Array.isArray(t.ranges)) throw new Error("ranges must be {src: [[from, to], …]}");
+          const out = {};
+          for (const [src, list] of Object.entries(t.ranges)) {
+            if (!spec.srcs.includes(src)) throw new Error("ranges for a file not in srcs: " + src);
+            if (!Array.isArray(list) || !list.length || list.length > 500 || !list.every((x) => Array.isArray(x) && Number.isFinite(x[0]) && Number.isFinite(x[1]) && x[0] >= 0 && x[1] > x[0]))
+              throw new Error("ranges must be {src: [[from, to], …]} in file seconds (1–500 each), with to > from ≥ 0");
+            out[src] = list.map((x) => [x[0], x[1]]);
+          }
+          if (Object.keys(out).length) spec.ranges = out;
+        }
+      } catch (e) { sendJSON(res, 400, { error: e.message }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "transcribe", where: opts.where, transcribe: spec }));
+    } catch (e) {
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
+    }
+    return;
+  }
+  /* API: put a lyrics proposal on a new caption track (fablecut_lyrics_apply) — a "lyrics" job on the export-job queue,
+     open tabs only: the tab asks the streamer on a card and does it only when she agrees. */
+  if (p === "/api/lyrics/request" && req.method === "POST") {
+    try {
+      const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      const pr = opts.proposal;
+      if (!pr || typeof pr !== "object" || pr.ok !== true || pr.code !== "OK" || typeof pr.id !== "string" || !Array.isArray(pr.lines) || !pr.lines.length || pr.lines.length > 300 || typeof pr.sig !== "string" || !Array.isArray(pr.clipIds)) {
+        sendJSON(res, 400, { error: "proposal must be a fablecut_lyrics proposal whose code is OK" }); return;
+      }
+      if (JSON.stringify(pr).length > 2_000_000) { sendJSON(res, 413, { error: "proposal too large" }); return; }
+      sendJSON(res, 200, exportJobs.request({ kind: "lyrics", where: "tab", lyrics: pr }));
     } catch (e) {
       sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
     }
@@ -1185,7 +1372,7 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 200, { deleted });
         return;
       }
-      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, ffmpegMissingBody()); return; }
       const status = {};
       for (const src of srcs) status[src] = p === "/api/proxy" ? await proxies.start(src, body.height) : await proxies.status(src);
       sendJSON(res, 200, { status });
@@ -1265,7 +1452,7 @@ const server = http.createServer(async (req, res) => {
       const ticket = url.searchParams.get("ticket");
       await faststart(target, /^[A-Za-z0-9_-]{1,40}$/.test(ticket || "") ? { onProgress: (frac) => broadcast("upload", JSON.stringify({ ticket, frac })) } : undefined);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1277,8 +1464,8 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 400, { code:"FLV_SOURCE_REQUIRED", error:"FLV_SOURCE_REQUIRED" });
         return;
       }
-      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable}) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable, fixGaps: body.fixGaps}) });
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1316,7 +1503,9 @@ const server = http.createServer(async (req, res) => {
 
   /* API: agent-requested export jobs (see export-jobs.js).
      POST /api/export/request {range?, profile?, where?} → job; GET /api/export/job?id=
-     polls it; the editor tab claims, reports and finishes it. */
+     polls it; the editor tab claims, reports and finishes it. One job at a time on this queue (all four request
+     endpoints): another unfinished one answers 409 {code:"JOB_BUSY", busy:{id, kind, status, …}, error} with the
+     cancel call in error. */
   if (p === "/api/export/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
@@ -1327,7 +1516,7 @@ const server = http.createServer(async (req, res) => {
       };
       checkProject();
       exportJobs.assertWhere(opts.where);
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+      if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
       // several files from one render: outputs:true = the project's checked batch outputs, or a list of specs
@@ -1365,7 +1554,7 @@ const server = http.createServer(async (req, res) => {
         : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
-      sendJSON(res, code, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, code, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1390,7 +1579,7 @@ const server = http.createServer(async (req, res) => {
       }
       sendJSON(res, 200, exportJobs.request({ kind: "scopes", time, where: opts.where, revision, matte: m || null, mask: mk || null, image: opts.image === true }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1408,7 +1597,7 @@ const server = http.createServer(async (req, res) => {
       if (body.length > 8192) { sendJSON(res, 400, { error: "track spec too large" }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "track", where: opts.where, revision, track: JSON.parse(body) }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1419,7 +1608,7 @@ const server = http.createServer(async (req, res) => {
     try {
       got = action === "" && req.method === "GET" ? exportJobs.get(id)
         : action === "/ticket" && req.method === "GET" ? exportJobs.ticket(id)
-        : action === "/claim" && req.method === "POST" ? (exportJobs.claim(id) ? { ok: true } : undefined)
+        : action === "/claim" && req.method === "POST" ? (exportJobs.claim(id, JSON.parse((await readBody(req)).toString("utf8") || "{}")) ? { ok: true } : undefined)
         : action === "/report" && req.method === "POST" ? exportJobs.report(id, JSON.parse((await readBody(req)).toString("utf8") || "{}"))
         : action === "/cancel" && req.method === "POST" ? exportJobs.cancel(id)
         : false;
@@ -1432,8 +1621,36 @@ const server = http.createServer(async (req, res) => {
   }
 
   /* API: fast export (browser-rendered frames → ffmpeg encode) */
+  /* API: the FFmpeg card (ffmpeg-card.js) — the state, 「重新检测」, and a path typed into the card where there is no file
+     dialog (web / server mode, the plugin). The desktop app chooses through its own file dialog instead. */
+  if (p === "/api/ffmpeg" && req.method === "GET") { sendJSON(res, 200, await ffmpegStatus()); return; }
+  if (p === "/api/ffmpeg/detect" && req.method === "POST") { sendJSON(res, 200, await redetectFfmpeg()); return; }
+  /* #115's self-check after a download (ADR 4): can THIS program export MP4? Nothing switches to it here; 「重新检测」
+     (or the next start) picks it if it should be used. → {ok, ffprobe, h264, encoders} | {ok:false, code:"notFfmpeg"} */
+  if (p === "/api/ffmpeg/check" && req.method === "POST") {
+    // the desktop app chooses only in its main process's file dialog; nothing here starts a program for it
+    if (DESKTOP) { sendJSON(res, 403, { error: "the desktop app checks FFmpeg in its own file dialog", code: "EXTERNAL_FFMPEG_FORBIDDEN" }); return; }
+    let body = {};
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { }
+    const file = typeof body.path === "string" ? body.path.trim() : "";
+    const r = await X.checkTool(file);
+    if (!r.ok) { sendJSON(res, 200, { ok: false, code: r.code }); return; }
+    const encoders = Delivery.encodersFor("h264", await encodersOf(file));
+    const probe = path.join(path.dirname(file), process.platform === "win32" ? "ffprobe.exe" : "ffprobe");
+    sendJSON(res, 200, { ok: true, ffprobe: fs.existsSync(probe), h264: encoders.length > 0, encoders });
+    return;
+  }
+  if (p === "/api/ffmpeg/choose" && req.method === "POST") {
+    if (DESKTOP) { sendJSON(res, 403, { error: "the desktop app chooses FFmpeg in its own file dialog", code: "EXTERNAL_FFMPEG_FORBIDDEN" }); return; }
+    let body = {};
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { }
+    const r = await X.saveTool(process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS, typeof body.path === "string" ? body.path.trim() : "");
+    const st = await redetectFfmpeg();
+    sendJSON(res, 200, { ...st, result: r.ok ? (st.state === "ready" ? "found" : st.state) : r.code });
+    return;
+  }
   if (p === "/api/export/ffmpeg" && req.method === "GET") {
-    sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE });
+    sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING, ...ffmpegMissingBody() });
     return;
   }
   if (p === "/api/export/h264" && req.method === "GET") {
@@ -1506,12 +1723,17 @@ const server = http.createServer(async (req, res) => {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
-      sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
+      if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
+      const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      const sess = exportSessions.get(begun.id);
+      if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
+      // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
+      if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
+      sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
       const bad = /^Unknown encoding profile|was rejected by ffmpeg|ffmpeg rejected these settings|at most \d+ outputs|deliveries is empty|render each frame rate separately|export fps required|export width\/height required/.test(e.message || "");
-      sendJSON(res, bad || e.status === 400 ? 400 : 500, { error: String(e.message || e), code: e.code, params: e.params, featurePack: e.featurePack });
+      sendJSON(res, bad || e.status === 400 ? 400 : 500, { error: String(e.message || e), code: e.code, params: e.params, featurePack: e.featurePack, setup: e.setup });
     }
     return;
   }
@@ -1563,6 +1785,27 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
     return;
   }
+  /* 〔复制问题信息〕 (JJ's table v2; #161): {text, language} → what is copied: its first line (the mail watcher's mark),
+     then the text with viewers, keys, accounts and paths taken out, by the rules the page has too (problem-redact.js),
+     with this computer's home folder and user name. */
+  if (p === "/api/problem-details" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
+    const userName = () => { try { return os.userInfo().username; } catch { return ""; } };
+    // the files the raw error names, as their type and size only (JJ, #161): looked up here, never copied by name
+    // never a path the page sent, only a file name where the server keeps files (problem-files.js; QQ, #161)
+    let srcs = [];
+    try { srcs = (JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).media || []).map((m) => m && m.src); } catch {}
+    const where = { mediaDir: MEDIA_DIR, exportsDir: EXPORTS_DIR, srcs, resolve: resolveSrc };
+    const sizeOf = (name) => ProblemFiles.sizeOf(name, where, fs.statSync);
+    const files = Redact.fileMentions(String(body.log || "").slice(0, 8000)).map((f) => ({ ext: f.ext, size: sizeOf(f.name) }));
+    // the version line (JJ / QQ, #161): package.json's version and the system's family only (problem-redact.js versionLine)
+    const version = (() => { try { return require("./package.json").version; } catch { return ""; } })();
+    const app = { version, platform: process.platform, release: os.release() };
+    const p = { text: String(body.text || "").slice(0, 2000), code: body.code, files, app };
+    sendJSON(res, 200, { text: Redact.problemDetails(p, { home: os.homedir(), platform: process.platform, user: userName(), language: body.language }) });
+    return;
+  }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */
   if (p === "/api/export/claim") {
     if (req.method !== "POST") { sendJSON(res, 405, { error: "POST only" }); return; }
@@ -1595,12 +1838,20 @@ const server = http.createServer(async (req, res) => {
           exportedThisRun.add(file);
           freshExports.add(file);
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
-          return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report } : {}),
+          const blank = await blankCheck(sess, o.outPath, o.loud, o.spec.audio.codec === "none");
+          // MC-14: a piece whose sound was lost is not handed over — the file goes (「没有生成文件」)
+          if (blank && blank.code === "EXPORT_AUDIO_FAILED") {
+            try { fs.unlinkSync(o.outPath); } catch { }
+            exportedThisRun.delete(file); freshExports.delete(file);
+            return { file, ok: false, error: blank.error, code: blank.code, params: blank.params };
+          }
+          if (blank) return { file, ok: false, src: "/exports/" + encodeURIComponent(file), error: blank.error, code: blank.code, ...(report ? { report } : {}) };
+          return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report: o.spec.audio.codec === "none" ? report : ExportCheck.withQuiet(report, sess.quiet) } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
         }));
         cleanupExport(id);
         const ok = results.filter((x) => x.ok);
-        if (!ok.length) throw new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · "));
+        if (!ok.length) throw Object.assign(new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · ")), { code: results.find((x) => x.code)?.code, params: results.find((x) => x.params)?.params });
         sendJSON(res, 200, { ok: true, src: ok[0].src, outputs: results });
         return;
       }
@@ -1612,9 +1863,12 @@ const server = http.createServer(async (req, res) => {
       sess.partPath = null; // renamed — cleanup must not delete the finished file
       exportedThisRun.add(path.basename(out));
       freshExports.add(path.basename(out));
+      const blank = await blankCheck(sess, out, null);
       cleanupExport(id);
+      if (blank && blank.code === "EXPORT_AUDIO_FAILED") { try { fs.unlinkSync(out); } catch { } exportedThisRun.delete(path.basename(out)); freshExports.delete(path.basename(out)); }
+      if (blank) throw Object.assign(new Error(`${path.basename(out)}: ${blank.error}`), { code: blank.code, params: blank.params });
       sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
-    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e) }); }
+    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e), ...(e && e.code ? { code: e.code } : {}), ...(e && e.params ? { params: e.params } : {}) }); }
     return;
   }
 
@@ -1630,7 +1884,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (p === "/api/analyze" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const name = path.basename(decodeURIComponent(opts.src || ""));
@@ -1676,6 +1930,49 @@ const server = http.createServer(async (req, res) => {
      file answers "did the source change underneath this?". The cache is capped
      (500 files / 128 MB, oldest mtime first — see frame-cache.js), so no
      combination of arguments can fill the disk. */
+  /* API: part of a file's audio, for the fast-export mix. The page used to fetch and decode the whole file, which on a
+     2-hour recording (8 GB) read gigabytes, ran the tab out of memory and exported no sound (europa, 2026-11-04).
+     WAV, 32-bit float, the file's own channels, 48 kHz; at most an hour (the page falls back to the whole file). */
+  if (p === "/api/audio-window" && req.method === "GET") {
+    const file = resolveSrc(url.searchParams.get("src") || "");
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
+    const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"));
+    // the exported sound is track 0 whatever the entry picks for analysis (JJ on #177); `track` names another (试听)
+    const track = audioTrackFor(url.searchParams.get("src") || "", url.searchParams.get("track") || "0");
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to - from > 3600) {
+      sendJSON(res, 400, { error: "from and to are seconds, 0 ≤ from < to, at most an hour apart" }); return;
+    }
+    // written to a file (never held in memory: an hour of stereo is 1.4 GB), then streamed and removed
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-aw-")), out = path.join(tmpDir, "window.wav");
+    const cleanup = () => { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { } };
+    const proc = spawn(FF.path("ffmpeg"), AudioWindow.windowArgs(file, from, to - from, out, track), { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    let err = "", gone = false;
+    proc.stderr.on("data", (d) => { err = (err + d).slice(-1000); });
+    proc.on("error", () => { cleanup(); if (!res.headersSent) sendJSON(res, 500, { error: "ffmpeg could not be started" }); });
+    res.on("close", () => { gone = true; if (proc.exitCode === null) proc.kill(); });
+    proc.on("close", (code) => {
+      if (gone || res.headersSent) { cleanup(); return; }
+      let head = null, size = 0;
+      try {
+        size = fs.statSync(out).size;
+        const fd = fs.openSync(out, "r"), buf = Buffer.alloc(Math.min(size, 64 * 1024));
+        fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd);
+        head = AudioWindow.wavChunks(buf);
+      } catch { }
+      if (code !== 0 || !head || head.data.size === 0) {
+        cleanup();
+        sendJSON(res, 422, { error: "no audio in that part of the file: " + X.maskUserPath(err.trim().split("\n").pop() || "exit " + code) });
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": size, "Cache-Control": "no-store" });
+      const rs = fs.createReadStream(out);
+      rs.on("close", cleanup); rs.on("error", () => { cleanup(); res.destroy(); });
+      rs.pipe(res);
+    });
+    return;
+  }
   if (p === "/api/frame" && req.method === "GET") {
     const pathArg = url.searchParams.get("path");
     /* `path=` reads any file on this machine, so it is only answered for the
@@ -1700,7 +1997,7 @@ const server = http.createServer(async (req, res) => {
         : "src must name an existing file under /media/ or /library/" });
       return;
     }
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
     const num = (k, dflt) => {
       const raw = url.searchParams.get(k);
       if (raw === null || raw === "") return dflt;
@@ -1775,7 +2072,7 @@ const server = http.createServer(async (req, res) => {
      writes a denoised FLAC of the whole file into media/ (reused if it exists)
      and returns {src, name, duration, channels}. Registering it is the caller's job. */
   if (p === "/api/denoise" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       if (!DENOISE_AMOUNTS.includes(opts.amount)) { sendJSON(res, 400, { error: `amount must be one of ${DENOISE_AMOUNTS.join(", ")}` }); return; }
@@ -1790,6 +2087,63 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  /* API: 〔帮我修好〕 (JJ, P3) — POST {src} starts a job (or joins the one running for that
+     file) → {job, status, progress, phase}; GET /api/repair/job?id= → the same, with result {src, name, kind, duration,
+     preparation, encoder?, …file details} once done, or error {code}; POST /api/repair/cancel?id= stops it. The new MP4
+     is written into media/; the original is never touched. Swapping it into the project is the editor's job
+     (MediaLib.swapMedia, one undo step), as fablecut_repair_media does for agents. */
+  if (p === "/api/repair" && req.method === "POST") {
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
+    let opts;
+    try { opts = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {src}" }); return; }
+    const file = resolveSrc(opts.src);
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    sendJSON(res, 200, repairJobs.start(file, async ({ signal, onProgress }) => {
+      const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
+      const name = path.basename(r.file);
+      const out = { src: "/media/" + encodeURIComponent(name), name, kind: "video", duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}) };
+      return { ...infoForEntry(await probeFile(r.file), out), ...out };
+    }));
+    return;
+  }
+  if (p === "/api/repair/job" && req.method === "GET") {
+    const j = repairJobs.get(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+  if (p === "/api/repair/cancel" && req.method === "POST") {
+    const j = repairJobs.cancel(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+
+  /* API: lengths the agent read for files that had none (QQ, #152 review): POST {updates:[{id, src, duration?,
+     durationFrom?, durationUnknown?}]}. With an editor open they go to it (SSE "media-backfill"): it puts them into the
+     project it has open, an unsaved step included, and saves once — the agent no longer writes over that step. With
+     none open they are merged onto the project on disk here, as a PUT would write it. → {via:"editor"|"server", changed?} */
+  if (p === "/api/media-backfill" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {updates}" }); return; }
+    const updates = body && Array.isArray(body.updates) ? body.updates.filter((u) => u && typeof u.id === "string" && typeof u.src === "string").slice(0, 2000) : null;
+    if (!updates) { sendJSON(res, 400, { error: "updates must be a list of {id, src, duration | durationUnknown}" }); return; }
+    if (sseClients.size) { broadcast("media-backfill", JSON.stringify({ updates })); sendJSON(res, 200, { via: "editor", editors: sseClients.size }); return; }
+    try {
+      const cur = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), ""));
+      const changed = MediaLib.applyBackfill(cur, updates);
+      if (changed) {
+        cur.revision = (cur.revision || 0) + 1;
+        const tmp = PROJECT_FILE + ".tmp";
+        fs.writeFileSync(tmp, JSON.stringify(cur, null, 2));
+        fs.renameSync(tmp, PROJECT_FILE);
+        broadcast("change");
+      }
+      sendJSON(res, 200, { via: "server", changed, revision: cur.revision || 0 });
+    } catch (e) { sendJSON(res, 500, { error: String(e.message || e) }); }
+    return;
+  }
+
   /* API: SSE live-reload channel */
   if (p === "/api/events") {
     res.writeHead(200, {
@@ -1797,6 +2151,7 @@ const server = http.createServer(async (req, res) => {
       Connection: "keep-alive",
     });
     res.write("data: hello\n\n");
+    res.montclipTabId = url.searchParams.get("tabId") || null;
     sseClients.add(res);
     req.on("close", () => sseClients.delete(res));
     return;
@@ -1826,13 +2181,21 @@ const server = http.createServer(async (req, res) => {
 
   /* API: on-device transcription (asr-local.js; #70). One file at a time; the transcript is saved like a tab's.
        GET  /api/asr/status            → {model, engine, vad, asr, punct}   (asr / punct: {ready, where, missing, bad})
-       POST /api/asr/transcribe {src}  → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated} once the
+       POST /api/asr/transcribe {src, ranges?, again?} → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated, spans}
+                                         (ranges: [[from, to], …] file seconds — only those parts are read and added to what the
+                                         file's transcript already covers; spans: what it covers now, null = the whole file) once the
                                          transcript is saved; status complete or partial (gaps: how many parts could not
                                          be read, kept with the transcript); 500 {code: ASR_FAILED} when nothing could;
                                          progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
                                          engine is missing, or when cancelled. Nothing is downloaded here.
        POST /api/asr/cancel            → {cancelled} */
-  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asr().status()); return; }
+  if (p === "/api/asr/status" && req.method === "GET") {
+    const A = asrOrNull();
+    const st = A ? A.status() : { model: null, engine: { ready: false, why: asrLoadError }, vad: { ready: false }, asr: ASR_NONE, punct: ASR_NONE };
+    // code: why transcription cannot run here (asr-status.js), null when it can
+    sendJSON(res, 200, { ...st, code: A ? AsrStatus.code(st) : asrLoadCode });
+    return;
+  }
   if (p === "/api/asr/cancel" && req.method === "POST") {
     const j = asrJob.running;
     if (j) j.ac.abort();
@@ -1844,26 +2207,51 @@ const server = http.createServer(async (req, res) => {
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {src}" }); return; }
     const src = typeof body.src === "string" ? body.src : "", file = src ? resolveSrc(src) : null;
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
+    const track = audioTrackFor(src, body.track);
+    if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
+    // ranges: [[from, to], …] file seconds — listen only there (a long recording's clips, P8); none: the whole file
+    let ranges = null;
+    if (body.ranges != null) {
+      const ok = Array.isArray(body.ranges) && body.ranges.length >= 1 && body.ranges.length <= 500
+        && body.ranges.every((x) => Array.isArray(x) && Number.isFinite(x[0]) && Number.isFinite(x[1]) && x[0] >= 0 && x[1] > x[0]);
+      if (!ok) { sendJSON(res, 400, { error: "ranges must be [[from, to], …] in file seconds (1–500), each with to > from ≥ 0" }); return; }
+      ranges = body.ranges.map((x) => [x[0], x[1]]);
+    }
     if (asrJob.running) { sendJSON(res, 409, { code: "ASR_BUSY", error: "already transcribing " + asrJob.running.src }); return; }
-    const st = asr().status();
+    const A = asrOrNull(), st = A ? A.status() : null;
+    if (!st) { sendJSON(res, 409, { code: asrLoadCode, error: "the speech engine cannot be loaded in this copy of MontClip: " + asrLoadError }); return; }
     if (!st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" }); return; }
     if (!st.asr.ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st.asr.missing, bad: st.asr.bad }); return; }
     const ac = new AbortController(), job = asrJob.running = { src, ac };
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
     let last = 0;
     try {
-      const info = await probeFile(file);
-      const r = await asr().transcribe(file, { signal: ac.signal, duration: info && info.duration,
-        onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
       const TR = require("./transcribe.js");
-      const doc = transcripts.put(src, { src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
-        gaps: r.gaps.map((g) => [g.start, g.end, g.reason]) });
+      // the parts of the ranges this file's transcript (of this audio track, #177) has not listened to yet (all of them with again:true), read with a
+      // pad either side; only each part's core is kept (Rea on #165: no lead-in doubled a word cut at the border)
+      const had = ranges ? transcripts.get(src, track) || null : null;
+      const info = await probeFile(file);
+      const dur = info && info.duration;
+      let plan = ranges ? TR.refillPlan(body.again === true ? null : had, ranges, { pad: 1.5, duration: dur }) : null;
+      if (plan && !plan.read.length && !had) plan = { read: ranges, core: ranges };   // only slivers asked for, and nothing yet: read them as asked
+      if (plan && !plan.read.length) {
+        sendJSON(res, 200, { src, status: TR.status(had), gaps: had.gaps.length, gapSeconds: Math.round(had.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10,
+          skippedSegments: 0, words: had.words.length, duration: had.duration, speech: 0, punctuated: null, spans: had.spans || null, already: true });
+        return;
+      }
+      const r = await A.transcribe(file, { signal: ac.signal, duration: dur, ranges: plan ? plan.read : null, track,
+        onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
+      let add = TR.validate({ src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
+        gaps: r.gaps.map((g) => [g.start, g.end, g.reason]), ...(r.spans ? { spans: r.spans } : {}) });
+      if (r.spans && plan) add = TR.keepIn(add, plan.core);
+      // what was listened to before (other clips' windows of this file) stays; a new part replaces its own stretch
+      const doc = transcripts.put(src, r.spans ? TR.mergeDocs(transcripts.get(src, track) || null, add) : add, track);
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
-      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
+      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated, spans: doc.spans || null });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: AsrStatus.hidePaths(String(e.message || e)) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }
@@ -1881,7 +2269,7 @@ const server = http.createServer(async (req, res) => {
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
-});
+}
 
 /* Auto-save versions of the open project while it changes (every FABLECUT_AUTO_VERSION_MIN
    minutes at most, default 10), whoever edits it: the editor, an agent, a script. */
@@ -1891,6 +2279,18 @@ setInterval(() => {
     if (v) broadcast("versions", JSON.stringify({ project: projects.peekActive(), action: "auto" }));
   } catch { }
 }, 60_000).unref();
+
+/** Web / server mode has no Settings dialog: say at start what H.264 export will use, and how to add x264. */
+async function logH264AtStart() {
+  if (DESKTOP || !HAS_FFMPEG || externalFfmpeg.setup !== "server") return;
+  try {
+    const st = await h264Status(), ext = await externalFfmpeg.current();
+    const from = { settings: "the chosen FFmpeg", env: "MONTCLIP_EXTERNAL_FFMPEG", path: "FFmpeg on PATH" }[ext.source];
+    if (st.encoder) console.log(`  H.264 export : ${st.encoder}${ext.ok && st.encoder === "libx264" && from ? ` (${from})` : ""}`);
+    else console.log("  H.264 export : ⚠ none. Set MONTCLIP_EXTERNAL_FFMPEG to the full path of an FFmpeg with libx264 (e.g. /usr/bin/ffmpeg) and restart.");
+    if (!ext.ok && ext.code === "extEnvUnusable") console.log(`                 ${X.maskUserPath(ext.reason)}`);
+  } catch { }
+}
 
 server.listen(PORT, HOST, () => {
   boundPort = server.address().port;
@@ -1907,6 +2307,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  media folder : ${MEDIA_DIR}`);
   console.log(`  library      : ${LIBRARY_DIR} (${LIBRARY_SUBDIRS.join(", ")})`);
   if (DATA_DIR !== APP_DIR) console.log(`  app files    : ${APP_DIR}`);
+  logH264AtStart();
   console.log(`  ffmpeg       : ${HAS_FFMPEG ? "found (fast export + faststart remux on)" : "not available (real-time export only) — " + FFMPEG_MISSING}`);
   const enc = loadEncodeProfiles(true);
   console.log(`  encode prof. : ${PROFILES_FILE} (${Object.keys(enc.profiles).join(", ")} · default ${enc.default})`);

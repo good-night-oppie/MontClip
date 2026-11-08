@@ -44,7 +44,7 @@ A four-hour stream turns into a few short clips, and the streamer usually cuts t
 | **Review box shows the right count from the first frame** (it briefly said "0 quoted subtitles") | [PR #136](https://github.com/good-night-oppie/MontClip/pull/136) | Merged |
 | **Meta Omnilingual ASR** as an optional second local transcription model, with license-consent-before-download and one-click removal | [PR #133](https://github.com/good-night-oppie/MontClip/pull/133) | In review, not merged |
 
-**Inherited, not built during the hackathon:** the editing engine and timeline (MontClip is a modified version of [FableCut](https://github.com/ronak-create/FableCut), MIT), the assistant panel, local Chinese transcription (Paraformer via sherpa-onnx) and the export pipeline.
+**Inherited, not built during the hackathon:** the editing engine and timeline (MontClip is a modified version of [FableCut](https://github.com/ronak-create/FableCut), MIT), the assistant panel, local Chinese transcription (Paraformer via sherpa-onnx) and the export pipeline. <!-- fablecut-keep: upstream credit -->
 
 ## How Muse Spark is wired in
 
@@ -61,7 +61,7 @@ creator selects subtitles / range ──► request + quoted lines
 ```
 
 - The API key is stored with Electron `safeStorage` (Windows DPAPI). It is never written to logs, screenshots or test fixtures. Real-model tests read it only from a `0600` key file and refuse a wider one.
-- Permission modes: **Plan** (suggest only), **Manual** (ask before applying; optional per-chat allow), **Auto**, **Yolo**. Even with *allow all*, every send still shows its content and destination.
+- Permission modes: **Plan** (suggest only), **Manual** (ask before applying; optional per-chat allow), **Auto**, **Full auto**. Even with *allow all*, every send still shows its content and destination.
 - Editing works fully without any AI service. The assistant is optional, and service charges are billed to the creator's own account.
 
 ![The creator keeps the decision](creator-decides.png)
@@ -95,4 +95,4 @@ Tests: `npm test` in the repository root (Node 18, 20 and 22 on Linux, plus Wind
 
 ## License
 
-MIT. See [LICENSE](../../LICENSE) and the third-party notices in [LICENSES.md](../../LICENSES.md). MontClip is a modified version of [FableCut](https://github.com/ronak-create/FableCut) and keeps its MIT license.
+MIT. See [LICENSE](../../LICENSE) and the third-party notices in [LICENSES.md](../../LICENSES.md). MontClip is a modified version of [FableCut](https://github.com/ronak-create/FableCut) and keeps its MIT license. <!-- fablecut-keep: upstream credit -->

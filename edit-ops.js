@@ -132,11 +132,57 @@
     }
     return n;
   }
-  /** Default stereo pan for an isolated linked stem (L −1, R +1, else center). */
-  function defaultPanForChannel(ch) {
+  /** Default stereo pan for an isolated linked stem of a source with `count`
+   *  channels: a mono source's only stem sits in the centre (hard left would put a
+   *  mono microphone in one ear — europa, preview.3); when a file is split into
+   *  several stems, L −1, R +1, the rest centre. `count` unknown → as stereo. */
+  function defaultPanForChannel(ch, count) {
+    if (Number.isFinite(count) && count <= 1) return 0;
     if (ch === 0) return -1;
     if (ch === 1) return 1;
     return 0;
+  }
+
+  /** Stems a video brings when the caller does not say: one for a file known to be
+   *  mono, else a stereo pair (the editor grows or trims them once it has decoded the file). */
+  function defaultStemCount(m) {
+    return isMonoMedia(m) ? 1 : 2;
+  }
+
+  /** Is media m known to be mono? (ffprobe's audioChannels, or the editor's decoded channels) */
+  function isMonoMedia(m) {
+    return !!m && (m.channels === 1 || (m.channels == null && m.audioChannels === 1));
+  }
+  /** Stems of a mono file that play in the left ear only, as projects saved before
+   *  mono stems were centred got them: audio channel 0 of a mono file, pan exactly −1,
+   *  no pan keyframes, and no other audio stem in its link group. Whether the −1 was the
+   *  program's or the streamer's can't be told for these (no panAuto then), so the editor
+   *  asks once per project (doc.monoPanReviewed) and the MCP status warns. */
+  function monoLeftStems(doc, clips = doc.clips || []) { return monoSideStems(doc, "left", clips); }
+  /** The same on either side: a mono file's stem hard `side` ("left" −1, "right" +1). After an
+   *  export that came out in one ear, these are the cause the editor can fix (centre them). */
+  function monoSideStems(doc, side, clips = doc.clips || []) {
+    const media = new Map((doc.media || []).map((m) => [m.id, m]));
+    const pan = side === "right" ? 1 : -1;
+    return clips.filter((c) => c.kind === "audio" && c.props && c.props.audioChannel === 0 && c.props.pan === pan
+      && !(c.keyframes && Array.isArray(c.keyframes.pan) && c.keyframes.pan.length)
+      && isMonoMedia(media.get(c.mediaId))
+      && !(c.linkGroup && clips.some((x) => x !== c && x.kind === "audio" && x.linkGroup === c.linkGroup)));
+  }
+
+  /** A project with none of those stems, once every stem's channel count is known, has
+   *  nothing left to ask about: from then on new stems are centred (panAuto) and a −1 on a
+   *  mono stem can only be someone's choice. Marks doc.monoPanReviewed; true if it did. */
+  function settleMonoPanReview(doc) {
+    if (!doc || doc.monoPanReviewed === true) return false;
+    // every timeline: the open one, the sequences that aren't open, and the comps
+    const lists = [doc.clips || [], ...[...(doc.sequences || []), ...(doc.comps || [])].map((x) => (x && x.clips) || [])];
+    if (lists.some((l) => monoLeftStems(doc, l).length)) return false;
+    const media = new Map((doc.media || []).map((m) => [m.id, m]));
+    const known = lists.flat().filter((c) => c.kind === "audio" && c.props && Number.isInteger(c.props.audioChannel))
+      .every((c) => { const m = media.get(c.mediaId); return !m || m.channels != null || m.audioChannels != null; });
+    if (known) doc.monoPanReviewed = true;
+    return known;
   }
 
   function create(env) {
@@ -507,7 +553,7 @@
      *  that is. Resolved against the live track list, since any lane can be
      *  removed. For video, `picture` is null when no video lane is a target (the
      *  edit lands audio-only); for other media an empty list means nowhere to go. */
-    function sourceEditTracks(m, stems = 2) {
+    function sourceEditTracks(m, stems = defaultStemCount(m)) {
       const byNum = (x, y) => (parseInt(x.slice(1), 10) || 0) - (parseInt(y.slice(1), 10) || 0);
       const targets = (kind) => env.tracks().filter((t) => t.kind === kind && isEditTarget(t.id))
         .map((t) => t.id).sort(byNum);
@@ -560,7 +606,7 @@
           const stem = {
             id: "c_" + uid(), mediaId: m.id, kind: "audio", track: stemTracks[ch],
             start, in: innR, duration: durR, name,
-            props: { ...base(), audioChannel: ch, pan: defaultPanForChannel(ch) },
+            props: { ...base(), audioChannel: ch, pan: defaultPanForChannel(ch, stemTracks.length), panAuto: true },
             linkGroup: lg,
           };
           project.clips.push(stem);
@@ -1009,7 +1055,7 @@
 
   return {
     MIN_DUR, MIN_TRANS_DUR, CROSSFADE_DUR, GAP_EPS, TRIM_LOCKED, DEFAULT_TRACKS,
-    clipEnd, clipSpeed, isMediaClip, hasSourceTime, kfChannel, hasSpeedRamp, mediaTimeAt, shiftKF, shiftMasks, detachChildren, defaultPanForChannel,
+    clipEnd, clipSpeed, isMediaClip, hasSourceTime, kfChannel, hasSpeedRamp, mediaTimeAt, shiftKF, shiftMasks, detachChildren, defaultPanForChannel, monoLeftStems, monoSideStems, settleMonoPanReview,
     create, forDoc,
   };
 });

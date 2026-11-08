@@ -1,5 +1,5 @@
 /* VV's contrast check of #113: inside Cindy with the light theme (?host=cindy&theme=light), every visible text in the
-   editor is at least 3:1 against what is behind it — in the default view, with a recording or a caption selected, and
+   editor is at least 4.5:1 (VV on #219: raised from 3:1) against what is behind it — in the default view, with a recording or a caption selected, and
    with the transcript and mixer tabs open, at 1280 and at the task tab's 970 px. Measured in a real headless browser
    (test/browser-contrast.js); skipped where there is none. Texts over a gradient (▶, ⬇ 导出, clip labels) are reported
    apart: their background cannot be read as one colour. A synthetic project; its recording file does not exist. */
@@ -25,14 +25,17 @@ const STATES = [
 ];
 
 for (const width of [1280, 970]) {
-  test(`light theme in Cindy, ${width} px: every visible text at least 3:1`, { skip, timeout: 90000 }, async (t) => {
+  test(`light theme in Cindy, ${width} px: every visible text at least 4.5:1`, { skip, timeout: 90000 }, async (t) => {
     const { base } = await startServer(t, makeDataDir(t, project), { FABLECUT_NO_FS_WATCH: "1" });
     const out = await measureContrast({ browser, url: base + "/?host=cindy&theme=light", width, height: 800, settleMs: 1500, states: STATES });
     for (const st of STATES) {
       const { texts } = out[st.name];
       assert.ok(texts.length > 40, `${st.name}: the page drew its texts (${texts.length})`);
-      const low = texts.filter((x) => x.ratio < 3).map((x) => `${x.ratio} "${x.text}" ${x.where} (${x.fg} on ${x.bg})`);
-      assert.deepEqual(low, [], `${st.name}: texts under 3:1`);
+      const sorted = [...texts].sort((a, b) => a.ratio - b.ratio);
+      t.diagnostic(`${width} px, ${st.name}: ${texts.length} texts, lowest ${sorted[0].ratio}:1, median ${sorted[sorted.length >> 1].ratio}:1; ` +
+        sorted.slice(0, 3).map((x) => `${x.ratio} "${x.text}" ${x.where}`).join(" | "));
+      const low = texts.filter((x) => x.ratio < 4.5).map((x) => `${x.ratio} "${x.text}" ${x.where} (${x.fg} on ${x.bg})`);
+      assert.deepEqual(low, [], `${st.name}: texts under 4.5:1`);
     }
   });
 }

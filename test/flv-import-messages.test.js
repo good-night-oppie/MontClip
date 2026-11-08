@@ -7,29 +7,65 @@ const test = require('node:test'), a = require('node:assert/strict'), fs = requi
 const V = require('../ui-preferences'), P = require('../prepare-media');
 const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 
+// JJ v2, 2026-11-04: europa ~/montclip-labels/jj/2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256
+// d99c25d114f865bd6388bc98822b04308f6ca96c3e3ac02a802dd92cc736cb13 (v1, 68f8f88e…, kept beside it). The streamer cannot
+// convert a file herself: where MontClip can, it says so and offers 〔帮我转〕〔先不转〕. Verbatim.
 const JJ = {
   'zh-CN': {
-    flvTimingUnverified: '这个 FLV 这次没导进来：MontClip 没法确认它的时间是否完整。换一个录完整的文件，或者先把它转成 MP4 再导入。',
+    flvTimingUnverified: '这场录像中间断过（可能断过网，或者录制停过），要先转一下才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；要等几分钟。',
+    flvNeedsConvert: '这个录像要先转一下格式才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；画质基本不变，要等几分钟。',
+    flvNoEncoder: '这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能转换。可以先更新显卡驱动再试。',
+    // JJ 定稿 2026-11-05 (Deja 代贴 on #130, replacing 「已经接上」: the break is held — a still picture and silence — not squeezed out)
+    flvConverted: '已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。',
+    flvConvertedMany: '已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。',
+    flvConvert: '帮我转', flvNotNow: '先不转',
     flvNeedsDesktop: '导入 FLV 需要用 MontClip 桌面版打开。',
-    flvDiskFull: '电脑空间不够，这个文件没导进来。清理一些空间后再试。',
   },
   en: {
-    flvTimingUnverified: 'This FLV was not imported: MontClip could not confirm its timing is complete. Try a fully recorded file, or convert it to MP4 first.',
+    flvTimingUnverified: 'This recording has a break in it (the stream or the recorder may have stopped for a moment), so it needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is; it takes a few minutes.',
+    flvNeedsConvert: 'This recording needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is. The picture stays about the same; it takes a few minutes.',
+    flvNoEncoder: "This computer has no video encoder MontClip can use, so it couldn't convert this time. Update the graphics driver and try again.",
+    flvConverted: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound, and the timing before and after is right. You can cut it out if you don't want it.",
+    flvConvertedMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound, and the timing around them is right. You can cut them out if you don't want them.",
     flvNeedsDesktop: 'Importing FLV needs the MontClip desktop app.',
   },
 };
 const CASES = {
-  FLV_TIMELINE_GAP: 'flvTimingUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
-  FLV_DISK_FULL: 'flvDiskFull', NO_SERVER: 'flvNeedsDesktop',
-  FLV_TRANSCODE_REQUIRED: 'flvNeedsConvert', FLV_STREAMS_UNSUPPORTED: 'flvNeedsConvert',
+  // a break, an unconfirmed end and a codec MontClip cannot cut are converted on her yes (JJ v2)
+  FLV_TIMELINE_GAP: 'flvTimingUnverified', FLV_FIX_UNVERIFIED: 'flvFixUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
+  // JJ's error table v2 (2026-11-04, #129): disk full is its own row (errDiskFull); FLV_PROBE_FAILED says the recording
+  // can't be read (flvUnreadable); anything else keeps main's flvUploadFailed, said in a dialog (Deja on #129)
+  FLV_DISK_FULL: 'errDiskFull', NO_SERVER: 'flvNeedsDesktop',
+  // more than one picture or sound track: the conversion does not handle it, so 「现在导不进来」 and why
+  FLV_TRANSCODE_REQUIRED: 'flvNeedsConvert', FLV_STREAMS_UNSUPPORTED: 'flvStreamsUnsupported', FLV_ENCODER_MISSING: 'flvNoEncoder',
+  FLV_SOURCE_DAMAGED: 'flvSourceDamaged',
   FLV_COMPONENT_MISSING: 'flvComponentMissing',
-  UPLOAD_FAILED: 'flvUploadFailed', IMPORT_FAILED: 'flvUploadFailed', FLV_PROBE_FAILED: 'flvUploadFailed',
+  UPLOAD_FAILED: 'flvUploadFailed', IMPORT_FAILED: 'flvUploadFailed', FLV_PROBE_FAILED: 'flvUnreadable',
   FLV_PREPARATION_FAILED: 'flvUploadFailed', SOMETHING_NEW: 'flvUploadFailed', '': 'flvUploadFailed',
 };
 
 test("JJ's wording, verbatim, with English for every key", () => {
   for (const [lang, keys] of Object.entries(JJ)) for (const [k, v] of Object.entries(keys)) a.equal(V.text[lang][k], v, lang + ' ' + k);
   for (const k of new Set(Object.values(CASES))) for (const lang of ['zh-CN', 'en']) a.ok(V.text[lang][k], lang + ' ' + k);
+});
+
+test('JJ v2: nothing tells the streamer to convert the file herself; JJ’s two removed v1 sentences are not there', () => {
+  for (const lang of ['zh-CN', 'en']) for (const [k, s] of Object.entries(V.text[lang])) if (typeof s === 'string' && /^flv|^export/.test(k)) {
+    a.ok(!/先把它转成 MP4|先转成 MP4 再导入|convert it to MP4 first|Convert it to MP4 first/.test(s), `${lang} ${k}: ${s}`);
+    a.ok(!/媒体功能包|Media Feature Pack|同一场.*(分成|其他)文件/.test(s) || k.startsWith('h264'), `${lang} ${k}`);
+  }
+  a.match(V.t('zh-CN', 'flvStreamsUnsupported'), /^这个录像现在导不进来：/, 'what MontClip cannot convert says so');
+  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }]), '已经转好了。00:30 这里录像断了约 2 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。', 'one break both streams share is one');
+  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }]), '已经转好了。录像一共断了 2 处，加起来约 1.9 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。');
+  a.equal(V.flvConvertedMessage('en', [{ stream: 'video', at: 3, len: 0.6 }]), "Converted. The recording dropped out for about 0.6 s at 00:03: for those seconds the picture freezes and there's no sound, and the timing before and after is right. You can cut it out if you don't want it.");
+  // QQ (#130 point 2): the conversion check allows ±0.1 s of length (±1 frame), said as such
+  a.match(V.t('zh-CN', 'flvFixBy', { sec: '0.2', ms: '10' }), /要求时长差不超过 0\.1 秒、声音和画面差不超过 40 毫秒/);
+  a.match(V.t('en', 'flvFixBy', { sec: '0.2', ms: '10' }), /at most 0\.1 s and 40 ms/);
+});
+
+test('zh-CN FLV and export strings: no English word of three letters or more except names', () => {
+  for (const [k, s] of Object.entries(V.text['zh-CN'])) if (typeof s === 'string' && /^(flv|exportSource)/.test(k))
+    a.equal(s.replace(/\{\w+\}|MontClip|FLV|MP4|H\.264/g, '').match(/[A-Za-z]{3,}/), null, k + ': ' + s);
 });
 
 test('each reason has its own key; upload failure, disk full and timing are told apart', () => {
@@ -68,4 +104,49 @@ test("JJ (8 PRs): 正在转成能剪的格式…", () => {
   a.equal(V.t('zh-CN', 'flvPhasePrepare'), '正在转成能剪的格式…');
   a.equal(V.t('en', 'flvPhasePrepare'), 'Converting to a format you can edit…');
   for (const l of ['zh-CN', 'en']) for (const s of Object.values(V.text[l])) a.ok(typeof s !== 'string' || !s.includes('兼容副本'), s);
+});
+
+// Rea's review of 064306bd (5804186201): a big break and drift together — the break is held, but picture and sound
+// still move apart (drift is not corrected, Deja's decision), so the sentence must not say the timing is right.
+const RIGHT = /前后的时间是对的|timing (before and after|around them) is right/;
+test('after a conversion with drift, the sentence never says the timing is right; without drift it is JJ’s as before', () => {
+  const one = [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }], two = [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }];
+  for (const lang of ['zh-CN', 'en']) for (const gaps of [one, two]) {
+    const plain = V.flvConvertedMessage(lang, gaps), drifting = V.flvConvertedMessage(lang, gaps, 0.067);
+    a.match(plain, RIGHT, lang + ': no drift keeps JJ’s sentence');
+    a.doesNotMatch(drifting, RIGHT, lang + ': ' + drifting);
+    a.equal(drifting, V.t(lang, gaps === one ? 'flvConvertedDrift' : 'flvConvertedDriftMany', gaps === one ? { N: '2', time: '00:30' } : { k: 2, N: '1.9' }));
+  }
+  a.equal(V.flvConvertedMessage('zh-CN', one, 0), V.flvConvertedMessage('zh-CN', one), 'drift 0 / missing: as before');
+  a.equal(V.flvConvertedMessage('zh-CN', one, undefined), V.flvConvertedMessage('zh-CN', one));
+});
+
+// JJ's drift sentences (2026-11-06, Deja 代贴), word for word, final: no {ms} (Deja: no number; JJ agreed, 2026-11-06).
+const JJ_DRIFT = {
+  'zh-CN': {
+    flvConvertedDrift: '已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的那段可以剪掉。',
+    flvConvertedDriftMany: '已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的地方可以剪掉。',
+  },
+  en: {
+    flvConvertedDrift: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped part if you don't want it.",
+    flvConvertedDriftMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped places if you don't want them.",
+  },
+};
+test("JJ's drift sentences, verbatim; drift / no drift × one break / several breaks", () => {
+  for (const [lang, keys] of Object.entries(JJ_DRIFT)) for (const [k, v] of Object.entries(keys)) a.equal(V.text[lang][k], v, lang + ' ' + k);
+  const one = [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }], many = [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }];
+  const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m));
+  for (const lang of ['zh-CN', 'en']) {
+    const J = { ...JJ[lang], ...JJ_DRIFT[lang] };
+    if (lang === 'en') { J.flvConverted = V.text.en.flvConverted; J.flvConvertedMany = V.text.en.flvConvertedMany; }
+    a.equal(V.flvConvertedMessage(lang, one), fill(J.flvConverted, { time: '00:30', N: '2' }), lang + ' one, no drift');
+    a.equal(V.flvConvertedMessage(lang, many), fill(J.flvConvertedMany, { k: 2, N: '1.9' }), lang + ' many, no drift');
+    a.equal(V.flvConvertedMessage(lang, one, 0.067), fill(J.flvConvertedDrift, { time: '00:30', N: '2' }), lang + ' one, drift');
+    a.equal(V.flvConvertedMessage(lang, many, 0.067), fill(J.flvConvertedDriftMany, { k: 2, N: '1.9' }), lang + ' many, drift');
+  }
+});
+test("JJ's drift sentences are final (JJ agreed to dropping {ms}, 2026-11-06): no pending mark, no {ms}", () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'ui-preferences.js'), 'utf8');
+  a.ok(!src.includes('待 JJ 确认删减'), 'the pending mark is gone');
+  for (const lang of ['zh-CN', 'en']) for (const k of ['flvConvertedDrift', 'flvConvertedDriftMany']) a.ok(!/\{ms\}/.test(V.text[lang][k]), lang + ' ' + k);
 });

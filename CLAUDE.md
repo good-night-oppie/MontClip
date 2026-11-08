@@ -54,11 +54,18 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
+- `fablecut_audio_track` — a recording with several audio tracks (OBS: microphone, game,
+  music…): list them, cut a few seconds of each to listen to, pick the streamer's voice.
+  See "Media management" below.
 - `fablecut_songs` — where each song in a long recording starts and ends, from the sound
   alone, with the guessed spots marked; kept in the project. See "Songs in a recording" below.
 - `fablecut_transcribe` — turn speech into words with times (on this computer: sherpa-onnx Paraformer zh),
   read them on the timeline, find a phrase and cut it out. See "Transcripts and
   text-based editing" below.
+- `fablecut_lyrics` — line up lyrics the user pasted with the singing (on this computer, nothing
+  sent): a proposal only, each line `{text, start, end, matched, confidence}` with `n` and `k`.
+  `fablecut_lyrics_apply {proposalId}` then asks the user on the editor's card and, if they agree,
+  puts the lines on a new caption track (unmatched lines grey), one undo step. It never names a song.
 - `fablecut_captions` — caption clips from the transcript, timed word by word (subtitle,
   karaoke, highlight, word pop); export or import SRT / WebVTT. See "Captions" below.
 - `fablecut_export` — render the timeline to a file in `exports/` with the editor's own
@@ -68,6 +75,8 @@ Every Claude Code session then has these tools:
   select. See "Color" and "Masks" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
+- `fablecut_repair_media` — make a video MontClip can cut: a recording cut off mid-way, or any format the editor
+  can't cut (FLV too). A new MP4 replaces the entry; a background job. See "Media management" below.
 - `fablecut_proxy` — make, check or delete proxies: light copies of heavy footage
   the editor plays while editing (export always reads the originals). See
   "Media management" below.
@@ -179,22 +188,40 @@ Export captures the bound project before folder selection and refuses a changed 
 checks project identity before rendering. UI commands optionally carry `session` and `project`, and
 only matching editor replies are accepted. Cindy task frames use `cindySession` in their URL.
 
-**Embedded in Cindy** (`plugins/montclip-cindy`, see its README) the engine runs
-with `MONTCLIP_HOST=cindy` and a 64-hex `MONTCLIP_EMBED_TOKEN`, loopback only. It
-answers only requests that carry the token: as the `montclip_embed` cookie, which a
-page load of any URL with `?token=<token>` receives (302 to the same URL without it),
-or as `X-MontClip-Session` (the plugin worker, and `mcp-server.js` when it runs with
-the same variables). Everything else gets 403.
-The editor page opened with `?host=cindy` (host-embed.js) hides its built-in
-assistant — Cindy's chat takes its place — and follows Cindy's theme: `?theme=light|dark`
-at load, then `postMessage({type:"montclip-host-theme", scheme})` from the framing page.
+**Embedded in Cindy** (the MontClip-Cindy plugin, see its README) the engine runs
+with `MONTCLIP_HOST=cindy` and a fresh 64-hex `MONTCLIP_EMBED_TOKEN`, bound to
+`127.0.0.1` only (anything else, or desktop mode, refuses to start). It answers
+only requests that carry the token: as `X-MontClip-Session` (the plugin worker, and
+`mcp-server.js` when it runs with the same two variables), or as the
+`montclip_embed` cookie (HttpOnly, `SameSite=None; Secure; Partitioned`), which a
+page load (GET) of any URL with `?token=<token>` receives together with a 302 to the
+same URL without it. The cookie is not the token: each such page load gets its own
+random session, which the server remembers (the newest 64) and can end on its own.
+Everything else gets 403. Every answer says
+`Referrer-Policy: no-referrer`, and the token is never put in a redirect, a log
+line or an error. A headless export or measurement browser gets a one-time ticket
+(one use, one minute) in its URL instead of the token. Without
+`MONTCLIP_HOST=cindy` none of this applies.
+
+The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
+assistant (Cindy's chat takes its place) and keeps it from sending anything: it reads no
+service key, reaches no AI service and sends no message (the desktop main process refuses its
+requests from such a page too); an approval it would ask for is 「不同意」 at once, with code
+`HOST_EMBEDDED`. The lyrics card is the page's own dialog and still asks. The editor follows Cindy's theme: `?theme=light|dark`
+at load (any other value is ignored), then `postMessage({type:"montclip-host-theme", scheme})`,
+taken only when it comes from the framing page: `event.source` is `window.parent` and
+`event.origin` is that page's origin (`location.ancestorOrigins`, else the referrer;
+when neither names one, no message is taken).
 Embedded, it also shares its playhead and selection with the plugin's side panel over
 `BroadcastChannel("montclip-editor")` (`{type:"editor-state", time, playing, selId, revision, projectId}`
 four times a second when they change) and takes `{type:"seek", t}` from it.
 
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
-ensureUIServer}` and leaves stdin alone.
+ensureUIServer}` and leaves stdin alone. `callTool(name, args, {signal})` takes an
+`AbortSignal` for the host giving up on a call: a job the call started on the
+editor's queue (export, scope reading, timeline frame, tracking, transcription)
+is cancelled then. On stdio, `notifications/cancelled` and SIGTERM / SIGINT do the same.
 
 Tests (and nothing else) may set **`FABLECUT_NO_FS_WATCH=1`** to skip `fs.watch`.
 On Windows, libuv can abort the process when a file is created under a temp
@@ -214,16 +241,24 @@ Desktop task requests reject `where: "headless"` with HTTP 409 and code
 export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
-MontClip runs only its bundled LGPL FFmpeg (`ffmpeg-path.js`), never `ffmpeg`
-on `PATH`: packaged, `resources/ffmpeg/`; in development, `vendor/ffmpeg/<platform>-<arch>/`
-(`node desktop/fetch-ffmpeg.cjs`) or `MONTCLIP_FFMPEG` / `MONTCLIP_FFPROBE` full paths.
-Where this manual says "needs ffmpeg on PATH", read "needs the bundled FFmpeg".
-The LGPL build has no libx264. H.264 export and proxies use a graphics-card encoder
-(NVENC / Quick Sync / AMF), else Windows' own `h264_mf`; `GET /api/export/h264` says which.
-A user may choose their own FFmpeg with libx264 in Settings (desktop): it is used only for
-H.264 export, never for preview, decoding or proxies, and is never searched for on PATH.
-Raw encoding profiles that use libx264 need that local FFmpeg. With no H.264 encoder at all,
-export says why in plain words. See `docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
+MontClip runs its bundled LGPL FFmpeg for everything (`ffmpeg-path.js`; packaged, `resources/ffmpeg/`; in
+development, `vendor/ffmpeg/<platform>-<arch>/` from `node desktop/fetch-ffmpeg.cjs`, or `MONTCLIP_FFMPEG` /
+`MONTCLIP_FFPROBE` full paths). The LGPL build has no libx264: H.264 export uses a graphics-card encoder (NVENC /
+Quick Sync / AMF), else Windows' own `h264_mf`, else libx264 from an FFmpeg the user installed — the one they chose,
+then `PATH` (looked up to an absolute path, never spawned by name). That FFmpeg only encodes H.264 (exports, and
+proxies when the bundled build has none); probing, frames, analysis and loudness stay on the bundled build. Only with
+no bundled build at all is an FFmpeg on PATH (or the chosen one) used for everything, and only if it is 6.0 or newer
+and runs the options MontClip uses — `ebur128` framelog for loudness, song-scan's `aspectralstats` measure — (Debian
+12's 5.1 does neither; the card then says which version it found). An FFmpeg named in `MONTCLIP_FFMPEG` passes the
+same gate: refused, MontClip uses no other, and every "no FFmpeg" answer (`/api/ffmpeg`, `/api/export/ffmpeg`,
+`/api/songs` …) carries `code: "FFMPEG_TOO_OLD"` with its `version`, never a path or ffmpeg's own error. Nothing in a folder the server writes (media,
+uploads, analysis …) is ever started. With nothing that can export MP4 the editor shows one card (`ffmpeg-card.js`:
+install command, 「重新检测」, choose the file); simple mode then greys Export, advanced mode only the MP4 choices.
+`GET /api/ffmpeg`, `POST /api/ffmpeg/detect`, `POST /api/ffmpeg/choose {path}`, `POST /api/ffmpeg/check {path}`
+(can this program export H.264? not in the desktop app). The choice is kept in `<data dir>/external-ffmpeg.json`.
+**Advanced:** whoever starts a server can name an FFmpeg with libx264 in `MONTCLIP_EXTERNAL_FFMPEG` (a full path); it
+is never mentioned in the interface. MontClip ships and downloads only LGPL builds; a GPL FFmpeg is the user's own.
+See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`, `docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
 
 ```
 node server.js        # → http://localhost:7777
@@ -326,6 +361,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
   "background": "#000000",                    // canvas color behind all clips (optional)
   "revision": 7,                              // bump on every write!
   "panSchema": 1,                             // 1 = pan-aware; omit only on pre-pan projects (UI migrates once)
+  "monoPanReviewed": true,                    // optional — the left-ear mono question is settled (see "Audio mix")
   "markers": [ { "t": 2.5 }, { "t": 5.0, "label": "drop", "color": "red" } ],
   // ^ beat/cue markers: diamonds on the ruler (label shown beside them), snap
   //   targets for clip edges. color: gold (default) · red · orange · green ·
@@ -376,6 +412,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
       "duration": 12.4, "width": 1920, "height": 1080,
       "fps": 29.97, "codec": "h264", "audioCodec": "aac", "audioChannels": 2, "sampleRate": 48000,
       "size": 45200000, "bitrate": 29300000, // probed from the file (read-only; see "Media management")
+      // "audioTracks": [ {"channels": 2, "title": "Mic"}, … ], "audioTrack": 1,  // several audio streams: which one is read
       "favorite": true, "tags": [ "interview", "day 1" ],   // optional: bin organization
       "folderId": null },                    // optional: id of a folders[] entry
     { "id": "m_abd", "name": "intro.denoise-medium.flac", "kind": "audio", "src": "/media/intro.denoise-medium.flac",
@@ -436,7 +473,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
 | prop | default | notes |
 |---|---|---|
 | `fit` | "contain" | contain · cover (fill canvas, crop overflow) · stretch · none (native px) |
-| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source trimmed off each edge |
+| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source file's whole frame trimmed off each edge (the encoded frame, padding included), before `fit` / `scale` / `x` / `y`; what is left is fitted and centred |
 | `cornerRadius` | 0 | px, rounded corners — the PiP look |
 | `reframe` | — | set by Reframe (`"follow"` or `"centre"`): the clip's `fit` and position are Reframe's own, so running it again replaces them (see "Sequences") |
 | `flipH`, `flipV` | false | mirror |
@@ -468,7 +505,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `chromaKey` | "" | hex key color, e.g. `"#00ff00"` for green screen ("" = off) |
 | `chromaTolerance` | 26 | 0–100, how much color distance is keyed out |
 | `chromaSoftness` | 12 | 0–100, edge feather + spill suppression |
-| `bgRemove` | false | AI person cut-out (MediaPipe, loads from CDN on first use; needs internet once) |
+| `bgRemove` | false | AI person cut-out (MediaPipe from cdn.jsdelivr.net, downloaded only after the user confirms in the browser editor; preview stays uncut until ready, but export fails if a required mask cannot be generated; the desktop app never loads it) |
 
 **Audio / time** (video/audio):
 | prop | default | notes |
@@ -477,7 +514,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `gain` | 0 | clip gain in dB (−60…+24), applied **before** `volume`, so keyframes and fades ride on top. Set by Normalize. |
 | `channelMode` | "stereo" | stereo · mono (L+R folded to one channel) · left · right (use one side) · swap (exchange L/R). Ignored on linked stems — `audioChannel` already picks their channel. |
 | `duck` | 0 | ducking in dB (≤ 0), multiplied into `volume`. Normally keyframed by Auto-duck (`keyframes.duck`), so the clip's own volume, keyframes and fades are untouched. |
-| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`. Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
+| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). A pan the program gave a stem carries `panAuto: true`; editing the pan (the slider, a reset, a keyframe, or an agent's `updateClip` with a `pan`) removes it. Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
 | `speed` | 1 | 0.25–4× playback rate. **Keyframable → speed ramps**: with `keyframes.speed` the engine time-remaps (media time = `in` + ∫speed dt), in preview and in the export audio mix. Static case: source window consumed = `duration × speed`, so `in + duration×speed ≤ media.duration`. |
 
 **Text clips only:**
@@ -487,7 +524,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `fontSize` | 72 | px |
 | `color` | "#ffffff" | fill |
 | `color2` | "" | if set: vertical gradient fill color→color2 |
-| `font` | "Segoe UI" | system font, a `library/fonts` family, or ANY Google Font name — unknown names are fetched from Google Fonts automatically |
+| `font` | "Segoe UI" | system font, a `library/fonts` family, or a Google Font name — loaded from Google Fonts only after the user confirms it in the editor (desktop: never); until then it draws and exports in the fallback face |
 | `bold` / `weight` | true / 0 | `weight` (300–900) overrides `bold` when non-zero |
 | `italic` `uppercase` | false | |
 | `align` | "center" | left · center · right · **justify** (inserts spaces between words to fill the text box width, or ~85% of the canvas when no box) |
@@ -530,8 +567,8 @@ dropdown + Shuffle), or reproduce it from an agent by writing the same props:
 | `luxury` | Cinzel | uppercase, cream→gold gradient, wide `letterSpacing`, `clip-reveal` |
 
 **Rule for agents: vary the font per title — never reuse one font across a whole
-edit.** Any Google Font name auto-loads; the display faces above ship in
-`library/fonts/`. Placement props (`x`/`y`) are canvas-aware in the styles
+edit.** The display faces above ship in `library/fonts/` and need no network;
+prefer them. Another Google Font loads only after the user confirms it (see `font`). Placement props (`x`/`y`) are canvas-aware in the styles
 (lower third ≈ `y: height*0.30`).
 
 Switching the style on an **existing** title (inspector dropdown/Shuffle) only
@@ -725,6 +762,18 @@ edits the key under the playhead. Agents:
   after ducking): drag it to change the level, Ctrl/Cmd-click to add a keyframe,
   drag a point to move it, Alt-click or double-click to remove one. The corner
   **fade grips** drag a constant-power fade in or out. Both edit linked stems together.
+- **Mono in the left ear (old projects)** — projects saved before mono files got a
+  centred stem can have one at `pan: -1`, which exports with sound on the left only. A
+  stem of a mono file on channel 0, at exactly −1, with no pan keyframes and no other stem
+  in its link group, might be the program's old default or the streamer's choice (no
+  `panAuto` then), so on open the editor asks once, in a toast that blocks nothing:
+  centre them (one undo step) or keep them. Showing the question writes nothing; either
+  answer sets `monoPanReviewed: true` in project.json (never the window's storage);
+  a project with no such stem (and every stem's channel count known) is set quietly, by
+  the editor or the next `fablecut_patch_project`. Until then `fablecut_status` warns;
+  centre them (`updateClip set:{props:{pan:0}}`, then `setProject {monoPanReviewed:true}`)
+  only when the user asks. The check after an export never reports these stems (no
+  `panAuto`, so the streamer's): the open-project question is their only path.
 - Use **gain** for "this clip is too quiet / loud", **volume keyframes** for
   shaping, **duck** for dipping under dialogue, the **track fader** to
   balance whole lanes (dialogue against the music bed), and a **bus** when
@@ -1077,6 +1126,31 @@ text or adjustment clip. On an adjustment layer they limit where its effects
 and grade apply. They run in preview and export alike. The clip draws as usual,
 the masks cut it, and then its `opacity` and `blend` composite it.
 
+**Privacy:** masks and blur are compositing effects, not a privacy guarantee.
+A blurred duplicate over a sharp original can reveal the original through
+partial alpha, including blur near the picture boundary even with zero mask
+feather. Increasing blur can make this worse. Feather, reduced opacity and
+blend modes can also expose layers underneath. Do not automatically cut holes
+in lower tracks: that changes legitimate compositions.
+
+For sensitive content, use a fully opaque, hard-edged solid shape above every
+copy of the content, with normal blend, opacity 1, no blur, feather or fade,
+and extra coverage around all edges. Shape item x/y are centres in pixels
+relative to the canvas centre (unlike mask fractions). For a 320×180 canvas,
+this covers canvas pixels x=0…96, y=0…42:
+`{kind:"shape", track:"V3", start:0, duration:1, props:{opacity:1, blend:"normal", shapes:[{type:"rect", x:-112, y:-69, w:96, h:42, radius:0, fill:"#000000"}]}}`.
+V3 must actually be above every relevant layer; extend the time range to cover
+every sensitive frame. Reposition/animate the cover after crop, movement,
+scaling or reframing. Inspect every frame in preview and in the decoded final
+export, including cuts and edges. Tracking confidence is not privacy evidence.
+Neither a blur strength nor an unverified mosaic setting guarantees unreadable
+text. See `reference/privacy-cover.md` for the synthetic test and its limits.
+This is an agent recipe, not an accepted end-to-end button workflow. The ordinary
+shape button is not a privacy preset: set square corners (`radius:0`), and do
+not assume its default track, duration or geometry covers the sensitive content.
+Manual precise placement, motion following, independent fill-change undo and
+Cindy visible-window operation have not been validated by this recipe test.
+
 ```jsonc
 "masks": [
   { "name": "Subject", "shape": "ellipse", "x": 0.52, "y": 0.45, "w": 0.4, "h": 0.7, "feather": 40 },
@@ -1090,11 +1164,11 @@ the masks cut it, and then its `opacity` and `blend` composite it.
 | key | default | does |
 |---|---|---|
 | `shape` | — | `rect` · `ellipse` · `bezier` (write `freehand` with a `stroke` to have one drawn for you) |
-| `x` · `y` | 0.5 | centre, as fractions of the clip's picture (0…1, y down) |
-| `w` · `h` | 0.5 | size, fractions of the picture's width / height (rect, ellipse) |
+| `x` · `y` | 0.5 | the mask's **centre**, 0…1 of the clip's picture — for video / image / svg / comp the picture left after the crop (origin its top-left corner, y down); see "Mask and crop coordinates" below |
+| `w` · `h` | 0.5 | size, fractions of that picture's width / height (rect, ellipse) |
 | `points` | — | bezier: 3–64 anchors around `x, y`, each `[dx, dy]` (a corner) or `[dx, dy, inX, inY, outX, outY]` (with curve handles relative to the anchor), all fractions of the picture's width / height |
 | `stroke` | — | freehand only: `[[u, v], …]` picture fractions along an outline; it is simplified and stored as an editable `bezier` |
-| `scale` · `rotation` | 1 · 0 | about the centre; degrees clockwise |
+| `scale` · `rotation` | 1 · 0 | about the mask's centre (`x`, `y`); degrees clockwise |
 | `mode` | `add` | how this mask combines with the ones before it: `add` · `subtract` · `intersect` · `difference` |
 | `invert` | false | use everything outside the shape |
 | `opacity` | 1 | 0…1, how strongly this mask counts |
@@ -1107,10 +1181,41 @@ Masks combine bottom-up (first in the list first). The first one starts from
 nothing when it adds and from the whole picture otherwise, so a lone
 `subtract` cuts a hole in a full picture. At most 8 masks per clip.
 
-The picture a mask lives in is the clip's drawn rectangle for video, image
-and svg (after fit and crop), the text block for text, and the whole canvas
-for an adjustment layer. Masks follow the clip when it is moved, scaled,
-rotated or flipped, and keep the clip's keyframes.
+**Mask and crop coordinates** (measured, and locked by `test/render-geometry.test.js`
+on the `fablecut_frame {time}` still and on a real export):
+
+| | origin and units | measured on |
+|---|---|---|
+| `cropL` `cropR` `cropT` `cropB` | percent (0…95) trimmed off each edge | the source file's **whole encoded frame**, padding included |
+| mask `x`, `y` | the mask's **centre**, 0…1, origin top-left, y down | the picture **left after the crop** (video, image, svg, comp) · the text block (text) · the canvas (adjustment layer) |
+| mask `w`, `h` | 0…1 of that picture's width / height | the same picture |
+| mask `feather`, `expand` | project pixels | — |
+
+Order, for a video / image / svg / comp clip: the crop is cut out of the source
+frame; what is left is fitted to the canvas (`fit`) and scaled (`scale`); the
+masks cut that picture in its own box; then rotation, flips and `x` / `y` (and
+their keyframes, at the clip's own speed) move the picture **and its masks
+together**. So a mask follows a push-in, a move or a zoom with no keys of its
+own. Changing the crop changes the picture the fractions refer to: a mask at
+`x: 0.5` stays in the middle of whatever the crop keeps. With `fit: "cover"`
+the picture runs past the canvas and the fractions still span the whole
+picture, the hidden part included.
+
+**Where the numbers come from.** Mask and crop numbers are never canvas
+positions. Read them off the **source**, not the timeline:
+`fablecut_frame {path, t}` (the clip's `in` + seconds into it × `speed`), and
+divide a pixel position by that image's own width and height — that gives
+`u_frame`, `v_frame` on the whole frame (what crop uses). For a mask on a
+cropped clip, turn it into the picture's fractions:
+`x = (u_frame − cropL/100) / (1 − cropL/100 − cropR/100)`, and `y` the same
+with `cropT` / `cropB`. A file can carry padding in its frame — a screen
+recording whose picture fills only part of 1920×1080, black bars, a
+pillarboxed phone video — and the padding counts as part of the frame: crop
+it off first (e.g. `cropR: 20, cropB: 20` for a recording that fills the
+top-left 80 %), then the mask fractions are of the real picture. A
+`fablecut_frame {time}` still shows the composed timeline (zoomed, moved,
+cropped); its reply gives the image size and the frame size. Check a mask with
+`fablecut_scopes {time, mask:{clip}}` or `fablecut_frame {time}`.
 
 In the editor, the **Masks** section of the Inspector has **+ Rect**,
 **+ Ellipse**, **Pen** (click points on the monitor, drag while placing one to
@@ -1275,8 +1380,10 @@ headless Chrome / Edge) and saves the result:
   `[tracks: "Logo" point 0.00–4.20 s (127 samples)]`, never their samples.
 
 Recipes: **a title that follows a car** — track a point on the car, attach
-the title; **blur a face or a plate** — an ellipse mask on a blurred copy of
-the shot on the track above, then `apply:{mask:"Face"}`; **a screen replacement** —
+the title; **a tracked artistic blur (not privacy redaction)** — an ellipse
+mask on a blurred copy of the shot on the track above, then
+`apply:{mask:"Effect"}`; for sensitive content use the opaque-cover procedure
+in Masks and check every exported frame; **a screen replacement** —
 track the screen with Scale and Rotate on and attach the new picture, cropped
 to fit; **a highlight that stays on a UI element** in a screen recording —
 track the button, attach a rect svg.
@@ -1695,8 +1802,11 @@ entry. These fields are read-only — they describe the file:
 | `fps` | video frame rate (29.97, 25, 59.94 …); absent for stills and audio |
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
+| `audioTracks` | only for a file with two or more audio streams (OBS records up to six): `[{channels, title?, default?}]` in stream order, `title` being the name the recorder wrote |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
-| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size) |
+| `start` · `audioOffset` | only on a file whose clock doesn't start at 0 (an OBS recording whose timestamps start at 3600 s, an MP4 edit list): `start` is where media time 0 — the file's start, the 0 of `ffmpeg -ss` — sits on the file's own clock, seconds; `audioOffset` is where its decoded sound starts in media time (−0.021 for the AAC priming ahead of such a recording). The editor's players, the export's decoder and its audio mix are shifted by them, so `in` and every media time mean the same thing as for any other file |
+| `storedWidth` · `storedHeight` | only when the pixels aren't square: the size the file stores (the compact view prints `2389×1920 (stored as 1080×1920)`). Agents read `width` / `height` |
+| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). `width` × `height` is the **display** size: a file with non-square pixels shows as it is drawn (a replay stored as 1080×1920 with pixels 896:405 is 2389×1920), and an entry that still holds the stored size is corrected when the agent or the editor reads it. An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
 Without ffprobe on PATH only `size` is filled in; the browser still probes
 `duration`, `width` and `height`.
@@ -1758,6 +1868,37 @@ Files under `media/` may sit in subfolders (`/media/archive/a.mp4`).
   swap the file of one clip only, use the Inspector's **Source** menu instead.
 - Relink and replace are one undo step each.
 
+**Fix it for me (〔帮我修好〕).** One button for every repair and conversion. A recording whose length can't be read
+(it stopped before it was saved) shows "This video wasn't recorded to the end…" on the file in the bin, with a
+**Fix it for me** button; one whose length came only from its packets (it can be cut, seeking may be slow) gets a
+small ◔ mark instead, no dialog. Right-click any video → **Fix it for me…** runs the same thing (FLV included, no
+`allowTranscode`). When re-encoding is needed and no encoder here can do it, it is refused and nothing is written. A new MP4 is written into `media/` as `<name>.repaired.mp4` — the original file is never
+touched — and takes the entry's place: every clip, composition and sequence that used it switches, fitted to
+the usable part, as one undo step (the new entry has `derivedFrom` and `replaced: {id, name, src}`). First a
+quick remux (`-fflags +genpts` before the input, `-c copy`, `+faststart`), checked: the new file states a finite
+length of at least 0.5 s, close to what the original holds, and decodes
+cleanly end to end. Only if that doesn't hold (VP8 can't go into an MP4, a broken frame …) it is re-encoded,
+with the encoders exports use: your own FFmpeg's libx264, else a bundled LGPL H.264 encoder that works here, else
+the bundled LGPL VP9 (no GPL encoder is ever bundled). An FLV goes through the FLV preparation first. Progress and
+**Cancel** sit on the file. Done: "Fixed. Clips that use it now use the fixed copy, in the same place. The original
+is still there." One that can't be fixed (an MP4 whose index was never written): "“name” stopped recording before
+it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file." The
+length check after a remux or re-encode is ±1 s against what the original holds.
+`+genpts` can generate missing presentation timestamps; it does not guarantee repair of existing timestamp jumps.
+`node scripts/repair-timestamps-bench.js` reproduces a synthetic jump with a truncated tail and compares both paths.
+
+Missing lengths read by the agent are sent to `POST /api/media-backfill`. An open editor receives the metadata
+over SSE, merges it with its pending edits and saves both through `PUT /api/project`; without an editor, the server
+merges onto the current document. Only entries still pointing at the same file and still missing a length change.
+If the server refuses or times out, no direct write follows. A connection refusal (no server) retains the standalone
+MCP fallback. This protects the duration backfill; it does not change other MCP writes or add multi-editor locking.
+
+**Agents:** `fablecut_repair_media {mediaId}` answers at once with a job — `{job, status, progress, phase}` —
+the long-operation convention: call again with `{job}` for progress and, when `status` is `done`,
+`result.mediaId` (the NEW id) and `result.duration`; `{cancel}` stops it (nothing changes); the same
+`{mediaId}` again while it runs joins that job. `failed` carries `error.code` (`REPAIR_FAILED`, or `REPAIR_ENCODER_MISSING`: re-encoding was needed and nothing here can do it — nothing written). A version is
+kept first, so `fablecut_versions` can undo the swap.
+
 **Proxies.** Heavy footage — 4K, HEVC, ProRes, long phone clips — can stutter
 while you scrub and play. A *proxy* is a light copy the editor plays instead
 while you edit: H.264 at 540p (or 720p / 1080p, never larger than the
@@ -1790,6 +1931,28 @@ proxy only changes how smoothly the preview runs, never the result.
 - `{op:"updateMedia", id | ids, set:{name?, favorite?, tags?, folderId?}, addTags?, removeTags?}`
   — organize files (`favorite:false` unstars; `tags:[]` clears). Metadata keys
   are refused: they come from the file.
+- **Audio tracks.** A recording with several audio streams (`audioTracks`) has
+  one its sound is *analysed* from: `audioTrack` (0 = the first, the default,
+  and not stored). Songs, loudness, the transcript and captions, beats,
+  silences and highlights listen to it. The *exported* sound — the export mix,
+  the waveform, the stems, and normalize / auto-duck, which work on it — is
+  always track 0, so picking the microphone for better song finding never
+  strips the game and the music out of the video. In an OBS recording the first
+  track is usually everything mixed together, so change it only when the
+  streamer's voice is on its own track. `{op:"setAudioTrack", id, track}` picks
+  one (only tracks the file has; the songs found from the old one are dropped),
+  or `fablecut_audio_track {mediaId}` lists them, `{mediaId, listen: seconds}`
+  cuts 6 s of each into `analysis/listen/` to play, `{mediaId, track}` picks one.
+  Loudness, songs and transcripts are kept per track, so going back finds the
+  first results again. The REST readers `/api/signals/loudness`, `/api/songs`,
+  `/api/transcript` and `/api/asr/transcribe` take `track`, and without it read
+  the open project's `audioTrack` for that file; `/api/audio-window` reads
+  track 0 unless `track` names another. In the editor: right-click the file →
+  **Media info…** lists the tracks with **Listen**. Picking one reads the songs
+  and loudness again in the background; captions are made again from the new
+  track unless they were edited (a caption keeps the text it was made with in
+  `props.captionMade`; captions without it, or imported from a subtitle file,
+  count as edited), and then **Redo subtitles from this track** offers it.
 - `{op:"setCollection", id?, name?, media?, add?, remove?}` creates a collection
   (a new `id`, or a `name` no collection has) or changes one: `media` replaces
   its list, `add` / `remove` edit it. `{op:"removeCollection", id}` deletes it;
@@ -1799,7 +1962,7 @@ proxy only changes how smoothly the preview runs, never the result.
   `m_abc video "intro.mp4" 12.4s 1920×1080 29.97 fps h264 stereo 48 kHz 45 MB ★ #interview uses:2`.
 - `fablecut_import_media` probes the file as it imports it, so the entry it
   returns already has these fields.
-- `fablecut_status` lists offline media, and the compact view marks each
+- `fablecut_status` warns about **mono audio in the left ear only** (see "Audio mix"), and lists offline media, and the compact view marks each
   `OFFLINE (file missing — relinkMedia)` and each video with a proxy `proxy:540p`.
 - `fablecut_proxy {}` reports every video's proxy; `{create:true, mediaIds?, height?}`
   makes them (waits until done unless `wait:false`); `{delete:true, mediaIds?}`
@@ -2019,7 +2182,8 @@ project's shorter side kept: 1920×1080 → 1080×1920 for 9:16, 1080×1080 for
 open sequence on its own canvas. Each full-frame shot — a video or still that
 isn't moved, scaled, cropped or keyed by hand — gets `fit:"cover"` and an `x`
 (or `y`) that keeps its subject in view. Frames are sampled 5 times a second at
-96 px; the subject is where motion (against the shot's own movement, so a pan
+96 px, plus the shot's last frame (reframe.js sampleTimes: read once more at its length − 1 frame, so the
+camera follows to the end; the editor and this tool share it); the subject is where motion (against the shot's own movement, so a pan
 or a flicker doesn't count), detail and colour gather, pulled gently toward
 the centre. A virtual camera operator then holds still while the subject
 stays inside a dead zone and eases after it no faster than a pan speed, and
@@ -2035,6 +2199,8 @@ another shape has **Follow the subject in each shot**; the Inspector's
 **Reframe** section on a video or picture of another shape than the canvas
 has **Follow subject**, **Centre** and Lively / Balanced / Steady (the selected
 clips, one undo step, with Cancel).
+
+MCP reframe tail sampling decodes from the preceding keyframe and selects the source frame displayed at the final timeline sample. Selection uses decoded PTS within the clip window, normalized to source playback time, including VFR and mismatched source/project frame rates. The tail sample carries its decoded timestamp; empty or failed tail reads are refused. This changes newly computed reframe plans only. A source window with no decoded PTS is refused rather than extended into the next shot.
 
 **Highlights** — `fablecut_highlights {duration?, shot?, clipIds?, mediaIds?, name?, aspect?}`
 finds the best moments of long footage and cuts them into a short edit: a new
@@ -2089,7 +2255,7 @@ user drops favourite takes on, cut into the edit from the Source monitor.
  (`props.volume: 0` so it isn't doubled) plus one `kind:"audio"` clip per source
  channel on consecutive A-tracks that share a `linkGroup` (and the same
  `mediaId` / timing). Each stem is mono-isolated then placed with `pan` (defaults
- preserve stereo: L `−1`, R `+1`). Standalone music/SFX also live on A-tracks. Linked partners
+ preserve stereo: L `−1`, R `+1`; a mono file's single stem is centred, `0`). Standalone music/SFX also live on A-tracks. Linked partners
  move/trim/split together — edit timing on any member of the group; do not treat
  A-tracks as music-only.
 - **Three track switches** (Premiere-style), all in the track header and all
@@ -2185,13 +2351,20 @@ inferring it from an `energy` value.
 | `{path:"/media/x.mp4", frames:12}` | a 4×3 contact sheet across the whole clip |
 | `{path:"/media/x.mp4", frames:12, from:30, to:90}` | a contact sheet across part of it |
 | `{time:8.5}` (no `path`) | the **composed timeline** at 8.5 s, graded, all tracks |
+
+**Checking masks, crops or captions: use `{time}`.** The `path` modes
+(one frame, contact sheet) decode the source file with ffmpeg, so they show the
+raw footage — no masks, no crop, no blur, no titles. Only `{time}` goes
+through the editor's compositor and shows what export renders.
 | `{path}` with an absolute path | the file is read in place without copying into `media/` |
 | `{path, text:true}` | text-only statistics (luma, colors, texture, saturation, motion) for non-vision agents |
 
 Each answer leads with a text line naming the source, the timestamp(s) and (in
 timeline mode) the clips on screen, so you always know what you are looking at.
-`width` sets the pixel width (default 768 for one frame, 320 per contact-sheet
-cell); `text:true` returns descriptive statistics instead of an image block, for
+`width` sets the pixel width in the source modes (default 768 for one frame,
+320 per contact-sheet cell); a timeline still is the whole frame at up to 960 px
+wide, and its reply says `Image 960x540 px = the whole 1920x1080 frame` so a
+position read off it can be converted; `text:true` returns descriptive statistics instead of an image block, for
 agents without vision capability — luma levels (min, p1, median, mean, p99, max,
 all 0–1 like `fablecut_scopes`), dominant colors, texture, saturation and
 per-cell motion; `where`/`timeout` apply to timeline mode only.
@@ -2341,6 +2514,14 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   `{src, key, state, done, total, complete, scanned, songs}` (songs in file seconds; state `running` · `done` ·
   `stopped` · `failed` · `none`) · `POST /api/songs/cancel {src}` stops it, keeping what was read. SSE event
   `songs` (`{src, state, done, total}`) after each segment. See "Songs in a recording".
+- `POST /api/media-backfill {updates:[{id, src, duration?, durationFrom?, durationUnknown?}]}` →
+  `{via:"editor", editors}` when handed to open SSE clients, or `{via:"server", changed, revision}` when saved
+  directly with no editor connected. Editor delivery is not a disk-save acknowledgement; the editor saves through
+  `PUT /api/project`. Non-finite lengths are ignored, and existing lengths, relinked and removed entries are kept.
+- `POST /api/repair {src}` → `{job, status, progress, phase}` (a job; the same src while it runs joins it) ·
+  `GET /api/repair/job?id=` → the same, with `result {src, name, kind, duration, preparation, encoder?, …details}`
+  when done or `error {code}` · `POST /api/repair/cancel?id=`. Writes `<name>.repaired.mp4` into `./media/`;
+  registering it is the caller's job (see "Media management").
 - `POST /api/denoise` — body `{src:"/media/…", amount:"light"|"medium"|"strong"}`: writes a
   noise-reduced FLAC of the whole file into `./media/` (reused if it exists) and returns
   `{src, name, duration, channels}`. Does not touch `project.json` (see "Audio mix").
@@ -2388,7 +2569,7 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 - Fast / WebCodecs export (browser compositor → server ffmpeg):
   `GET /api/export/ffmpeg` → `{available}` · `GET /api/export/profiles[?detail=1]` →
   `{default, profiles, issues}` · `POST /api/export/begin`
-  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?}` → `{id,mode,profile?,label,summary}`
+  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?,check?}` → `{id,mode,profile?,label,summary}`
   (`fps` is required — pass `project.fps`, no server-side default;
   `mode` is `"jpeg"` (default, Fast) or `"annexb"` (WebCodecs H.264 elementary stream);
   jpeg **400** if `profile` is not a defined id, or if ffmpeg rejects its args in the dry run;
@@ -2397,15 +2578,35 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   used `pixelFormat:"rgba"`; Annex-B for annexb — one POST may concatenate frames
   or AUs. Must be after audio; ffmpeg is spawned on the first frame in both modes)
   · `POST /api/export/audio?id=` (WAV body — must be sent before the first frame)
-  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`
+  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`; **500** with `code`
+  `EXPORT_BLANK_PICTURE` / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH` when the file came out black or
+  silent from start to end while the footage in `check` (`{video:[{t, src, at}], audio:[{src, at, dur}]}`) is not
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
   `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
   (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
-  → `{status: pending|running|done|failed|cancelled, progress 0–1, src, error}` ·
+  → `{status: pending|running|done|failed|cancelled, progress 0–1, src, error, code}` ·
   `POST /api/export/job/cancel?id=`. The editor tab side: SSE event `export`
   (a ticket), `GET /api/export/job/ticket?id=`, `POST /api/export/job/claim?id=`
   (first tab wins, else 409), `POST /api/export/job/report?id=`
-  `{progress} | {status:"done", src} | {status:"failed", error}` → `{cancel}`.
+  `{progress} | {status:"done", src} | {status:"failed", error}` → `{cancel}`; an empty
+  report `{}` is the tab's heartbeat, sent every 5 s while it runs a job.
+- **One job at a time** on that queue: exports, scope readings (`/api/scopes/request`,
+  `fablecut_scopes`, `fablecut_frame {time}`), tracking and transcription. While one is
+  unfinished every request answers **409** `{code:"JOB_BUSY", busy:{id, kind, status, via,
+  progress, since}, error}`; `error` gives the exact cancel call (`fablecut_export
+  {cancel:"x_…"}` · `POST /api/export/job/cancel?id=x_…`), which works for any kind.
+  A tab that does not claim a job within 20 s, or claims it and then sends no report for
+  20 s while its owning tab is hidden or its SSE connection is closed,
+  frees the queue: the job ends `failed` with `code:"EDITOR_STOPPED_ANSWERING"` (or
+  `EDITOR_DID_NOT_ACCEPT` in desktop mode when no tab took it) and a reason; it is not
+  run again elsewhere, since the quiet tab may be half-way through it. A tab that reports
+  after that is answered `{cancel:true, code, error}` and tells whoever is at it in plain words
+  (JJ v2: no code or raw English on the page), with 〔复制问题信息〕 / "Copy problem details",
+  which copies the log line — code and raw error, with viewer names and uids, keys / tokens and
+  the home folder taken out (`problem-redact.js`, `POST /api/problem-details`) — under the small print 「复制的内容不含你的文件夹路径、密钥和观众信息。」.
+  The raw line goes to the console. A headless job may stay quiet 120 s. The MCP
+  tools cancel the job they started when their wait times out, loses track of it, or the
+  caller cancels the call (an export past its `timeout` keeps running; its id is in the reply).
 
 ## Recipes
 
@@ -2486,7 +2687,7 @@ clips, or a music bed with vocals gets captioned too), `fablecut_frame {time:<mi
 check the size and placement, and `fablecut_captions {export:"srt"}` for the
 platform's own subtitle upload.
 
-**Center a mono stem**: linked or standalone audio clip with `props.pan: 0` (inspector **Pan** slider, −1…+1). Stereo video stems default to L `−1` / R `+1`; set A1 to `0` to center that channel in the mix.
+**Center a mono stem**: linked or standalone audio clip with `props.pan: 0` (inspector **Pan** slider, −1…+1). Stereo video stems default to L `−1` / R `+1`; set A1 to `0` to center that channel in the mix. A mono file's single stem is already centred.
 
 **Cinematic grade**: `props.filterPreset: "teal-orange"` (tweak with
 `temperature`/`vignette` on top).
@@ -2505,6 +2706,22 @@ background footage on V1.
 
 **Remove background without a green screen** (people):
 `props: {bgRemove:true}` — then put anything behind it on V1.
+It works once the user has confirmed the MediaPipe download in the browser editor
+(an agent cannot confirm it). Consent belongs to that page only: use `where:"tab"`
+to export from the browser page where the user enabled it. The loader pins MediaPipe
+`0.1.1675465747` and verifies the size and SHA-256 of all nine runtime files before
+executing any downloaded code; JS, both WASM variants, both models and graph/data
+are resolved only to verified browser-local Blob URLs. Unknown resource names,
+redirects or integrity failures refuse loading; there is no unverified fallback.
+No bytes are persisted, and consent remains page-local. See `licenses/mediapipe/README.md`
+for exact sources and license/provenance limits. A fresh headless page
+cannot inherit that consent and reports `BG_REMOVE_UNAVAILABLE` instead of exporting
+the original background. Fast and WebCodecs export verify every required frame mask;
+disabled tracks/clips and clips outside the export range do not block export.
+Realtime recording cannot guarantee exact masks and refuses these clips. Composed
+frame/scopes requests also fail if a required mask is unavailable. After a download
+failure, the user can enable AI background removal again to retry; preview and export
+do not initiate retries. To export with the background, explicitly turn off `bgRemove`.
 
 **Picture-in-picture**: clip on V3 with
 `props: {scale:0.35, x:380, y:-200, cornerRadius:24}` — add
@@ -2549,8 +2766,8 @@ work). Animations wipe and stagger in reading order automatically. `letter-pop` 
 cursive joining stays correct.
 
 **Branded title**: `props: {font:"Bebas Neue", weight:700, letterSpacing:6,
-uppercase:true, color:"#ffffff", color2:"#7b6cff", textShadow:20}` — any Google
-Font name just works.
+uppercase:true, color:"#ffffff", color2:"#7b6cff", textShadow:20}` — another Google
+Font works too, once the user confirms loading it.
 
 **Kinetic font-cut title** (rhythmic typeface cuts on the beat, then settle):
 `props: {font:"Bebas Neue", fontSize:120, uppercase:true, color:"#ffd166",
@@ -2614,6 +2831,12 @@ WebCodecs / Realtime export, and `/api/export/begin` all use this value; pass th
 
 ## Export
 
+In the desktop app, completed queue entries and local media have **Show in folder**.
+Workspace lookups reject symlinks and directory junctions. After a native Save dialog
+completes, the main process remembers the chosen destination for that export's `src`
+for this app session; revealing it selects the saved file even after the workspace
+copy is removed. The renderer receives no absolute path. Missing files report failure.
+
 Export is the Export button → dialog, or `fablecut_export` from an agent (below). Three engines:
 
 1. **Fast** — browser renders each frame with the normal compositor (SVG, keys,
@@ -2669,7 +2892,10 @@ agent last wrote, so an export right after a patch includes that patch.
 - `where:"headless"` renders in the background and leaves the user's tab alone;
   `where:"tab"` refuses if no tab is open.
 - Long edits: `wait:false` returns a job id at once; poll with `{job:"x_…"}`
-  and stop one with `{cancel:"x_…"}`. One export runs at a time.
+  and stop one with `{cancel:"x_…"}`. One job runs at a time — an export, or a
+  scope reading / timeline frame / tracking / transcription on the same queue. A
+  refusal names the busy job and the call that cancels it; a hidden or disconnected tab that stops answering
+  frees the queue after 20 s (see "REST API").
 
 ### Delivery presets
 
@@ -2741,8 +2967,22 @@ A spec (every key optional — what is left out comes from its `preset`):
   size, frame rate, frame count, codec, color tags, audio codec / rate / channels,
   length, loudness against the target (±1 LU) and the true-peak ceiling, and file size
   against the platform's limit. Without a target the report says where the platform
-  plays it ("YouTube plays it 4.2 dB quieter"). The report shows in the queue, a toast
-  after a single export, and the `fablecut_export` reply.
+  plays it ("YouTube plays it 4.2 dB quieter"). A stereo file whose left and right are
+  more than 20 dB apart (each channel of the finished file measured with ffmpeg astats; the
+  louder side above −60 dB) gets a warning — "only the left channel has sound" — unless the
+  timeline puts the sound there on purpose (pan keyframes, any clip pan without `panAuto`,
+  a track or bus pan). Better to miss one than to warn wrongly: a file under 2 s, of unknown
+  length or silent all through is not judged. The file is kept either way.
+  In the editor it reads in plain words, without the numbers; when mono sounds put in that ear
+  are the cause, it has a **Play in both** button — the same fix, one undo step, as the
+  open-project question in "Audio mix".
+  The report shows in the queue, a toast after a single export, and the `fablecut_export` reply.
+- **Never done when blank.** An export whose file is black from start to end, or silent, while the footage on the
+  timeline at those moments is not, fails instead of finishing: the editor says so in plain words (`EXPORT_BLANK_PICTURE`
+  / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH`), `fablecut_export` returns the reason, and the file stays in
+  `exports/`. The editor sends what to compare with (`check` on `/api/export/begin`: at 8 moments, the video clips on
+  screen and where in their file they are; up to 8 stretches of sound), and the server reads 8 frames of the finished
+  file — about 0.4 s for 10 minutes of 1080p — and the sources only when the file looks blank.
 - **Saved presets**: "Save preset…" in the dialog writes `library/delivery/<id>.json`,
   listed under "Saved" in every project (`GET / POST /api/export/presets`,
   `POST /api/export/presets/delete {id}`).
@@ -2785,7 +3025,7 @@ ones and starts.
 - REST: `POST /api/export/begin {deliveries:[{delivery, name}, …], canvasW, canvasH,
   region?, duration, fps, hasAudio}` → `{id, input, jpegQuality, outputs:[{file, spec,
   summary, notes, size}]}`; frames and audio as for one output; `/api/export/end` →
-  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error}]}`.
+  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error, code?}]}`.
 
 ### Encoding profiles (`encoding-profiles.json`)
 
@@ -2839,8 +3079,24 @@ ffmpeg -y -f image2pipe -framerate <fps> -i - [-i audio.wav] <jpeg-color> <args�
   (`range: "tv"`). Use `"range": "pc"` for full-range masters. Do **not** put those
   flags in `args` — the engine strips them and applies `color` so vf and tags stay
   aligned. `-pix_fmt` stays in `args` (sampling / bit depth only).
-- Nothing else is injected for you: `+faststart`, `-shortest`, `-strict -2` for Opus
-  in MP4 and pixel-format choices are all yours to write.
+- Normally `+faststart`, `-shortest`, `-strict -2` for Opus in MP4 and pixel-format
+  choices are yours to write. One bounded exception: JPEG `prores422` export with
+  a positive integer `frames` in `/api/export/begin` uses `frames / fps` as its
+  output end, replacing `-shortest` for that invocation. Audio is resampled to
+  48 kHz and trimmed to `round(frames / fps * 48000)` samples, preserving the
+  final partial PCM packet while removing the browser mix's extra sample.
+  Fast export supplies the already-quantized export-range frame count, including
+  when invoked by an agent. Direct REST callers should pass `frames` too.
+  Short uploaded WAVs remain short (no padding); the browser already mixes short
+  source clips into its full-range audio buffer. Missing `frames`, RGBA, Annex-B,
+  delivery presets and other encoding profiles retain their existing behavior.
+  Bounded ProRes pins default output maps to input0's first video and input1's
+  first audio. Explicit single-video/at-most-single-audio maps can reorder them;
+  numeric `-filter:N` selects that output index. The last matching audio filter
+  receives the trim, without modifying video chains. Unsupported maps, graph
+  labels, script filters or selectors return HTTP400
+  `PROFILE_FILTER_MAPPING_UNSUPPORTED`; see the export-boundary ADR for the
+  supported forms. There is no guessing or silent removal of a mute filter.
 - Frames arrive as **JPEG (4:2:0)**, so `yuv422p`/`yuv444p` cannot recover chroma the
   source never had; raise `jpegQuality` before reaching for a wider pixel format.
   Optional `pixelFormat:"rgba"` on `/api/export/begin` pipes uncompressed canvas
@@ -3001,20 +3257,48 @@ Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save
 ## Guarded local FLV preparation (clean core split)
 
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
-single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
-boolean allowTranscode:true. Decoded timestamp gaps above5ms are refused with
-FLV_TIMELINE_GAP before any MP4 allocation; this is clock quantization, not an
-AV quality guarantee. Multiple video/audio streams are refused. Source bytes
-are retained; output is a distinct MP4 and metadata carries originalSrc and
-preparation (remux/transcode), preserved by renderer serialization.
+single-video H.264 4:2:0 plus optional AAC or MP3 streams keep their picture as
+a stream copy (MP3 sound is always filled into AAC); other codecs need boolean allowTranscode:true. The check reads
+packet headers only (ffprobe packets, no decoding: seconds for a 2-hour
+recording). A break is more than 5 ms between one packet's end and the next
+one's start, per stream, measured in whole milliseconds. Every break of 0.5 s or
+less (exactly 0.5 s included), however many, imports without a question, is
+logged and marked faintly on the timeline. A break over 0.5 s answers
+FLV_TIMELINE_GAP (REST: 409) with `gaps` and `fix` (`break`) before any MP4 is
+written; with fixGaps:true or allowTranscode:true it is converted. Either way
+the picture is copied (`-c:v copy`; it holds its last frame across a break) and
+the sound is re-encoded to AAC with its holes filled with silence
+(`aresample=async=1:min_hard_comp=0.01:first_pts=0`), because the export reads
+sound with decodeAudioData, which puts samples back to back and ignores their
+timestamps: a hole left in the MP4 would make the sound after it come early.
+The sound is copied only when it is whole (no break in either stream, not
+starting after the picture, no drift); `audio` in the result says
+`copy` / `filled` / `none`. Picture and sound moving more than 40 ms apart
+during the recording (clocks jumping by different amounts, an end offset unlike
+the start's) is reported as `drifting` / `drift` (seconds) and logged, not
+converted: no conversion can know which clock is right. A fixed offset at the
+start (live recordings often start their picture 0.06–0.09 s after the sound)
+is not drift. Other codecs and a failed check re-encode the picture with the
+encoders that work here (the sound always filled). A conversion of breaks is
+then scanned and must match the original's readable length within 0.1 s and
+keep sound against picture within 40 ms; a copy that fails is re-encoded once, then
+FLV_FIX_UNVERIFIED with `check` {durationDiff, avOffset}. A conversion decodes the
+whole recording strictly: damaged bytes behind normal timestamps fail it with
+FLV_SOURCE_DAMAGED and leave no file (an export stops with
+EXPORT_SOURCE_DAMAGED when its decoder reports damage). Multiple video/audio
+streams are refused. Source bytes are retained; output is a distinct MP4 and
+metadata carries originalSrc, preparation (remux/transcode) and `gaps`
+`[{stream:"video"|"audio", at, len, big}]` (seconds from the file's first packet;
+big = over 0.5 s), preserved by renderer serialization; prepareMedia also returns
+gapsHeld:true when it converted breaks.
 
 Uncertain decoded tails/header lengths/warnings require acceptReadable:true,
 separately from codec consent. REST upload returns409 with
 FLV_READABLE_CONSENT_REQUIRED, originalSrc and decoded range. POST
-/api/prepare-media accepts {src, acceptReadable, allowTranscode}; src must resolve
+/api/prepare-media accepts {src, acceptReadable, allowTranscode, fixGaps}; src must resolve
 to a local /media/ FLV. Booleans must be true, not strings. MCP accepts the same
-two booleans on fablecut_import_media. Callers must show the detected limitation
-before accepting; these flags do not make source timing verified or authorize gaps.
+three booleans on fablecut_import_media. Callers must show the detected limitation
+before accepting; acceptReadable and allowTranscode do not make source timing verified or authorize gaps (only fixGaps converts them).
 
 Legacy upload/MCP copies are already stored before probing and remain on refusal;
 this is not native zero-allocation consent. Repeated MCP attempts can retain extra
@@ -3066,7 +3350,7 @@ Only text chat is available through this adapter. Two proposal shapes are accept
 
 **Editor events and the capability table (P1).** `capabilities.js` lists what the buttons, the AI and MCP may do: every MCP tool (definitions in `mcp-tools.js`, which `mcp-server.js` serves) plus keep_ranges / keep_sentences, each with its input schema, one plain sentence (zh-CN / en) and a risk level fixed in the program — read, undoable, sensitive (writes, deletes or replaces files, switches projects) or external (network). Unknown names are blocked; `BLOCKED` lists what no mode may allow. The desktop main process holds the table and gives the page a read-only copy (`montclipCapabilities.get()`). `agent-events.js` is the event log: every undo step is an event `{id, runId, step, capability, args, actor: streamer|ai|recipe, risk, state, revisionBefore, revisionAfter, at}` — the streamer's edits as `manual_edit` (or the capability they used), the AI's reviewed proposals, a redo as a new event; the host sets the risk from the table. Each undo snapshot starts with its event id; Undo moves the event to undone; `undoRun(runId)` undoes a whole AI run while its steps are the newest undo steps (else `RUN_INTERLEAVED`, nothing undone). Edits that arrive from outside (an agent, another tab) stay undo steps but are not logged here. Before an AI run the host saves an agent version (`POST /api/versions {action:"before_agent"}`). The log is saved in project.json as `agentLog` (the newest 500 events, args over 2 KB kept as a size note; never pictures, sound or recordings) and is not part of the document proposals are checked against. Smoke: `electron desktop/events-smoke.cjs --montclip-smoke --user-data-dir=<fresh>`. Decisions: docs/decisions/2026-11-03-unified-backend-architecture.md, 2026-11-03-local-capability-boundary.md.
 
-Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. Song sections are not sent yet (projects have no song data). Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged.
+Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. When the server has them, the facts also carry two measures of the sound, never the sound itself: `singing` — the parts the 「✨ 自动出切片」 「唱歌」 scan already found (/api/songs, a file read to its end; no scan is started), as {clipId, from, to} in source seconds — and `loudness` — {clipId, from, step, values}, one 0–100 value every second or every few seconds (signals.js RMS levels joined by power; 0 = −60 dBFS or quieter, 100 = full scale), each covering more seconds when the clips together are longer than the cap. The caps are capabilities.js `FACTS` (100 singing parts; 2400 loudness values, whole numbers — one a second up to 40 min, one every 3 s for 2 h, 6 s for 4 h, 12 s for 8 h; a message is at most 16000 characters); clips longer than 8 h together get neither, and the review box says so; over the other caps the send is refused (FACTS_LIMIT), never cut down. The review box lists them in plain numbers (how many singing parts, how long together, how many loudness values and how many seconds each covers) before every send. 设置 › 「附上唱歌段和音量」 (on by default; kept in the view settings only when off) stops them being read or sent; while it is off, a reply to a message about the quiet part or the singing gets the editor's note above it, saying so and where to turn it on. When the facts carry either, the review dialog says so outside the fold. The format note tells the model to say it cannot hear the sound when these do not settle an edit, and to send the streamer to 〔✨ 自动出切片〕 → 「唱歌」 → 〔开始找高光〕 first. Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged. A proposal that would leave the timeline playing as it does (one_file, its ranges back to back from the timeline's start to its end — chat-proposal.js `unchanged`) gets no 〔查看剪辑建议〕: the pane says nothing would change, and no mode applies it. The unchanged check compares total removed duration against the half-frame tolerance. What the assistant cannot do is said first: the format note asks for it in a reply in words; agent-limits.js recognises a request the assistant has no capability for from its words and the pane puts the editor's own sentence above the reply — its list is empty now: a vertical picture was the one, and its check and sentence went with the assistant's own reframe. The export-frame drop-down above the player has a label of its own (own.ef-label, aria-label and tooltip). The assistant's third reply is {"type":"reframe","aspect":"9:16"|"1:1"|"4:5"} — nothing else, only those shapes (chat-proposal.js; a sequence already that shape is refused): a copy of the open sequence on that shape whose shots follow the subject (reframe.js), opened. It is sensitive (it switches what is open; fablecut_reframe too) and in capabilities.js CONFIRM_EVERY_TIME, so the host's box asks every time in every mode, Full auto included, with no 「都批准」. Projects already holding 64 sequences are refused before footage is read, with a separate sequence-limit message. A complete project snapshot is compared before copying; additions and saved revision changes invalidate the plan. The footage is read first, with a progress line and 〔取消〕 on screen; the copy is made only after that (cancelled, failed or edited meanwhile: no sequence is made), and its history gets one undo step that opens the original sequence and deletes the copy (no redo). Not a plan step: a message asking to cut and for another shape gets the cut first, with JJ's sentence before it (「这次先帮你剪短。改竖屏要另做一份序列，剪好以后再跟我说「改成竖屏」就行。」). A proposal may start with one short paragraph (at most 200 characters, no { } or `, then a blank line; agent-conversation.js proposalLead): the pane shows it above the proposal's summary, and it is never read for the edit. When a file can't be read, the refusal names it by the name the bin shows (rf-failed-name).
 
 **Remove this connection** (删除这个连接) in AI service asks for confirmation, then the main process cancels a running request and deletes the saved connection file, which holds the sealed key, together with any write temporaries and reset backups. Only when the file is confirmed gone does the state return to not configured; sending is then refused. A failed delete is reported and still shows what remains saved. The fixed `montclip:agent:deleteConnection` IPC takes no argument.
 
@@ -3080,10 +3364,10 @@ Official-pane history presentation separates validated trailing reference envelo
 
 The desktop assistant has four modes, switched at the top of the assistant: 计划 (Plan: only lists steps), 手动 (Manual, the
 default: asks the first time, and every time for steps that can't be undone), 自动 (Auto: does what can be undone, asks before
-what can't) and Yolo (does everything; turning it on needs a yes in the app's own box, and a mark shows the whole time). The
+what can't) and Full auto (internal id `yolo`; does everything; turning it on needs a yes in the app's own box, and a mark shows the whole time). The
 main process keeps the mode and the approvals in memory only, so a restart is back to 手动. The risk of each step comes from
-`capabilities.js`; the AI cannot change the mode or any list. The approval box offers 只批准这次 / 这个聊天中都批准 / 不同意;
-「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Yolo included, and is
+`capabilities.js`; the AI cannot change the mode or any list. The host asks with an approval card in the assistant's message stream (not a box over the page; docs/decisions/2026-11-04-approval-card-in-stream.md): 只批准这次 / 这个聊天中都批准 / 不同意;
+「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Full auto included, and is
 capped per send and per chat or project by each capability's own caps in `capabilities.js` (text 128 KiB / 4 MiB a chat;
 audio 25 MiB a part / 2 GiB a project while open); over a cap it is refused, never cut down. MCP tools and the REST API are not affected. See `docs/decisions/2026-11-03-agent-permission-modes.md`.
 
@@ -3100,3 +3384,13 @@ The times stay the transcript's; misheard characters become the lyrics' ones; on
 shows what was heard and what it becomes; lines that align poorly are marked 「可能不对」 and not ticked. Nothing changes
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
+
+### Editor job presence
+
+A claimed tab job is released after 20 seconds without a report only when its owning tab is hidden or its SSE connection has closed. A visible connected tab keeps its job, even beyond 120 seconds. The busy reply still names the cancellation request. The editor sends a page-specific `tabId` on `/api/events`, job claim and report; claim/report also carry `hidden`. A claim without that presence (no `tabId`, no `hidden`) is not released at 20 seconds, but still ends after 120 seconds without a report, like a headless job.
+
+### Desktop AI data notice and switch
+
+Settings › AI assistant › Use the AI assistant is on by default. Turning it off folds the panel away and blocks every new AI send in the main process (`AI_OFF`); editing remains available. The fixed, sender-guarded `montclip:agent:switchGet/switchSet` IPC reads or writes only a boolean, persisted in `agent-switch-v1.json`. DeepSeek sends also require acknowledgement of the current data notice. Only selected clip numbers are included automatically. The panel says "Replies are AI-generated"; editing plans carry their own "AI-generated" label.
+
+Private-package startup can return `SEED_CONFLICT` when the saved AI connection differs from the seed. The service then reports `configured:false`, refuses sends and configuration writes, and keeps both files. The assistant AI service panel keeps its remove-connection control available; deleting the connection and reopening allows the retained seed to be sealed. This gate is recomputed at startup, and is not an extra page-controlled IPC. A zero-filled seed left after a failed unlink is retried as cleanup, leaving the usable connection unchanged.

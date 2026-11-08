@@ -9,7 +9,11 @@ const LIT = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
 // Allowed, with the reason:
 // key labels and proper names, not sentences (Windows, its Media Feature Pack and ffmpeg.exe: main's #28 texts)
 // and a key on the keyboard (JJ's line under 全拿掉: 「…或按 Ctrl+Z。想换一批，点「换一场 / 改设置」…」)
-const KEY_NAMES = /\b(IN|OUT|In|Out|SRT|FLV|MP4|MontClip|H\.264|FFmpeg|ffmpeg\.exe|x264|AI|API|Windows|Media Feature Pack|Ctrl)\b/g;
+// and the web address the data goes to, in JJ's 「AI 数据说明」 (「发给谁：DeepSeek（api.deepseek.com）…」, 2026-11-04)
+// JJ's 2026-11-05 规矩 6(b): keyboard key names (Esc、Del、Home、End、Enter、Backspace、Ctrl、Alt、Cmd) are allowed;
+// JJ's v2 决定: SVG / VTT / Chromium are format or product names (6(a)). <kbd>/<code>/<b> tags are markup, not words.
+const KEY_NAMES = /\b(IN|OUT|In|Out|SRT|VTT|SVG|Chromium|FLV|MP4|MontClip|H\.264|FFmpeg|ffmpeg\.exe|x264|AI|API|Windows|Media Feature Pack|Ctrl|Alt|Cmd|Esc|Del|Home|End|Enter|Backspace|DeepSeek|api\.deepseek\.com)\b/g;
+const TAGS = /<\/?(?:kbd|code|b)(?:\s[^>]*)?>/g;
 // desktop/main.js's native dialogs are fixed in #37 (desktop/native-text.js); until that is merged into this branch, its
 // six known strings are the only exception, and the exception ends by itself once native-text.js is here.
 const PENDING_37 = !fs.existsSync(path.join(ROOT, 'desktop', 'native-text.js'))
@@ -17,7 +21,8 @@ const PENDING_37 = !fs.existsSync(path.join(ROOT, 'desktop', 'native-text.js'))
 
 // {name} placeholders (uiText vars, e.g. #70's {got}) are filled in, not words of either language
 function bilingual(t) {
-  const u = t.replace(/\$\{[^}]*\}/g, '').replace(/\{\w+\}/g, '').replace(KEY_NAMES, '');
+  // 「MontClip导出」 is the export folder's own name, written so in English too (Deja, 2026-11-04; #129)
+  const u = t.replace(TAGS, '').replace(/\$\{[^}]*\}/g, '').replace(/\{\w+\}/g, '').replace(/MontClip导出/g, '').replace(KEY_NAMES, '');
   if (!/[一-鿿]/.test(u)) return false;
   return /[A-Za-z]{2,}[ ,;.:'’-]+[A-Za-z]{2,}/.test(u) || /[一-鿿][^\n]*\s\/\s*[A-Za-z]{2,}/.test(u) || /[A-Za-z]{2,}[^\n]*\s\/\s*[一-鿿]/.test(u);
 }

@@ -3,10 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- No Referer on any request this page makes (Deja, #151). The editor's own server never reads it. The font files a
+     Google Fonts stylesheet pulls take the sheet's policy, not this one: loadGoogleFont handles those. -->
+<meta name="referrer" content="no-referrer">
 <title>MontClip</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
 <meta name="theme-color" content="#0e0e10">
+<link rel="stylesheet" href="cindy-parts.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,7 +25,7 @@
     </span>
     <select id="mcLanguage" aria-label="界面语言"><option value="zh-CN">中文</option><option value="en">English</option></select>
     <button class="btn tiny" id="mcAssistant" type="button">助手</button>
-    <span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own.ap-yolo-on">Yolo 开着</span>
+    <span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own.ap-yolo-on">全自动开着</span>
     <button type="button" class="btn tiny hidden" id="btnProjectsDash" title="Projects (Ctrl/Cmd+O): open, create, duplicate, archive" data-i18n="term.projects">Projects</button>
     <button type="button" class="btn tiny mc-auto-slices" id="btnAutoSlices" data-i18n="own.as-open">✨ 自动出切片</button>
     <div class="topbar-center" id="projectName">未命名项目</div>
@@ -49,6 +53,8 @@
       <button class="btn primary" id="btnExport" data-i18n="term.export-2">⬇ Export</button>
     </div>
   </header>
+  <!-- FFmpeg not found / no MP4 export: filled by renderFfmpegCard() from ffmpeg-card.js -->
+  <div class="ffmpeg-card hidden" id="ffmpegCard" role="region" aria-live="polite"></div>
 
   <button class="btn tiny mc-media-toggle" id="mcMediaToggle" type="button">素材</button>
   <div class="mc-history" role="group" aria-label="Undo / Redo">
@@ -98,7 +104,7 @@
         <div class="bin-empty" id="binEmpty">
           <div class="bin-empty-icon">🎬</div>
           <p><span data-i18n="term.drop-video-audio-or-images-here">Drop video, audio or images here</span><br><span data-i18n="own.or-click">or click</span> <b data-i18n="own.add-import">+ Import</b> / <b data-i18n="own.add-url">+ URL</b></p>
-          <p class="hint">Double-click to open in Source, or drag onto the timeline.</p>
+          <p class="hint" data-i18n="own.bin-dbl-hint">Double-click to preview it, or drag it onto the timeline.</p>
         </div>
       </div>
       <div class="bin-list hidden" id="libList"></div>
@@ -119,7 +125,7 @@
             <button type="button" class="btn tiny on" data-monitor-mode="program" id="btnMonProgram" data-i18n="term.program">Program</button>
           </span>
           <span class="monitor-clip-name dim" id="monitorClipName"></span>
-          <button class="btn tiny hidden" id="btnZoom100" title="Reset monitor view to fit stage" data-i18n-title="term.reset-monitor-view-to-fit-stage"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" d="M1.5 5V1.5H5M11 1.5h3.5V5M14.5 11v3.5H11M5 14.5H1.5V11"/><path fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" d="M3.2 3.2l2.6 2.6M12.8 3.2l-2.6 2.6M12.8 12.8l-2.6-2.6M3.2 12.8l2.6-2.6"/></svg> Fit</button>
+          <button class="btn tiny hidden" id="btnZoom100" title="Reset monitor view to fit stage" data-i18n-title="term.reset-monitor-view-to-fit-stage" data-i18n-tail="term.fit-window"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" d="M1.5 5V1.5H5M11 1.5h3.5V5M14.5 11v3.5H11M5 14.5H1.5V11"/><path fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" d="M3.2 3.2l2.6 2.6M12.8 3.2l-2.6 2.6M12.8 12.8l-2.6-2.6M3.2 12.8l2.6-2.6"/></svg> Fit</button>
         </span>
         <span class="panel-head-actions">
           <select data-more-rank="1" id="aspectSel" class="head-select" title="Canvas aspect preset" data-i18n-title="term.canvas-aspect-preset"></select>
@@ -197,7 +203,7 @@
           </button>
           <div class="tc-io idle" id="tcIo" aria-hidden="true">
             <span class="tc-io-item in" title="IN point" data-i18n-title="term.in-point">
-              <span class="tc-io-lab">IN</span>
+              <span class="tc-io-lab" data-i18n="term.in-lab">IN</span>
               <span class="timecode unset" id="tcIn">00:00:00</span>
             </span>
             <span class="tc-io-item dur" title="Marked duration" data-i18n-title="term.marked-duration">
@@ -205,7 +211,7 @@
               <span class="timecode unset" id="tcDur">00:00:00</span>
             </span>
             <span class="tc-io-item out" title="OUT point" data-i18n-title="term.out-point">
-              <span class="tc-io-lab">OUT</span>
+              <span class="tc-io-lab" data-i18n="term.out-lab">OUT</span>
               <span class="timecode unset" id="tcOut">00:00:00</span>
             </span>
           </div>
@@ -223,7 +229,7 @@
         <button type="button" data-side="transcript" title="The words spoken on the timeline: transcribe, find, and cut by text" data-i18n="term.transcript">Transcript</button>
       </div>
       <div class="inspector-body" id="inspector">
-        <div class="inspector-empty" data-i18n="own.inspector-empty">Select a clip to edit its<br>transform, effects &amp; audio.</div>
+        <div class="inspector-empty" data-i18n="own.inspector-empty">Select a clip to edit its<br>picture, effects and audio.</div>
       </div>
       <div class="mixer hidden" id="mixer"></div>
       <div class="color-page hidden" id="colorPage"></div>
@@ -238,7 +244,7 @@
     <div class="timeline-toolbar">
       <button type="button" class="btn tiny seq-btn" id="btnSequences" aria-haspopup="menu" title="Sequences" data-i18n-title="term.sequences"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M1.75 3.25h12.5M1.75 8h8.5M1.75 12.75h10.5"/></svg> <span class="seq-name" data-i18n="term.main">Main</span><span class="seq-count"></span> ▾</button>
       <span class="comp-crumb hidden" id="compCrumb" aria-label="Open composition" data-i18n-aria-label="term.open-composition"></span>
-      <button data-more-rank="14" class="btn tiny hidden" id="btnTrimIO" title="Trim clips to IN/OUT (⇧T)" data-i18n-title="term.trim-clips-to-in-out-t"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="square" d="M1.25 4.5H12M4.5 1.25V12M4.5 12H14.75M12 4.5V14.75"/></svg> Trim</button>
+      <button data-more-rank="14" class="btn tiny hidden" id="btnTrimIO" title="Trim clips to IN/OUT (⇧T)" data-i18n-title="term.trim-clips-to-in-out-t" data-i18n-tail="term.trim-io"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="square" d="M1.25 4.5H12M4.5 1.25V12M4.5 12H14.75M12 4.5V14.75"/></svg> Trim</button>
       <button data-more-rank="13" class="btn tiny toggle hidden" id="btnWorkAreaPlay" title="Limit playback to IN/OUT (Home/End jump to markers; playhead outside = override)" data-i18n-tail="term.limit"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="square" stroke-linejoin="miter" d="M1.5 2.5V13.5M14.5 2.5V13.5M4.25 8H11.75M9.35 5.6L12 8L9.35 10.4"/></svg> Limit</button>
       <span data-more-rank="5" class="tool-seg" role="group" aria-label="Edit tool" data-i18n-aria-label="term.edit-tool"><button type="button" class="btn tiny on" data-edit-tool="select" aria-pressed="true" title="Selection tool (V) — move and trim clips"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 1.5v11.2l3-2.9 1.9 4.6 1.8-.8-1.9-4.4h4.2z"/></svg></button><button type="button" class="btn tiny" data-edit-tool="ripple" aria-pressed="false" title="Ripple edit (B) — drag a clip edge; everything after it moves with it"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M5 2.5v11M5 8h8.5M11 5.5 13.5 8 11 10.5"/></svg></button><button type="button" class="btn tiny" data-edit-tool="roll" aria-pressed="false" title="Rolling edit (R) — drag a cut; the clips on both sides trim, nothing else moves"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 2v12M1.5 8h4M10.5 8h4M3.5 6 1.5 8l2 2M12.5 6l2 2-2 2"/></svg></button><button type="button" class="btn tiny" data-edit-tool="slip" aria-pressed="false" title="Slip (Y) — drag a clip to change which part of the source it shows"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M2.5 3v10M13.5 3v10M5 8h6M6.8 6.2 5 8l1.8 1.8M9.2 6.2 11 8l-1.8 1.8"/></svg></button><button type="button" class="btn tiny" data-edit-tool="slide" aria-pressed="false" title="Slide (U) — drag a clip along the track; its neighbours trim to make room"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" x="5" y="4" width="6" height="8" rx="1"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M1 8h2.5M12.5 8H15M2.3 6.7 1 8l1.3 1.3M13.7 6.7 15 8l-1.3 1.3"/></svg></button></span>
       <button data-more-rank="2" class="btn tiny" id="btnSplit" title="Split at playhead on targeted tracks (S)" data-i18n-title="term.split-at-playhead-on-targeted-tracks-s" data-i18n="term.split">✂ Split</button>
@@ -248,7 +254,7 @@
       <button data-more-rank="3" class="btn tiny" id="btnRippleDelete" title="Ripple delete (⇧Del): delete the selected clips; later clips on the same track move up to close the gap." data-i18n-title="term.ripple-delete-selection-del" data-i18n-tail="term.ripple-delete"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" d="M0.75 4.5H3.5V11.5H0.75M15.25 4.5H12.5V11.5H15.25"/><path fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" d="M6.8 6.2L9.2 8.6M9.2 6.2L6.8 8.6"/><path fill="currentColor" d="M7.35 9.55h1.3v1.05h-1.3V9.55zm0 1.55h1.3v1.05h-1.3v-1.05z"/></svg> Ripple delete</button>
       <button data-more-rank="7" class="btn tiny" id="btnLift" title="Lift (;) — remove IN→OUT on targeted tracks, leave the gap" data-i18n-title="own.lift-title" data-i18n="term.lift">Lift</button>
       <button data-more-rank="6" class="btn tiny" id="btnExtract" title="Extract (') — remove IN→OUT on targeted tracks and close the gap" data-i18n-title="own.extract-title" data-i18n="term.extract">Extract</button>
-      <span class="snap-seg" data-more-rank="1"><button class="btn tiny toggle on" id="btnSnap" title="Toggle snapping (N)" data-i18n-title="term.toggle-snapping-n" data-i18n-tail="term.snap"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" style="vertical-align:-3px" aria-hidden="true"><g transform="rotate(270 8 7)"><path fill="none" stroke="currentColor" stroke-width="3.25" stroke-linecap="butt" d="M4 10.25V7a4 4 0 0 1 8 0v3.25"/><path fill="currentColor" d="M2.375 10.75h3.25v2.5h-3.25zm8 0h3.25v2.5h-3.25z"/></g></svg> Snap</button><button type="button" class="btn tiny" id="btnSnapMenu" title="Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid" aria-label="Snap targets" data-i18n-aria-label="term.snap-targets">▾</button></span>
+      <span class="snap-seg" data-more-rank="1"><button class="btn tiny toggle on" id="btnSnap" title="Toggle snapping (N)" data-i18n-title="term.toggle-snapping-n" data-i18n-tail="term.snap"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" style="vertical-align:-3px" aria-hidden="true"><g transform="rotate(270 8 7)"><path fill="none" stroke="currentColor" stroke-width="3.25" stroke-linecap="butt" d="M4 10.25V7a4 4 0 0 1 8 0v3.25"/><path fill="currentColor" d="M2.375 10.75h3.25v2.5h-3.25zm8 0h3.25v2.5h-3.25z"/></g></svg> Snap</button><button type="button" class="btn tiny" id="btnSnapMenu" title="Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid" data-i18n-title="own.snap-targets-title" aria-label="Snap targets" data-i18n-aria-label="term.snap-targets">▾</button></span>
       <button data-more-rank="12" type="button" class="btn tiny" id="btnMarkers" title="Markers — list, jump, rename, recolour (M add · ⇧M next · Alt+⇧M previous)" data-i18n-tail="term.markers"><svg class="ico" viewBox="0 0 16 16" width="12" height="12" style="vertical-align:-2px" aria-hidden="true"><path fill="currentColor" d="M8 1.5 13.5 7 8 12.5 2.5 7z"/></svg> Markers</button>
       <button data-more-rank="15" class="btn tiny toggle" id="btnAudioHold" title="Audio Hold — while paused, loop one frame of audio at the playhead. Play/Stop turns it off." data-i18n-tail="term.audio-hold"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" d="M1.75 2.75V13.25M14.25 2.75V13.25"/><path fill="currentColor" d="M5.2 5.85h1.15v4.3H5.2V5.85zM7.05 5.85h0.55l2.85-2.2v8.7l-2.85-2.2H7.05V5.85z"/></svg> Audio hold</button>
       <span class="flex-spacer"></span>
@@ -285,7 +291,7 @@
 <div class="overlay hidden" id="importUrlOverlay">
   <div class="dialog" id="importUrlDialog" role="dialog" aria-modal="true" aria-labelledby="importUrlTitle">
     <h2 id="importUrlTitle" data-i18n="term.import-from-url">Import from URL</h2>
-    <p class="dim">Downloads an HTTPS video, audio or image into the project media folder. The file is stored locally — the URL is not used as the playback source. Remote SVGs are not imported (they can run script if opened as a document).</p>
+    <p class="dim" data-i18n="term.import-url-stored-locally">Downloads an HTTPS video, audio or image into the project media folder. The file is stored locally — the URL is not used as the playback source. Remote SVGs are not imported (they can run script if opened as a document).</p>
     <label class="import-url-field">
       <span class="sr-only" data-i18n="term.media-url">Media URL</span>
       <input type="url" id="importUrlInput" placeholder="https://…" autocomplete="off" spellcheck="false">
@@ -334,17 +340,17 @@
       <label class="export-profile-label" for="exportRangeSel" data-i18n="term.range">Range</label>
       <select class="export-profile-sel" id="exportRangeSel" aria-describedby="exportRangeNote">
         <option value="entire" data-i18n="term.entire-timeline">Entire timeline</option>
-        <option value="in-out">IN–OUT</option>
+        <option value="in-out" data-i18n="term.in-out-range">IN–OUT</option>
       </select>
       <p class="dim export-profile-note" id="exportRangeNote"></p>
     </div>
     <label class="engine-opt">
       <input type="radio" name="engine" id="engineFast">
-      <span><b data-i18n="term.fast-ffmpeg">Fast (ffmpeg)</b><br><span class="dim" id="engineFastNote">Frame-accurate ffmpeg encode. Keeps rendering if you switch tabs.</span></span>
+      <span><b data-i18n="term.fast-ffmpeg">Fast (FFmpeg)</b><br><span class="dim" id="engineFastNote" data-i18n="term.engine-fast-note">Frame-accurate ffmpeg encode. Keeps rendering if you switch tabs.</span></span>
     </label>
     <label class="engine-opt">
       <input type="radio" name="engine" id="engineRealtime">
-      <span><b data-i18n="own.engine-webcodecs">WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.</span></span>
+      <span><b data-i18n="own.engine-webcodecs">WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote" data-i18n="term.engine-webcodecs-note">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.</span></span>
     </label>
     <div class="export-profile-row dlv" id="exportProfileRow">
       <div class="dlv-preset-line">
@@ -367,9 +373,9 @@
           <summary data-i18n="term.video">Video</summary>
           <div class="dlv-grid">
             <label class="dlv-f"><span data-i18n="own.dlv-resolution">Resolution</span><select id="dlvRes"></select></label>
-            <label class="dlv-f dlv-wh hidden" id="dlvWhField">Width × height
+            <label class="dlv-f dlv-wh hidden" id="dlvWhField"><span data-i18n="term.width-height">Width × height</span>
               <span class="dlv-wh-in"><input type="number" id="dlvW" min="16" max="8192" step="2" aria-label="Width" data-i18n-aria-label="term.width"><span>×</span><input type="number" id="dlvH" min="16" max="8192" step="2" aria-label="Height" data-i18n-aria-label="term.height"></span></label>
-            <label class="dlv-f" id="dlvReframeField">Reframe<select id="dlvReframe">
+            <label class="dlv-f" id="dlvReframeField"><span data-i18n="term.reframe">Reframe</span><select id="dlvReframe">
               <option value="fill" data-i18n="term.fill-crop-to-fit">Fill (crop to fit)</option>
               <option value="fit" data-i18n="term.fit-black-bars">Fit (black bars)</option>
               <option value="stretch" data-i18n="term.stretch">Stretch</option>
@@ -377,14 +383,14 @@
             <label class="dlv-f"><span data-i18n="own.dlv-frame-rate">Frame rate</span><select id="dlvFps"></select></label>
             <label class="dlv-f"><span data-i18n="own.dlv-codec">Codec</span><select id="dlvCodec"></select></label>
             <label class="dlv-f" id="dlvEncoderField"><span data-i18n="own.dlv-encoder">Encoder</span><select id="dlvEncoder"></select></label>
-            <label class="dlv-f" id="dlvProfileField">Profile<select id="dlvProfile"></select></label>
+            <label class="dlv-f" id="dlvProfileField"><span data-i18n="term.profile">Profile</span><select id="dlvProfile"></select></label>
             <label class="dlv-f" id="dlvRateField"><span data-i18n="own.dlv-rate-control">Rate control</span><select id="dlvRate">
               <option value="crf" data-i18n="term.crf-constant-quality">CRF (constant quality)</option>
               <option value="vbr" data-i18n="term.vbr-variable-bitrate">VBR (variable bitrate)</option>
               <option value="cbr" data-i18n="term.cbr-constant-bitrate">CBR (constant bitrate)</option>
             </select></label>
-            <label class="dlv-f" id="dlvCrfField">CRF<input type="number" id="dlvCrf" min="0" max="63" step="1" title="Lower = better quality, bigger file" data-i18n-title="term.lower-better-quality-bigger-file"></label>
-            <label class="dlv-f" id="dlvBitrateField">Bitrate (Mb/s)<input type="number" id="dlvBitrate" min="0.1" max="400" step="0.5"></label>
+            <label class="dlv-f" id="dlvCrfField"><span data-i18n="term.crf-label">CRF</span><input type="number" id="dlvCrf" min="0" max="63" step="1" title="Lower = better quality, bigger file" data-i18n-title="term.lower-better-quality-bigger-file"></label>
+            <label class="dlv-f" id="dlvBitrateField"><span data-i18n="term.bitrate-mb-s">Bitrate (Mb/s)</span><input type="number" id="dlvBitrate" min="0.1" max="400" step="0.5"></label>
             <label class="dlv-f" id="dlvMaxrateField"><span data-i18n="own.dlv-maxrate">Max rate (Mb/s)</span><input type="number" id="dlvMaxrate" min="0.1" max="800" step="0.5" placeholder="none"></label>
             <label class="dlv-f" id="dlvKeyintField"><span data-i18n="own.dlv-keyint">Keyframe every (s)</span><input type="number" id="dlvKeyint" min="0" max="20" step="0.5" title="0 = the encoder's default" data-i18n-title="term.0-the-encoder-s-default"></label>
             <label class="dlv-f" id="dlvSpeedField"><span data-i18n="own.dlv-speed">Encoder speed</span><select id="dlvSpeed">
@@ -393,14 +399,14 @@
               <option value="best" data-i18n="term.best-quality-slow">Best quality (slow)</option>
             </select></label>
             <label class="dlv-f"><span data-i18n="own.dlv-pixfmt">Pixel format</span><select id="dlvPixFmt"></select></label>
-            <label class="dlv-f">Color<select id="dlvColor"></select></label>
+            <label class="dlv-f"><span data-i18n="term.color-2">Color</span><select id="dlvColor"></select></label>
             <label class="dlv-f"><span data-i18n="own.dlv-container">Container</span><select id="dlvContainer"></select></label>
           </div>
         </details>
         <details class="dlv-sec" id="dlvAudioSec" open>
           <summary data-i18n="term.audio">Audio</summary>
           <div class="dlv-grid">
-            <label class="dlv-f">Codec<select id="dlvACodec"></select></label>
+            <label class="dlv-f"><span data-i18n="term.codec">Codec</span><select id="dlvACodec"></select></label>
             <label class="dlv-f" id="dlvABitrateField"><span data-i18n="own.dlv-abitrate">Bitrate (kb/s)</span><select id="dlvABitrate"></select></label>
             <label class="dlv-f" id="dlvARateField"><span data-i18n="own.dlv-sample-rate">Sample rate</span><select id="dlvARate">
               <option value="48000">48 kHz</option>
@@ -411,7 +417,7 @@
               <option value="1" data-i18n="term.mono">Mono</option>
             </select></label>
             <label class="dlv-f" id="dlvLoudField"><span data-i18n="own.dlv-loudness">Loudness</span><select id="dlvLoud" title="Turn the whole mix up or down to an integrated loudness, with a true-peak limiter"></select></label>
-            <label class="dlv-f" id="dlvTpField">True peak (dBTP)<input type="number" id="dlvTp" min="-9" max="0" step="0.5"></label>
+            <label class="dlv-f" id="dlvTpField"><span data-i18n="term.true-peak-dbtp">True peak (dBTP)</span><input type="number" id="dlvTp" min="-9" max="0" step="0.5"></label>
           </div>
         </details>
         <details class="dlv-sec" id="dlvFileSec">
@@ -444,7 +450,7 @@
       <ul class="dlv-batch-list" id="dlvBatchList"></ul>
     </div>
     <div class="export-wc-opts hidden" id="exportWcOpts">
-      <label class="export-wc-field" for="exportWcBitrate">Bitrate
+      <label class="export-wc-field" for="exportWcBitrate"><span data-i18n="term.bitrate">Bitrate</span>
         <select id="exportWcBitrate" class="export-wc-sel">
           <option value="auto" data-i18n="term.auto-from-resolution">Auto (from resolution)</option>
           <option value="2">2 Mbps</option>
@@ -464,7 +470,7 @@
           <option value="constant" data-i18n="term.cbr-constant">CBR (constant)</option>
         </select>
       </label>
-      <p class="dim export-wc-hint">WebCodecs has no CRF — quality is driven by bitrate. VBR spends bits on hard frames; CBR holds a steady rate.</p>
+      <p class="dim export-wc-hint" data-i18n="term.webcodecs-no-crf">WebCodecs has no CRF — quality is driven by bitrate. VBR spends bits on hard frames; CBR holds a steady rate.</p>
     </div>
     <div class="export-track-warn hidden" id="dlvWarn" role="status"></div>
     <div class="export-track-warn hidden" id="exportTrackWarn" role="status"></div>
@@ -488,7 +494,7 @@
     <div class="dialog-actions">
       <button class="btn" id="btnQueueClear" data-i18n="term.clear-finished">Clear finished</button>
       <button class="btn" id="btnQueueClose" data-i18n="term.close">Close</button>
-      <button class="btn primary" id="btnQueueStart">Start</button>
+      <button class="btn primary" id="btnQueueStart" data-i18n="term.queue-start">Start</button>
     </div>
   </div>
 </div>
@@ -496,8 +502,8 @@
 <!-- ══════════ EXPORT OVERLAY ══════════ -->
 <div class="overlay hidden" id="exportOverlay">
   <div class="dialog">
-    <h2 id="exportTitle">Exporting…</h2>
-    <p class="dim" id="exportNote">Rendering your sequence in real time. Keep this tab focused.</p>
+    <h2 id="exportTitle" data-i18n="term.exporting">Exporting…</h2>
+    <p class="dim" id="exportNote" data-i18n="term.export-note-realtime">Rendering your sequence in real time. Keep this tab focused.</p>
     <div class="progress"><div class="progress-fill" id="exportProgress"></div></div>
     <div class="dialog-actions"><button class="btn" id="btnCancelExport" data-i18n="term.cancel">Cancel</button></div>
   </div>
@@ -519,6 +525,16 @@
         </span>
       </label>
     </div>
+    <div class="settings-section" id="setSoundFacts">
+      <h3 data-i18n="own.sf-title">AI assistant</h3>
+      <label class="settings-row">
+        <input type="checkbox" id="setSoundFactsOn">
+        <span>
+          <span class="settings-label" data-i18n="own.sf-label">Attach singing parts and loudness</span>
+          <span class="settings-hint" data-i18n="own.sf-hint">When on, what is sent to the AI includes which parts may be singing and the loudness (one number every second or every few seconds): numbers only, not the recording. When off, the assistant can't tell where it is quiet or where the singing starts.</span>
+        </span>
+      </label>
+    </div>
     <div class="settings-section hidden" id="setH264">
       <h3 id="setH264Title"></h3>
       <p class="settings-hint" id="setH264Status" role="status"></p>
@@ -533,6 +549,17 @@
       <div class="settings-row"><button class="btn" id="btnAsrSetup" type="button" data-i18n="own.asr-go-install">Install</button></div>
       <div id="setAsrPunct" hidden><p class="settings-hint" id="setAsrPunctText"></p>
         <div class="settings-row"><button class="btn" id="btnAsrPunct" type="button"></button></div></div>
+    </div>
+    <div class="settings-section hidden" id="setAi">
+      <h3 data-i18n="own.ai-set-title">AI assistant</h3>
+      <label class="settings-row">
+        <input type="checkbox" id="setAiEnabled">
+        <span>
+          <span class="settings-label" data-i18n="own.ai-set-enabled">Use the AI assistant</span>
+          <span class="settings-hint" data-i18n="own.ai-set-hint">When it's off, the assistant sends nothing; editing works as usual.</span>
+        </span>
+      </label>
+      <div class="settings-row"><button class="btn" id="btnAiNotice" type="button" data-i18n="own.ai-set-notice" data-i18n-title="own.ai-set-notice-tip" title="See again who gets your data, what is sent, and whether it may be used for training">Data notice</button></div>
     </div>
     <div class="settings-section hidden" id="setSlices">
       <h3 data-i18n="own.as-set-title">Auto slices</h3>
@@ -554,163 +581,163 @@
       <section class="keys-sec">
         <h3 data-i18n="term.playback">Playback</h3>
         <table class="keys">
-          <tr><td><kbd>Space</kbd></td><td>Play / pause (Source or Program — whichever is active)</td></tr>
-          <tr><td><kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd></td><td>Shuttle — <kbd>L</kbd> plays forward, <kbd>J</kbd> in reverse (silent); tap again for 1.5× · 2× · 4×, the other key turns around; <kbd>K</kbd> stops</td></tr>
-          <tr><td><kbd>K</kbd>+<kbd>J</kbd> / <kbd>K</kbd>+<kbd>L</kbd></td><td>Hold <kbd>K</kbd> and tap to step one frame; hold both to crawl at ¼ speed</td></tr>
-          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Step 1 frame (<kbd>⇧</kbd> = 1 second)</td></tr>
-          <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Jump to previous / next cut (selected clip In then Out; no selection → targeted tracks). Source monitor: In / Out marks</td></tr>
-          <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>Jump to start / end</td></tr>
-          <tr><td><kbd>0</kbd>–<kbd>9</kbd> / click timecode</td><td>Type a time: <code>01:15:00</code>, packed <code>1500</code> (= 15 s), <code>+30</code> / <code>-1:00</code> to offset, <code>12.5</code> seconds. Click IN / OUT readouts to type those too</td></tr>
-          <tr><td>Limit (toolbar)</td><td>Play stops at OUT; Home / End use IN / OUT</td></tr>
+          <tr><td><kbd>Space</kbd></td><td data-i18n-html="own.help-1">Play / pause (Source or Program — whichever is active)</td></tr>
+          <tr><td><kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd></td><td data-i18n-html="own.help-2">Shuttle — <kbd>L</kbd> plays forward, <kbd>J</kbd> in reverse (silent); tap again for 1.5× · 2× · 4×, the other key turns around; <kbd>K</kbd> stops</td></tr>
+          <tr><td><kbd>K</kbd>+<kbd>J</kbd> / <kbd>K</kbd>+<kbd>L</kbd></td><td data-i18n-html="own.help-3">Hold <kbd>K</kbd> and tap to step one frame; hold both to crawl at ¼ speed</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td data-i18n-html="own.help-4">Step 1 frame (<kbd>⇧</kbd> = 1 second)</td></tr>
+          <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td data-i18n-html="own.help-5">Jump to previous / next cut (selected clip In then Out; no selection → targeted tracks). Source monitor: In / Out marks</td></tr>
+          <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td data-i18n-html="own.help-6">Jump to start / end</td></tr>
+          <tr><td data-i18n-html="own.help-l-7"><kbd>0</kbd>–<kbd>9</kbd> / click timecode</td><td data-i18n-html="own.help-7">Type a time: <code>01:15:00</code>, packed <code>1500</code> (= 15 s), <code>+30</code> / <code>-1:00</code> to offset, <code>12.5</code> seconds. Click IN / OUT readouts to type those too</td></tr>
+          <tr><td data-i18n="term.limit-toolbar">Limit (toolbar)</td><td data-i18n-html="own.help-8">Play stops at OUT; Home / End use IN / OUT</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.source-monitor">Source monitor</h3>
         <table class="keys">
-          <tr><td>Dbl-click bin / clip</td><td>Load into the Source monitor</td></tr>
-          <tr><td><kbd>,</kbd></td><td>Insert Source In→Out at the timeline playhead (ripples later clips)</td></tr>
-          <tr><td><kbd>.</kbd></td><td>Replace — overwrite at the playhead, or apply new Source In / Out to a timeline-loaded clip (ripples if the duration changes)</td></tr>
+          <tr><td data-i18n="term.dbl-click-bin-clip">Dbl-click bin / clip</td><td data-i18n-html="own.help-9">Load into the Source monitor</td></tr>
+          <tr><td><kbd>,</kbd></td><td data-i18n-html="own.help-10">Insert Source In→Out at the timeline playhead (ripples later clips)</td></tr>
+          <tr><td><kbd>.</kbd></td><td data-i18n-html="own.help-11">Replace — overwrite at the playhead, or apply new Source In / Out to a timeline-loaded clip (ripples if the duration changes)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Editing</h3>
+        <h3 data-i18n="own.help-h-editing">Editing</h3>
         <table class="keys">
-          <tr><td><kbd>V</kbd> <kbd>B</kbd> <kbd>R</kbd> <kbd>Y</kbd> <kbd>U</kbd></td><td>Tools: Selection · Ripple edit (drag an edge, the rest follows) · Rolling edit (drag a cut) · Slip (change the source under a clip) · Slide (move a clip, neighbours trim)</td></tr>
-          <tr><td><kbd>S</kbd></td><td>Split clip(s) at the playhead (selection, else targeted tracks)</td></tr>
-          <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Trim selected in / out to the playhead</td></tr>
-          <tr><td><kbd>Del</kbd></td><td>Delete selected clip(s), or clear the focused transition</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>Del</kbd></td><td>Ripple delete — remove the selection and close the gap on targeted tracks</td></tr>
-          <tr><td><kbd>G</kbd></td><td>Find the next shared gap (wraps; respects IN / OUT)</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>G</kbd></td><td>Close the gap at the playhead (targeted tracks)</td></tr>
-          <tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>Add a transition at the playhead (in / out by half)</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>E</kbd></td><td>Disable / enable selected clip(s) — hidden from preview and export</td></tr>
-          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>L</kbd></td><td>Unlink / link video and its audio</td></tr>
-          <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd></td><td>Undo / redo (also <kbd>Ctrl</kbd>+<kbd>Y</kbd>)</td></tr>
+          <tr><td><kbd>V</kbd> <kbd>B</kbd> <kbd>R</kbd> <kbd>Y</kbd> <kbd>U</kbd></td><td data-i18n-html="own.help-12">Tools: Selection · Ripple edit (drag an edge, the rest follows) · Rolling edit (drag a cut) · Slip (change the source under a clip) · Slide (move a clip, neighbours trim)</td></tr>
+          <tr><td><kbd>S</kbd></td><td data-i18n-html="own.help-13">Split clip(s) at the playhead (selection, else targeted tracks)</td></tr>
+          <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td data-i18n-html="own.help-14">Trim selected in / out to the playhead</td></tr>
+          <tr><td><kbd>Del</kbd></td><td data-i18n-html="own.help-15">Delete selected clip(s), or clear the focused transition</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>Del</kbd></td><td data-i18n-html="own.help-16">Ripple delete — remove the selection and close the gap on targeted tracks</td></tr>
+          <tr><td><kbd>G</kbd></td><td data-i18n-html="own.help-17">Find the next shared gap (wraps; respects IN / OUT)</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>G</kbd></td><td data-i18n-html="own.help-18">Close the gap at the playhead (targeted tracks)</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td data-i18n-html="own.help-19">Add a transition at the playhead (in / out by half)</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>E</kbd></td><td data-i18n-html="own.help-20">Disable / enable selected clip(s) — hidden from preview and export</td></tr>
+          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>L</kbd></td><td data-i18n-html="own.help-21">Unlink / link video and its audio</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd></td><td data-i18n-html="own.help-22">Undo / redo (also <kbd>Ctrl</kbd>+<kbd>Y</kbd>)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.selection">Selection</h3>
         <table class="keys">
-          <tr><td>Drag empty area</td><td>Marquee-select clips</td></tr>
-          <tr><td><kbd>Ctrl</kbd>+click clip</td><td>Add to / remove from the selection</td></tr>
-          <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Esc</kbd></td><td>Select all / deselect</td></tr>
-          <tr><td>Right-click clip</td><td>Disable / lock / link or unlink / precompose</td></tr>
+          <tr><td data-i18n="term.drag-empty-area">Drag empty area</td><td data-i18n-html="own.help-23">Marquee-select clips</td></tr>
+          <tr><td data-i18n-html="own.help-l-24"><kbd>Ctrl</kbd>+click clip</td><td data-i18n-html="own.help-24">Add to / remove from the selection</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Esc</kbd></td><td data-i18n-html="own.help-25">Select all / deselect</td></tr>
+          <tr><td data-i18n="term.right-click-clip">Right-click clip</td><td data-i18n-html="own.help-26">Disable / lock / link or unlink / precompose</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.in-out-and-markers">IN / OUT and markers</h3>
         <table class="keys">
-          <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Set Source In / Out (Source mode) or the timeline work area (Program; also bounds Export)</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>I</kbd> / <kbd>⇧</kbd>+<kbd>O</kbd></td><td>Clear Source or timeline IN / OUT</td></tr>
-          <tr><td><kbd>T</kbd></td><td>Split clips at the IN / OUT marks</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>T</kbd></td><td>Trim clips to IN / OUT (remove heads and tails)</td></tr>
-          <tr><td><kbd>;</kbd> / <kbd>'</kbd></td><td>Lift / Extract IN→OUT on targeted tracks (Extract closes the gap)</td></tr>
-          <tr><td><kbd>M</kbd></td><td>Add / remove a marker at the playhead</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>M</kbd> / <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd></td><td>Go to the next / previous marker</td></tr>
-          <tr><td>Marker on ruler</td><td>Drag to move · click to jump · double-click or right-click to name / colour / delete · <b data-i18n="term.markers">Markers</b> lists them all</td></tr>
+          <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td data-i18n-html="own.help-27">Set Source In / Out (Source mode) or the timeline work area (Program; also bounds Export)</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>I</kbd> / <kbd>⇧</kbd>+<kbd>O</kbd></td><td data-i18n-html="own.help-28">Clear Source or timeline IN / OUT</td></tr>
+          <tr><td><kbd>T</kbd></td><td data-i18n-html="own.help-29">Split clips at the IN / OUT marks</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>T</kbd></td><td data-i18n-html="own.help-30">Trim clips to IN / OUT (remove heads and tails)</td></tr>
+          <tr><td><kbd>;</kbd> / <kbd>'</kbd></td><td data-i18n-html="own.help-31">Lift / Extract IN→OUT on targeted tracks (Extract closes the gap)</td></tr>
+          <tr><td><kbd>M</kbd></td><td data-i18n-html="own.help-32">Add / remove a marker at the playhead</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>M</kbd> / <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd></td><td data-i18n-html="own.help-33">Go to the next / previous marker</td></tr>
+          <tr><td data-i18n="term.marker-on-ruler">Marker on ruler</td><td data-i18n-html="own.help-34">Drag to move · click to jump · double-click or right-click to name / colour / delete · <b data-i18n="term.markers">Markers</b> lists them all</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.timeline-view-and-tracks">Timeline view and tracks</h3>
         <table class="keys">
-          <tr><td><kbd>+</kbd> / <kbd>-</kbd></td><td>Zoom the timeline</td></tr>
-          <tr><td><kbd>Ctrl</kbd>+wheel</td><td>Zoom at the cursor</td></tr>
-          <tr><td><kbd>Z</kbd></td><td>Zoom to the selected clip(s)</td></tr>
-          <tr><td><kbd>Alt</kbd>+<kbd>Z</kbd></td><td>Zoom to the IN–OUT work area</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>Z</kbd></td><td>Zoom to fit</td></tr>
-          <tr><td><kbd>N</kbd></td><td>Snapping on / off — <b>▾</b> picks targets (clip edges, playhead, markers, IN / OUT, keyframes, frame grid)</td></tr>
-          <tr><td>Click track name</td><td>Target / untarget the track — edits touch lit (targeted) tracks only</td></tr>
-          <tr><td>Track <b>S</b></td><td>Solo the track (mutes all others; click again to restore)</td></tr>
-          <tr><td>Track padlock</td><td>Lock the track — nothing on it can be edited or moved</td></tr>
-          <tr><td>Right-click track</td><td>Remove an empty track (keeps ≥1 video + ≥1 audio)</td></tr>
+          <tr><td><kbd>+</kbd> / <kbd>-</kbd></td><td data-i18n-html="own.help-35">Zoom the timeline</td></tr>
+          <tr><td data-i18n-html="own.help-l-36"><kbd>Ctrl</kbd>+wheel</td><td data-i18n-html="own.help-36">Zoom at the cursor</td></tr>
+          <tr><td><kbd>Z</kbd></td><td data-i18n-html="own.help-37">Zoom to the selected clip(s)</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>Z</kbd></td><td data-i18n-html="own.help-38">Zoom to the IN–OUT work area</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>Z</kbd></td><td data-i18n-html="own.help-39">Zoom to fit</td></tr>
+          <tr><td><kbd>N</kbd></td><td data-i18n-html="own.help-40">Snapping on / off — <b>▾</b> picks targets (clip edges, playhead, markers, IN / OUT, keyframes, frame grid)</td></tr>
+          <tr><td data-i18n="term.click-track-name">Click track name</td><td data-i18n-html="own.help-41">Target / untarget the track — edits touch lit (targeted) tracks only</td></tr>
+          <tr><td><span data-i18n="term.track">Track</span> <b>S</b></td><td data-i18n-html="own.help-42">Solo the track (mutes all others; click again to restore)</td></tr>
+          <tr><td data-i18n="term.track-padlock">Track padlock</td><td data-i18n-html="own.help-43">Lock the track — nothing on it can be edited or moved</td></tr>
+          <tr><td data-i18n="term.right-click-track">Right-click track</td><td data-i18n-html="own.help-44">Remove an empty track (keeps ≥1 video + ≥1 audio)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.keyframes-presets-and-inspector">Keyframes, presets and Inspector</h3>
         <table class="keys">
-          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>Go to the previous / next keyframe (the Inspector follows)</td></tr>
-          <tr><td><kbd>Ctrl/Cmd</kbd>+click inspector label or slider</td><td>Reset a property and clear all its keyframes</td></tr>
-          <tr><td><kbd>⇧</kbd>+click label</td><td>Reset the value at the playhead, or remove that keyframe</td></tr>
-          <tr><td>Motion → Presets</td><td>In · Out · At playhead · Loop menus key a ready-made animation onto the selected clips · <b data-i18n="term.save-as-preset">Save as preset</b> keeps this clip's keyframes for every project</td></tr>
+          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td data-i18n-html="own.help-45">Go to the previous / next keyframe (the Inspector follows)</td></tr>
+          <tr><td data-i18n-html="own.help-l-46"><kbd>Ctrl/Cmd</kbd>+click inspector label or slider</td><td data-i18n-html="own.help-46">Reset a property and clear all its keyframes</td></tr>
+          <tr><td data-i18n-html="own.help-l-47"><kbd>⇧</kbd>+click label</td><td data-i18n-html="own.help-47">Reset the value at the playhead, or remove that keyframe</td></tr>
+          <tr><td data-i18n="term.motion-presets">Motion → Presets</td><td data-i18n-html="own.help-48">In · Out · At playhead · Loop menus key a ready-made animation onto the selected clips · <b data-i18n="term.save-as-preset">Save as preset</b> keeps this clip's keyframes for every project</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.audio">Audio</h3>
         <table class="keys">
-          <tr><td>Volume line</td><td>Drag to change the level · <kbd>Ctrl/Cmd</kbd>+click adds a keyframe · <kbd>Alt</kbd>+click or double-click removes one · corner grips drag fades</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>D</kbd></td><td>Crossfade the audio cut next to the selected clip (or at the playhead)</td></tr>
+          <tr><td data-i18n="term.volume-line">Volume line</td><td data-i18n-html="own.help-49">Drag to change the level · <kbd>Ctrl/Cmd</kbd>+click adds a keyframe · <kbd>Alt</kbd>+click or double-click removes one · corner grips drag fades</td></tr>
+          <tr><td><kbd>⇧</kbd>+<kbd>D</kbd></td><td data-i18n-html="own.help-50">Crossfade the audio cut next to the selected clip (or at the playhead)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.bin-compositions-and-templates">Bin, compositions and templates</h3>
         <table class="keys">
-          <tr><td><kbd>Ctrl</kbd>+click bin</td><td>Import media files</td></tr>
-          <tr><td>Right-click <b data-i18n="term.project">Project</b> tab</td><td>New folder · New composition</td></tr>
-          <tr><td>Bin search</td><td>Name, kind, codec, <code>2160p</code> or a tag; <code>#tag</code> matches tags only · <kbd>Esc</kbd> clears</td></tr>
-          <tr><td>Right-click a bin file</td><td>Find timeline instances · Media info · favorites · Tags · collections</td></tr>
-          <tr><td>☆ / uses badge on a bin file</td><td>Star it · list where it is used (click one to jump there)</td></tr>
-          <tr><td>☰ in the bin</td><td>List view with metadata columns · click a heading to sort</td></tr>
-          <tr><td>Right-click a clip</td><td><b data-i18n="term.reveal-in-project">Reveal in project</b> — show its file in the bin</td></tr>
-          <tr><td>Right-click a bin file</td><td><b data-i18n="term.relink">Relink…</b> — point it at the footage where it is now · <b data-i18n="term.replace-file">Replace file…</b> — a new file for every clip that uses it</td></tr>
-          <tr><td>Right-click a bin video</td><td><b data-i18n="term.create-proxy">Create proxy</b> — a light copy to edit with (right-click the Project tab for all of them) · <b data-i18n="term.proxy">Proxy</b> above the monitor plays proxies on / off; export always uses the originals</td></tr>
-          <tr><td>Comp clip / bin comp</td><td>Double-click to open it on the timeline · drag a bin comp onto the timeline to place it · the breadcrumb above the timeline steps back out</td></tr>
-          <tr><td>Right-click clips</td><td><b data-i18n="term.precompose">Precompose</b> — move the selection into a new comp</td></tr>
-          <tr><td><kbd>Esc</kbd> inside a comp</td><td>Back out one level (once nothing is selected)</td></tr>
-          <tr><td><b data-i18n="term.templates">Templates</b> tab</td><td>Drag a lower third, logo animation or social layout onto the timeline (or click ＋) · fill in its fields in the Inspector's <b data-i18n="term.template">Template</b> section · right-click a comp → <b data-i18n="term.save-as-template">Save as template</b></td></tr>
+          <tr><td data-i18n-html="own.help-l-51"><kbd>Ctrl</kbd>+click bin</td><td data-i18n-html="own.help-51">Import media files</td></tr>
+          <tr><td data-i18n-html="own.help-l-52">Right-click <b data-i18n="term.project">Project</b> tab</td><td data-i18n-html="own.help-52">New folder · New composition</td></tr>
+          <tr><td data-i18n="term.bin-search">Bin search</td><td data-i18n-html="own.help-53">Name, kind, codec, <code>2160p</code> or a tag; <code>#tag</code> matches tags only · <kbd>Esc</kbd> clears</td></tr>
+          <tr><td data-i18n="term.right-click-a-bin-file">Right-click a bin file</td><td data-i18n-html="own.help-54">Find timeline instances · Media info · favorites · Tags · collections</td></tr>
+          <tr><td data-i18n="own.help-l-55">☆ / uses badge on a bin file</td><td data-i18n-html="own.help-55">Star it · list where it is used (click one to jump there)</td></tr>
+          <tr><td data-i18n="own.help-l-56">☰ in the bin</td><td data-i18n-html="own.help-56">List view with metadata columns · click a heading to sort</td></tr>
+          <tr><td data-i18n="term.right-click-a-clip">Right-click a clip</td><td data-i18n-html="own.help-57"><b data-i18n="term.reveal-in-project">Reveal in project</b> — show its file in the bin</td></tr>
+          <tr><td data-i18n="term.right-click-a-bin-file">Right-click a bin file</td><td data-i18n-html="own.help-58"><b data-i18n="term.relink">Relink…</b> — point it at the footage where it is now · <b data-i18n="term.replace-file">Replace file…</b> — a new file for every clip that uses it</td></tr>
+          <tr><td data-i18n="term.right-click-a-bin-video">Right-click a bin video</td><td data-i18n-html="own.help-59"><b data-i18n="term.create-proxy">Create proxy</b> — a light copy to edit with (right-click the Project tab for all of them) · <b data-i18n="term.proxy">Proxy</b> above the monitor plays proxies on / off; export always uses the originals</td></tr>
+          <tr><td data-i18n="term.comp-clip-bin-comp">Comp clip / bin comp</td><td data-i18n-html="own.help-60">Double-click to open it on the timeline · drag a bin comp onto the timeline to place it · the breadcrumb above the timeline steps back out</td></tr>
+          <tr><td data-i18n="term.right-click-clips">Right-click clips</td><td data-i18n-html="own.help-61"><b data-i18n="term.precompose">Precompose</b> — move the selection into a new comp</td></tr>
+          <tr><td><kbd>Esc</kbd> <span data-i18n="term.inside-a-comp">inside a comp</span></td><td data-i18n-html="own.help-62">Back out one level (once nothing is selected)</td></tr>
+          <tr><td data-i18n-html="own.help-l-63"><b data-i18n="term.templates">Templates</b> tab</td><td data-i18n-html="own.help-63">Drag a lower third, logo animation or social layout onto the timeline (or click ＋) · fill in its fields in the Inspector's <b data-i18n="term.template">Template</b> section · right-click a comp → <b data-i18n="term.save-as-template">Save as template</b></td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Projects <span>top bar → Projects</span></h3>
+        <h3 data-i18n-tail="term.projects">Projects <span data-i18n="own.help-n-projects">top bar → Projects</span></h3>
         <table class="keys">
-          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>O</kbd></td><td>Open the Projects dashboard (or click the project name)</td></tr>
-          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>S</kbd></td><td>Save a version of the open project (every edit is saved anyway; a version is a point to come back to)</td></tr>
-          <tr><td>Project → <b data-i18n="term.versions">Versions…</b></td><td>Compare a version with now · <b data-i18n="term.restore">Restore…</b> (click twice; what is there is saved as a version first) · mark the final cut</td></tr>
-          <tr><td>Timeline toolbar → <b>sequence menu</b></td><td>Open another sequence of this project · <b data-i18n="term.new-sequence">New sequence…</b> (any canvas, empty or a copy) · <b data-i18n="term.duplicate">Duplicate</b> · <b data-i18n="term.rename">Rename…</b> · <b data-i18n="term.delete-2">Delete…</b> (click twice; kept as a version first)</td></tr>
-          <tr><td>Project card</td><td>Click to see its details, notes and tags · double-click to open it</td></tr>
-          <tr><td><kbd>Enter</kbd> on a card</td><td>Open that project</td></tr>
-          <tr><td><kbd>Esc</kbd></td><td>Back out of <b data-i18n="term.new-project">New project</b>, then close the dashboard</td></tr>
-          <tr><td><b data-i18n="term.delete-2">Delete…</b> (Archived)</td><td>Click twice — only archived projects can be deleted</td></tr>
+          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>O</kbd></td><td data-i18n-html="own.help-64">Open the Projects dashboard (or click the project name)</td></tr>
+          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>S</kbd></td><td data-i18n-html="own.help-65">Save a version of the open project (every edit is saved anyway; a version is a point to come back to)</td></tr>
+          <tr><td><span data-i18n="term.project-2">Project →</span> <b data-i18n="term.versions">Versions…</b></td><td data-i18n-html="own.help-66">Compare a version with now · <b data-i18n="term.restore">Restore…</b> (click twice; what is there is saved as a version first) · mark the final cut</td></tr>
+          <tr><td><span data-i18n="term.timeline-toolbar">Timeline toolbar →</span> <b data-i18n="own.help-sequence-menu">sequence menu</b></td><td data-i18n-html="own.help-67">Open another sequence of this project · <b data-i18n="term.new-sequence">New sequence…</b> (any canvas, empty or a copy) · <b data-i18n="term.duplicate">Duplicate</b> · <b data-i18n="term.rename">Rename…</b> · <b data-i18n="term.delete-2">Delete…</b> (click twice; kept as a version first)</td></tr>
+          <tr><td data-i18n="own.help-l-68">Project card</td><td data-i18n-html="own.help-68">Click to see its details, notes and tags · double-click to open it</td></tr>
+          <tr><td data-i18n-html="own.help-l-69"><kbd>Enter</kbd> on a card</td><td data-i18n-html="own.help-69">Open that project</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td data-i18n-html="own.help-70">Back out of <b data-i18n="term.new-project">New project</b>, then close the dashboard</td></tr>
+          <tr><td><b data-i18n="term.delete-2">Delete…</b> <span data-i18n="term.archived-2">(Archived)</span></td><td data-i18n-html="own.help-71">Click twice — only archived projects can be deleted</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.color-workspace">Color workspace</h3>
         <table class="keys">
-          <tr><td>Colour wheel</td><td>Drag to tint (<kbd>⇧</kbd> = fine) · double-click resets the colour · double-click a label or slider name to reset it</td></tr>
-          <tr><td>WB pick / Pick</td><td>Click the monitor to balance, to mark a colour on the curves, or to select it in a layer's qualifier · <kbd>Esc</kbd> cancels</td></tr>
-          <tr><td>Curves</td><td>Click adds a point on the curve · drag moves it · double-click removes it</td></tr>
-          <tr><td>Layer mask on monitor</td><td>Drag inside to move · handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · poly / bezier: <kbd>Ctrl/Cmd</kbd>+click adds a point, double-click removes one · <b data-i18n="term.draw">Draw</b>: drag a free-hand outline</td></tr>
+          <tr><td data-i18n="term.colour-wheel">Colour wheel</td><td data-i18n-html="own.help-72">Drag to tint (<kbd>⇧</kbd> = fine) · double-click resets the colour · double-click a label or slider name to reset it</td></tr>
+          <tr><td data-i18n="term.wb-pick-pick">WB pick / Pick</td><td data-i18n-html="own.help-73">Click the monitor to balance, to mark a colour on the curves, or to select it in a layer's qualifier · <kbd>Esc</kbd> cancels</td></tr>
+          <tr><td data-i18n="term.curves">Curves</td><td data-i18n-html="own.help-74">Click adds a point on the curve · drag moves it · double-click removes it</td></tr>
+          <tr><td data-i18n="term.layer-mask-on-monitor">Layer mask on monitor</td><td data-i18n-html="own.help-75">Drag inside to move · handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · poly / bezier: <kbd>Ctrl/Cmd</kbd>+click adds a point, double-click removes one · <b data-i18n="term.draw">Draw</b>: drag a free-hand outline</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Masks <span data-i18n="term.inspector-masks">Inspector → Masks</span></h3>
+        <h3 data-i18n-tail="term.masks">Masks <span data-i18n="term.inspector-masks">Inspector → Masks</span></h3>
         <table class="keys">
-          <tr><td>Pen</td><td>Click to place points, drag while placing to pull curve handles · click the first point or <kbd>Enter</kbd> closes · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
-          <tr><td>Draw</td><td>Drag a free-hand outline — it becomes an editable bezier</td></tr>
-          <tr><td>Mask on monitor</td><td>Drag inside to move · edge handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · drag a point or its handles (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a point pulls new handles · <kbd>Ctrl/Cmd</kbd>+click the outline adds a point · double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
+          <tr><td data-i18n="term.pen">Pen</td><td data-i18n-html="own.help-76">Click to place points, drag while placing to pull curve handles · click the first point or <kbd>Enter</kbd> closes · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
+          <tr><td data-i18n="term.draw">Draw</td><td data-i18n-html="own.help-77">Drag a free-hand outline — it becomes an editable bezier</td></tr>
+          <tr><td data-i18n="term.mask-on-monitor">Mask on monitor</td><td data-i18n-html="own.help-78">Drag inside to move · edge handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · drag a point or its handles (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a point pulls new handles · <kbd>Ctrl/Cmd</kbd>+click the outline adds a point · double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Shapes and transforms <span>bin → Shapes · Inspector</span></h3>
+        <h3 data-i18n-tail="term.shapes-and-transforms">Shapes and transforms <span data-i18n="own.help-n-shapes">bin → Shapes · Inspector</span></h3>
         <table class="keys">
-          <tr><td>Shape item on monitor</td><td>Drag inside to move · corners resize (<kbd>⇧</kbd> keeps the proportions) · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · line / path: drag a point or its handles (<kbd>Alt</kbd> breaks the pair), <kbd>Alt</kbd>+drag a point pulls new handles · path: <kbd>Ctrl/Cmd</kbd>+click the outline adds a point, double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
-          <tr><td>Shape / text-path pen</td><td>Click to place points, drag while placing to pull curve handles · click the first point closes the path · <kbd>Enter</kbd> keeps it open · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
-          <tr><td>Motion path</td><td>Drag a key square to move it · drag a handle to bend the path (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a key pulls new handles · double-click a key makes it a corner again</td></tr>
-          <tr><td>Anchor ✥ Move</td><td>Drag on the monitor to move the anchor point; the picture stays put (<kbd>⇧</kbd> snaps to its centre) · <kbd>Esc</kbd> turns it off</td></tr>
+          <tr><td data-i18n="term.shape-item-on-monitor">Shape item on monitor</td><td data-i18n-html="own.help-79">Drag inside to move · corners resize (<kbd>⇧</kbd> keeps the proportions) · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · line / path: drag a point or its handles (<kbd>Alt</kbd> breaks the pair), <kbd>Alt</kbd>+drag a point pulls new handles · path: <kbd>Ctrl/Cmd</kbd>+click the outline adds a point, double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
+          <tr><td data-i18n="term.shape-text-path-pen">Shape / text-path pen</td><td data-i18n-html="own.help-80">Click to place points, drag while placing to pull curve handles · click the first point closes the path · <kbd>Enter</kbd> keeps it open · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
+          <tr><td data-i18n="term.motion-path">Motion path</td><td data-i18n-html="own.help-81">Drag a key square to move it · drag a handle to bend the path (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a key pulls new handles · double-click a key makes it a corner again</td></tr>
+          <tr><td data-i18n="term.anchor-move">Anchor ✥ Move</td><td data-i18n-html="own.help-82">Drag on the monitor to move the anchor point; the picture stays put (<kbd>⇧</kbd> snaps to its centre) · <kbd>Esc</kbd> turns it off</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Tracking <span>Inspector → Tracking · a mask’s Track buttons</span></h3>
+        <h3 data-i18n-tail="term.tracking">Tracking <span data-i18n="own.help-n-tracking">Inspector → Tracking · a mask’s Track buttons</span></h3>
         <table class="keys">
-          <tr><td>Track point</td><td>Click the spot to follow on the monitor — it tracks from the playhead to the clip's end · <kbd>Esc</kbd> cancels the pick, or stops a running track (what was tracked so far is kept)</td></tr>
+          <tr><td data-i18n="term.track-point">Track point</td><td data-i18n-html="own.help-83">Click the spot to follow on the monitor — it tracks from the playhead to the clip's end · <kbd>Esc</kbd> cancels the pick, or stops a running track (what was tracked so far is kept)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Transcript <span>side panel → Transcript</span></h3>
+        <h3 data-i18n-tail="term.transcript">Transcript <span data-i18n="own.help-n-transcript">side panel → Transcript</span></h3>
         <table class="keys">
-          <tr><td data-i18n="term.click-a-word">Click a word</td><td>Go to it · <kbd>⇧</kbd>+click or drag selects a run of words</td></tr>
-          <tr><td><kbd>Del</kbd></td><td>Cut the selected words and the pause after them (extract on the targeted tracks) · <kbd>Esc</kbd> clears the selection</td></tr>
-          <tr><td>Find words</td><td><kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> go to the next / previous match · <b data-i18n="term.cut">Cut</b> extracts every match</td></tr>
-          <tr><td>Captions</td><td>Pick a style, then <b data-i18n="term.add-captions">Add captions</b> (one undo step; replaces the captions there) · <b>SRT</b> / <b>VTT</b> download them · <b data-i18n="term.import-2">Import…</b> places a subtitle file's captions</td></tr>
+          <tr><td data-i18n="term.click-a-word">Click a word</td><td data-i18n-html="own.help-84">Go to it · <kbd>⇧</kbd>+click or drag selects a run of words</td></tr>
+          <tr><td><kbd>Del</kbd></td><td data-i18n-html="own.help-85">Cut the selected words and the pause after them (extract on the targeted tracks) · <kbd>Esc</kbd> clears the selection</td></tr>
+          <tr><td data-i18n="term.find-words">Find words</td><td data-i18n-html="own.help-86"><kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> go to the next / previous match · <b data-i18n="term.cut">Cut</b> extracts every match</td></tr>
+          <tr><td data-i18n="term.captions">Captions</td><td data-i18n-html="own.help-87">Pick a style, then <b data-i18n="term.add-captions">Add captions</b> (one undo step; replaces the captions there) · <b>SRT</b> / <b>VTT</b> download them · <b data-i18n="term.import-2">Import…</b> places a subtitle file's captions</td></tr>
         </table>
       </section>
       <p class="help-empty hidden" id="helpEmpty" data-i18n="term.no-shortcut-matches-that">No shortcut matches that.</p>
@@ -736,6 +763,7 @@
 <script src="highlight-candidates.js"></script>
 <script src="caption-quick.js"></script>
 <script src="lyrics-align.js"></script>
+<script src="lyrics-track.js"></script>
 <script src="danmaku.js"></script>
 <script src="songs.js"></script>
 <script src="auto-slices.js"></script>
@@ -754,9 +782,12 @@
 <script src="ui-terms.js"></script>
 <script src="narrow-layout.js"></script>
 <script src="ui-preferences.js"></script>
+<script src="ffmpeg-card.js"></script>
+<script src="problem-redact.js"></script>
 <script src="agent-session-schema.js"></script>
 <script src="agent-pane.js"></script>
 <script src="agent-format.js"></script>
+<script src="agent-limits.js"></script>
 <script src="agent-conversation.js"></script>
 <script src="agent-facts.js"></script>
 <script src="capabilities-page.js"></script>
@@ -764,9 +795,11 @@
 <script src="agent-events.js"></script>
 <script src="agent-policy.js"></script>
 <script src="agent-plan.js"></script>
+<script src="agent-approval.js"></script>
 <script src="chat-proposal.js"></script>
 <script src="cindy-official.js"></script>
 <script src="workspace-preferences.js"></script>
+<script src="bgremove-assets.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

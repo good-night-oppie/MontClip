@@ -24,15 +24,16 @@ fs.copyFileSync(path.join(ROOT, "range-plan.js"), path.join(OUT, "range-plan.js"
 
 /* app.js and style.css are copied verbatim. Some of these only exist on
    branches that add them, so a missing one is skipped rather than fatal. */
-for (const f of ["app.js", "host-embed.js", "narrow-layout.js", "loudness.js", "ducking.js", "silence.js", "beats.js", "transcribe.js", "captions.js", "audio-fx.js", "mask.js", "tracker.js", "reframe.js", "highlights.js", "highlight-candidates.js", "caption-quick.js", "lyrics-align.js", "songs.js", "auto-slices.js", "corrections.js", "segment-edits.js", "danmaku.js", "motion.js", "color.js", "edit-ops.js", "comp.js", "sequences.js", "templates.js", "mp4-demux.js", "media-lib.js", "delivery.js", "fx-worklet.js", "style.css", "favicon.svg", "ruler-worker.js", "meter-worklet.js", "svg-sanitize.js", "credits.js"]) {
+for (const f of ["app.js", "host-embed.js", "bgremove-assets.js", "narrow-layout.js", "loudness.js", "ducking.js", "silence.js", "beats.js", "transcribe.js", "captions.js", "audio-fx.js", "mask.js", "tracker.js", "reframe.js", "highlights.js", "highlight-candidates.js", "caption-quick.js", "lyrics-align.js", "lyrics-track.js", "songs.js", "auto-slices.js", "corrections.js", "segment-edits.js", "danmaku.js", "motion.js", "color.js", "edit-ops.js", "comp.js", "sequences.js", "templates.js", "mp4-demux.js", "media-lib.js", "delivery.js", "fx-worklet.js", "style.css", "favicon.svg", "ruler-worker.js", "meter-worklet.js", "svg-sanitize.js", "credits.js", "ui-preferences.js", "problem-redact.js", "ffmpeg-card.js"]) {
   const from = path.join(ROOT, f);
   if (!fs.existsSync(from)) continue;
   fs.copyFileSync(from, path.join(OUT, f));
 }
 
-/* The library files the built-in templates use (the placeholder logo). The
+/* The library files the built-in templates use (the placeholder logo) and the
+   title fonts the demo edits draw with (static-shim.js lists them). The
    shim serves /library/… from this folder. */
-for (const rel of ["elements/logo-placeholder.svg"]) {
+for (const rel of ["elements/logo-placeholder.svg", "fonts/Anton.woff2", "fonts/Playfair Display.woff2", "fonts/Bebas Neue.woff2", "fonts/Roboto.woff2", "fonts/LICENSES.md"]) {
   const to = path.join(OUT, "library", rel);
   fs.mkdirSync(path.dirname(to), { recursive: true });
   fs.copyFileSync(path.join(ROOT, "library", rel), to);

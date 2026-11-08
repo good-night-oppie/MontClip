@@ -13,6 +13,7 @@
     "linux-x64": {
       "url": "https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-lgpl-n9.0.2-montclip1/ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0.tar.xz",
       "sha256": "69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae",
+      "bytes": 134885400,
       "root": "ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0"
     }
   },

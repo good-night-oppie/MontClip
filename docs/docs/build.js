@@ -164,20 +164,37 @@ const PAGES = [
 const GROUPS = ["Start", "The timeline", "Picture and sound", "Motion", "Guides", "Reference", "More"];
 PAGES.sort((a, b) => GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group));
 
+/* ── The anchor GitHub gives a heading of CLAUDE.md. The edit link opens the
+   section by it, not by line number: a line number moves whenever anything
+   above it changes, and that rewrote every page. GitHub's rule: the heading's
+   text without its Markdown, lower case, punctuation dropped, each space a
+   "-", and "-1", "-2"… on a repeat. ── */
+function anchorFor(title, seen) {
+  const text = title.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[`*]/g, "");
+  const base = text.trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, "").replace(/ /g, "-");
+  let slug = base;
+  for (let k = 1; seen.has(slug); k++) slug = base + "-" + k;
+  seen.add(slug);
+  return slug;
+}
+
 /* ── Split the manual into `## ` sections and their `### ` subsections ── */
 function parseManual(src) {
   const sections = [];
+  const seen = new Set();
   let cur = null, sub = null, fence = false;
-  src.split("\n").forEach((ln, i) => {
+  src.split("\n").forEach((ln) => {
     if (/^\s*```/.test(ln)) fence = !fence;
-    if (!fence && /^## /.test(ln)) {
-      cur = { title: ln.slice(3).trim(), line: i + 1, intro: [], subs: [] };
+    const h = !fence && /^(#{1,6})\s+(.*)$/.exec(ln);
+    const anchor = h ? anchorFor(h[2], seen) : null;
+    if (h && h[1] === "##") {
+      cur = { title: ln.slice(3).trim(), anchor, intro: [], subs: [] };
       sections.push(cur);
       sub = null;
       return;
     }
-    if (!fence && cur && /^### /.test(ln)) {
-      sub = { title: ln.slice(4).trim(), line: i + 1, lines: [] };
+    if (h && cur && h[1] === "###") {
+      sub = { title: ln.slice(4).trim(), anchor, lines: [] };
       cur.subs.push(sub);
       return;
     }
@@ -429,12 +446,12 @@ function pageBody(pg, ctx) {
     const s = find(name);
     if (which && which !== "*") {
       const x = findSub(s, which);
-      ctx.lines.push(x.line);   // the edit link opens the subsection itself
+      ctx.anchors.push(x.anchor);   // the edit link opens the subsection itself
       if (multi) html += heading(2, x.title, ctx);
       html += render(x.lines, { ...ctx, level: multi ? 3 : 2 });
       continue;
     }
-    ctx.lines.push(s.line);
+    ctx.anchors.push(s.anchor);
     if (multi) html += heading(2, shortTitle(s.title), ctx);
     html += render(s.intro, { ...ctx, level: multi ? 3 : 2 });
     if (which === "*") for (const x of s.subs) {
@@ -543,7 +560,7 @@ function build() {
   let written = 0;
   PAGES.forEach((pg, idx) => {
     sectionLinks = linksFor(pg);
-    const ctx = { ids: new Set(), toc: [], lines: [], level: 2, promote: pg.promote || false };
+    const ctx = { ids: new Set(), toc: [], anchors: [], level: 2, promote: pg.promote || false };
     let body = pageBody(pg, ctx);
     if (!pg.slug) {
       body = `<div class="docs-cards">${PAGES.filter((p) => p.slug).map((p) =>
@@ -569,7 +586,7 @@ function build() {
     ${body}
     <div class="docs-end">
       ${pg.file ? `<a class="more" href="${REPO}/blob/main/${pg.file}" rel="noopener" target="_blank">Edit this page <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>` :
-      `<a class="more" href="${MANUAL}#L${ctx.lines[0]}" rel="noopener" target="_blank">Edit this in CLAUDE.md <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
+      `<a class="more" href="${MANUAL}#${ctx.anchors[0]}" rel="noopener" target="_blank">Edit this in CLAUDE.md <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
       <a class="more" href="${RAW}" rel="noopener" target="_blank">The whole manual as Markdown <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>`}
     </div>
     <nav class="docs-pn" aria-label="Previous and next page">${pn(prev, "prev")}${pn(next, "next")}</nav>

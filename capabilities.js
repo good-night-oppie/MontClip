@@ -26,6 +26,9 @@
       ranges: { type: "array", minItems: 1, maxItems: 100, items: { type: "object", additionalProperties: false,
         required: ["clipId", "sourceCaptionId", "from", "to"], properties: { clipId: { type: "string" }, sourceCaptionId: { type: "string" },
           from: { type: "number", minimum: 0 }, to: { type: "number" } } } } } },
+    // the desktop assistant's reframe (Deja, 2026-11-05): only these shapes, nothing else in the reply (chat-proposal.js)
+    reframe: { type: "object", additionalProperties: false, required: ["type", "aspect"], properties: {
+      type: { const: "reframe" }, aspect: { enum: ["9:16", "1:1", "4:5"] } } },
   };
   // name: [risk, 中文, English]
   const SPEC = {
@@ -45,13 +48,18 @@
     fablecut_auto_duck: ["undoable", "有人说话时自动压低音乐", "Lower the music while someone speaks"],
     fablecut_silence: ["undoable", "找出并剪掉说话里的停顿", "Find and cut the pauses in speech"],
     fablecut_beats: ["undoable", "找出音乐的节拍，按拍子剪", "Find the music's beat and cut on it"],
-    fablecut_reframe: ["undoable", "做一份竖屏或方形的版本，画面跟着人走", "Make a vertical or square version where the picture follows the person"],
+    // sensitive, not undoable (Deja, 2026-11-05): with an aspect it makes a new sequence and opens it — it switches what is
+    // open, which this table counts as sensitive (see the top), and the sequence's own Undo cannot take that back
+    fablecut_reframe: ["sensitive", "做一份竖屏或方形的版本，画面跟着人走", "Make a vertical or square version where the picture follows the person"],
+    reframe: ["sensitive", "做一份竖屏或方形的新序列，画面跟着人走，并切换过去", "Make a vertical or square copy of the sequence that follows the person, and switch to it"],
     fablecut_highlights: ["undoable", "从长录像里挑精彩片段，剪成一个新序列", "Cut the best moments of long footage into a new sequence"],
     fablecut_danmaku: ["undoable", "给一场录像导入录播姬或 B 站的弹幕文件，也可以移除已经导入的弹幕", "Import BililiveRecorder or Bilibili danmaku for a recording, or remove them"],
+    fablecut_audio_track: ["undoable", "分轨录像里，选哪条音轨是主播的声音", "In a multi-track recording, pick the audio track that is the streamer's voice"],
     fablecut_songs: ["undoable","找出录像里可能在唱歌的段落，标出估的地方", "Find the parts of a recording that are possibly singing, marking the guessed spots"],
     fablecut_transcribe: ["undoable", "把说话听写成带时间的文字，可按文字剪", "Turn speech into timed words; cut by text"],
     fablecut_captions: ["sensitive", "加字幕、导入字幕，或把字幕导出成文件", "Add or import captions, or export them as a file"],
     fablecut_denoise: ["undoable", "降低片段的背景噪音", "Reduce background noise on clips"],
+    fablecut_repair_media: ["undoable", "把没录完整或剪不了的视频修成可以剪的 MP4，原文件不动", "Repair or convert a video into an MP4 you can cut; the original stays as it is"],
     fablecut_projects: ["sensitive", "新建、打开、归档或删除项目", "Create, open, archive or delete projects"],
     fablecut_versions: ["sensitive", "保存、比较、恢复或删除项目版本", "Save, compare, restore or delete project versions"],
     fablecut_proxy: ["undoable", "做或删掉预览用的小文件，让预览更流畅", "Make or delete small preview files so the preview plays smoothly"],
@@ -64,6 +72,10 @@
     // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
     set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、聊天、整活、普通高光或其他", "Change a candidate card's kind: singing, interaction, chat, stunt, highlight or other"],
     add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
+    // lyrics onto a new caption track (JJ, 2026-11-05): the proposal only reads; applying is one undo step, and the
+    // editor asks the streamer on its own card first, whatever the mode (docs/decisions/2026-11-05-lyrics-align-agent-tool.md)
+    fablecut_lyrics: ["read", "按贴进来的歌词，对出每一行唱在哪里（只出方案，不改项目）", "Line up pasted lyrics with the singing (a proposal only; the project is not changed)"],
+    fablecut_lyrics_apply: ["undoable", "把对好的歌词放到一条新的字幕轨上", "Put the lined-up lyrics on a new caption track"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
   // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send
@@ -73,6 +85,15 @@
   const AUDIO = { kind: "audio", perSend: 26214400, perScope: 2147483648, scope: "project-open" };
   const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, cloud_transcribe: AUDIO };
   const HOST = ["assistant_request", "song_lookup", "cloud_transcribe"];
+  // What the facts block of an assistant_request may carry about the sound (JJ via Deja, 2026-11-05; QQ's five on #169):
+  // numbers only, never the sound, a file name or a path. singingParts — parts that may be singing ({clipId, from, to},
+  // seconds); loudnessValues — whole numbers 0–100, one a second, one every few seconds when the clips together are longer
+  // than 2400 s: 40 min one a second, 2 h one every 3 s, 4 h one every 6 s, 8 h one every 12 s. Whole numbers at most
+  // one a second say how loud a stretch is, not what it sounds like: no waveform can be rebuilt from them.
+  // loudnessSeconds — the longest the clips may be together (8 h); longer, neither is attached that time and the review box
+  // says so (JJ定稿, 2026-11-05). Over the other caps the send is refused (FACTS_LIMIT). Never cut down. 2400 values, not 7200: a message is at most 16000 characters (the desktop
+  // service checks it), and a value takes up to four ("100,").
+  const FACTS = { singingParts: 100, loudnessValues: 2400, loudnessSeconds: 28800 };
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const table = new Map();
@@ -116,5 +137,9 @@
    *  language (English for any other), never its internal name — also for a name the table does not have. */
   const UNKNOWN = Object.freeze({ "zh-CN": "AI 想做一件软件不认识的操作，已经拦下，什么都没改。", en: "The AI asked for an action MontClip doesn't know. It was blocked; nothing changed." });
   const label = (name, language) => { const c = get(name), l = language === "zh-CN" ? "zh-CN" : "en"; return c ? c.summary[l] : UNKNOWN[l]; };
-  return Object.freeze({ RISKS, BLOCKED, get, riskOf, list, label, limits });
+  /* Steps the streamer confirms every time, in every mode — Yolo and 自动 too, never 「都批准」 (Deja, 2026-11-05): the
+     assistant's reframe makes a new sequence and switches to it, and it reads the footage frame by frame. */
+  const CONFIRM_EVERY_TIME = Object.freeze(["reframe"]);
+  const confirmEveryTime = (name) => CONFIRM_EVERY_TIME.includes(name);
+  return Object.freeze({ RISKS, BLOCKED, CONFIRM_EVERY_TIME, confirmEveryTime, FACTS: freeze(FACTS), get, riskOf, list, label, limits });
 });

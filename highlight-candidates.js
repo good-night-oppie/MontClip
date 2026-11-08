@@ -11,7 +11,7 @@
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.MontClipHighlights = factory();
+  else root.MontClipHighlightCandidates = factory();
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const DEFAULTS = Object.freeze({
