@@ -46,6 +46,21 @@ test("resolver: packaged builds use only the bundled folder and ignore dev overr
   assert.match(miss.error, /bundled ffprobe is missing.*Reinstall MontClip/);
 });
 
+test("resolver: a host that installs FFmpeg itself says what to do instead of reinstalling (MONTCLIP_FFMPEG_REMEDY, #215 E4)", () => {
+  // the Cindy plugin downloads FFmpeg on first use: "reinstall MontClip" would send the streamer the wrong way
+  const dir = path.resolve("/res/ffmpeg");
+  const remedy = "In Cindy, install it from the MontClip editor tab's banner, or ask the chat to run montclip_install_ffmpeg.";
+  const env = { MONTCLIP_FFMPEG_PACKAGED: "1", MONTCLIP_FFMPEG_REMEDY: remedy };
+  const missing = FF.resolveTool("ffmpeg", { env: { ...env, MONTCLIP_FFMPEG_DIR: dir }, exists: () => false });
+  assert.equal(missing.ok, false);
+  assert.ok(missing.error.endsWith(" " + remedy), missing.error);
+  assert.doesNotMatch(missing.error, /Reinstall MontClip/);
+  const noDir = FF.resolveTool("ffprobe", { env, exists: () => false });
+  assert.ok(noDir.error.endsWith(" " + remedy), noDir.error);
+  // unset or blank: the Windows app's own advice
+  for (const r of ["", "   "]) assert.match(FF.resolveTool("ffmpeg", { env: { ...env, MONTCLIP_FFMPEG_REMEDY: r, MONTCLIP_FFMPEG_DIR: dir }, exists: () => false }).error, /Reinstall MontClip to restore it\.$/);
+});
+
 test("resolver: development overrides must be full paths to existing files", () => {
   const p = path.resolve("/tools/ffmpeg.exe");
   // MONTCLIP_FFMPEG also passes the 6.0 gate (P10, 2026-11-05; test/ffmpeg-detect.test.js) — a passing one here
