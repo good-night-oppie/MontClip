@@ -88,7 +88,8 @@ test('MC-08: tool timeout reports incomplete work and the readable partial trans
   const result = JSON.parse((await mcp.callTool('fablecut_transcribe', { taskId: started.taskId, wait_ms: 5000 })).text);
   assert.equal(result.status, 'failed'); assert.match(result.error, /没听完/);
   assert.equal(result.saved.length, 1);
-  assert.deepEqual(JSON.parse(fs.readFileSync(result.saved[0], 'utf8')).words, WORDS);
+  assert.match(result.saved[0], /^analysis\/transcripts\//);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, result.saved[0]), 'utf8')).words, WORDS);
   const again = JSON.parse((await mcp.callTool('fablecut_transcribe', { mediaIds: ['m_a'], timeout: 0.1, wait_ms: 0, idempotency_key: 'timeout' })).text);
   assert.deepEqual(again, result);
 });

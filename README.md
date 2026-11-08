@@ -2,11 +2,6 @@
 
 A video editor for streamers who cut their own streams. Chinese first, English one click away.
 
-Incomplete transcription replies identify saved paragraphs with data-root-relative
-paths such as `analysis/transcripts/name.json`. Direct and bounded tool calls use
-the same incomplete-work notice; local absolute paths stay out of that notice and
-the `saved` field. Local clients resolve these paths against their own data root.
-
 Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT).
 
 [简体中文](docs/i18n/README.zh-CN.md)
@@ -70,3 +65,8 @@ selectors are refused instead of silently replacing an existing audio filter.
 A busy visible editor keeps its queued job. Silent hidden or disconnected editors release the queue after 20 seconds; the busy response includes cancellation instructions.
 
 Agent speech/song/highlight tools support bounded waits and saved task results; retries with an idempotency key do not duplicate edits. Completed transcript paragraphs remain on disk after cancellation. See the [agent manual](CLAUDE.md) for the same-tool retrieval contract.
+
+Incomplete transcription replies identify saved paragraphs with data-root-relative
+paths such as `analysis/transcripts/name.json`. Direct and bounded tool calls use
+the same incomplete-work notice; local absolute paths stay out of that notice and
+the `saved` field. Local clients resolve these paths against their own data root.
