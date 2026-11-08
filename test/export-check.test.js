@@ -30,17 +30,18 @@ const checkText = (language) => new Function('uiText', 'mcView', 'MontClipAutoSl
   [body(app, 'function exportClipWords('), body(app, 'function exportCheckText(')].join('\n') + '\nreturn exportCheckText;')(
   (k, v) => V.t(language, k, v), { get: () => ({ language }) }, require('../auto-slices'), null);
 
-test('the two new sentences (drafts for JJ): number and time for a piece with a picture, time only for a sound on its own', () => {
+test('the two new sentences (JJ 定稿, #238): number and time for a piece with a picture, time only for a sound on its own', () => {
   const v = { n: 3, time: '1:12:04' };
-  a.equal(V.t('zh-CN', 'own.export-clip-unchecked', v), '第 3 段（时间线 1:12:04 处）的声音这次没能核对完，成片已经导出。请自己听一下这一段。');
-  a.equal(V.t('zh-CN', 'own.export-clip-unchecked-track', v), '时间线 1:12:04 处的声音这次没能核对完，成片已经导出。请自己听一下这一段。');
-  a.equal(V.t('en', 'own.export-clip-unchecked', v), "The sound of clip 3 (at 1:12:04 on the timeline) couldn't be fully checked this time. The export was made. Please listen to this part yourself.");
-  a.equal(V.t('en', 'own.export-clip-unchecked-track', v), "The sound at 1:12:04 on the timeline couldn't be fully checked this time. The export was made. Please listen to this part yourself.");
-  a.match(read('ui-preferences.js'), /DRAFT for JJ \(Deja 2026-11-08, #231 follow-up\)[\s\S]{0,300}"export-clip-unchecked":/, 'marked as a draft');
+  a.equal(V.t('zh-CN', 'own.export-clip-unchecked', v), '第 3 段（时间线 1:12:04 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');
+  a.equal(V.t('zh-CN', 'own.export-clip-unchecked-track', v), '时间线 1:12:04 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');
+  a.equal(V.t('en', 'own.export-clip-unchecked', v), "Clip 3 (at 1:12:04 on the timeline) has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.");
+  a.equal(V.t('en', 'own.export-clip-unchecked-track', v), "The sound at 1:12:04 on the timeline is silent in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.");
+  a.match(read('ui-preferences.js'), /JJ 定稿 \(2026-11-08, #238 issuecomment-6716851239\)[\s\S]{0,400}"export-clip-unchecked":/, 'marked as final');
+  a.doesNotMatch(read('ui-preferences.js'), /DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"(?:own\.)?export-clip-unchecked/, 'no longer a draft');
   // registered like the other texts with a code: errorText says it; no number → the -track sentence
   a.ok(V.ERROR_CODES.includes('EXPORT_CLIP_UNCHECKED'));
-  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '2', time: '0:10' } }).text, '第 2 段（时间线 0:10 处）的声音这次没能核对完，成片已经导出。请自己听一下这一段。');
-  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { time: '0:10' } }).text, '时间线 0:10 处的声音这次没能核对完，成片已经导出。请自己听一下这一段。');
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '2', time: '0:10' } }).text, '第 2 段（时间线 0:10 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { time: '0:10' } }).text, '时间线 0:10 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');
   for (const k of ['own.export-clip-unchecked', 'own.export-clip-unchecked-track'])
     for (const l of ['zh-CN', 'en']) a.doesNotMatch(V.t(l, k, v), /解码|buffer|decode|超时|timeout|\{n\}|\{time\}/i, `${l} ${k}`);
 });
@@ -73,10 +74,10 @@ test('a piece whose file takes too long to read is not "unreadable": the file is
   const rep = C.withQuiet({ ok: true, checks: [{ ok: true, text: '-14.0 LUFS' }], line: '-14.0 LUFS' }, [], r.unchecked);
   a.deepEqual(rep.checks.map((c) => c.code || 'ok'), ['ok', 'EXPORT_CLIP_UNCHECKED', 'EXPORT_CLIP_UNCHECKED']);
   // the page says it in the interface language, numbered as #231 numbers them (time only for a sound on its own)
-  a.deepEqual(report.checks.map(checkText('zh-CN')), ['第 2 段（时间线 0:10 处）的声音这次没能核对完，成片已经导出。请自己听一下这一段。',
-    '时间线 1:15 处的声音这次没能核对完，成片已经导出。请自己听一下这一段。']);
-  a.deepEqual(report.checks.map(checkText('en')), ["The sound of clip 2 (at 0:10 on the timeline) couldn't be fully checked this time. The export was made. Please listen to this part yourself.",
-    "The sound at 1:15 on the timeline couldn't be fully checked this time. The export was made. Please listen to this part yourself."]);
+  a.deepEqual(report.checks.map(checkText('zh-CN')), ['第 2 段（时间线 0:10 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。',
+    '时间线 1:15 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。']);
+  a.deepEqual(report.checks.map(checkText('en')), ["Clip 2 (at 0:10 on the timeline) has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.",
+    "The sound at 1:15 on the timeline is silent in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it."]);
   // a file that really can't be read still fails the export, given all the time it needs
   const bad = C.cleanPlan({ video: [], audio: [], silent: [{ n: 4, t: 30, src: '/media/junk.mp4', at: 1, dur: 2 }] });
   const r2 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: out, plan: bad, resolve, silent: false, mix: null, timeoutMs: 120000 });
