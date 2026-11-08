@@ -61,6 +61,8 @@ function toolError(value,{dataDir,legacy=false,result=false}={}) {
       if(Array.isArray(v))return v.map(relative).filter(p=>p!==null);
       if(typeof v==='string')return relative(v);
     }
+    // a bare ticket or token under its own key has no "ticket=" in its text to match (#255)
+    if(typeof v==='string' && /^(ticket|token)$/i.test(key||'')) return '…';
     if(typeof v==='string') return text(v,key);
     if(v instanceof Error){
       const out=new Error(text(String(v.message||v)));

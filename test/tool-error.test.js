@@ -33,3 +33,12 @@ test('normal structured tool replies sanitize only diagnostic leaves before stor
  a.equal(toolError('Imported → {"src":"/media/a.wav"}',{result:true}),'Imported → {"src":"/media/a.wav"}');
 });
 
+test('a ticket or token held under its own key in a structured error is hidden whole (#255)',()=>{
+ const t='a'.repeat(64);
+ a.deepEqual(toolError({error:{ticket:t,conn:'c1'}}),{error:{ticket:'…',conn:'c1'}});
+ a.deepEqual(toolError({detail:{Token:t,code:'TASK_TICKET_REFUSED'}}),{detail:{Token:'…',code:'TASK_TICKET_REFUSED'}});
+ a.deepEqual(toolError([{ticket:t}]),[{ticket:'…'}]);
+ a.equal(JSON.parse(toolError(JSON.stringify({ok:true,warning:{ticket:t}}),{result:true})).warning.ticket,'…','an error leaf of a tool reply too');
+ a.equal(JSON.parse(toolError(JSON.stringify({ok:true,ticket:t}),{result:true})).ticket,t,'a successful reply keeps the ticket its caller asked for');
+ a.deepEqual(toolError({error:{tickets:2,tokenCount:3}}),{error:{tickets:2,tokenCount:3}},'only the exact key names');
+});
