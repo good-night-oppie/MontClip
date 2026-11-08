@@ -16,6 +16,10 @@ test('hidePaths keeps ordinary errors, web URLs and relative saved paths intact'
  }
  a.equal(hidePaths('open /home/someone/x.json failed; see /Users/someone/y.bin'),'open …/x.json failed; see …/y.bin');
  a.equal(hidePaths('open /home/someone/x.json failed while reading /Users/someone/y.bin'),'open …/x.json failed while reading …/y.bin');
+ for(const first of ['C:/Users/someone/x.json','/home/someone/x.json']){
+  a.equal(hidePaths('open '+first+' failed while reading C:/Users/someone/y.bin'),'open …/x.json failed while reading …/y.bin');
+ }
+ a.equal(hidePaths('failed C:/Users/someone/x.json see https://example.com/help'),'failed …/x.json see https://example.com/help');
 });
 
 
