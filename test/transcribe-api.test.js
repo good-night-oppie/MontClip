@@ -15,9 +15,12 @@ const { makeDataDir, readProject, seedProject, startServer, startMcp } = require
 function fakeTab(t, base) {
   const tickets = [], waiters = [], events = [];
   let buf = "";
+  let connected;
+  const ready = new Promise(resolve => { connected = resolve; });
   const req = http.get(base + "/api/events", (res) => {
     res.setEncoding("utf8");
     res.on("data", (chunk) => {
+      connected(); // the server wrote its SSE greeting after registering this tab
       buf += chunk;
       let i;
       while ((i = buf.indexOf("\n\n")) >= 0) {
@@ -29,24 +32,29 @@ function fakeTab(t, base) {
         if (ev !== "export") continue;
         const ticket = JSON.parse(data);
         const w = waiters.shift();
-        if (w) w(ticket); else tickets.push(ticket);
+        if (w) { clearTimeout(w.timer); w.resolve(ticket); } else tickets.push(ticket);
       }
     });
   });
   req.on("error", () => {});
-  t.after(() => req.destroy());
+  t.after(() => { req.destroy(); for (const w of waiters) clearTimeout(w.timer); });
   return {
     events,
-    next: () => tickets.length ? Promise.resolve(tickets.shift()) : new Promise((r) => waiters.push(r)),
+    next: () => tickets.length ? Promise.resolve(tickets.shift()) : new Promise((resolve, reject) => {
+      const w = {resolve}; w.timer = setTimeout(() => reject(new Error('no transcription ticket received by the connected tab')), 10000); waiters.push(w);
+    }),
     connected: async () => {
-      for (let i = 0; i < 100 && !req.socket?.readyState; i++) await new Promise((r) => setTimeout(r, 20));
-      await new Promise((r) => setTimeout(r, 100));
+      let timer;
+      try { await Promise.race([ready, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('SSE tab did not connect')), 10000); })]); }
+      finally { clearTimeout(timer); }
     },
   };
 }
 const post = (base, p, body) => fetch(base + p, { method: "POST", body: body && JSON.stringify(body) })
   .then(async (r) => ({ status: r.status, body: await r.json() }));
 const get = (base, p) => fetch(base + p).then(async (r) => ({ status: r.status, body: await r.json() }));
+
+const postOK = async (...args) => { const r = await post(...args); assert.equal(r.status, 200, JSON.stringify({route:args[1],...r})); return r; };
 
 const WORDS = [["So", 1, 1.2], ["um,", 1.4, 1.7], ["this", 2, 2.3], ["is", 2.3, 2.4], ["great.", 2.5, 3]];
 function project() {
@@ -67,6 +75,54 @@ const boot = async (t) => {
   const srv = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: path.join(dir, "no-such-browser") });
   return { dir, ...srv };
 };
+
+test('MC-08: tool timeout reports incomplete work and the readable partial transcript path', async t => {
+  const { dir, base, port } = await boot(t), tab = fakeTab(t, base);
+  await tab.connected();
+  const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port) });
+  const started = JSON.parse((await mcp.callTool('fablecut_transcribe', { mediaIds: ['m_a'], timeout: 0.1, wait_ms: 0, idempotency_key: 'timeout' })).text);
+  assert.equal(started.status, 'running');
+  const ticket = await tab.next();
+  await postOK(base, '/api/export/job/claim?id=' + ticket.id);
+  await postOK(base, '/api/transcript?src=/media/a.wav', { duration: 10, words: WORDS, spans: [[0, 3]] });
+  const result = JSON.parse((await mcp.callTool('fablecut_transcribe', { taskId: started.taskId, wait_ms: 5000 })).text);
+  assert.equal(result.status, 'failed'); assert.match(result.error, /没听完/);
+  assert.equal(result.saved.length, 1);
+  assert.match(result.saved[0], /^analysis\/transcripts\//);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, result.saved[0]), 'utf8')).words, WORDS);
+  const again = JSON.parse((await mcp.callTool('fablecut_transcribe', { mediaIds: ['m_a'], timeout: 0.1, wait_ms: 0, idempotency_key: 'timeout' })).text);
+  assert.deepEqual(again, result);
+});
+
+test('MC-04: captions finish in their original project after another task opens a project', async t => {
+  const { dir, base, port } = await boot(t), tab = fakeTab(t, base);
+  await tab.connected();
+  const origin = (await get(base, '/api/projects')).body.active;
+  const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port) });
+  const started = JSON.parse((await mcp.callTool('fablecut_captions', { clipIds: ['c_a'], wait_ms: 0, idempotency_key: 'captions-a' })).text);
+  const ticket = await tab.next();
+  await postOK(base, '/api/export/job/claim?id=' + ticket.id);
+  const other = await postOK(base, '/api/projects', { action: 'new', name: 'Other task' });
+  assert.equal(other.status, 200);
+  await postOK(base, '/api/transcript?src=/media/a.wav&track=0', { duration: 10, words: WORDS });
+  await postOK(base, '/api/export/job/report?id=' + ticket.id, { status: 'done', result: { done: [{ src: '/media/a.wav', words: 5 }] } });
+  const receipt = path.join(dir, 'analysis', 'tool-tasks', started.taskId + '.json');
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline && JSON.parse(fs.readFileSync(receipt, 'utf8')).status === 'running') await new Promise(r => setTimeout(r, 25));
+  const terminal = JSON.parse(fs.readFileSync(receipt, 'utf8'));
+  assert.equal(terminal.status, 'complete', terminal.error);
+  assert.equal(readProject(dir).name, 'Other task');
+  assert.equal(readProject(dir).clips.length, 0);
+  assert.ok(JSON.parse(fs.readFileSync(path.join(dir, 'projects', origin, 'project.json'), 'utf8')).clips.some(c => c.kind === 'text'));
+  // Direct MCP callers must return to the owning project before querying; the plugin supplies its captured scope.
+  await postOK(base, '/api/projects', { action: 'open', id: origin });
+  const result = JSON.parse((await mcp.callTool('fablecut_captions', { taskId: started.taskId, wait_ms: 5000 })).text);
+  assert.equal(result.status, 'complete', result.error);
+  assert.ok(readProject(dir).clips.some(c => c.kind === 'text'));
+  const pj = require('../projects').createProjects({ dataDir: dir, projectFile: path.join(dir, 'project.json'), libraryDir: path.join(dir, 'library') });
+  const second = pj.list().projects.find(p => p.name === 'Other task');
+  assert.equal(pj.readDoc(second.id).clips.length, 0);
+});
 
 test("transcripts are saved, read, listed and deleted per file", async (t) => {
   const { dir, base } = await boot(t);
@@ -128,7 +184,7 @@ test("fablecut_transcribe has a tab transcribe, then reads, finds and cuts words
   const pending = mcp.callTool("fablecut_transcribe", { language: "zh" });
   const ticket = await tab.next();
   assert.equal(ticket.kind, "transcribe");
-  assert.deepEqual(ticket.transcribe, { srcs: ["/media/a.wav", "/media/music.wav"], model: "paraformer-zh", language: "zh", again: false });
+  assert.deepEqual(ticket.transcribe, { srcs: ["/media/a.wav", "/media/music.wav"], tracks: { '/media/a.wav': 0, '/media/music.wav': 0 }, model: "paraformer-zh", language: "zh", again: false });
   assert.equal((await post(base, "/api/export/job/claim?id=" + ticket.id)).status, 200);
   await post(base, "/api/transcript?src=/media/a.wav", { model: "base", language: "en", duration: 10, words: WORDS });
   await post(base, "/api/transcript?src=/media/music.wav", { model: "base", language: "en", duration: 10, words: [] });

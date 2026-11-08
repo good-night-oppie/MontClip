@@ -88,6 +88,39 @@ function engineDir(t, { native = true } = {}) {
   return { dir, store };
 }
 
+for (const duration of [12, null]) test('MC-08: cancellation preserves paragraphs and path; duration=' + duration, async t => {
+  const E = engineDir(t), file = path.join(E.dir, 'partial.wav');
+  fs.writeFileSync(file, 'synthetic media identity');
+  // Feed PCM at the subprocess boundary: no model, media download or installed FFmpeg needed.
+  const filename = path.join(ROOT, 'asr-local.js'), mod = { exports: {} };
+  const realRequire = require('node:module').createRequire(filename);
+  const source = process.env.MONTCLIP_TEST_BASELINE ? execFileSync('git', ['show', 'HEAD:asr-local.js'], { cwd: ROOT, encoding: 'utf8' }) : fs.readFileSync(filename, 'utf8');
+  require('node:vm').runInNewContext(source, { module: mod, exports: mod.exports, __dirname: ROOT, process, Buffer, setTimeout, clearTimeout,
+    require: name => !['child_process', 'node:child_process'].includes(name) ? realRequire(name) : { spawn: () => {
+      const proc = new (require('node:events').EventEmitter)();
+      proc.stdout = require('node:stream').Readable.from([Buffer.alloc(12 * RATE * 2)]);
+      proc.stderr = new (require('node:stream').PassThrough)();
+      proc.stdout.on('end', () => proc.emit('close', 0));
+      proc.kill = () => { proc.stdout.destroy(); proc.emit('close', 0); };
+      return proc;
+    } },
+  }, { filename });
+  const { sherpa } = fakeSherpa();
+  const asr = mod.exports.createAsr({ asrDir: E.dir, store: E.store, ffmpeg: 'synthetic-pcm', sherpa });
+  const store = require('../transcripts').createTranscripts({ dir: path.join(E.dir, 'transcripts'), resolveSrc: () => file });
+  const ac = new AbortController();
+  let checkpoints = 0;
+  await a.rejects(asr.transcribe(file, { duration, signal: ac.signal, onCheckpoint: r => {
+    const add = T.validate({ ...r, gaps: r.gaps.map(g => [g.start, g.end, g.reason]) });
+    store.put('/media/partial.wav', T.mergeDocs(store.get('/media/partial.wav') || null, add));
+    checkpoints++; if (checkpoints === 2) ac.abort();
+  } }), e => e.code === 'ASR_CANCELLED');
+  a.equal(checkpoints, 2);
+  const doc = store.get('/media/partial.wav');
+  a.ok(doc.words.length > 0); a.ok(doc.spans[0][1] < 12);
+  a.deepEqual(JSON.parse(fs.readFileSync(store.file('/media/partial.wav'), 'utf8')).words, doc.words);
+});
+
 test("a long recording, two short windows: only those parts are decoded, the words keep file times", async (t) => {
   const E = engineDir(t);
   // 30 minutes of a tone, mp3 sound in an mp4 (as the replay is), made by ffmpeg's lavfi
@@ -227,7 +260,7 @@ test("fablecut_transcribe on clips of a two-hour file asks for their windows onl
 
   const pending = mcp.callTool("fablecut_transcribe", { clipIds: ["sh_her1_a", "sh_her2_a", "sp_a"] });
   const ticket = await tab.next();
-  a.deepEqual(ticket.transcribe, { srcs: [LONG], model: "paraformer-zh", language: "zh", again: false,
+  a.deepEqual(ticket.transcribe, { srcs: [LONG], tracks: { [LONG]: 0 }, model: "paraformer-zh", language: "zh", again: false,
     ranges: { [LONG]: [[4438.5, 4447.901], [4450.7, 4459.134]] } });
   a.equal((await post(base, "/api/export/job/claim?id=" + ticket.id)).status, 200);
   await post(base, "/api/transcript?src=" + LONG, { duration: 7211.725, words: [["我", 4441, 4441.3], ["们", 4441.3, 4441.6], ["唱", 4456, 4456.4]],

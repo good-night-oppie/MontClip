@@ -466,4 +466,13 @@ const TOOLS = [
     },
   },
 ];
+for (const tool of TOOLS) {
+  tool.inputSchema.properties.idempotency_key = { type: 'string', description: 'Reuse this key for a retry of the same modification; the saved result is returned without another revision. Use a new key for a new intended edit.' };
+  if (['fablecut_transcribe', 'fablecut_captions', 'fablecut_songs', 'fablecut_highlights'].includes(tool.name)) {
+    Object.assign(tool.inputSchema.properties, {
+      wait_ms: { type: 'number', minimum: 0, maximum: 15000, description: 'Bounded wait (default 6000 when supplied by Cindy). Returns status, taskId and progress; repeat this same tool with taskId to retrieve its saved result. Avoid busy polling.' },
+      taskId: { type: 'string', description: 'Retrieve an existing task from this tool and project; does not run the edit again.' },
+    });
+  }
+}
 module.exports = TOOLS;

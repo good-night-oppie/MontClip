@@ -162,7 +162,7 @@ test('a failed export job keeps its reason code (EXPORT_AUDIO_FAILED …) in the
   // the page sends the code it failed with; fablecut_export says it
   const fast = body(app, 'async function fastExport(');
   a.ok(fast.includes('reportExportJob(job, { status: "failed", error: msg, ...(e && typeof e.code === "string" ? { code: e.code } : {}) }, true);'));
-  a.match(read('mcp-server.js'), /\$\{j\.code \? ` \(\$\{j\.code\}\)` : ""\}/);
+  // tool-error-exits.test.js checks the real MCP reply keeps this code and redacts its reason.
 });
 
 /* QQ on #238 (export-check.js:63): a read stopped for time can still print a max_volume. On Linux / macOS Node stops

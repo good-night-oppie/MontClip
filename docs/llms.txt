@@ -141,3 +141,5 @@ about 150 ms. A human and an agent can work the same timeline at once.
 - Agent manual as Markdown (full schema, semantics, recipes): https://raw.githubusercontent.com/ronak-create/FableCut/main/CLAUDE.md
 - README: https://github.com/ronak-create/FableCut/blob/main/README.md
 - Changelog: https://github.com/ronak-create/FableCut/blob/main/CHANGELOG.md
+
+Agent long tasks: use the same tool with wait_ms/taskId; idempotency_key reuses a saved modification result. Transcription checkpoints paragraphs locally.

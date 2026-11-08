@@ -156,7 +156,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
    *  track: which audio stream (the media entry's audioTrack). Always named: left to itself ffmpeg takes the stream
    *  marked default, else the one with the most channels, which need not be the one songs, loudness and export read
    *  (docs/validation/2026-11-05-audio-tracks). */
-  async function transcribe(file, { signal, onProgress = () => {}, duration = null, ranges = null, track = 0 } = {}) {
+  async function transcribe(file, { signal, onProgress = () => {}, onCheckpoint = () => {}, duration = null, ranges = null, track = 0 } = {}) {
     const st = status();
     if (!st.engine.ready || !st.vad.ready) throw Object.assign(new Error("the speech engine is missing from this copy of MontClip"), { code: "ASR_ENGINE_MISSING" });
     const dir = store.dir("asr");
@@ -176,8 +176,14 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
         // reads that both start at 0 never keep a word twice (Rea on #165, 17:14)
         const from = part ? part[0] : 0, mine = (a, b) => (a + b) / 2 >= from;
         const { samples: got, at } = await listen(S, r, p, file, part, { signal, track,
-          onSegment: (one, len) => { words.push(...one.words.filter((w) => mine(w[1], w[2]))); const g = one.gaps.filter((x) => mine(x.start, x.end)); gaps.push(...g);
-            if (one.read) read++; if (g.length) skipped++; speech += len; segments++; },
+          onSegment: (one, len, start) => {
+            const ws = one.words.filter((w) => mine(w[1], w[2])), g = one.gaps.filter((x) => mine(x.start, x.end));
+            words.push(...ws); gaps.push(...g);
+            if (one.read) read++; if (g.length) skipped++; speech += len; segments++;
+            const end = part ? Math.min(part[1], start + len) : start + len;
+            if (end > Math.max(from, start)) onCheckpoint({ words: ws, gaps: g, language: 'zh', model: manifest.models.asr.id,
+              duration: duration > 0 ? duration : null, spans: [[r3(Math.max(from, start)), r3(end)]] });
+          },
           onSamples: (n) => { if (want > 0) onProgress(Math.min(0.99, (samples + n) / RATE / want)); } });
         samples += got;
         if (part) spans.push([r3(Math.max(at, from)), r3(at + got / RATE)]);
@@ -209,9 +215,10 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     let samples = 0, carry = null, pending = new Float32Array(0);
     const decodeReady = async () => {
       while (!vad.isEmpty()) {
+        if (signal?.aborted) throw Object.assign(new Error('cancelled'), { code: 'ASR_CANCELLED' });
         const seg = vad.front(false), start = at + seg.start / RATE, audio = Float32Array.from(seg.samples);
         vad.pop();
-        onSegment(await segmentWords(r, audio, start, p), audio.length / RATE);
+        onSegment(await segmentWords(r, audio, start, p), audio.length / RATE, start);
       }
     };
     try {

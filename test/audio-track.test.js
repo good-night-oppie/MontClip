@@ -184,7 +184,7 @@ test('the editor: the media info lists the tracks with 试听, picking one is an
  a.match(app,/const buf = await getAudioBuffer\(media, \{ analysis: true \}\);/,'highlights listen to the picked track');
  a.match(app,/const have = runtime\.wavePeaks\.get\(m\.id\), src = m\.src;/,'the waveform is the exported sound');
  a.match(app,/if \(MediaLib\.audioTrackOf\(m\)\) mo\.audioTrack = m\.audioTrack;/,'the save keeps the pick (the media list is written field by field)');
- a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0[ ,]/,'transcription names the track (with main\'s ranges / again after it)');
+ a.match(app,/if \(track == null\) track = m \? MediaLib\.audioTrackOf\(m\) : 0;/,'transcription names the track (with main\'s ranges / again after it)');
  a.match(app,/"\/api\/transcript\?src=" \+ encodeURIComponent\(src\) \+ "&track=" \+ track/);
  a.match(app,/uiText\("own\.at-found", \{ name: noticed\[0\]\.name, n: noticed\[0\]\.audioTracks\.length, go: uiText\("own\.at-go"\), menu: uiText\("own\.at-menu"\) \}\)/,'the menu name is the menu item\'s own (「选音轨…」, VV on #177)');
  a.match(app,/uiText\("own\.at-captions-edited", \{ n: track \+ 1, button: uiText\("own\.at-captions-redo"\) \}\)/,'the button name is the button\'s own');

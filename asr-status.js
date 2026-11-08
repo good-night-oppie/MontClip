@@ -71,9 +71,19 @@ const CODES = ["ASR_MANIFEST_MISSING", "ASR_ENGINE_MISSING", "ASR_MODEL_MISSING"
 const SAY = {};
 for (const c of CODES) Object.defineProperty(SAY, c, { enumerable: true, get: () => say(c) });
 
-/* A Windows path (C:\…, \\server\…) or a POSIX one (/…, ~/…) up to a quote, a space-free stretch's end, a comma or a
-   bracket. The last part stays, so "open '…/asr-manifest.json'" still says what is missing. */
-const PATHS = /(?:(?<![\w])[A-Za-z]:[\\/]|\\\\|~[\\/]|(?<![\w.:\/])\/(?=[^\s/]))[^'"`\s,;()<>\[\]{}]*/g;
+/* Recognize local roots, including file URLs and both UNC spellings, but not web URLs, relative paths or our
+   own …/ replacement. Windows directory components can contain internal spaces (e.g. "Some One"). A component cannot
+   end in whitespace: that separates the path from prose before another path. Keep the final filename and
+   surrounding quotes/punctuation so errors remain useful, and a second pass produces exactly the same text. */
+const PATH_BOUNDARY = String.raw`(?<![\w.:/\\…])`;
+const WINDOWS_ROOT = String.raw`(?:file:[\\/]+[a-z]:[\\/]|file:[\\/]{2}(?![\\/])[^\\/\s]+[\\/]|[\\/]{2}\?[\\/](?:UNC[\\/]|[a-z]:[\\/])|[a-z]:[\\/]|[\\/]{2}(?=[^\\/\s]))`;
+const POSIX_ROOT = String.raw`(?:file:/+|~[\\/]|/(?=[^\s/]))`;
+// A word-internal apostrophe belongs to a directory (O'Brien); a closing quote before prose does not.
+const PATH_COMPONENT = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：](?:(?:[^\\/'"\x60\r\n,;:()<>\[\]{}。，；！？：]|'(?=[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：]))*[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：])?[\\/]`;
+const PATH_END = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：]*`;
+// Only Windows roots admit spaces inside directories; POSIX whitespace starts ordinary message text.
+const PATHS = new RegExp(PATH_BOUNDARY + '(?:' + WINDOWS_ROOT + '(?:' + PATH_COMPONENT + ')*' + PATH_END
+  + '|' + POSIX_ROOT + '(?:' + PATH_END + '[\\/])*' + PATH_END + ')', 'gi');
 function hidePaths(text) {
   return String(text == null ? "" : text).replace(PATHS, (p) => {
     const last = p.split(/[\\/]+/).filter(Boolean).pop();
@@ -81,4 +91,10 @@ function hidePaths(text) {
   });
 }
 
-module.exports = { code, userText, agentCode, SAY, modelMb, aboutMb, hidePaths };
+/** saved contains data-root-relative transcript paths, never local absolute paths. */
+function incompleteText(error, saved) {
+  const files = Array.isArray(saved) ? saved : saved ? [saved] : [];
+  return '没听完。' + (files.length ? '已完成段落已保存到 ' + files.join(', ') + '。'
+    : '尚无已完成段落。完成段落保存位置：analysis/transcripts/。') + require('./tool-error').toolError(String(error?.message || error || ''));
+}
+module.exports = { code, userText, agentCode, SAY, modelMb, aboutMb, hidePaths, incompleteText };

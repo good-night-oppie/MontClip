@@ -76,7 +76,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
    the MCP process being stopped with SIGTERM / SIGINT, or the signal a host passes to callTool). The caller's signal rides along in callScope,
    so the tools need not pass it down. keepOnTimeout leaves a long export running past the deadline (the reply gives
    its id to check on later); cancelOnExit:false leaves a job this call did not start alone. */
+const publicError = value => require('./tool-error').toolError(value, { dataDir: DATA_DIR });
 const callScope = new AsyncLocalStorage();
+const toolTasks = require('./tool-tasks').createToolTasks({ dir: path.join(ANALYSIS_DIR, 'tool-tasks') });
+const LONG_TOOLS = new Set(['fablecut_transcribe', 'fablecut_captions', 'fablecut_songs', 'fablecut_highlights']);
+const taskProjects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
+function scopedProjectFile() {
+  const id = callScope.getStore()?.projectId;
+  if (!id) return PROJECT_FILE;
+  taskProjects.mustExist(id);
+  return taskProjects.activeId() === id ? PROJECT_FILE : path.join(taskProjects.DIR, id, 'project.json');
+}
 const callSignal = () => callScope.getStore()?.signal || null;
 function napOrAbort(ms, signal) {
   return new Promise((r) => {
@@ -107,6 +117,7 @@ async function waitJob(job, { every, timeout, what, timeoutError, keepOnTimeout 
       const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
       if (q.status !== 200) throw new Error(q.body?.error || `lost track of the ${what}`);
       job = q.body;
+      callScope.getStore()?.update?.({ done: job.progress || 0, total: 1, job: job.id });
     }
     return job;
   } finally {
@@ -114,19 +125,23 @@ async function waitJob(job, { every, timeout, what, timeoutError, keepOnTimeout 
   }
 }
 function readProject() {
-  const raw = fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), "");
+  const raw = fs.readFileSync(scopedProjectFile(), "utf8").replace(new RegExp("^\\uFEFF"), "");
   return JSON.parse(raw);
 }
 function writeProject(doc) {
   // atomic tmp+rename so the UI's file watcher never sees a half-written doc
-  const tmp = PROJECT_FILE + ".mcp.tmp";
+  const file = scopedProjectFile(), tmp = file + ".mcp.tmp";
   fs.writeFileSync(tmp, JSON.stringify(doc, null, 2));
-  fs.renameSync(tmp, PROJECT_FILE);
+  fs.renameSync(tmp, file);
 }
 /* Optimistic concurrency: revision of project.json when this session last read
    the full document. If the file has moved past it by write time, someone else
    (usually the user, in the editor UI) edited in between — refuse to clobber. */
-let lastReadRevision = null;
+const readRevisions = new Map();
+const revisionState = {
+  get value() { return readRevisions.get(callScope.getStore()?.projectId || taskProjects.activeId()) ?? null; },
+  set value(revision) { readRevisions.set(callScope.getStore()?.projectId || taskProjects.activeId(), revision); },
+};
 /* Embedded in Cindy the editor server answers only requests that carry its session token (server.js, embed.js). */
 const session = () => process.env.MONTCLIP_HOST === "cindy" && process.env.MONTCLIP_EMBED_TOKEN
   ? { "X-MontClip-Session": process.env.MONTCLIP_EMBED_TOKEN } : {};
@@ -230,14 +245,14 @@ async function backfillNow() {
   for (let attempt = 0; attempt < 3; attempt++) {
     const proj = readProject();
     const readRev = proj.revision || 0;
-    const wasCurrent = lastReadRevision === readRev;
+    const wasCurrent = revisionState.value === readRev;
     const n = MediaLib.applyBackfill(proj, updates);
     if (!n) return updates;
     // someone saved while this was being put together: start again from what they saved
     if ((readProject().revision || 0) !== readRev) continue;
     proj.revision = readRev + 1;
     writeProject(proj);
-    if (wasCurrent) lastReadRevision = proj.revision;
+    if (wasCurrent) revisionState.value = proj.revision;
     return updates;
   }
   return updates;   // the project kept changing: the next call writes them (probeFile has them cached)
@@ -254,7 +269,7 @@ function importNote(entry, probed) {
   if (!probed || probed.probe === "stat")
     return "Note: duration unknown — ffprobe isn't available here, so the length wasn't read. The browser UI will probe and fill it in; re-read the project before trimming this media.";
   if (probed.probe === "failed")
-    return `Note: ffprobe could not read this file (${probed.probeError}). It may be cut off — a recording stopped before it was saved. With no length it can't be placed or cut; the original file is unchanged.`;
+    return `Note: ffprobe could not read this file (${publicError(probed.probeError)}). It may be cut off — a recording stopped before it was saved. With no length it can't be placed or cut; the original file is unchanged.`;
   return "Note: nothing in this file says how long it is — not the header, the streams or the packets' times. With no length it can't be placed or cut; the original file is unchanged.";
 }
 
@@ -302,7 +317,7 @@ async function audioTrackTool(args) {
   const verWarn = versionBeforeAgent(false);
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   return `${notes.join(" ")} — songs, loudness, the transcript, beats and silences of ${m.id} now listen to audio track ${args.track}; the export keeps track 0 (revision ${proj.revision}; one undo step). ` +
     `Songs found from the other track were dropped: run fablecut_songs / fablecut_transcribe again for this one.` + (verWarn || "");
 }
@@ -471,12 +486,12 @@ async function silenceTool(args) {
   // a cut this size always keeps the project as it was, not once per session like other edits
   let verWarn = "";
   try { createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) }).beforeAgent("Before cutting silences"); }
-  catch (e) { verWarn = ` Warning: no version was saved before the cut (${e.message}).`; }
+  catch (e) { verWarn = ` Warning: no version was saved before the cut (${publicError(e.message)}).`; }
   const diskRev = readProject().revision || 0;   // a failed read stops it: never write over what we can't see
   if (diskRev !== readRev) throw new Error(`the project changed while cutting (revision ${readRev} → ${diskRev}) — nothing cut; run fablecut_silence again`);
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   return `Cut ${head} — timeline ${fmtDur(before)} → ${fmtDur(end(proj))} (revision ${proj.revision}). UI hot-reloaded.` +
     (verWarn || ` The project as it was is kept as a version (fablecut_versions lists it; restore undoes the cut).`);
 }
@@ -498,7 +513,7 @@ async function songsTool(args) {
     if (!file) { lines.push(`${m.id} "${m.name}": the file is missing (offline) — skipped`); continue; }
     const track = MediaLib.audioTrackOf(m);
     if (args.again === true) scanner.forget(file, track);
-    const r = await scanner.scan(file, { track });
+    const r = await scanner.scan(file, { track, onSegment: (done, scannedSeconds) => callScope.getStore()?.update?.({ done, total: null, scannedSeconds }) });
     const songs = Songs.find(r.rows.map((x) => x[0]), { step: r.step, complete: r.complete });
     ops.push({ op: "setSongs", mediaId: m.id, songs: { key: r.key, complete: r.complete, scanned: r.scanned, songs } });
     const est = songs.filter((s) => s.confidence === "estimated").length;
@@ -515,7 +530,7 @@ async function songsTool(args) {
   ProjectOps.applyPatch(proj, ops, { savedItems });
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   return lines.join("\n") + `\nKept in the project as project.songs (revision ${proj.revision}); times are seconds of each file.`;
 }
 /* fablecut_beats: beats.js on the music clip's sound, then its ops (markers, snap, retime). */
@@ -549,13 +564,13 @@ async function beatsTool(args) {
   let verWarn = "";
   if (acts.snap || acts.retime) {
     try { createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) }).beforeAgent(acts.retime ? "Before re-cutting to the beat" : "Before snapping cuts to the beat"); }
-    catch (e) { verWarn = ` Warning: no version was saved first (${e.message}).`; }
+    catch (e) { verWarn = ` Warning: no version was saved first (${publicError(e.message)}).`; }
   }
   const diskRev = readProject().revision || 0;   // a failed read stops it: never write over what we can't see
   if (diskRev !== readRev) throw new Error(`the project changed meanwhile (revision ${readRev} → ${diskRev}) — nothing changed; run fablecut_beats again`);
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   return Bt.describe(r, { applied: true }) + ` (revision ${proj.revision}; UI hot-reloaded.)` +
     (acts.snap || acts.retime ? verWarn || " The project as it was is kept as a version (fablecut_versions; restore undoes it)." : "");
 }
@@ -626,7 +641,7 @@ async function reframeTool(args) {
   }
   const canvas = { width: work.width, height: work.height };
   const { take, skip } = R.targets(work, { ids, force: args.force === true });
-  if (!take.length) throw new Error("no full-frame shots to reframe" + (skip.length ? ` (${skip.map((x) => `${x.id}: ${x.why}`).join("; ")})` : ""));
+  if (!take.length) throw new Error("no full-frame shots to reframe" + (skip.length ? ` (${skip.map((x) => `${x.id}: ${publicError(x.why)}`).join("; ")})` : ""));
   const lines = [];
   for (const c of take) {
     const m = work.media.find((x) => x.id === c.mediaId);
@@ -650,21 +665,21 @@ async function reframeTool(args) {
     ops.push({ op: "updateClip", id: c.id, set: p.set, ...(args.force === true ? { force: true } : {}) });
     lines.push(`  ${c.id}: ${p.note}`);
   }
-  if (!lines.length) throw new Error("nothing could be reframed: " + skip.map((x) => `${x.id}: ${x.why}`).join("; "));
+  if (!lines.length) throw new Error("nothing could be reframed: " + skip.map((x) => `${x.id}: ${publicError(x.why)}`).join("; "));
   const proj = readProject();
   if ((proj.revision || 0) !== readRev)
     throw new Error(`the project changed while looking at the footage (revision ${readRev} → ${proj.revision}) — nothing changed; run fablecut_reframe again`);
   let verWarn = "";
   try { createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) }).beforeAgent("Before reframing"); }
-  catch (e) { verWarn = ` Warning: no version was saved first (${e.message}).`; }
+  catch (e) { verWarn = ` Warning: no version was saved first (${publicError(e.message)}).`; }
   const diskRev = readProject().revision || 0;   // a failed read stops it: never write over what we can't see
   if (diskRev !== readRev) throw new Error(`the project changed meanwhile (revision ${readRev} → ${diskRev}) — nothing changed; run fablecut_reframe again`);
   ProjectOps.applyPatch(proj, ops, { savedItems });
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   return `${made}Reframed ${lines.length} shot${lines.length === 1 ? "" : "s"} for ${canvas.width}×${canvas.height} (revision ${proj.revision}):\n` + lines.join("\n") +
-    (skip.length ? `\nLeft as they were: ${skip.map((x) => `${x.id} (${x.why})`).join(", ")} — check them on the new canvas with fablecut_frame {time}.` : "") +
+    (skip.length ? `\nLeft as they were: ${skip.map((x) => `${x.id} (${publicError(x.why)})`).join(", ")} — check them on the new canvas with fablecut_frame {time}.` : "") +
     (verWarn || "\nThe project as it was is kept as a version (fablecut_versions; restore undoes it).");
 }
 /* fablecut_highlights: highlights.js on the frames and sound ffmpeg streams from each source
@@ -714,7 +729,7 @@ async function highlightsTool(args) {
       else skip.push({ id: c.id, why: "its media isn't in the project" });
     }
   }
-  const why = () => skip.map((x) => `${x.id} (${x.why})`).join(", ");
+  const why = () => skip.map((x) => `${x.id} (${publicError(x.why)})`).join(", ");
   if (!srcs.length) throw new Error("no video to make highlights from" + (skip.length ? `: ${why()}` : "") + " — put footage on the timeline, or pass mediaIds");
   const total = srcs.reduce((n, s) => n + clipSourceLen(s.clip), 0);
   if (total > H.MAX_SOURCE_SECS)
@@ -747,14 +762,14 @@ async function highlightsTool(args) {
   if ((proj.revision || 0) !== readRev)
     throw new Error(`the project changed while looking at the footage (revision ${readRev} → ${proj.revision}) — nothing changed; run fablecut_highlights again`);
   let verWarn = "";
-  try { createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) }).beforeAgent("Before making highlights"); }
-  catch (e) { verWarn = ` Warning: no version was saved first (${e.message}).`; }
+  try { createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) }).beforeAgent("Before making highlights", callScope.getStore()?.projectId); }
+  catch (e) { verWarn = ` Warning: no version was saved first (${publicError(e.message)}).`; }
   const diskRev = readProject().revision || 0;   // a failed read stops it: never write over what we can't see
   if (diskRev !== readRev) throw new Error(`the project changed meanwhile (revision ${readRev} → ${diskRev}) — nothing changed; run fablecut_highlights again`);
   ProjectOps.applyPatch(proj, ops, { savedItems });
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   const reshaped = canvas.width && canvas.width * doc.height !== canvas.height * doc.width;
   return H.describe(picks, { duration: opts.duration, seqName, made: true }) + `\n(revision ${proj.revision}; UI hot-reloaded.)` +
     (skip.length ? `\nNot looked at: ${why()}.` : "") +
@@ -807,7 +822,8 @@ async function speechWords(args, fileMode) {
   }
   if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT}`);
   const srcs = files.map((m) => m.src);
-  const st = await apiJSON("POST", "/api/transcript/status", { srcs });
+  const tracks = Object.fromEntries(files.map(m => [m.src, MediaLib.audioTrackOf(m)]));
+  const st = await apiJSON("POST", "/api/transcript/status", { srcs, tracks });
   if (st.status !== 200) throw new Error(st.body?.error || "could not read the transcripts");
   const gone = srcs.filter((s) => st.body.status[s] === null);
   if (gone.length) throw new Error("these files are missing (offline): " + gone.join(", "));
@@ -835,10 +851,19 @@ async function speechWords(args, fileMode) {
   let note = "";
   if (todo.length) {
     const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto",
-      transcribe: { srcs: todo, model, language, again: args.again === true, ...(Object.keys(ask).length ? { ranges: ask } : {}) } });
+      transcribe: { srcs: todo, tracks, model, language, again: args.again === true, ...(Object.keys(ask).length ? { ranges: ask } : {}) } });
     if (r.status !== 200) throw new Error(r.body?.error || `transcribe request failed (${r.status})`);
-    const job = await waitJob(r.body, { every: 1000, timeout: Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 1800,
-      what: "transcription job", timeoutError: "timed out waiting for the transcription — try fewer clips, or a larger timeout" });
+    let job;
+    try {
+      job = await waitJob(r.body, { every: 1000, timeout: Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 1800,
+        what: "transcription job", timeoutError: "没听完：听写任务达到 timeout。" });
+    } catch (e) {
+      const cache = require('./transcripts').createTranscripts({ dir: path.join(ANALYSIS_DIR, 'transcripts'), resolveSrc: mediaFile });
+      const saved = todo.filter(src => cache.get(src, tracks[src]))
+        .map(src => path.relative(DATA_DIR, cache.file(src, tracks[src])).split(path.sep).join('/'));
+      e.saved = saved; e.message = require('./asr-status').incompleteText(e, saved);
+      throw e;
+    }
     if (job.status !== "done") {
       const why = String(job.error || "");
       const S = require("./asr-status");
@@ -850,11 +875,11 @@ async function speechWords(args, fileMode) {
     const partial = (res.done || []).filter((d) => d.gaps);
     note = (partial.length ? `PARTLY transcribed: ${partial.reduce((n, d) => n + d.gaps, 0)} part(s) could not be read (${Math.round(partial.reduce((t, d) => t + (d.gapSeconds || 0), 0))} s in all) and have no words — no subtitles there; the rest is below. ` : "") +
       `Transcribed ${(res.done || []).length} file${(res.done || []).length === 1 ? "" : "s"} (${model}${language ? ", " + language : ""}, in ${job.via === "headless" ? "a headless browser" : "the open editor tab"})` +
-      ((res.failed || []).length ? `; failed: ${res.failed.map((f) => `${f.src} (${f.error})`).join(", ")}` : "") + ".\n";
+      ((res.failed || []).length ? `; failed: ${res.failed.map((f) => `${f.src} (${publicError(f.error)})`).join(", ")}` : "") + ".\n";
   }
   const docs = new Map();
   for (const src of srcs) {
-    const g = await apiJSON("GET", "/api/transcript?src=" + encodeURIComponent(src));
+    const g = await apiJSON("GET", "/api/transcript?src=" + encodeURIComponent(src) + '&track=' + tracks[src]);
     if (g.status === 200 && g.body?.transcript) docs.set(src, T.validate(g.body.transcript));
   }
   const langs = [...new Set([...docs.values()].map((d) => d.language === "auto" ? "detected" : d.language).filter(Boolean))];
@@ -919,13 +944,13 @@ async function transcribeTool(args) {
   const before = end(proj);
   ProjectOps.applyPatch(proj, T.cutOps(spans, { tracks: args.tracks, force: args.force === true }), { savedItems });
   let verWarn = "";
-  try { createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) }).beforeAgent("Before cutting words"); }
-  catch (e) { verWarn = ` Warning: no version was saved before the cut (${e.message}).`; }
+  try { createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) }).beforeAgent("Before cutting words", callScope.getStore()?.projectId); }
+  catch (e) { verWarn = ` Warning: no version was saved before the cut (${publicError(e.message)}).`; }
   const diskRev = readProject().revision || 0;   // a failed read stops it: never write over what we can't see
   if (diskRev !== readRev) throw new Error(`the project changed while cutting (revision ${readRev} → ${diskRev}) — nothing cut; run fablecut_transcribe again`);
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   return [head + ".", ...report,
     `Cut ${spans.length} span${spans.length === 1 ? "" : "s"}, ${T.total(spans).toFixed(1)} s — timeline ${fmtDur(before)} → ${fmtDur(end(proj))} (revision ${proj.revision}). UI hot-reloaded.` +
     (verWarn || " The project as it was is kept as a version (fablecut_versions lists it; restore undoes the cut).")].join("\n");
@@ -949,10 +974,10 @@ async function captionsTool(args) {
     const plan = require("./range-plan").create(proj, ranges);
     Object.assign(proj, plan.project);
     const history = createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) });
-    history.beforeAgent("Before joining caption sentences");
+    history.beforeAgent("Before joining caption sentences", callScope.getStore()?.projectId);
     proj.revision++;
     writeProject(proj);
-    lastReadRevision = proj.revision;
+    revisionState.value = proj.revision;
     return `Kept ${plan.segments.length} ranges in user order; ${plan.duration}s (revision ${proj.revision}). Source files unchanged. Export srt and mapping separately.`;
   }
   if (args.export === "mapping") {
@@ -984,7 +1009,7 @@ async function captionsTool(args) {
     ProjectOps.applyPatch(proj, caps.map((c) => ({ op: "removeClip", id: c.id, ...(args.force === true ? { force: true } : {}) })), { savedItems });
     proj.revision = (proj.revision || 0) + 1;
     writeProject(proj);
-    lastReadRevision = proj.revision;
+    revisionState.value = proj.revision;
     return `Removed ${caps.length} caption${caps.length === 1 ? "" : "s"} (revision ${proj.revision}). UI hot-reloaded.`;
   }
   let list, note = "", sig;
@@ -1029,7 +1054,7 @@ async function captionsTool(args) {
   ProjectOps.applyPatch(proj, ops, { savedItems });
   proj.revision = readRev + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   const sample = list.slice(0, 3).map((c) => `  [${fmtClock(c.start)}] ${c.text.replace(/\n/g, " / ")}`);
   return note + `Added ${list.length} caption${list.length === 1 ? "" : "s"} (${C.STYLES[st].label}, ${m.fontSize} px) on ${lane.track}${lane.add ? " (a new lane)" : ""}, ${fmtClock(from)} → ${fmtClock(to)}` +
     (old.length ? `, replacing ${old.length}` : "") + ` (revision ${proj.revision}). UI hot-reloaded.\n` + sample.join("\n") +
@@ -1105,7 +1130,7 @@ async function denoiseTool(args) {
   }
   proj.revision = (proj.revision || 0) + 1;
   writeProject(proj);
-  lastReadRevision = proj.revision;
+  revisionState.value = proj.revision;
   return `Noise reduction ${amount} on ${targets.map((c) => c.id).join(", ")} (revision ${proj.revision}, ${changed} clip${changed === 1 ? "" : "s"} switched)` +
     (report.length ? ":\n" + report.join("\n") : "");
 }
@@ -1122,16 +1147,16 @@ function describeExportJob(j) {
     const outs = j.result && Array.isArray(j.result.outputs) ? j.result.outputs : null;
     if (outs && outs.length > 1) {
       return `Export ${j.id} done — ${outs.filter((o) => o.ok).length} of ${outs.length} files:\n` + outs.map((o) => o.ok
-        ? `✓ ${path.join(EXPORTS_DIR, o.file)}${o.summary ? ` — ${o.summary}` : ""}${o.report ? `\n    ${o.report.ok ? "checks passed" : "CHECK"}: ${o.report.line}` : ""}`
-        : `✗ ${o.file}: ${o.error}`).join("\n");
+        ? `✓ ${path.join(EXPORTS_DIR, o.file)}${o.summary ? ` — ${o.summary}` : ""}${o.report ? `\n    ${o.report.ok ? "checks passed" : "CHECK"}: ${publicError(o.report.line)}` : ""}`
+        : `✗ ${o.file}: ${publicError(o.error)}`).join("\n");
     }
     const rep = outs && outs[0] && outs[0].report;
     return `Export ${j.id} done → ${file}${size}${j.result && j.result.summary ? `\n${j.result.summary}` : ""}` +
-      `${rep ? `\n${rep.ok ? "Checks passed" : "CHECK"}: ${rep.line}` : ""}\nServed at ${BASE}${j.src}`;
+      `${rep ? `\n${rep.ok ? "Checks passed" : "CHECK"}: ${publicError(rep.line)}` : ""}\nServed at ${BASE}${j.src}`;
   }
   // fablecut_export {cancel} also frees the queue of a scope reading, frame, tracking or transcription job
   const noun = { scopes: "Scope reading / frame", track: "Tracking job", transcribe: "Transcription" }[j.kind] || "Export";
-  if (j.status === "failed" || j.status === "cancelled") return `${noun} ${j.id} ${j.status}${j.code ? ` (${j.code})` : ""}: ${j.error || "no reason given"}`;
+  if (j.status === "failed" || j.status === "cancelled") return `${noun} ${j.id} ${j.status}${j.code ? ` (${publicError(j.code)})` : ""}: ${publicError(j.error || "no reason given")}`;
   return `Export ${j.id} ${j.status}${j.status === "running" ? ` — ${pct}%` : ""} (in ${j.via === "headless" ? "a headless browser" : "the open editor tab"}). ` +
     `Check again with fablecut_export {job:"${j.id}"}, or stop it with {cancel:"${j.id}"}.`;
 }
@@ -1212,7 +1237,7 @@ function versionBeforeAgent(rewrite) {
     lastAgentVersion = Date.now();
     return "";
   } catch (e) {
-    return ` Warning: no version was saved before this edit (${e.message}) — fablecut_versions {action:"save"} keeps one.`;
+    return ` Warning: no version was saved before this edit (${publicError(e.message)}) — fablecut_versions {action:"save"} keeps one.`;
   }
 }
 /* fablecut_repair_media (JJ, P3, 2026-11-05): 〔帮我修好〕 for agents — repairs and the general conversion, one path (the old 〔帮我转〕 — any
@@ -1228,6 +1253,7 @@ const REPAIR_WORDS = {
   REPAIR_CANCELLED: () => "Stopped; nothing was changed.",
 };
 function repairLine(j) {
+  j = { ...j, ...(j.error ? { error: publicError(j.error) } : {}) };
   const pct = Math.round(j.progress * 100);
   const head = j.status === "done" ? `Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there. (Usable part ${j.result.duration}s; now media ${j.result.mediaId}, it replaced ${j.result.replaced}${j.result.clips ? `; ${j.result.clips} clip(s) switched` : ""}.)`
     : j.status === "failed" || j.status === "cancelled" ? (REPAIR_WORDS[j.error.code] ? REPAIR_WORDS[j.error.code](repairNames.get(j.job) || "this video") : j.error.message)
@@ -1269,14 +1295,14 @@ async function repairTool(args) {
     for (let attempt = 0; ; attempt++) {
       proj = readProject();
       const readRev = proj.revision || 0;
-      const wasCurrent = lastReadRevision === readRev;
+      const wasCurrent = revisionState.value === readRev;
       clips = 0; replaced = id;
       if ((proj.media || []).some((x) => x.id === id)) clips = MediaLib.swapMedia(proj, id, entry).clips;
       else { proj.media.push(entry); replaced = null; }   // the original was removed meanwhile: just added
       if ((readProject().revision || 0) !== readRev && attempt < 3) continue;
       proj.revision = readRev + 1;
       writeProject(proj);
-      if (wasCurrent) lastReadRevision = proj.revision;
+      if (wasCurrent) revisionState.value = proj.revision;
       break;
     }
     return { mediaId: entry.id, replaced, duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}), src: entry.src, clips };
@@ -1318,7 +1344,7 @@ async function proxyTool(args) {
     if (!s) return `${m.id} "${m.name}": OFFLINE — the file is missing`;
     if (s.state === "ready") return `${m.id} "${m.name}": proxy ready — ${s.width ? s.width + "×" + s.height : s.height + "p"}, ${(s.size / 1048576).toFixed(1)} MB (${s.src})`;
     if (s.state === "running" || s.state === "queued") return `${m.id} "${m.name}": proxy ${s.state}${s.state === "running" ? ` ${Math.round(s.progress * 100)}%` : ""} (${s.height}p)`;
-    if (s.state === "failed") return `${m.id} "${m.name}": proxy FAILED — ${s.error}`;
+    if (s.state === "failed") return `${m.id} "${m.name}": proxy FAILED — ${publicError(s.error)}`;
     return `${m.id} "${m.name}": no proxy${m.height ? ` (source ${m.width}×${m.height})` : ""}`;
   };
   return list.map(line).join("\n") + (busy() ? "\nStill working — call fablecut_proxy again (without create) to check." : "");
@@ -1544,7 +1570,7 @@ async function lyricsTool(args) {
   try { r = await speechWords({ clipIds: args.clipIds, language: args.language, timeout: args.timeout }, false); }
   catch (e) {
     // the transcription itself could not run (the engine, the job, the editor server): say so in the streamer's words
-    if (/transcri|editor server is not running|EDITOR_NOT_READY|HEADLESS_DISABLED/i.test(String(e.message || e))) return lyricsReply({ ok: false, code: "ASR_UNAVAILABLE" }, { detail: String(e.message || e) });
+    if (/transcri|editor server is not running|EDITOR_NOT_READY|HEADLESS_DISABLED/i.test(String(e.message || e))) return lyricsReply({ ok: false, code: "ASR_UNAVAILABLE" }, { detail: publicError(String(e.message || e)) });
     throw e;
   }
   const lo = Number.isFinite(args.from) ? args.from : -Infinity, hi = Number.isFinite(args.to) ? args.to : Infinity;
@@ -1587,7 +1613,7 @@ async function lyricsApplyTool(args) {
   }
   if (job.status !== "done") throw new Error(`lyrics card ${job.status}: ${job.error || "no reason given"}`);
   const res = job.result || {};
-  if (res.revision) lastReadRevision = res.revision;
+  if (res.revision) revisionState.value = res.revision;
   return JSON.stringify({ proposalId: id, applied: res.applied === true, track: res.track || null, placed: res.placed || 0, grey: res.grey || 0,
     ...(res.reason ? { reason: res.reason } : {}),
     message: res.applied === true ? lyricsMessage("lt-done") : lyricsMessage("lt-not-placed") }, null, 1);
@@ -1596,9 +1622,22 @@ async function lyricsApplyTool(args) {
 /* ── Tool implementations ── */
 /** callTool(name, args, {signal}?) — signal (an AbortSignal) is the caller giving up on the call: a job it started on
  *  the editor's queue is cancelled then (see waitJob). The MCP stdio loop passes one per tools/call; a host that
- *  requires this module (the Cindy plugin's worker) may pass its own. A number in its place is the old `attempt`. */
+ *  requires this module (the Cindy plugin's worker) may pass its own. Bounded/keyed tasks instead own their lifetime:
+ *  abandoning the caller's wait does not cancel the stored task. A number in opts is the old `attempt`. */
 async function callTool(name, args, opts = {}) {
+  try { return require('./tool-error').toolError(await dispatchTool(name, args, opts), { dataDir: DATA_DIR, result: true }); }
+  catch (error) { throw publicError(error instanceof Error ? error : new Error(String(error))); }
+}
+async function dispatchTool(name, args, opts = {}) {
   const o = typeof opts === "number" ? { attempt: opts } : opts || {};
+  if ((LONG_TOOLS.has(name) && (args.wait_ms != null || args.taskId)) || args.idempotency_key) {
+    const { wait_ms, taskId, idempotency_key, ...input } = args;
+    const projectId = o.project || taskProjects.activeId();
+    const scope = JSON.stringify([o.session || null, projectId]);
+    const result = await toolTasks.call({ scope, name, args: input, key: idempotency_key, taskId, wait_ms, waitForCompletion: !LONG_TOOLS.has(name) },
+      update => callScope.run({ projectId, update }, () => runTool(name, input, o.attempt || 0)));
+    return JSON.stringify(result);
+  }
   if (o.signal && callSignal() !== o.signal) return callScope.run({ signal: o.signal }, () => runTool(name, args, o.attempt || 0));
   return runTool(name, args, o.attempt || 0);
 }
@@ -1729,7 +1768,7 @@ async function runTool(name, args, attempt = 0) {
       const doc = readProject();
       // read just now, maybe not saved yet (an open editor saves them a moment later): shown already
       if (Array.isArray(filled)) MediaLib.applyBackfill(doc, filled);
-      lastReadRevision = doc.revision || 0;
+      revisionState.value = doc.revision || 0;
       if (!args.compact) return JSON.stringify(doc);
       return ProjectOps.compactView(doc, {
         offline: (m) => /^\/(media|library)\//.test(m.src || "") && !mediaFile(m.src),
@@ -1772,7 +1811,7 @@ async function runTool(name, args, attempt = 0) {
       }
       proj.revision = readRev + 1;
       writeProject(proj);
-      lastReadRevision = proj.revision;
+      revisionState.value = proj.revision;
       for (const [kind, item] of toSave) writeSaved(kind, item.id, item);
       return `Patched (revision ${proj.revision}): ${notes.join(" ")}. Now ${proj.clips.length} clip(s), ${proj.media.length} media. UI hot-reloaded.${verWarn}`;
     }
@@ -1788,13 +1827,13 @@ async function runTool(name, args, attempt = 0) {
       const curRev = cur.revision || 0;
       // strict check when this session read via the tool; otherwise fall back to
       // the revision baked into the submitted doc (e.g. it was read as a file)
-      const stale = lastReadRevision !== null
-        ? curRev !== lastReadRevision
+      const stale = revisionState.value !== null
+        ? curRev !== revisionState.value
         : (doc.revision || 0) < curRev;
       if (stale && !args.force) {
         throw new Error(
           `CONFLICT — not saved. project.json is at revision ${curRev}, but this edit was based on ` +
-          `revision ${lastReadRevision ?? (doc.revision || 0)}: the project changed in between ` +
+          `revision ${revisionState.value ?? (doc.revision || 0)}: the project changed in between ` +
           `(the user probably tweaked something in the editor UI). ` +
           `Call fablecut_get_project, re-apply your edit on top of the latest document, then save again. ` +
           `Pass force:true only if the user explicitly wants those changes discarded.`);
@@ -1804,7 +1843,7 @@ async function runTool(name, args, attempt = 0) {
       // once established so a rewrite that drops pan:0 cannot re-trigger L/R migration.
       if (!(doc.panSchema >= 1) && (cur.panSchema >= 1)) doc.panSchema = 1;
       writeProject(doc);
-      lastReadRevision = doc.revision;
+      revisionState.value = doc.revision;
       return `Saved (revision ${doc.revision}). ${doc.clips.length} clip(s). The editor UI (if open at ${BASE}) has hot-reloaded.${verWarn}`;
     }
     case "fablecut_normalize_audio": {
@@ -1841,7 +1880,7 @@ async function runTool(name, args, attempt = 0) {
       if (changed) {
         proj.revision = (proj.revision || 0) + 1;
         writeProject(proj);
-        lastReadRevision = proj.revision;
+        revisionState.value = proj.revision;
       }
       return `Normalize to ${target} ${mode === "peak" ? "dBFS peak" : "LUFS"}${changed ? ` (revision ${proj.revision})` : " — nothing changed"}:\n` + report.join("\n");
     }
@@ -1909,7 +1948,7 @@ async function runTool(name, args, attempt = 0) {
       if (changed) {
         proj.revision = (proj.revision || 0) + 1;
         writeProject(proj);
-        lastReadRevision = proj.revision;
+        revisionState.value = proj.revision;
       }
       const head = amount ? `Auto-duck under ${lanes.join(", ")} — ${regions.length} voice span${regions.length === 1 ? "" : "s"}` : "Ducking cleared";
       return `${head}${changed ? ` (revision ${proj.revision})` : " — nothing changed"}:\n` + report.join("\n");
@@ -1948,11 +1987,11 @@ async function runTool(name, args, attempt = 0) {
           src: bp.music.src, duration: bp.duration,
         };
         const proj = readProject();
-        const wasCurrent = lastReadRevision === (proj.revision || 0);
+        const wasCurrent = revisionState.value === (proj.revision || 0);
         proj.media.push(entry);
         proj.revision = (proj.revision || 0) + 1;
         writeProject(proj);
-        if (wasCurrent) lastReadRevision = proj.revision;
+        if (wasCurrent) revisionState.value = proj.revision;
         bp.music.mediaId = entry.id;
         musicNote = `Music extracted and registered as media "${entry.id}" — place it on A1 (in:0, duration:${bp.duration}).`;
       }
@@ -1991,7 +2030,7 @@ async function runTool(name, args, attempt = 0) {
       if (next.length) proj.danmaku = next; else delete proj.danmaku;
       proj.revision = (proj.revision || 0) + 1;
       writeProject(proj);
-      lastReadRevision = proj.revision;
+      revisionState.value = proj.revision;
       if (!entry) return `Danmaku removed from ${mediaId} (revision ${proj.revision}).`;
       const sk = Object.entries(entry.skipped).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(", ");
       return `Imported ${entry.count} danmaku (${entry.format}) for ${mediaId} (revision ${proj.revision}).` + (sk ? ` Not kept: ${sk}.` : "");
@@ -2043,13 +2082,13 @@ async function runTool(name, args, attempt = 0) {
       Object.assign(entry, infoForEntry(probed, entry));
       const proj = readProject();
       // import only appends a media entry (never touches clips), so it merges
-      // into the live document; keep lastReadRevision in step only if it
+      // into the live document; keep revisionState.value in step only if it
       // already was — otherwise a later set_project must still re-read
-      const wasCurrent = lastReadRevision === (proj.revision || 0);
+      const wasCurrent = revisionState.value === (proj.revision || 0);
       proj.media.push(entry);
       proj.revision = (proj.revision || 0) + 1;
       writeProject(proj);
-      if (wasCurrent) lastReadRevision = proj.revision;
+      if (wasCurrent) revisionState.value = proj.revision;
       return `Imported → ${JSON.stringify(entry)}\n` +
         importNote(entry, probed) + audioTracksNote(entry);
     }
@@ -2124,7 +2163,7 @@ async function handle(msg) {
         const content = Array.isArray(out) ? out : [{ type: "text", text: String(out) }];
         send({ jsonrpc: "2.0", id, result: { content } });
       } catch (e) {
-        send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: "Error: " + e.message }], isError: true } });
+        send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: "Error: " + publicError(e.message) }], isError: true } });
       } finally {
         if (isRequest && inFlight.get(id) === ac) inFlight.delete(id);
         if (--pending === 0 && stdinClosed) process.exit(0);
@@ -2135,9 +2174,9 @@ async function handle(msg) {
     if (method === "notifications/cancelled") { inFlight.get(params?.requestId)?.abort(); return; }
     if (method === "ping") return send({ jsonrpc: "2.0", id, result: {} });
     if (!isRequest) return; // ignore other notifications (e.g. notifications/initialized)
-    send({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found: " + method } });
+    send({ jsonrpc: "2.0", id, error: { code: -32601, message: publicError("Method not found: " + method) } });
   } catch (e) {
-    if (isRequest) send({ jsonrpc: "2.0", id, error: { code: -32603, message: String(e) } });
+    if (isRequest) send({ jsonrpc: "2.0", id, error: { code: -32603, message: publicError(String(e)) } });
   }
 }
 

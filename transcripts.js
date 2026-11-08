@@ -40,6 +40,11 @@ function createTranscripts({ dir, resolveSrc }) {
     try { return JSON.parse(fs.readFileSync(path.join(dir, n.name), "utf8")); } catch { return false; }
   }
   return {
+    file(src, track = 0) {
+      const file = resolveSrc(src);
+      if (!file) return null;
+      return path.join(dir, names(file, track).name);
+    },
     get(src, track = 0) {
       const d = read(src, track);
       if (!d) return d;
