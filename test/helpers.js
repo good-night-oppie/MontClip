@@ -100,7 +100,11 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
     child.on("exit", (code, signal) => { exited = code ?? signal ?? "exited"; });   // killed: code is null, so stop() twice would wait forever
     let stderr = "";
     child.stderr.on("data", (c) => { stderr += c; });
-    child.stdout.resume();
+    let startup = '', listening = false;
+    child.stdout.on('data', c => {
+      startup = (startup + c).slice(-8192);
+      listening ||= startup.includes(`MontClip running →  http://localhost:${port}\n`);
+    });
 
     const base = `http://127.0.0.1:${port}`;
     const stop = () => new Promise((resolve) => {
@@ -116,7 +120,8 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
     while (Date.now() < deadline && exited === null) {
       try {
         const r = await fetch(base + "/api/project");
-        if (r.status === 200) { await r.text(); ready = true; break; }
+        await r.text();
+        if (r.status === 200 && listening && exited === null) { ready = true; break; }
       } catch { /* not listening yet */ }
       await new Promise((r) => setTimeout(r, 50));
     }

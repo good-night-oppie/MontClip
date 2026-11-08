@@ -29,7 +29,7 @@ fs.copyFileSync(src, exe); fs.chmodSync(exe, 0o755);
 const g = spawn(exe, args, { stdio: "ignore", windowsHide: true });
 fs.writeFileSync(path.join(dir, "grandchild.pid"), String(g.pid));
 http.createServer((req, res) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end("{}"); })
-  .listen(Number(process.env.PORT), "127.0.0.1");
+  .listen(Number(process.env.PORT), "127.0.0.1", () => console.log('MontClip running →  http://localhost:' + process.env.PORT + '\n'));
 `;
 
 const FIXTURE = String.raw`"use strict";

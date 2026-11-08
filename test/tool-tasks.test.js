@@ -41,11 +41,67 @@ test('bounded wait detaches a slow operation; retries and reopened result never 
   await a.rejects(tasks.call({ ...input, scope: 'another', taskId: one.taskId }, run), /scope/);
 });
 
-test('a process interruption leaves a tombstone instead of repeating an uncertain mutation', async t => {
+test('a receipt without an execution owner is uncertain and never repeated', async t => {
   const dir = tmpDir(t), tasks = createToolTasks({ dir });
   const input = { scope: 'a', name: 'captions', args: {}, key: 'k', wait_ms: 0 };
   const first = await tasks.call(input, () => new Promise(() => {}));
+  const file = path.join(dir, first.taskId + '.json');
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+  delete record.pid;
+  fs.writeFileSync(file, JSON.stringify(record));
   const recovered = await createToolTasks({ dir }).call(input, () => { throw new Error('must not run'); });
   a.equal(recovered.taskId, first.taskId); a.equal(recovered.status, 'interrupted');
   a.equal(fs.readdirSync(dir).filter(x => x.endsWith('.json')).length, 1);
+});
+
+test('another reader preserves a live task and rejected scope queries cannot change its receipt', async t => {
+  const dir = tmpDir(t), tasks = createToolTasks({ dir });
+  let finish;
+  const input = { scope: 'project-a', name: 'captions', args: { replace: false }, key: 'same', wait_ms: 0 };
+  const first = await tasks.call(input, () => new Promise(r => { finish = r; }));
+  const file = path.join(dir, first.taskId + '.json'), before = fs.readFileSync(file, 'utf8');
+  const reader = createToolTasks({ dir });
+  await a.rejects(reader.call({ ...input, scope: 'project-b', taskId: first.taskId }, () => a.fail('replayed')), /scope/);
+  a.equal(fs.readFileSync(file, 'utf8'), before);
+  a.equal((await reader.call(input, () => a.fail('replayed'))).status, 'running');
+  finish('saved');
+  await tasks.call({ ...input, waitForCompletion: true }, () => a.fail('replayed'));
+  a.equal((await reader.call(input, () => a.fail('replayed'))).status, 'complete');
+  const other = await reader.call({ ...input, scope: 'project-b', waitForCompletion: true }, () => 'other project');
+  a.notEqual(other.taskId, first.taskId);
+});
+
+test('terminal receipt write failure stays uncertain without exposing unrelated paths or replaying', async t => {
+  const dir = tmpDir(t), mod = { exports: {} };
+  const io = Object.create(fs);
+  io.renameSync = () => { throw Object.assign(new Error('disk full at C:/Users/private-account/unrelated'), {code:'ENOSPC'}); };
+  require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../tool-tasks.js'), 'utf8'), {
+    module: mod, require: id => id === 'node:fs' ? io : require(id), process, setTimeout, clearTimeout,
+  });
+  const tasks = mod.exports.createToolTasks({dir});
+  let mutations = 0;
+  const input = {scope:'p',name:'captions',args:{},key:'disk-full',waitForCompletion:true};
+  const first = await tasks.call(input, () => ++mutations);
+  a.equal(first.status,'interrupted'); a.equal(first.code,'TASK_RECEIPT_SAVE_FAILED');
+  a.doesNotMatch(JSON.stringify(first),/private-account|unrelated/);
+  a.equal((await tasks.call(input, () => ++mutations)).code,'TASK_RECEIPT_SAVE_FAILED');
+  a.equal(mutations,1);
+});
+
+test('a Windows reader briefly holding the receipt does not fail a successful mutation', async t => {
+  const dir = tmpDir(t), mod = {exports:{}}, io = Object.create(fs);
+  let attempts = 0, mutations = 0;
+  io.renameSync = (...args) => {
+    if (++attempts <= 2) throw Object.assign(new Error('reader still holds destination'), {code:'EPERM'});
+    return fs.renameSync(...args);
+  };
+  require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../tool-tasks.js'), 'utf8'), {
+    module:mod, require:id => id === 'node:fs' ? io : require(id), process, setTimeout, clearTimeout,
+  });
+  const input = {scope:'p',name:'captions',args:{},key:'reader',waitForCompletion:true};
+  const r = await mod.exports.createToolTasks({dir}).call(input, update => { update({done:1,total:1}); return ++mutations; });
+  a.equal(r.status,'complete'); a.equal(mutations,1);
+  a.equal(JSON.parse(fs.readFileSync(path.join(dir,r.taskId+'.json'),'utf8')).status,'complete');
+  a.equal((await createToolTasks({dir}).call(input, () => ++mutations)).status,'complete');
+  a.equal(mutations,1);
 });

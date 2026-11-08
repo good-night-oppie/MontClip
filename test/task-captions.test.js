@@ -30,3 +30,24 @@ test('MC-04: a completed task in A cannot authorize a stale full-document edit i
     })().catch(e=>{console.error(e);process.exitCode=1});`;
   execFileSync(process.execPath, ['-e', script], { cwd: path.join(__dirname, '..'), encoding: 'utf8', env: { ...process.env, FABLECUT_DATA_DIR: dir } });
 });
+
+test('MC-12: crash after caption mutation but before receipt commit never repeats the mutation', t => {
+  const dir = makeDataDir(t);
+  const script = `const fs=require('node:fs'), m=require('./mcp-server');
+    const rename=fs.renameSync;
+    fs.renameSync=function(from,to){
+      if(process.env.CRASH_RECEIPT==='1' && String(to).includes('tool-tasks') && JSON.parse(fs.readFileSync(from,'utf8')).status==='complete') process.exit(17);
+      return rename.apply(this,arguments);
+    };
+    m.callTool('fablecut_captions',{import:'1\\n00:00:00,000 --> 00:00:01,000\\nkept',replace:false,idempotency_key:'crash',wait_ms:1000}).then(console.log);`;
+  const run = crash => require('node:child_process').spawnSync(process.execPath, ['-e', script], {
+    cwd: path.join(__dirname, '..'), encoding: 'utf8', env: { ...process.env, FABLECUT_DATA_DIR: dir, CRASH_RECEIPT: crash ? '1' : '0' },
+  });
+  a.equal(run(true).status, 17);
+  a.equal(readProject(dir).revision, 2);
+  const replay = run(false);
+  a.equal(replay.status, 0, replay.stderr);
+  a.equal(JSON.parse(replay.stdout).status, 'interrupted');
+  a.equal(readProject(dir).revision, 2);
+  a.equal(readProject(dir).clips.filter(c => c.kind === 'text').length, 1);
+});

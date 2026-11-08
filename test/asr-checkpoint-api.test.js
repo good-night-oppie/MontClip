@@ -14,7 +14,7 @@ test('production ASR endpoint persists a paragraph before cancellation and retur
       transcribe: async (file, opts) => {
         opts.onCheckpoint({ words:[['kept',0,1]], gaps:[], duration:10, language:'en', spans:[[0,1]] });
         await new Promise(resolve => opts.signal.addEventListener('abort', resolve, {once:true}));
-        throw Object.assign(new Error('cancelled'), {code:'ASR_CANCELLED'});
+        throw Object.assign(new Error('cancelled while reading C:/Users/synthetic-private/other/model.bin'), {code:'ASR_CANCELLED'});
       }
     }) } };
     const probe = require(path.join(root, 'media-probe')); probe.probeFile = async () => ({duration:10});
@@ -32,5 +32,7 @@ test('production ASR endpoint persists a paragraph before cancellation and retur
   await fetch(server.base + '/api/asr/cancel', { method: 'POST' });
   const result = await (await pending).json();
   a.equal(result.status, 'incomplete'); a.match(result.error, /没听完/);
+  a.doesNotMatch(result.error, /synthetic-private/);
+  a.equal(path.dirname(result.saved), path.join(dir, 'analysis', 'transcripts'));
   a.deepEqual(JSON.parse(fs.readFileSync(result.saved, 'utf8')).words, doc.words);
 });

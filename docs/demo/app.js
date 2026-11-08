@@ -12573,7 +12573,7 @@ async function runTranscribeJob(ticket, fail) {
   if (trState.busy) return fail("this editor tab is already transcribing — wait for it, or cancel it there");
   const srcs = [], skipped = [], ranges = spec.ranges || {};
   for (const src of spec.srcs || []) {
-    const have = spec.again ? null : await loadTranscript(src, true);
+    const have = spec.again ? null : await loadTranscript(src, true, spec.tracks?.[src]);
     // a long recording's clips (P8): only their windows, and only what its transcript does not cover yet
     if (have && (ranges[src] ? !MontClipTranscribe.missingSpans(have, ranges[src]).length : !have.spans)) { skipped.push(src); continue; }
     srcs.push(src);
@@ -12582,7 +12582,7 @@ async function runTranscribeJob(ticket, fail) {
     .then((r) => r.json()).then((r) => { if (r?.cancel) { jobProblem(ticket.id, r); cancelTranscribe(); } }).catch(() => { });
   if (!srcs.length) return report({ status: "done", result: { done: [], skipped, failed: [] } });
   let last = 0;
-  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null, ranges, again: !!spec.again }, (f) => {
+  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null, tracks: spec.tracks, ranges, again: !!spec.again }, (f) => {
     const t = performance.now();
     if (t - last > 1000) { last = t; report({ progress: f }); }
   }).catch((e) => ({ done: [], failed: srcs.map((src) => ({ src, error: e.message })) }));
