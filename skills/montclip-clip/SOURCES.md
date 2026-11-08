@@ -51,7 +51,7 @@
 
 ## C. MontClip 的证据
 
-依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `4e70d8889593a7428442a88e086915ac8b338a87`（2026-11-08，和 GitHub 上一致；本轮新增 #224 / #227、#231、#233、#235、#236、#237，另含此前已收的 #161、#146、#177、#132、#219、#221、#222、#130、#202、#213、#164、#129、#183、#120、#125、#138、#154、#155、#165、#162、#109、#176、#175、#159、#193、#190、#172、#170、#137 等）。读法是只读的独立克隆与 `gh api` / `git show origin/main:<文件>`；本机工作区落后 main 很多个提交，所以没有用工作区。
+依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `38f77fcca4e3036dbedee6885fbc0462e90662ab`（2026-11-08，和 GitHub 上一致；本轮新增 #238 / #245 的 #231 后续，另含此前已收的 #224 / #227、#231、#233、#235、#236、#237，以及更早的 #161、#146、#177、#132、#219、#221、#222、#130、#202、#213、#164、#129、#183、#120、#125、#138、#154、#155、#165、#162、#109、#176、#175、#159、#193、#190、#172、#170、#137 等）。读法是只读的独立克隆与 `gh api` / `git show origin/main:<文件>`；本机工作区落后 main 很多个提交，所以没有用工作区。
 
 **插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `2732eae4c30b7fe3bfc3ca59a648d0c676cd2f4c`，2026-11-08 复查）：
 - 工具定义在 `ghost.json`：`montclip_status`、`list_tools`、`call_tool`、`montclip_undo`、`montclip_redo`、`montclip_seek`、`montclip_export`、`montclip_install_ffmpeg`、`montclip_open_task_view`。
@@ -115,8 +115,13 @@
 
 **本轮新增证据（以下行号以 MontClip main `4e70d888` 为准）**：
 - 无头导出逐帧对齐（#224，合并提交 `b3177098`，PR #227）：`b4621632` 把硬定位的目标点改成帧内 1 ms，毫秒取整的 WebM / MKV 帧不会再被当成前一帧；`29de5903` 让导出画元素实际持有的那一帧、按时间戳核对，不按回调报的名字。用户不可见的正确性修复，只进「插件版落后提醒」。
-- 导出前逐段核对声音（#231，合并提交 `e39628f1`，MC-14 / MC-15 / MC-11）：`export-check.js` 的 `soundPeak` 里读不出（ffmpeg 失败、超时或没解出声音）返回 null，永远不算无声；`cleanPlan` 的 silent 计划带 `{n, t}`，单独的声音（音乐、配音）n 为 null。`server.js` 在 `blankCheck` 判出 `EXPORT_AUDIO_FAILED` 时删掉输出文件、不交付；`withQuiet` 把「片段在文件里本来无声」写成报告里的 `EXPORT_CLIP_SILENT` 警告。JJ 定稿文案在 `ui-preferences.js` 的 `export-audio-failed`（「第 {n} 段（时间线 {time} 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。」）、`export-audio-failed-track`（「时间线 {time} 处的声音没读出来…」）、`export-clip-silent` / `-track` 与 `err-export-page-crashed`（「导出时出了意外…可以直接重新导出…」）。`export-jobs.js` 给无头浏览器退出和失联任务标 `EXPORT_PAGE_CRASHED`，Linux 下把导出页面进程的 `oom_score_adj` 提到 1000，内存耗尽时先死导出页而不是引擎。MC-11：`mcp-server.js` 的 `speechWords` 对时长未知的文件也只听写片段窗口，不再整段跑。
+- 导出前逐段核对声音（#231，合并提交 `e39628f1`，MC-14 / MC-15 / MC-11）：`export-check.js` 的 `soundPeak` 里读不出（ffmpeg 失败、超时或没解出声音）返回 null，永远不算无声；`cleanPlan` 的 silent 计划带 `{n, t}`，单独的声音（音乐、配音）n 为 null。`server.js` 在 `blankCheck` 判出 `EXPORT_AUDIO_FAILED` 时删掉输出文件、不交付；`withQuiet` 把「片段在文件里本来无声」写成报告里的 `EXPORT_CLIP_SILENT` 警告。JJ 定稿文案在 `ui-preferences.js` 的 `export-audio-failed`（「第 {n} 段（时间线 {time} 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。」）、`export-audio-failed-track`（「时间线 {time} 处的声音没读出来…」）、`export-clip-silent` / `-track` 与 `err-export-page-crashed`（「导出时出了意外…可以直接重新导出…」）。`export-jobs.js` 给无头浏览器退出和失联任务标 `EXPORT_PAGE_CRASHED`；Linux 下导出页进程的 `oom_score_adj` 那行已删（见下条 #238 说明）。MC-11：`mcp-server.js` 的 `speechWords` 对时长未知的文件也只听写片段窗口，不再整段跑。
 - CI 与测试基建（#233、#235、#236）：测试任务加超时、Windows 挂死修复、ASR 下载 ADR 把 a/b/c 实跑移到打开开关的 PR——纯流程与测试，不进 skill 正文。
+
+**本轮新增证据（以下行号以 MontClip main `38f77fcc` 为准）**：
+- #231 后续：核对超时改警告、profile 导出带提醒、失败任务记代码（#238，合并提交 `c8386fb9`，含 `df53a03d` / `d060a728` / `2c43528f` / `93361c3f` / `72699643`；#245 补端到端分支测试，合并提交 `38f77fcc`）：`export-check.js` 的 `soundRead` 把「读超时」单独报（`timedOut`），超时不再算读不出或无声——核对读某段文件超过默认 20 秒（`TIMEOUT_MS`，碎片化的长 MP4 冷盘开文件就要二十几秒）时文件保留，报告里加 `EXPORT_CLIP_UNCHECKED` 警告；`withQuiet` / `warningReport` 让「文件里本来无声」和「没来得及核对」都成为报告里的警告，profile 导出（无 delivery 报告）也通过 `end.report` 带上这些警告，`app.js` 的 `fastExport` 把警告写进任务结果 / 保存提示。`export-jobs.js` 的 `report()` 把失败页带的原因代码（`EXPORT_AUDIO_FAILED`、`EXPORT_NO_H264` 等）存进任务记录，`mcp-server.js` 的 `describeExportJob` 在失败时输出 `code`。`export-jobs.js` 里 Linux 下给导出页设 `oom_score_adj 1000` 的那行被删（`d060a728`：europa 上 Chrome 启动时按进程类型自己设 0/200/300，1000 撑不到一秒，和 main 一样；skill 不再引用这行）。
+- JJ 定稿文案（#238，按 main `38f77fcc` 的 `ui-preferences.js` 第 243–246、1453、1483–1485、1523–1524 行）：`export-clip-unchecked` / `-track`（「第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。」）；`WHAT_TEXT` 的状态行是「有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。」，「复制问题信息」也复制这行。
+- `MONTCLIP_EXPORT_CHECK_TIMEOUT_MS`（仅测试，`CLAUDE.md` 第 220–226 行、`server.js` 第 689–694 行）缩短单段核对读盘的限时，代替慢盘；默认 20000 ms。这是测试钩子，不是 skill 的操作项。
 
 **界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里，本轮新增两条定稿）：
 
@@ -147,6 +152,7 @@
 | 「导出画面」 | `ef-title`，第 1036 行 |
 | 「找回录像」「找到它…」「先找回来…」「照样导出」 | `rl-title`、`off-find-it`、`off-find-first`、`off-export-anyway`，第 96–148 行 |
 | 「导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。」 | `err-export-page-crashed`（#231 定稿） |
+| 「第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。」 | `export-clip-unchecked` / `-track`（#238 定稿，main `38f77fcc` 第 243–246 行） |
 | 「导出单帧」「导出队列」「轨道锁」「属性面板 → 蒙版」「新建序列…」「查找词」「添加字幕」「文稿」 | `ui-terms.js` |
 | 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 585、628、632 行，对应 `help-4`、`help-27`、`help-31` |
 
@@ -163,7 +169,8 @@
 - 上一轮新增收进（MontClip `aba1d4c8..aedb7eaa`）：#120（助手确认卡放进消息流）、#125（H.264 编码器预检）、#138（桌面版「在文件夹里显示」）。
 - 上一轮新增收进（MontClip `aedb7eaa..6bcb72ff`）：#130（FLV 小断点直接导入、大断点同意后转换及 0.1 秒 / 40 ms 验收）、#202（撤回不安全隐私模糊配方，保留不透明遮挡与逐帧检查）、#213（界面改名「全自动」）、#164（`fablecut_lyrics` / `fablecut_lyrics_apply` 两步歌词对齐，移出「即将可用」）、#129（白话报错、导出条数、脱敏问题信息）、#183（旧项目单耳询问、成片单耳检查）。#163、#133 已关闭且未合并。
 - 本轮新增收进（MontClip `77ec40f2..4e70d888`）：#224 / #227（无头导出逐帧对齐，仅进落后提醒）、#231（导出前逐段核对声音、读不出停下并点名、时长未知文件只听写片段窗口、页面崩溃定稿文案）。#233（CI 超时）、#235（Windows 测试清理）、#236（ASR ADR）、#237（SOP v3.1 决策记录）是测试 / 流程 / 文档，不进 skill；#232 和 MontClip-Cindy #40 是本任务上一轮 skill 同步，不算实质增量。
-- 仍开放且改到 `skills/` 的非本任务 PR：本轮 `gh pr list` 没有发现（#211、#237、#238 均不改 `skills/`）。安全遮挡段落以 main 为准，没有回写撤回做法。
-- MontClip-Cindy：本轮收进 #8（听写首次下载，默认关闭、验收前提未完成）。#38 只修正 releaseNotes / 开发文档里的引擎提交写法，不改变操作，不收进 skill。仓库 main 现为 `2732eae4`，插件版本 0.5.1 与引擎锁 `5b312e63` 均未变；#7、#9、#20、#22、#35 的插件用法继续有效。
+- 本轮新增收进（MontClip `4e70d888..38f77fcc`）：#238 / #245 的 #231 后续——核对读盘超时（默认 20 秒）改警告并保留文件（`EXPORT_CLIP_UNCHECKED`）、profile 导出把「本来无声 / 没来得及核对」的警告带在 `end.report`、`export-jobs.js` 的失败任务记录原因代码、JJ 定稿的核对超时文案、Linux 下导出页 `oom_score_adj 1000` 那行删除（Chrome 自己按进程类型设，和 main 一样）。#240（MC-04/08/12 任务）、#211（README 封面）不改 `skills/`、不影响 skill 正文，不收。
+- 仍开放且改到 `skills/` 的非本任务 PR：本轮 `gh pr list` 没有发现。安全遮挡段落以 main 为准，没有回写撤回做法。
+- MontClip-Cindy：本轮无实质增量（`2732eae4..e1612d83` 只有 #44 同步本 skill）。此前收进的 #8（听写首次下载，默认关闭、验收前提未完成）、#23、#24、#25、#7、#9、#20、#22、#35 继续有效。仓库 main 现为 `e1612d83`，插件版本 0.5.1 与引擎锁 `5b312e63` 均未变。
 
 用 `gh api repos/good-night-oppie/<repo>/compare/<旧>...main` 读增量，并用 `gh pr list` / `gh pr view` 核对合并与开放 PR，时间 2026-11-08。
