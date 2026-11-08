@@ -9,7 +9,8 @@
 //  5. 「重新检测」 works without a restart; a chosen path is saved and survives one.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const FF = require('../ffmpeg-path'), X = require('../external-ffmpeg'), Card = require('../ffmpeg-card');
-function tmp(t) { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-detect-')); t.after(() => fs.rmSync(d, { recursive: true, force: true })); return d; }
+// removed after the test's servers (and the ffmpeg.exe copies they run from these folders) are stopped: helpers.tmpDir
+function tmp(t) { return require('./helpers').tmpDir(t, 'mc-detect-'); }
 
 test('order: bundled, then PATH, then the place the user chose — and each tool is an absolute path', () => {
   const plat = process.platform, x = (n) => n + (plat === 'win32' ? '.exe' : '');

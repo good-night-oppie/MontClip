@@ -10,9 +10,42 @@ const fs = require("node:fs");
 const net = require("node:net");
 const os = require("node:os");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
+
+/* Cleanup order (#233 caught it on Windows CI, 2026-11-07). A test's folders used to be removed by after hooks that ran
+   before its server's stop (hooks run in the order they are added, and a folder is made before the server). Windows
+   refuses to delete a running program's file, and server.js runs the ffmpeg in a folder the test made: the removal threw
+   EPERM, a throwing after hook skips the hooks after it, the server was never stopped, and the test file could not
+   exit — Tests (Windows, Node 22) sat silent for 40 and 58 minutes. Now every folder this harness hands out first stops
+   the servers its test started (with everything they started), then is removed, with retries. */
+const serversOf = new WeakMap();   // test context → the stop() of each server it started
+async function stopServers(t) {
+  for (const stop of serversOf.get(t) || []) await stop();
+}
+function removeFolder(dir) {
+  // retries cover a program that is still letting go of its file just after it was ended
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+}
+/* A temporary folder for test t, removed when it finishes (pass or fail) — after t's servers are stopped. */
+function tmpDir(t, prefix = "fablecut-tmp-") {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  t.after(async () => { await stopServers(t); removeFolder(dir); });
+  return dir;
+}
+/* End a child and everything it started: server.js starts ffmpeg, and on Windows ending the server alone leaves those
+   running, holding their files. taskkill /T ends the tree; on POSIX the child leads its own process group. */
+function endTree(child) {
+  if (process.platform === "win32") {
+    const taskkill = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "taskkill.exe");
+    const r = spawnSync(taskkill, ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true, timeout: 10_000 });
+    if (r.status === 0) return;
+  } else {
+    try { process.kill(-child.pid, "SIGTERM"); return; } catch { /* no group: end the child alone */ }
+  }
+  child.kill();
+}
 
 /* A minimal but schema-valid project, used as the starting state for tests. */
 function seedProject(over = {}) {
@@ -24,11 +57,10 @@ function seedProject(over = {}) {
   };
 }
 
-/* Temp data dir, removed when the test finishes (pass or fail). */
+/* Temp data dir, removed when the test finishes (pass or fail) — after the test's servers are stopped. */
 function makeDataDir(t, project = seedProject()) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-test-"));
+  const dir = tmpDir(t, "fablecut-test-");
   fs.writeFileSync(path.join(dir, "project.json"), JSON.stringify(project, null, 2));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
 
@@ -62,6 +94,7 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
         FABLECUT_DATA_DIR: dataDir,
       },
       stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",   // POSIX: its own process group, so stop() ends what it started too
     });
     let exited = null;
     child.on("exit", (code, signal) => { exited = code ?? signal ?? "exited"; });   // killed: code is null, so stop() twice would wait forever
@@ -72,8 +105,10 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
     const base = `http://127.0.0.1:${port}`;
     const stop = () => new Promise((resolve) => {
       if (exited !== null) return resolve();
-      child.once("exit", () => resolve());
-      child.kill();
+      // never wait forever: a stop that hangs would hold the test file open, and with it every result after it
+      const timer = setTimeout(() => { child.stdout.destroy(); child.stderr.destroy(); child.unref(); resolve(); }, 10_000);
+      child.once("exit", () => { clearTimeout(timer); resolve(); });
+      endTree(child);
     });
 
     const deadline = Date.now() + 20_000;
@@ -86,6 +121,8 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
       await new Promise((r) => setTimeout(r, 50));
     }
     if (ready) {
+      if (!serversOf.has(t)) serversOf.set(t, []);
+      serversOf.get(t).push(stop);   // the test's folders stop it before they go
       t.after(stop);
       return { base, port, child, stop };
     }
@@ -218,4 +255,4 @@ function bundledH264() {
   return h264;
 }
 
-module.exports = { ROOT, seedProject, makeDataDir, readProject, writeProject, startServer, startMcp, rawGet, bundledH264, freePort };
+module.exports = { ROOT, seedProject, makeDataDir, tmpDir, readProject, writeProject, startServer, startMcp, rawGet, bundledH264, freePort };
