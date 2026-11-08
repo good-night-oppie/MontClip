@@ -15,6 +15,9 @@
        (app.js exportSilentSegments). Each one's part of its file is read (volumedetect): louder than QUIET_DB there means
        the mix lost it — the export failed (EXPORT_AUDIO_FAILED, with N; the file is deleted); silent there too is a
        warning in the report (EXPORT_CLIP_SILENT, 「第 N 段是无声的」), so loud music over the whole export never hides it.
+       A read that ran out of time (TIMEOUT_MS) is neither (#231 follow-up, Video on europa): the file is kept, with a warning
+       that the piece could not be checked (EXPORT_CLIP_UNCHECKED). A 2-hour MP4 written in fragments makes ffmpeg read
+       ~949 MB just to open it — 23 s from a cold disk — however short the stretch, so a slow disk is not a lost sound.
    A normal export pays for the 8 frame reads of the picture check (and, without a delivery report, one read of the mix);
    the sources are read only when the file looks blank. Zero dependencies. */
 "use strict";
@@ -28,10 +31,12 @@ const PARALLEL = 4;
 const TIMEOUT_MS = 20000;
 const MAX_POINTS = 64;
 
-function run(ffmpeg, args, encoding) {
+/** → {ok, stdout, stderr, timedOut}: timedOut when ffmpeg was stopped for running past timeoutMs (Node kills it then). */
+function run(ffmpeg, args, encoding, timeoutMs = TIMEOUT_MS) {
   return new Promise((resolve) => {
-    execFile(ffmpeg, args, { encoding, timeout: TIMEOUT_MS, maxBuffer: 1 << 20, windowsHide: true },
-      (err, stdout, stderr) => resolve({ ok: !err, stdout, stderr: String(stderr || "") }));
+    execFile(ffmpeg, args, { encoding, timeout: timeoutMs, maxBuffer: 1 << 20, windowsHide: true },
+      (err, stdout, stderr) => resolve({ ok: !err, stdout, stderr: String(stderr || ""),
+        timedOut: !!(err && err.killed && err.code !== "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") }));
   });
 }
 /** The brightest cell of a 16×9 grey copy of the frame at t (0–255); null when no frame could be read. */
@@ -47,13 +52,15 @@ async function frameMax(ffmpeg, file, t) {
  *  with no sound stream at all; null when it could not be read (MC-14, QQ on #229): ffmpeg failed or ran out of time,
  *  or decoded nothing there — volumedetect says nothing then. A read that failed used to count as silence, so a
  *  source that couldn't be read never showed that the export had lost its sound. */
-async function soundPeak(ffmpeg, file, at = 0, dur = null) {
+async function soundPeak(ffmpeg, file, at = 0, dur = null) { return (await soundRead(ffmpeg, file, at, dur)).db; }
+/** soundPeak's answer, and whether the read ran out of time: {db, timedOut}. timedOut says nothing about the file. */
+async function soundRead(ffmpeg, file, at = 0, dur = null, timeoutMs = TIMEOUT_MS) {
   const r = await run(ffmpeg, ["-hide_banner", "-nostdin", "-nostats", ...(at > 0 ? ["-ss", String(at)] : []), "-i", file,
-    ...(dur > 0 ? ["-t", String(dur)] : []), "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"], "utf8");
+    ...(dur > 0 ? ["-t", String(dur)] : []), "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"], "utf8", timeoutMs);
   const m = /max_volume:\s*(-?[\d.]+|-inf)\s*dB/.exec(r.stderr);
   // no sound stream at all, in older ffmpeg's words and in 8 / 9's ("Failed to set value '0:a:0' for option 'map'")
-  if (!m) return /Stream map '0:a:0' matches no streams|does not contain any stream|value '0:a:0' for option 'map'/i.test(r.stderr) ? -Infinity : null;
-  return m[1] === "-inf" ? -Infinity : Number(m[1]);
+  if (!m) return { db: /Stream map '0:a:0' matches no streams|does not contain any stream|value '0:a:0' for option 'map'/i.test(r.stderr) ? -Infinity : null, timedOut: r.timedOut };
+  return { db: m[1] === "-inf" ? -Infinity : Number(m[1]), timedOut: false };
 }
 async function pool(items, fn) {
   const out = new Array(items.length);
@@ -80,10 +87,12 @@ function cleanPlan(plan) {
   }
   return { video, audio, silent };
 }
-/** → {ok, picture, sound, lost, quiet, ms}: picture / sound true when the file lost the footage's picture / sound;
- *  lost: the pieces (N) whose sound the mix lost; quiet: the pieces silent in their files too (a warning).
+/** → {ok, picture, sound, lost, quiet, unchecked, ms}: picture / sound true when the file lost the footage's picture / sound;
+ *  lost: the pieces (N) whose sound the mix lost; quiet: the pieces silent in their files too (a warning); unchecked: the
+ *  pieces whose file took longer than the time allowed to read (a warning: not known to be lost, the file is kept).
  *  o: {ffmpeg, file (the export), plan (cleanPlan), resolve(src) → file | null,
- *      silent: true | false | null (null: measure the mix), mix: the WAV sent with the export, or null} */
+ *      silent: true | false | null (null: measure the mix), mix: the WAV sent with the export, or null,
+ *      timeoutMs: how long one read of a piece's file may take (tests; default TIMEOUT_MS)} */
 async function check(o) {
   const t0 = Date.now();
   const plan = o.plan || { video: [], audio: [] };
@@ -110,14 +119,15 @@ async function check(o) {
       sound = peaks.some((db) => db == null || db > QUIET_DB);
     }
   }
-  const lost = [], quiet = [];
+  const lost = [], quiet = [], unchecked = [];
   const silent = plan.silent || [];
   if (silent.length) {
-    const peaks = await pool(silent, (p) => { const f = o.resolve(p.src); return f ? soundPeak(o.ffmpeg, f, p.at, p.dur) : null; });
-    // sound there, or its file couldn't be read: lost — never "silent in its file too"
-    silent.forEach((p, i) => (peaks[i] == null || peaks[i] > QUIET_DB ? lost : quiet).push({ n: p.n, t: p.t }));
+    const reads = await pool(silent, (p) => { const f = o.resolve(p.src); return f ? soundRead(o.ffmpeg, f, p.at, p.dur, o.timeoutMs) : { db: null, timedOut: false }; });
+    // out of time: not known either way — kept, with a warning; sound there, or its file couldn't be read: lost — never
+    // "silent in its file too"
+    silent.forEach((p, i) => (reads[i].timedOut ? unchecked : reads[i].db == null || reads[i].db > QUIET_DB ? lost : quiet).push({ n: p.n, t: p.t }));
   }
-  return { ok: !picture && !sound && !lost.length, picture, sound, lost, quiet, ms: Date.now() - t0 };
+  return { ok: !picture && !sound && !lost.length, picture, sound, lost, quiet, unchecked, ms: Date.now() - t0 };
 }
 /** The reason code of a failed check (app.js CODE_TEXT says it in the interface language). */
 function failCode(r) {
@@ -141,12 +151,18 @@ function failText(r) {
     "don't use this file (the originals are unchanged)";
 }
 
-/** A delivery report with a warning for each silent piece (EXPORT_CLIP_SILENT, n): the report is then not "passed",
- *  however loud the whole export measured. The page says it in the interface language (app.js exportCheckText). */
-function withQuiet(report, quiet) {
-  if (!report || !quiet || !quiet.length) return report;
-  const checks = [...report.checks, ...quiet.map(({ n, t }) => ({ ok: false, code: "EXPORT_CLIP_SILENT", n, t, text: `${clipsText([{ n, t }])} is silent — check that it is meant to be` }))];
+/** A delivery report with a warning for each silent piece (EXPORT_CLIP_SILENT, n) and each piece that could not be
+ *  checked in time (EXPORT_CLIP_UNCHECKED, n): the report is then not "passed", however loud the whole export measured.
+ *  The page says them in the interface language (app.js exportCheckText). */
+function withQuiet(report, quiet, unchecked) {
+  const warn = [...(quiet || []).map(({ n, t }) => ({ ok: false, code: "EXPORT_CLIP_SILENT", n, t, text: `${clipsText([{ n, t }])} is silent — check that it is meant to be` })),
+    ...(unchecked || []).map(({ n, t }) => ({ ok: false, code: "EXPORT_CLIP_UNCHECKED", n, t,
+      text: `${n != null ? "the sound of " : ""}${clipsText([{ n, t }])} could not be checked in time — the file was kept; listen to it` }))];
+  if (!report || !warn.length) return report;
+  const checks = [...report.checks, ...warn];
   return { ...report, ok: false, checks, line: checks.map((x) => (x.ok ? "" : "⚠ ") + x.text).join(" · ") };
 }
+/** The warnings of an export with no delivery report (a profile export): withQuiet on an empty report, or null. */
+function warningReport(quiet, unchecked) { const r = withQuiet({ ok: true, checks: [], line: "" }, quiet, unchecked); return r.checks.length ? r : null; }
 
-module.exports = { check, cleanPlan, frameMax, soundPeak, failCode, failParams, failText, withQuiet, BLACK, SOURCE_LIT, QUIET_DB };
+module.exports = { check, cleanPlan, frameMax, soundPeak, soundRead, warningReport, TIMEOUT_MS, failCode, failParams, failText, withQuiet, BLACK, SOURCE_LIT, QUIET_DB };

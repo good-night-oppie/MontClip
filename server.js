@@ -689,9 +689,12 @@ async function blankCheck(sess, file, loud, soundless = false) {
   if (!plan || (!plan.video.length && !plan.audio.length && !plan.silent.length)) return null;
   try {
     const r = await ExportCheck.check({ ffmpeg: FF.path("ffmpeg"), file, plan, resolve: resolveSrc,
-      silent: !sess.wav ? true : loud ? !!loud.silent : null, mix: sess.wav });
+      silent: !sess.wav ? true : loud ? !!loud.silent : null, mix: sess.wav,
+      // tests (and nothing else) shorten the time one read may take, to stand in for a slow disk
+      ...(+process.env.MONTCLIP_EXPORT_CHECK_TIMEOUT_MS > 0 ? { timeoutMs: +process.env.MONTCLIP_EXPORT_CHECK_TIMEOUT_MS } : {}) });
     if (process.env.MONTCLIP_EXPORT_CHECK_LOG) console.log("[export-check] " + JSON.stringify(r));
     sess.quiet = r.quiet;   // pieces silent in their files too: a warning in the report (ExportCheck.withQuiet)
+    sess.unchecked = r.unchecked;   // pieces whose file took too long to read: the file is kept, with a warning
     return r.ok ? null : { code: ExportCheck.failCode(r), params: ExportCheck.failParams(r), error: ExportCheck.failText(r), check: r };
   } catch { return null; }   // a check that cannot run never fails an export
 }
@@ -1837,7 +1840,7 @@ async function handleRequest(req, res) {
             return { file, ok: false, error: blank.error, code: blank.code, params: blank.params };
           }
           if (blank) return { file, ok: false, src: "/exports/" + encodeURIComponent(file), error: blank.error, code: blank.code, ...(report ? { report } : {}) };
-          return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report: o.spec.audio.codec === "none" ? report : ExportCheck.withQuiet(report, sess.quiet) } : {}),
+          return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report: o.spec.audio.codec === "none" ? report : ExportCheck.withQuiet(report, sess.quiet, sess.unchecked) } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
         }));
         cleanupExport(id);
@@ -1858,7 +1861,9 @@ async function handleRequest(req, res) {
       cleanupExport(id);
       if (blank && blank.code === "EXPORT_AUDIO_FAILED") { try { fs.unlinkSync(out); } catch { } exportedThisRun.delete(path.basename(out)); freshExports.delete(path.basename(out)); }
       if (blank) throw Object.assign(new Error(`${path.basename(out)}: ${blank.error}`), { code: blank.code, params: blank.params });
-      sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
+      // a profile export has no delivery report: its warnings (a silent piece, one not checked in time) come on their own
+      const warned = ExportCheck.warningReport(sess.quiet, sess.unchecked);
+      sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)), ...(warned ? { report: warned } : {}) });
     } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e), ...(e && e.code ? { code: e.code } : {}), ...(e && e.params ? { params: e.params } : {}) }); }
     return;
   }

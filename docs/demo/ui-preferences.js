@@ -237,6 +237,12 @@
       "时间线 {time} 处的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。"],
     "export-clip-silent": ["Clip {n} (at {time} on the timeline) is silent. Please check that this is what you want.", "第 {n} 段（时间线 {time} 处）是无声的，请确认是不是你想要的。"],
     "export-clip-silent-track": ["The sound at {time} on the timeline is silent. Please check that this is what you want.", "时间线 {time} 处的声音是无声的，请确认是不是你想要的。"],
+    // DRAFT for JJ (Deja 2026-11-08, #231 follow-up): reading a piece's file back took too long (a slow disk, a 2-hour MP4
+    // written in fragments), so it could not be checked; the export is kept. Same numbers and times as above. 草稿，待 JJ 定稿.
+    "export-clip-unchecked": ["The sound of clip {n} (at {time} on the timeline) couldn't be fully checked this time. The export was made. Please listen to this part yourself.",
+      "第 {n} 段（时间线 {time} 处）的声音这次没能核对完，成片已经导出。请自己听一下这一段。"],
+    "export-clip-unchecked-track": ["The sound at {time} on the timeline couldn't be fully checked this time. The export was made. Please listen to this part yourself.",
+      "时间线 {time} 处的声音这次没能核对完，成片已经导出。请自己听一下这一段。"],
     "err-export-page-crashed": ["Something went wrong while exporting, so this export stopped and no file was made. The originals are unchanged. You can start the export again; if it happens again, use \"Copy problem details\" and send it to us.",
       "导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。可以直接重新导出；还是这样的话，点「复制问题信息」发给我们。"],
     // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
@@ -1443,7 +1449,7 @@
   Object.assign(FLV_REASONS, { FLV_PROBE_FAILED: "flvUnreadable", FLV_NOT_FLV: "flvUnreadable", FLV_NOT_FOUND: "flvUnreadable",
     FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
   /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
-  const ERROR_TEXT = { EXPORT_AUDIO_FAILED: "own.export-audio-failed", EXPORT_PAGE_CRASHED: "own.err-export-page-crashed", EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
+  const ERROR_TEXT = { EXPORT_AUDIO_FAILED: "own.export-audio-failed", EXPORT_CLIP_UNCHECKED: "own.export-clip-unchecked", EXPORT_PAGE_CRASHED: "own.err-export-page-crashed", EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
     NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
     EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
     extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed",
@@ -1475,7 +1481,7 @@
     // an export's own rows before the Settings sentences (h264Message): frameTooSmall says the smallest size it takes
     if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) {
       // a sound on its own has no number: JJ's -track sentence, by its time on the timeline (#231)
-      key = ERROR_TEXT[code] + (code === "EXPORT_AUDIO_FAILED" && (p.n == null || p.n === "") ? "-track" : "");
+      key = ERROR_TEXT[code] + ((code === "EXPORT_AUDIO_FAILED" || code === "EXPORT_CLIP_UNCHECKED") && (p.n == null || p.n === "") ? "-track" : "");
       s = fill(t[key], { n: String(p.n), time: String(p.time) });
     }
     if (!s && code) { s = h264Message(l, { code, params: e.params, featurePack: e.featurePack }); if (s) key = code; }
