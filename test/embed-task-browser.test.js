@@ -66,7 +66,7 @@ test("A/B in a real browser: two task editors on one engine and port, B's comman
   t.after(() => parent.close());
 
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-e2e-"));
-  const chrome = spawn(browser, ["--headless=new", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check",
+  const chrome = spawn(browser, ["--headless=new", "--disable-gpu", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check",
     "--disable-extensions", "--mute-audio", "--window-size=1900,700", `http://localhost:${parentPort}/`], { stdio: "ignore", windowsHide: true });
   t.after(() => { endTree(chrome); setTimeout(() => fs.rm(profile, { recursive: true, force: true }, () => { }), 1500); });
 
