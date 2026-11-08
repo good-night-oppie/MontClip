@@ -125,8 +125,10 @@ async function embedded(t) {
 }
 const call = (base, p, body, headers = {}) => fetch(base + p, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify(body) })
   .then(async (r) => ({ status: r.status, body: await r.json() }));
-/* an open editor tab, as far as the server can tell: an SSE subscriber (with the worker's header, as a frame has its cookie) */
-async function tab(t, base, headers) {
+/* an open editor tab, as far as the server can tell: an SSE subscriber (with the worker's header, as a frame has its cookie).
+   task {s, project, session}: embedded, the tab binds its connection to that task with a one-time ticket (E5b) — a
+   task's export ticket goes only to a connection bound to it. tickets.conn is the connection's id. */
+async function tab(t, base, headers, task = null) {
   const tickets = [];
   let buf = "";
   const req = http.get(base + "/api/events", { headers }, (res) => {
@@ -137,12 +139,17 @@ async function tab(t, base, headers) {
       while ((i = buf.indexOf("\n\n")) >= 0) {
         const block = buf.slice(0, i); buf = buf.slice(i + 2);
         if (/^event: export$/m.test(block)) tickets.push(JSON.parse(/^data: (.*)$/m.exec(block)[1]));
+        if (/^event: conn$/m.test(block)) tickets.conn = JSON.parse(/^data: (.*)$/m.exec(block)[1]).conn;
       }
     });
   });
   req.on("error", () => { });
   t.after(() => req.destroy());
   await new Promise((r) => setTimeout(r, 300));
+  if (task) {
+    const { ticket } = (await call(base, "/api/embed/ticket", { project: task.project, session: task.session }, task.s.worker)).body;
+    assert.equal((await call(base, "/api/embed/claim", { ticket, conn: tickets.conn }, task.s.page)).status, 200, "bound");
+  }
   return tickets;
 }
 async function projects(base, headers) {
@@ -155,7 +162,7 @@ test("embedded: the worker's request puts its session and the open project on th
   const s = await embedded(t);
   const { active } = await projects(s.base, s.worker);
   assert.ok(active, "a project is open");
-  const tickets = await tab(t, s.base, s.worker);
+  const tickets = await tab(t, s.base, s.worker, { s, project: active, session: "synthetic-task-A" });
   const r = await call(s.base, "/api/export/request", { where: "tab", session: "synthetic-task-A", project: active }, s.worker);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.deepEqual([r.body.project, r.body.session], [active, "synthetic-task-A"]);
@@ -186,7 +193,7 @@ test("embedded: a page (cookie) cannot name a task — body and URL session are 
 test("a project that is not the open one is refused with EXPORT_PROJECT_CHANGED before any job is queued", { skip }, async (t) => {
   const s = await embedded(t);
   const { active, other } = await projects(s.base, s.worker);
-  await tab(t, s.base, s.worker);
+  await tab(t, s.base, s.worker, { s, project: active, session: "synthetic-task-A" });
   const r = await call(s.base, "/api/export/request", { where: "tab", session: "synthetic-task-A", project: other }, s.worker);
   assert.equal(r.status, 409);
   assert.equal(r.body.code, "EXPORT_PROJECT_CHANGED");
@@ -198,10 +205,10 @@ test("a project that is not the open one is refused with EXPORT_PROJECT_CHANGED 
 test("opening another project mid-export ends the job with EXPORT_PROJECT_CHANGED, and the tab is told to stop", { skip }, async (t) => {
   const s = await embedded(t);
   const { active, other } = await projects(s.base, s.worker);
-  await tab(t, s.base, s.worker);
+  const own = await tab(t, s.base, s.worker, { s, project: active, session: "synthetic-task-A" });
   const r = await call(s.base, "/api/export/request", { where: "tab", session: "synthetic-task-A", project: active }, s.worker);
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal((await call(s.base, "/api/export/job/claim?id=" + r.body.id, { tabId: "tab1", hidden: false }, s.worker)).status, 200);
+  assert.equal((await call(s.base, "/api/export/job/claim?id=" + r.body.id, { tabId: "tab1", hidden: false, conn: own.conn }, s.worker)).status, 200);
   assert.equal((await call(s.base, "/api/projects", { action: "open", id: other }, s.worker)).status, 200);
   const reply = await call(s.base, "/api/export/job/report?id=" + r.body.id, { progress: 0.4, tabId: "tab1" }, s.worker);
   assert.deepEqual([reply.body.cancel, reply.body.code], [true, "EXPORT_PROJECT_CHANGED"]);

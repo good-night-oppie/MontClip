@@ -44,7 +44,9 @@ test("install: embedded only with ?host=cindy; ?theme= takes only light or dark"
   assert.deepEqual(plain.win.document.documentElement.dataset, {});
 
   const f = fakeWindow("?host=cindy&theme=light");
-  assert.deepEqual(Host.install(f.win), { embedded: true, host: "cindy" });
+  const installed = Host.install(f.win);
+  assert.deepEqual({ embedded: installed.embedded, host: installed.host }, { embedded: true, host: "cindy" });
+  assert.equal(typeof installed.taskConnected, "function", "embedded: the event stream hands its id in (MontClip-Cindy#18)");
   assert.deepEqual({ ...f.win.document.documentElement.dataset }, { host: "cindy", hostTheme: "light" });
 
   for (const bad of ["purple", "Light", "light%20dark", "dark,light", "", "%3Cscript%3E"]) {

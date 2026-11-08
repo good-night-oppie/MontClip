@@ -58,13 +58,15 @@
   function ticketMessage(data) {
     return data && typeof data === "object" && data.type === "montclip-host-ticket" && TICKET_RE.test(data.ticket || "") ? data.ticket : null;
   }
-  /** opts: {initial ticket or null, ask() → asks the framing page for a ticket, claim(ticket, conn)}.
-   *  → {connected(conn): a new event stream; ticket(t): a ticket from the framing page} */
-  function taskBinding({ initial = null, ask, claim }) {
-    let unused = initial, waiting = null;
+  /** opts: {initial ticket or null, ask() → asks the framing page for a ticket}.
+   *  → {connected(conn, claim): a new event stream, and how the page hands a ticket in (app.js: POST /api/embed/claim);
+   *     ticket(t): a ticket from the framing page} */
+  function taskBinding({ initial = null, ask }) {
+    let unused = initial, waiting = null, claim = null;
     return {
-      connected(conn) {
-        if (typeof conn !== "string" || !conn) return;
+      connected(conn, how) {
+        if (typeof conn !== "string" || !conn || typeof how !== "function") return;
+        claim = how;
         if (unused) { const t = unused; unused = null; waiting = null; claim(t, conn); return; }
         waiting = conn;
         ask();
@@ -95,9 +97,6 @@
     const binding = taskBinding({
       initial,
       ask: () => { if (origin) try { win.parent.postMessage({ type: "montclip-need-ticket" }, origin); } catch { } },
-      claim: (ticket, conn) => {
-        win.fetch("/api/embed/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket, conn }) }).catch(() => { });
-      },
     });
     win.addEventListener("message", (e) => {
       if (!fromParent(e, win, origin)) return;      // only the page that frames the editor

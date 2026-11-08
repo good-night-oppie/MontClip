@@ -2187,7 +2187,8 @@ function listenSSE() {
   // embedded in Cindy: this stream's own id, bound to the task by its one-time ticket (host-embed.js, MontClip-Cindy#18)
   es.addEventListener("conn", (e) => {
     try { runtime.sseConn = JSON.parse(e.data).conn; } catch { return; }
-    if (typeof MontClipHost !== "undefined") MontClipHost.taskConnected(runtime.sseConn);
+    if (typeof MontClipHost !== "undefined") MontClipHost.taskConnected(runtime.sseConn, (ticket, conn) =>
+      fetch("/api/embed/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket, conn }) }).catch(() => { }));
   });
   es.addEventListener("versions", (e) => {
     let d = {};

@@ -52,11 +52,12 @@ test("forged, wrong-length and another engine's tickets bind nothing", () => {
 
 test("the page uses the ticket in its first address once; after a reconnect it asks its parent for a new one", () => {
   const claims = [], asks = [];
-  const b = Host.taskBinding({ initial: "a".repeat(64), ask: () => asks.push(1), claim: (t, c) => claims.push([t, c]) });
+  const b = Host.taskBinding({ initial: "a".repeat(64), ask: () => asks.push(1) });
+  const how = (t, c) => claims.push([t, c]);
   b.ticket("c".repeat(64));                           // nobody asked: not kept for later
-  b.connected("conn1");
+  b.connected("conn1", how);
   assert.deepEqual(claims, [["a".repeat(64), "conn1"]]);
-  b.connected("conn2");                               // the stream reconnected: the old ticket is never sent again
+  b.connected("conn2", how);                          // the stream reconnected: the old ticket is never sent again
   assert.equal(asks.length, 1);
   assert.equal(claims.length, 1);
   b.ticket("b".repeat(64));
@@ -77,8 +78,8 @@ function fakeWindow(search) {
     history: { state: null, replaceState: (s, _t, u) => { replaced.push(u); win.location.search = u.slice(1); } },
     document: { documentElement: { dataset: {} }, referrer: "" },
     addEventListener: (type, fn) => { if (type === "message") listeners.push(fn); },
-    fetch: (url, opts) => { fetched.push([url, JSON.parse(opts.body)]); return Promise.resolve({}); },
   };
+  win.claim = (ticket, conn) => fetched.push(["/api/embed/claim", { ticket, conn }]);   // what app.js does
   return win;
 }
 test("the ticket leaves the address at once; a ticket message counts only from the framing page's window and origin", () => {
@@ -87,9 +88,9 @@ test("the ticket leaves the address at once; a ticket message counts only from t
   const api = Host.install(win);
   assert.equal(api.embedded, true);
   assert.deepEqual(win.replaced, ["/?host=cindy&theme=light"], "no ticket left in the address");
-  api.taskConnected("conn1");
+  api.taskConnected("conn1", win.claim);
   assert.deepEqual(win.fetched, [["/api/embed/claim", { ticket: t1, conn: "conn1" }]]);
-  api.taskConnected("conn2");
+  api.taskConnected("conn2", win.claim);
   assert.deepEqual(win.posted, [[{ type: "montclip-need-ticket" }, "cindy-ghost://montclip"]], "asks only its parent's origin");
   const send = (e) => win.listeners.forEach((fn) => fn(e));
   send({ source: {}, origin: "cindy-ghost://montclip", data: { type: "montclip-host-ticket", ticket: hex() } });          // another window
