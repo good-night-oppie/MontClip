@@ -78,7 +78,8 @@ for (const c of CODES) Object.defineProperty(SAY, c, { enumerable: true, get: ()
 const PATH_BOUNDARY = String.raw`(?<![\w.:/\\…])`;
 const WINDOWS_ROOT = String.raw`(?:file:[\\/]+[a-z]:[\\/]|file:[\\/]{2}(?![\\/])[^\\/\s]+[\\/]|[\\/]{2}\?[\\/](?:UNC[\\/]|[a-z]:[\\/])|[a-z]:[\\/]|[\\/]{2}(?=[^\\/\s]))`;
 const POSIX_ROOT = String.raw`(?:file:/+|~[\\/]|/(?=[^\s/]))`;
-const PATH_COMPONENT = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：](?:[^\\/'"\x60\r\n,;:()<>\[\]{}。，；！？：]*[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：])?[\\/]`;
+// A word-internal apostrophe belongs to a directory (O'Brien); a closing quote before prose does not.
+const PATH_COMPONENT = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：](?:(?:[^\\/'"\x60\r\n,;:()<>\[\]{}。，；！？：]|'(?=[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：]))*[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：])?[\\/]`;
 const PATH_END = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。，；！？：]*`;
 // Only Windows roots admit spaces inside directories; POSIX whitespace starts ordinary message text.
 const PATHS = new RegExp(PATH_BOUNDARY + '(?:' + WINDOWS_ROOT + '(?:' + PATH_COMPONENT + ')*' + PATH_END

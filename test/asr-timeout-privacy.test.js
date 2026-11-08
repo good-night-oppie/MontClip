@@ -43,7 +43,7 @@ for(const partial of [false,true]) test('MCP timeout privacy and direct/bounded 
   const raw=await mcp.callTool('fablecut_transcribe',input);
   const receipt=JSON.parse((await mcp.callTool('fablecut_transcribe',{...input,wait_ms:5000})).text);
   a.equal(raw.text,'Error: '+receipt.error,p);
-  a.doesNotMatch(JSON.stringify({raw,receipt}),/someone|Some One|Some%20One|server|share/i,p);
+  a.doesNotMatch(JSON.stringify({raw,receipt}),/someone|Some One|Some%20One|O'Brien|server|share/i,p);
   a.match(receipt.error,/could not open '…\/x.json' \(EACCES\)/);
   a.deepEqual(receipt.saved,bounded.saved);
  }

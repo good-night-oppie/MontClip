@@ -3,6 +3,17 @@
 const test=require('node:test'), a=require('node:assert/strict');
 const {hidePaths}=require('../asr-status');
 const paths=require('./fixtures/private-paths.cjs');
+test('directory apostrophes do not consume closing quotes or following prose',()=>{
+ const samples=[
+  ["open 'C:/Users/O'Brien/x.json' failed (E:/other/y.bin)","open '…/x.json' failed (…/y.bin)"],
+  ["'C:/a/b' and 'D:/c/d'","'…/b' and '…/d'"],
+  ["open 'C:/Users/O'Brien/x.json' then relative/path","open '…/x.json' then relative/path"],
+  ["无法打开C:/Users/O'Brien/x.json，后续中文 a/b 不被吞。","无法打开…/x.json，后续中文 a/b 不被吞。"]
+ ];
+ for(const [raw,expected] of samples){
+  const out=hidePaths(raw);a.equal(out,expected);a.equal(hidePaths(out),out);
+ }
+});
 for(const [i,p] of paths.entries()) test('hidePaths private and idempotent variant '+i,()=>{
  for(const wrap of [s=>'open '+s+' failed',s=>"open '"+s+"' failed",s=>'open "'+s+'" failed',s=>'open ('+s+') failed',s=>'无法打开'+s+'。']){
   const raw=wrap(p),out=hidePaths(raw);

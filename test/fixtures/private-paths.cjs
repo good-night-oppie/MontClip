@@ -14,5 +14,6 @@ module.exports = [
   "~/someone/x.json",
   "file:///home/someone/x.json",
   "file:///C:/Users/Some%20One/x.json",
-  "file://server/share/someone/x.json"
+  "file://server/share/someone/x.json",
+  "C:\\Users\\O'Brien\\x.json"
 ];
