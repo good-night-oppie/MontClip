@@ -62,6 +62,7 @@ function findBrowser(env = process.env) {
 /** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
  *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one,
  *  now() → the clock (tests),
+ *  activeProject() → the open project's id: a job asked for one project ends when another is open (EXPORT_PROJECT_CHANGED),
  *  onEnd(job) → a job ended without its file (failed or cancelled): stop what it left running,
  *  finished(src) → is the file an export job says it made really in place (renamed from .part)?} */
 function createExportJobs(opts) {
@@ -76,7 +77,7 @@ function createExportJobs(opts) {
   let timer = null;
   const isEnded = (j) => j.status === "done" || j.status === "failed" || j.status === "cancelled";
   const view = (j) => ({
-    id: j.id, kind: j.kind, status: j.status, via: j.via, range: j.range, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
+    id: j.id, project: j.project, session: j.session, kind: j.kind, status: j.status, via: j.via, range: j.range, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
     time: j.time ?? null, progress: j.progress, src: j.src || null, result: j.result || null, error: j.error || null,
     code: j.errorCode || null, created: j.created, updated: j.updated,
   });
@@ -100,10 +101,15 @@ function createExportJobs(opts) {
     closeBrowser(j);
     if (status !== "done" && opts.onEnd) { try { opts.onEnd(view(j)); } catch {} }
   }
+  /* E5a (MontClip#215): a job knows the project it renders. When another one is open — opened by another task, the
+     dashboard or an agent — whatever the tab renders now is not that project, so the job ends instead of finishing. */
+  const projectChanged = (j) => !!j.project && !isEnded(j) && typeof opts.activeProject === "function" && opts.activeProject() !== j.project;
+  const endProjectChanged = (j) => end(j, "failed", { errorCode: "EXPORT_PROJECT_CHANGED", error: "The export project changed." });
   function sweep() {
     const now = clock();
     for (const j of jobs.values()) {
-      if (j.status === "pending" && now - j.created > (j.via === "headless" ? PENDING_HEADLESS_MS : PENDING_TAB_MS))
+      if (projectChanged(j)) endProjectChanged(j);
+      else if (j.status === "pending" && now - j.created > (j.via === "headless" ? PENDING_HEADLESS_MS : PENDING_TAB_MS))
         end(j, "failed", j.via !== "headless" && opts.allowHeadless === false
           ? { error: "The editor did not accept the task; retry when it is ready.", errorCode: "EDITOR_DID_NOT_ACCEPT" }
           : { error: j.via === "headless"
@@ -157,7 +163,7 @@ function createExportJobs(opts) {
      *  when she agrees (fablecut_lyrics_apply) — always in an open tab: a headless page has no one to ask.
      *  A scopes job's `image` flag also returns that still as a JPEG data URL,
      *  which is how fablecut_frame shows an agent the composed program picture. */
-    request({ kind = "export", range, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
+    request({ project = null, session = null, kind = "export", range, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
       if (!["auto", "tab", "headless"].includes(where)) throw Object.assign(new Error("where must be auto, tab or headless"), { code: 400 });
       assertWhere(where);
       if (!["export", "scopes", "track", "transcribe", "lyrics"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track, transcribe or lyrics"), { code: 400 });
@@ -176,7 +182,7 @@ function createExportJobs(opts) {
       if (where === "tab" && !tabs) throw Object.assign(new Error("no editor tab is open — open the editor, or use where:\"headless\""), { code: 409 });
       const now = clock();
       const j = {
-        id: "x_" + Math.random().toString(36).slice(2, 10), kind, status: "pending", progress: 0,
+        id: "x_" + Math.random().toString(36).slice(2, 10), project: project || null, session: session || null, kind, status: "pending", progress: 0,
         range: range || null, profile: profile || null, delivery: kind === "export" && delivery ? delivery : null,
         deliveries: kind === "export" && Array.isArray(deliveries) && deliveries.length ? deliveries : null, time: time ?? null, revision: Number.isFinite(revision) ? revision : null,
         matte: kind === "scopes" && matte ? { clip: String(matte.clip), layer: matte.layer } : null,
@@ -196,10 +202,11 @@ function createExportJobs(opts) {
     },
     get(id) { const j = jobs.get(id); return j ? view(j) : null; },
     /** What a tab needs to run the job (headless pages fetch it by id). */
-    ticket(id) { const j = jobs.get(id); return j ? { id: j.id, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, lyrics: j.lyrics || null, image: !!j.image, status: j.status } : null; },
+    ticket(id) { const j = jobs.get(id); return j ? { id: j.id, project: j.project, session: j.session, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, lyrics: j.lyrics || null, image: !!j.image, status: j.status } : null; },
     /** First tab to claim a pending job runs it. */
     claim(id, { tabId, hidden } = {}) {
       const j = jobs.get(id);
+      if (j && projectChanged(j)) endProjectChanged(j);
       if (!j || j.status !== "pending") return false;
       j.status = "running"; j.updated = clock();
       j.tabId = typeof tabId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(tabId) ? tabId : null;
@@ -210,6 +217,7 @@ function createExportJobs(opts) {
     report(id, { progress, status, src, result, error, code, at, tabId, hidden } = {}) {
       const j = jobs.get(id);
       if (!j) return null;
+      if (projectChanged(j)) endProjectChanged(j);
       // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken.
       // Ended by the queue, it is also told why, so it can say so to whoever is at it (app.js jobProblem).
       if (j.status === "failed" && j.errorCode) return { cancel: true, code: j.errorCode, error: j.error };

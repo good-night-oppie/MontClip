@@ -54,7 +54,9 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
     for (const id of sessions) if (sameSecret(value, id)) return id;
     return null;
   }
-  const authorized = (req) => sameSecret(req.headers["x-montclip-session"], token) || cookieSession(req) !== null;
+  /** The plugin worker (or mcp-server.js) itself: the token as X-MontClip-Session. A page has only its cookie. */
+  const worker = (req) => sameSecret(req.headers["x-montclip-session"], token);
+  const authorized = (req) => worker(req) || cookieSession(req) !== null;
   /** End one cookie session: its cookie gets 403 from now on. True when it was live. */
   const revoke = (id) => sessions.delete(id);
 
@@ -101,7 +103,7 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
     return true;
   }
 
-  return { authorized, bootstrap, launchTicket, cookieSession, revoke };
+  return { authorized, worker, bootstrap, launchTicket, cookieSession, revoke };
 }
 
 module.exports = { COOKIE, COOKIE_ATTRS, MAX_SESSIONS, TOKEN_RE, sameSecret, cookieValue, createEmbed };

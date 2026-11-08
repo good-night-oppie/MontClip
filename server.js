@@ -899,6 +899,7 @@ const exportJobs = createExportJobs({
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
   editors: () => sseClients.size,
+  activeProject: () => projects.peekActive(),
   editorConnected: (id) => [...sseClients].some((res) => res.montclipTabId === id),
   // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
   // 10-minute idle sweep, while a retry was already writing the next file (P11, europa 2026-11-05)
@@ -1519,6 +1520,20 @@ async function handleRequest(req, res) {
   if (p === "/api/export/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      /* E5a (MontClip#215): the job names the open project and the Cindy task that asked. The task is taken only from
+         the plugin worker's own request (X-MontClip-Session); a page's body or URL never names one (MontClip-Cindy#18).
+         A caller that names another project, or a switch before the job is queued, is EXPORT_PROJECT_CHANGED. */
+      const session = embed && embed.worker(req) && opts.session != null ? opts.session : null;
+      if (session !== null && (typeof session !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(session))) {
+        sendJSON(res, 400, { error: "session must be the task's id (letters, digits, _ and -, at most 128)" }); return;
+      }
+      if (opts.project != null && typeof opts.project !== "string") { sendJSON(res, 400, { error: "project must be a project id" }); return; }
+      const exportProject = projects.peekActive();
+      const checkProject = () => {
+        if ((opts.project && opts.project !== exportProject) || projects.peekActive() !== exportProject)
+          throw Object.assign(new Error("The export project changed."), { code: 409, errorCode: "EXPORT_PROJECT_CHANGED" });
+      };
+      checkProject();
       exportJobs.assertWhere(opts.where);
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
@@ -1552,7 +1567,8 @@ async function handleRequest(req, res) {
       }
       let revision = null;
       try { revision = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).revision ?? null; } catch {}
-      const job = exportJobs.request({ range: opts.range, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
+      checkProject();
+      const job = exportJobs.request({ project: exportProject, session, range: opts.range, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
       sendJSON(res, 200, deliveries ? { ...job, delivery: `${deliveries.length} outputs from one render`, notes: outNotes }
         : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
     } catch (e) {

@@ -21623,6 +21623,9 @@ async function runClaimedJob(ticket) {
   for (let i = 0; i < 150 && ticket.revision != null && (project.revision || 0) < ticket.revision; i++)
     await new Promise((r) => setTimeout(r, 100));
   if (ticket.revision != null && (project.revision || 0) < ticket.revision) await syncFromServer();
+  // a job for another project than this tab shows (another task opened its own meanwhile) is not rendered from this one
+  if (ticket.project && runtime.projectId && ticket.project !== runtime.projectId)
+    return reportExportJob(ticket.id, { status: "failed", error: "The export project changed.", code: "EXPORT_PROJECT_CHANGED" }, true);
   if (ticket.kind === "scopes") return runScopesJob(ticket, fail);
   if (ticket.kind === "track") return runTrackJob(ticket, fail);
   if (ticket.kind === "transcribe") return runTranscribeJob(ticket, fail);

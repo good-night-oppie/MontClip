@@ -2589,6 +2589,13 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   (first tab wins, else 409), `POST /api/export/job/report?id=`
   `{progress} | {status:"done", src} | {status:"failed", error}` → `{cancel}`; an empty
   report `{}` is the tab's heartbeat, sent every 5 s while it runs a job.
+- **Which project and task** (MontClip#215 E5a): an export job, its ticket and `GET /api/export/job` carry
+  `project` (the project open when it was asked for) and `session` (the Cindy task that asked, else `null`). `session`
+  is taken only from the plugin worker's own request (`X-MontClip-Session`, embedded in Cindy); a page's body or URL
+  never names a task, and without `MONTCLIP_HOST=cindy` it is always `null`. A request naming another `project` than
+  the open one is refused **409** `EXPORT_PROJECT_CHANGED`; when another project is opened while the job waits or runs,
+  it ends `failed` with that code, the tab is told to stop, and a late `done` is not taken. How an editor tab proves
+  its own task (`/api/ui/command`, SSE) is not decided yet (MontClip-Cindy#18).
 - **One job at a time** on that queue: exports, scope readings (`/api/scopes/request`,
   `fablecut_scopes`, `fablecut_frame {time}`), tracking and transcription. While one is
   unfinished every request answers **409** `{code:"JOB_BUSY", busy:{id, kind, status, via,
