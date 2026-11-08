@@ -2187,8 +2187,10 @@ function listenSSE() {
   // embedded in Cindy: this stream's own id, bound to the task by its one-time ticket (host-embed.js, MontClip-Cindy#18)
   es.addEventListener("conn", (e) => {
     try { runtime.sseConn = JSON.parse(e.data).conn; } catch { return; }
+    // the claim's answer names the task's channel to the side panel (startHostChannel)
     if (typeof MontClipHost !== "undefined") MontClipHost.taskConnected(runtime.sseConn, (ticket, conn) =>
-      fetch("/api/embed/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket, conn }) }).catch(() => { }));
+      fetch("/api/embed/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket, conn }) })
+        .then((r) => (r.ok ? r.json() : null)).then((bound) => { if (bound) startHostChannel(bound.channel); }).catch(() => { }));
   });
   es.addEventListener("versions", (e) => {
     let d = {};
@@ -5210,6 +5212,42 @@ async function restoreUndoStack() {
   }
   if (stack.time > 0) setTime(Math.min(stack.time, projDur()));
   return true;
+}
+/* Inside Cindy the plugin's side panel (文稿, 属性) is another page of this origin: this tab tells it where the playhead
+   is and what is selected, and takes its seeks, over BroadcastChannel("montclip-editor:<channel>"). Every page of the
+   origin shares channel names and one engine serves every task, so the name carries the task's channel, which only
+   the claim answer gives (MontClip#215 E3, QQ issuecomment-6726997672); without one there is no channel at all.
+   Messages carry no project, session or ticket:
+   editor → {type:"editor-state", time, playing, selId, revision} (on a change, and at least once a second);
+   panel → {type:"seek", t} | {type:"hello"}; anything else is dropped. */
+function startHostChannel(channel) {
+  if (typeof BroadcastChannel !== "function" || typeof channel !== "string" || !/^[a-f0-9]{32}$/.test(channel)) return;
+  const name = "montclip-editor:" + channel;
+  if (runtime.hostChannel) {
+    if (runtime.hostChannel.name === name) return;   // the stream reconnected to the same task
+    runtime.hostChannel.close();
+    clearInterval(runtime.hostChannelBeat);
+  }
+  const ch = runtime.hostChannel = new BroadcastChannel(name);
+  let last = "";
+  const post = (force) => {
+    const msg = { type: "editor-state", time: Math.round(state.time * 100) / 100, playing: !!state.playing, selId: state.selId ?? null,
+      revision: project.revision ?? null };
+    const key = JSON.stringify(msg);
+    if (force || key !== last) { last = key; ch.postMessage(msg); }
+  };
+  const only = (m, keys) => Object.keys(m).every((k) => keys.includes(k));
+  ch.onmessage = (e) => {
+    const m = e.data;
+    if (!m || typeof m !== "object" || Array.isArray(m)) return;
+    if (m.type === "seek" && only(m, ["type", "t"]) && typeof m.t === "number" && Number.isFinite(m.t) && m.t >= 0) {
+      setTime(Math.min(m.t, projDur())); post(true);
+    } else if (m.type === "hello" && only(m, ["type"])) post(true);
+  };
+  // a change goes out at once; with nothing changing, once a second anyway, so the panel knows the editor is still open
+  let beat = 0;
+  runtime.hostChannelBeat = setInterval(() => { beat = (beat + 1) % 4; post(beat === 0); }, 250);
+  post(true);
 }
 /* the page is going away (Cindy switching tasks, a reload): keep where the playhead was (connectServer listens) */
 function keepPlayheadOnLeave() {

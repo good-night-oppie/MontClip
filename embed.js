@@ -14,6 +14,12 @@
    that one connection to the task (redeemTask). The binding lives only in memory and ends with the connection; a
    page that reconnects needs a new ticket from its parent page. The cookie stays the first gate only.
 
+   The plugin's side panel and a task's editor talk over a BroadcastChannel (app.js startHostChannel), which every page
+   of this origin shares, so its name carries the task's channel (MontClip#215 E3, QQ issuecomment-6726997672): an
+   HMAC-SHA256 of project + "\0" + session under a key drawn when this engine starts (never the token, never written
+   down), cut to 128 bits. A page gets it only by trading a task ticket: the editor with its claim, the panel with
+   redeemChannel, which binds nothing.
+
    The token never goes into a Location, a log line or an error message, and every answer says
    Referrer-Policy: no-referrer, so the address it arrived in is not passed on. The headless browser an export
    starts gets a one-time ticket in its URL instead of the token: the token stays off the command line. */
@@ -58,6 +64,7 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
   const tickets = new Map();                        // one-time ticket → expiry (ms)
   const sessions = new Set();                       // live cookie sessions, oldest first
   const taskTickets = new Map();                    // task ticket → {project, session, exp}, oldest first
+  const channelKey = crypto.randomBytes(32);        // this engine's own: a restart gives every task a new channel
 
   /** The live cookie session a request carries, or null. Only a value this server handed out counts. */
   function cookieSession(req) {
@@ -101,6 +108,15 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
     }
     return null;
   }
+  /** The BroadcastChannel suffix of a task: 32 hex, the same for its editor and its panel, unguessable for others. */
+  function channelFor({ project, session }) {
+    return crypto.createHmac("sha256", channelKey).update(String(project) + "\0" + String(session)).digest("hex").slice(0, 32);
+  }
+  /** The panel's way to its task's channel: a task ticket, used up; null for anything redeemTask refuses. */
+  function redeemChannel(value) {
+    const task = redeemTask(value);
+    return task ? channelFor(task) : null;
+  }
   function redeem(value) {
     if (sameSecret(value, token)) return true;
     const t = now();
@@ -136,7 +152,7 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
     return true;
   }
 
-  return { authorized, worker, taskTicket, redeemTask, bootstrap, launchTicket, cookieSession, revoke };
+  return { authorized, worker, taskTicket, redeemTask, channelFor, redeemChannel, bootstrap, launchTicket, cookieSession, revoke };
 }
 
 module.exports = { COOKIE, COOKIE_ATTRS, MAX_SESSIONS, TOKEN_RE, TASK_TICKET_MS, TASK_ID_RE, sameSecret, cookieValue, createEmbed };
