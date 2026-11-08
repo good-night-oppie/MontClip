@@ -16,6 +16,8 @@ jobs:
   test:
     name: Tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    # A hung test file used to hold the job for GitHub's 6 hours; a normal run takes under 6 minutes.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -62,6 +64,8 @@ jobs:
     # run here against the bundled win32 build. MontClip is Windows-first.
     name: Tests (Windows, Node 22)
     runs-on: windows-latest
+    # The slowest successful run of 161 took 6.8 minutes; two hung runs (2026-11-07) sat silent for 40 and 58.
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
@@ -86,8 +90,11 @@ jobs:
           node desktop/fetch-ffmpeg.cjs --platform win32-x64 --cache-dir .cache/ffmpeg
 
       - name: Run the test suite (skips listed)
+        # --test-timeout: a test that hangs fails by its own name instead of silencing the whole job (the spec output
+        # comes out file by file, so one stuck file hides every result after it). 5 minutes: the slowest test here
+        # takes about 100 s (flv-packet-scan's fixture table); tests with their own timeout keep it.
         run: |
-          node --test --test-reporter=tap --test-reporter-destination=windows.tap --test-reporter=spec --test-reporter-destination=stdout
+          node --test --test-timeout=300000 --test-reporter=tap --test-reporter-destination=windows.tap --test-reporter=spec --test-reporter-destination=stdout
           echo "skipped:"; grep '# SKIP' windows.tap | sed 's/.*# SKIP//' | sort | uniq -c || true
 
   check:
