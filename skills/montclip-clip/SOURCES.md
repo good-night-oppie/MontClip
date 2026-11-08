@@ -120,7 +120,7 @@
 
 **本轮新增证据（以下行号以 MontClip main `38f77fcc` 为准）**：
 - #231 后续：核对超时改警告、profile 导出带提醒、失败任务记代码（#238，合并提交 `c8386fb9`，含 `df53a03d` / `d060a728` / `2c43528f` / `93361c3f` / `72699643`；#245 补端到端分支测试，合并提交 `38f77fcc`）：`export-check.js` 的 `soundRead` 把「读超时」单独报（`timedOut`），超时不再算读不出或无声——核对读某段文件超过默认 20 秒（`TIMEOUT_MS`，碎片化的长 MP4 冷盘开文件就要二十几秒）时文件保留，报告里加 `EXPORT_CLIP_UNCHECKED` 警告；`withQuiet` / `warningReport` 让「文件里本来无声」和「没来得及核对」都成为报告里的警告，profile 导出（无 delivery 报告）也通过 `end.report` 带上这些警告，`app.js` 的 `fastExport` 把警告写进任务结果 / 保存提示。`export-jobs.js` 的 `report()` 把失败页带的原因代码（`EXPORT_AUDIO_FAILED`、`EXPORT_NO_H264` 等）存进任务记录，`mcp-server.js` 的 `describeExportJob` 在失败时输出 `code`。`export-jobs.js` 里 Linux 下给导出页设 `oom_score_adj 1000` 的那行被删（`d060a728`：europa 上 Chrome 启动时按进程类型自己设 0/200/300，1000 撑不到一秒，和 main 一样；skill 不再引用这行）。
-- JJ 定稿文案（#238，`ui-preferences.js` 第 237–243、1450、1482–1483、1508–1519 行）：`export-clip-unchecked` / `-track`（「第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。」）；`WHAT_TEXT` 的状态行是「有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。」，「复制问题信息」也复制这行。
+- JJ 定稿文案（#238，按 main `38f77fcc` 的 `ui-preferences.js` 第 243–246、1453、1483–1485、1523–1524 行）：`export-clip-unchecked` / `-track`（「第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。」）；`WHAT_TEXT` 的状态行是「有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。」，「复制问题信息」也复制这行。
 - `MONTCLIP_EXPORT_CHECK_TIMEOUT_MS`（仅测试，`CLAUDE.md` 第 220–226 行、`server.js` 第 689–694 行）缩短单段核对读盘的限时，代替慢盘；默认 20000 ms。这是测试钩子，不是 skill 的操作项。
 
 **界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里，本轮新增两条定稿）：
@@ -152,7 +152,7 @@
 | 「导出画面」 | `ef-title`，第 1036 行 |
 | 「找回录像」「找到它…」「先找回来…」「照样导出」 | `rl-title`、`off-find-it`、`off-find-first`、`off-export-anyway`，第 96–148 行 |
 | 「导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。」 | `err-export-page-crashed`（#231 定稿） |
-| 「第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。」 | `export-clip-unchecked` / `-track`（#238 定稿，第 237–243 行） |
+| 「第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。」 | `export-clip-unchecked` / `-track`（#238 定稿，main `38f77fcc` 第 243–246 行） |
 | 「导出单帧」「导出队列」「轨道锁」「属性面板 → 蒙版」「新建序列…」「查找词」「添加字幕」「文稿」 | `ui-terms.js` |
 | 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 585、628、632 行，对应 `help-4`、`help-27`、`help-31` |
 
