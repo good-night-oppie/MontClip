@@ -125,7 +125,7 @@ async function engine(t) {
   const boot = await fetch(base + "/?token=" + token, { redirect: "manual" });
   const page = { Cookie: boot.headers.get("set-cookie").split(";")[0] };
   const project = (await call(base, "/api/projects", undefined, worker)).body.active;
-  return { base, worker, page, project, out: () => out };
+  return { base, worker, page, project, token, out: () => out };
 }
 const call = (base, p, body, headers = {}) => fetch(base + p, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify(body) })
   .then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }));
@@ -252,4 +252,21 @@ test("the ticket stays out of logs, error text and Referer: no-referrer on every
   }
   assert.ok(JSON.stringify(toolError({ error: body })).includes('"conn'), "the rest of the message stays readable");
   assert.ok(JSON.stringify(toolError({ error: msg })).includes("theme=dark"), "and the rest of the address too");
+});
+
+test("a first address with both the launch token and a ticket: the 302 keeps the ticket, drops the token, and the ticket still binds", async (t) => {
+  // QQ, #251: the ticket in this Location stays within the frame's one first navigation; the bootstrap must not use it up
+  const s = await engine(t);
+  const ticket = await ticketFor(s, "A");
+  const r = await fetch(s.base + "/?token=" + s.token + "&host=cindy&ticket=" + ticket, { redirect: "manual" });
+  assert.equal(r.status, 302);
+  const location = r.headers.get("location");
+  assert.ok(!location.includes(s.token), "no launch token in the Location");
+  assert.equal(new URL(location, s.base).searchParams.get("ticket"), ticket, "the ticket goes on with the same navigation");
+  assert.equal(r.headers.get("cache-control"), "no-store");
+  assert.equal(r.headers.get("referrer-policy"), "no-referrer");
+  const page = { Cookie: r.headers.get("set-cookie").split(";")[0] };
+  const ed = await editor(t, { ...s, page });
+  assert.equal((await claim({ ...s, page }, ticket, ed.conn)).status, 200, "the bootstrap did not use the ticket up");
+  assert.equal((await command(s, { cmd: "state", session: "A" })).status, 200);
 });
