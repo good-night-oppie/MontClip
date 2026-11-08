@@ -59,7 +59,9 @@ function findBrowser(env = process.env) {
    makes it the likelier one to be killed, but that is Chrome's default, not ours, and nobody has run a machine out of
    memory to see which one goes. What MontClip does do: a page that dies ends its job (EXPORT_PAGE_CRASHED, below). */
 
-/** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
+/** opts: {url(id) → page to open headless, broadcast(event, data, task), editors(task) → open tab count (task: a job's
+ *  {project, session} when it names a Cindy task, else null — only the editor connections bound to that task count and
+ *  get its ticket), claimAllowed(job, body) → may this tab claim it (a task's job: only its own connection),
  *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one,
  *  now() → the clock (tests),
  *  activeProject() → the open project's id: a job asked for one project ends when another is open (EXPORT_PROJECT_CHANGED),
@@ -177,7 +179,8 @@ function createExportJobs(opts) {
         `fablecut_export {cancel:"${busy.id}"} (POST /api/export/job/cancel?id=${busy.id})` +
         (busy.via === "tab" ? `. A silent job whose editor is hidden or disconnected ends after ${TAB_SILENT_MS / 1000} s` : "")),
       { code: 409, errorCode: "JOB_BUSY", busy: { id: busy.id, kind: busy.kind, status: busy.status, via: busy.via, progress: busy.progress, since: busy.created } });
-      const tabs = opts.editors();
+      const task = session ? { project: project || null, session } : null;
+      const tabs = opts.editors(task);
       if (kind === "lyrics" && !tabs) throw Object.assign(new Error("no editor window is open — the lyrics card needs one: open the editor, then try again"), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (where === "tab" && !tabs) throw Object.assign(new Error("no editor tab is open — open the editor, or use where:\"headless\""), { code: 409 });
       const now = clock();
@@ -196,7 +199,7 @@ function createExportJobs(opts) {
       };
       if (j.via === "headless") launch(j);
       jobs.set(j.id, j);
-      if (j.via === "tab") opts.broadcast("export", JSON.stringify(this.ticket(j.id)));
+      if (j.via === "tab") opts.broadcast("export", JSON.stringify(this.ticket(j.id)), task);
       if (!timer) { timer = setInterval(sweep, 1000); timer.unref?.(); }
       return view(j);
     },
@@ -204,10 +207,12 @@ function createExportJobs(opts) {
     /** What a tab needs to run the job (headless pages fetch it by id). */
     ticket(id) { const j = jobs.get(id); return j ? { id: j.id, project: j.project, session: j.session, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, lyrics: j.lyrics || null, image: !!j.image, status: j.status } : null; },
     /** First tab to claim a pending job runs it. */
-    claim(id, { tabId, hidden } = {}) {
+    claim(id, body = {}) {
+      const { tabId, hidden } = body;
       const j = jobs.get(id);
       if (j && projectChanged(j)) endProjectChanged(j);
       if (!j || j.status !== "pending") return false;
+      if (opts.claimAllowed && !opts.claimAllowed(view(j), body)) return false;
       j.status = "running"; j.updated = clock();
       j.tabId = typeof tabId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(tabId) ? tabId : null;
       j.hidden = typeof hidden === "boolean" ? hidden : null;

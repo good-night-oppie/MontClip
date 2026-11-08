@@ -7,6 +7,13 @@
    The cookie is not the token: each page load that trades the token gets its own random cookie session, which the
    server remembers and can end (revoke) on its own — what a later layer binds a Cindy task to (MontClip-Cindy #18).
 
+   Which Cindy task an editor page belongs to (MontClip-Cindy#18, QQ issuecomment-6723202388, option ①) is not in the
+   cookie: one Cindy page frames every task's editor and they all share one cookie jar. The worker registers a task
+   ticket for {project, session} (taskTicket: 256 random bits, one use, at most 60 s); the frame's first load carries
+   it once (?ticket=), the page hands it in together with the id of its own event stream (SSE), and the server binds
+   that one connection to the task (redeemTask). The binding lives only in memory and ends with the connection; a
+   page that reconnects needs a new ticket from its parent page. The cookie stays the first gate only.
+
    The token never goes into a Location, a log line or an error message, and every answer says
    Referrer-Policy: no-referrer, so the address it arrived in is not passed on. The headless browser an export
    starts gets a one-time ticket in its URL instead of the token: the token stays off the command line. */
@@ -16,6 +23,9 @@ const crypto = require("crypto");
 const COOKIE = "montclip_embed";
 const TOKEN_RE = /^[a-f0-9]{64}$/;
 const TICKET_MS = 60_000;
+const TASK_TICKET_MS = 60_000;                       // a task ticket (QQ: at most 60 s)
+const MAX_TASK_TICKETS = 64;                         // the oldest unused one is dropped when a 65th is registered
+const TASK_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;         // a Cindy session or a project id
 const MAX_SESSIONS = 64;                            // the oldest cookie session ends when a 65th is handed out
 /* The cookie's attributes, decided by QQ on PR #198 (issuecomment-6698706427; ADR 2026-11-06-embed-cookie-samesite):
    the editor frame is cross-site to its Cindy page (cindy-ghost://<plugin>/… frames http://127.0.0.1:<port>/), and a
@@ -47,6 +57,7 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
   if (!TOKEN_RE.test(token || "")) throw new Error("Embedding in Cindy requires a fresh 64-hex session token (MONTCLIP_EMBED_TOKEN)");
   const tickets = new Map();                        // one-time ticket → expiry (ms)
   const sessions = new Set();                       // live cookie sessions, oldest first
+  const taskTickets = new Map();                    // task ticket → {project, session, exp}, oldest first
 
   /** The live cookie session a request carries, or null. Only a value this server handed out counts. */
   function cookieSession(req) {
@@ -67,6 +78,28 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
     const ticket = crypto.randomBytes(32).toString("hex");
     tickets.set(ticket, t + TICKET_MS);
     return ticket;
+  }
+  /** A one-time ticket for a task's editor frame: registered by the worker, traded once (redeemTask) within 60 s. */
+  function taskTicket({ project, session } = {}) {
+    if (!TASK_ID_RE.test(String(project || "")) || !TASK_ID_RE.test(String(session || "")))
+      throw Object.assign(new Error("a task ticket needs the task's project and session ids"), { code: 400 });
+    const t = now();
+    for (const [k, v] of taskTickets) if (v.exp <= t) taskTickets.delete(k);
+    const ticket = crypto.randomBytes(32).toString("hex");
+    taskTickets.set(ticket, { project, session, exp: t + TASK_TICKET_MS });
+    while (taskTickets.size > MAX_TASK_TICKETS) taskTickets.delete(taskTickets.keys().next().value);
+    return { ticket, expiresInMs: TASK_TICKET_MS };
+  }
+  /** {project, session} for a live task ticket, which is used up by this call; null for anything else (reused,
+   *  expired, never registered here — another engine's, say). A ticket presented is gone either way. */
+  function redeemTask(value) {
+    const t = now();
+    for (const [k, v] of taskTickets) {
+      if (!sameSecret(value, k)) continue;
+      taskTickets.delete(k);
+      return v.exp > t ? { project: v.project, session: v.session } : null;
+    }
+    return null;
   }
   function redeem(value) {
     if (sameSecret(value, token)) return true;
@@ -103,7 +136,7 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
     return true;
   }
 
-  return { authorized, worker, bootstrap, launchTicket, cookieSession, revoke };
+  return { authorized, worker, taskTicket, redeemTask, bootstrap, launchTicket, cookieSession, revoke };
 }
 
-module.exports = { COOKIE, COOKIE_ATTRS, MAX_SESSIONS, TOKEN_RE, sameSecret, cookieValue, createEmbed };
+module.exports = { COOKIE, COOKIE_ATTRS, MAX_SESSIONS, TOKEN_RE, TASK_TICKET_MS, TASK_ID_RE, sameSecret, cookieValue, createEmbed };

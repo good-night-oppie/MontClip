@@ -260,4 +260,4 @@ function bundledH264() {
   return h264;
 }
 
-module.exports = { ROOT, seedProject, makeDataDir, tmpDir, readProject, writeProject, startServer, startMcp, rawGet, bundledH264, freePort };
+module.exports = { ROOT, seedProject, makeDataDir, tmpDir, endTree, readProject, writeProject, startServer, startMcp, rawGet, bundledH264, freePort };

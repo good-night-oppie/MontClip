@@ -201,6 +201,20 @@ line or an error. A headless export or measurement browser gets a one-time ticke
 (one use, one minute) in its URL instead of the token. Without
 `MONTCLIP_HOST=cindy` none of this applies.
 
+**Which task an embedded editor belongs to** (MontClip-Cindy#18, QQ's option ①) is bound to its event-stream
+connection, never to the cookie: one Cindy page frames every task's editor, and they share one cookie jar (the cookie
+only says "an embedded editor"). The worker registers a ticket for a task, `POST /api/embed/ticket {project, session}`
+(worker only) → `{ticket, expiresInMs}`: 256 random bits, one use, 60 s. The parent page puts it once in the frame's
+first address, `?host=cindy&ticket=<ticket>`. The page takes it out of its address at once and hands it in with the
+id its event stream got (SSE event `conn`), `POST /api/embed/claim {ticket, conn}`; that one connection is bound to
+the task, in memory, until it closes. A reused, expired, unknown (another engine's) ticket, a connection that is not
+open or is already bound: 403 `TASK_TICKET_REFUSED`, nothing bound. When the stream reconnects, the page posts
+`{type:"montclip-need-ticket"}` to its parent and takes `{type:"montclip-host-ticket", ticket}` only from the
+parent window and origin. `POST /api/ui/command` is the worker's only; with `{session, project?}` it goes to that
+task's bound connections alone (none: 409 `NO_EDITOR` at once), and the answer is taken by its one-time command id,
+never by what the page says about itself. Error text drops `ticket=` / `token=` (tool-error.js, problem-redact.js);
+the engine keeps no access log.
+
 The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
 assistant (Cindy's chat takes its place) and keeps it from sending anything: it reads no
 service key, reaches no AI service and sends no message (the desktop main process refuses its
@@ -2594,8 +2608,8 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   is taken only from the plugin worker's own request (`X-MontClip-Session`, embedded in Cindy); a page's body or URL
   never names a task, and without `MONTCLIP_HOST=cindy` it is always `null`. A request naming another `project` than
   the open one is refused **409** `EXPORT_PROJECT_CHANGED`; when another project is opened while the job waits or runs,
-  it ends `failed` with that code, the tab is told to stop, and a late `done` is not taken. How an editor tab proves
-  its own task (`/api/ui/command`, SSE) is not decided yet (MontClip-Cindy#18).
+  it ends `failed` with that code, the tab is told to stop, and a late `done` is not taken. A task's export ticket goes
+  only to the editor connections bound to that task, and only one of them can claim it (see "Embedded in Cindy").
 - **One job at a time** on that queue: exports, scope readings (`/api/scopes/request`,
   `fablecut_scopes`, `fablecut_frame {time}`), tracking and transcription. While one is
   unfinished every request answers **409** `{code:"JOB_BUSY", busy:{id, kind, status, via,

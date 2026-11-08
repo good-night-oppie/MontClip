@@ -82,7 +82,7 @@ const ExportCleanup = require("./export-cleanup");
 const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
-const { createEmbed } = require("./embed");
+const { createEmbed, sameSecret, TASK_ID_RE } = require("./embed");
 
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
@@ -227,9 +227,15 @@ if (!fs.existsSync(PROJECT_FILE)) {
 /* ── SSE clients + file watching ── */
 const sseClients = new Set();
 const uiCommands = new Map();   // /api/ui/command id → resolve, until a tab answers or 4 s pass
-function broadcast(event = "change", data = event) {
+/* Embedded in Cindy, an editor connection may be bound to one task (embed.js taskTicket / redeemTask, POST
+   /api/embed/claim): res.montclipTask = {project, session}, in memory only, gone with the connection. Something meant
+   for one task (its UI commands, its export tickets) goes only to the connections bound to it. */
+const boundTo = (res, task) => !!res.montclipTask && res.montclipTask.session === task.session &&
+  (!task.project || res.montclipTask.project === task.project);
+const editorsFor = (task) => task ? [...sseClients].filter((res) => boundTo(res, task)) : [...sseClients];
+function broadcast(event = "change", data = event, task = null) {
   const payload = `event: ${event}\ndata: ${data}\n\n`;
-  for (const res of sseClients) res.write(payload);
+  for (const res of editorsFor(task)) res.write(payload);
 }
 /* Proxies are H.264 (ADR 2026-11-02 as amended 2026-11-05): the bundled build's own encoder; with none (Linux, LGPL,
    no graphics card), the local FFmpeg (chosen, MONTCLIP_EXTERNAL_FFMPEG or PATH) makes the proxy. Each program is
@@ -898,7 +904,11 @@ const exportJobs = createExportJobs({
   // embedded: a one-time ticket the page trades for the session cookie — the token itself stays off the command line
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
-  editors: () => sseClients.size,
+  editors: (task) => editorsFor(task).length,
+  // a task's job is claimed only by an editor connection bound to that task (the connection id came over its own
+  // stream); a headless page has its one-time launch ticket instead
+  claimAllowed: (j, body) => !j.session || j.via === "headless" ||
+    editorsFor(j).some((res) => typeof body.conn === "string" && sameSecret(body.conn, res.montclipConn)),
   activeProject: () => projects.peekActive(),
   editorConnected: (id) => [...sseClients].some((res) => res.montclipTabId === id),
   // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
@@ -1020,17 +1030,53 @@ async function handleRequest(req, res) {
      tab (one stack for the streamer and the agent), so an agent outside the tab asks the tab:
      POST {cmd, t?} is sent to the tabs as SSE `ui-command`; the first tab to answer on
      /api/ui/command/result wins, and its answer is this request's answer. No tab within 4 s → 409. */
+  /* API (embedded in Cindy): bind an editor connection to its task (MontClip-Cindy#18, QQ option ①).
+     POST /api/embed/ticket {project, session} — the worker only (X-MontClip-Session) — registers a one-time ticket
+     (256 bits, 60 s) and returns {ticket, expiresInMs}; the parent page puts it once in the frame's first URL (?ticket=).
+     POST /api/embed/claim {ticket, conn} — the page — trades it for its own event stream: that connection is bound to
+     the task until it closes. A reused, expired or unknown ticket (another engine's) is 403 and binds nothing; so is a
+     connection that is not open here or is already bound. */
+  if (embed && p === "/api/embed/ticket" && req.method === "POST") {
+    if (!embed.worker(req)) { sendJSON(res, 403, { error: "forbidden: only the plugin worker registers task tickets" }); return; }
+    try { sendJSON(res, 200, embed.taskTicket(JSON.parse((await readBody(req)).toString("utf8") || "{}"))); }
+    catch (e) { sendJSON(res, 400, { error: e.code === 400 ? e.message : "body must be JSON {project, session}" }); }
+    return;
+  }
+  if (embed && p === "/api/embed/claim" && req.method === "POST") {
+    let a = {};
+    try { a = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { }
+    const task = embed.redeemTask(a.ticket);   // used up, whatever happens next
+    const conn = task && [...sseClients].find((r) => typeof a.conn === "string" && sameSecret(a.conn, r.montclipConn));
+    if (!task || !conn || conn.montclipTask) { sendJSON(res, 403, { error: "forbidden: wrong, used or expired task ticket", code: "TASK_TICKET_REFUSED" }); return; }
+    conn.montclipTask = task;
+    sendJSON(res, 200, { bound: true });
+    return;
+  }
   if (p === "/api/ui/command" && req.method === "POST") {
     let a;
     try { a = JSON.parse((await readBody(req)).toString("utf8") || "{}"); }
     catch { sendJSON(res, 400, { error: "body must be JSON {cmd, t?}" }); return; }
     if (!["undo", "redo", "seek", "state"].includes(a.cmd)) { sendJSON(res, 400, { error: "cmd must be undo, redo, seek or state" }); return; }
     if (a.cmd === "seek" && !(Number.isFinite(+a.t) && +a.t >= 0)) { sendJSON(res, 400, { error: "seek needs t (seconds, ≥ 0)" }); return; }
+    /* Embedded (E5b, MontClip-Cindy#18): only the worker asks, and a command for a task goes only to the editor
+       connections bound to it; none bound (or bound to another project) → 409 at once. The answer is taken by the
+       one-time command id alone, never by a session or project the page says it has. */
+    let task = null;
+    if (embed) {
+      if (!embed.worker(req)) { sendJSON(res, 403, { error: "forbidden: only the plugin worker sends editor commands" }); return; }
+      if (a.session != null) {
+        if (!TASK_ID_RE.test(String(a.session)) || (a.project != null && !TASK_ID_RE.test(String(a.project)))) {
+          sendJSON(res, 400, { error: "session and project must be task ids (letters, digits, _ and -, at most 128)" }); return;
+        }
+        task = { session: String(a.session), project: a.project == null ? null : String(a.project) };
+        if (!editorsFor(task).length) { sendJSON(res, 409, { error: "no editor of this task is open to run it", code: "NO_EDITOR" }); return; }
+      }
+    }
     const id = crypto.randomUUID();
     const answer = await new Promise((resolve) => {
       const timer = setTimeout(() => { uiCommands.delete(id); resolve(null); }, 4000);
       uiCommands.set(id, (r) => { clearTimeout(timer); uiCommands.delete(id); resolve(r); });
-      broadcast("ui-command", JSON.stringify({ id, cmd: a.cmd, ...(a.cmd === "seek" ? { t: +a.t } : {}) }));
+      broadcast("ui-command", JSON.stringify({ id, cmd: a.cmd, ...(a.cmd === "seek" ? { t: +a.t } : {}) }), task);
     });
     if (!answer) sendJSON(res, 409, { error: "no editor tab is open to run it", code: "NO_EDITOR" });
     else sendJSON(res, 200, answer);
@@ -2173,6 +2219,11 @@ async function handleRequest(req, res) {
     });
     res.write("data: hello\n\n");
     res.montclipTabId = url.searchParams.get("tabId") || null;
+    if (embed) {
+      // this connection's own id, sent only on its stream: what the page hands in with its task ticket (/api/embed/claim)
+      res.montclipConn = crypto.randomBytes(16).toString("hex");
+      res.write(`event: conn\ndata: ${JSON.stringify({ conn: res.montclipConn })}\n\n`);
+    }
     sseClients.add(res);
     req.on("close", () => sseClients.delete(res));
     return;
