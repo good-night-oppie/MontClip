@@ -298,8 +298,8 @@ test('EXPORT_CLIP_UNCHECKED (JJ 定稿): numbered like #231, time only for a sou
   a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params: { time: '1:12:04' } }).text, "The sound at 1:12:04 on the timeline is silent in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.");
   // 〔复制问题信息〕 copies JJ's status line for both keys, word for word
   for (const params of [{ n: '3', time: '1:12:04' }, { time: '1:12:04' }]) {
-    a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params }).what, '有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出，请先自己听一下。');
-    a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params }).what, "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to it first.");
+    a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params }).what, '有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。');
+    a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params }).what, "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made.");
   }
   // a warning, not a failure: never one of a batch's failure reasons
   a.notEqual(V.batchReason('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '3', time: '0:10' } }), zh('own.export-clip-unchecked', { n: '3', time: '0:10' }));

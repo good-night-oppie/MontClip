@@ -1519,9 +1519,9 @@
     extRemoveFailed: { "zh-CN": "没能停用这个 FFmpeg。", en: "Could not stop using this FFmpeg." },
     extNeeded: { "zh-CN": "这个导出设置要用 x264，需要一个带 x264 的 FFmpeg。", en: "This export setting uses x264, which needs an FFmpeg that includes x264." },
     extNotFullPath: { "zh-CN": "选的不是 FFmpeg 程序文件本身。", en: "The selected item isn't the FFmpeg program file itself." },
-    // #231 follow-up, JJ 定稿 (2026-11-08, #238 issuecomment-6716851239): the status line for both keys, word for word
-    "own.export-clip-unchecked": { "zh-CN": "有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出，请先自己听一下。", en: "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to it first." },
-    "own.export-clip-unchecked-track": { "zh-CN": "有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出，请先自己听一下。", en: "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to it first." },
+    // #231 follow-up, JJ 定稿 (2026-11-08, #238 issuecomment-6716851239 / 6718419080): the status line for both keys, word for word
+    "own.export-clip-unchecked": { "zh-CN": "有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。", en: "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made." },
+    "own.export-clip-unchecked-track": { "zh-CN": "有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。", en: "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made." },
   };
   const sentencesOf = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim());
   /* Reassurance (「原片没有改动」, "the original is unchanged") is for the streamer, not for the developers the copy goes to
