@@ -2,8 +2,9 @@
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const { makeDataDir, startServer } = require('./helpers');
-test('production ASR endpoint persists a paragraph before cancellation and returns its actual path', async t => {
-  const dir = makeDataDir(t), root = path.join(__dirname, '..');
+for (const partial of [false, true]) test('ASR cancellation keeps relative paths private, partial=' + partial, async t => {
+  const parent = makeDataDir(t), dir = path.join(parent, 'Users', 'someone', 'data'), root = path.join(__dirname, '..');
+  fs.mkdirSync(dir, {recursive:true});
   fs.mkdirSync(path.join(dir, 'media')); fs.writeFileSync(path.join(dir, 'media', 'a.wav'), 'synthetic');
   const bootstrap = path.join(dir, 'server-fixture.cjs');
   fs.writeFileSync(bootstrap, `
@@ -12,7 +13,8 @@ test('production ASR endpoint persists a paragraph before cancellation and retur
     require.cache[asr] = { exports: { createAsr: () => ({
       status: () => ({ engine:{ready:true}, vad:{ready:true}, asr:{ready:true} }),
       transcribe: async (file, opts) => {
-        opts.onCheckpoint({ words:[['kept',0,1]], gaps:[], duration:10, language:'en', spans:[[0,1]] });
+        if (${partial}) opts.onCheckpoint({ words:[['kept',0,1]], gaps:[], duration:10, language:'en', spans:[[0,1]] });
+        require('node:fs').writeFileSync(${JSON.stringify(path.join(dir, 'started'))}, 'ready');
         await new Promise(resolve => opts.signal.addEventListener('abort', resolve, {once:true}));
         throw Object.assign(new Error('cancelled while reading C:/Users/synthetic-private/other/model.bin'), {code:'ASR_CANCELLED'});
       }
@@ -25,14 +27,19 @@ test('production ASR endpoint persists a paragraph before cancellation and retur
   let doc;
   for (let n = 0; n < 100; n++) {
     doc = (await (await fetch(server.base + '/api/transcript?src=/media/a.wav')).json()).transcript;
-    if (doc) break;
+    if (fs.existsSync(path.join(dir, 'started'))) break;
     await new Promise(r => setTimeout(r, 10));
   }
-  a.deepEqual(doc.words, [['kept', 0, 1]]);
+  if (partial) a.deepEqual(doc.words, [['kept', 0, 1]]);
   await fetch(server.base + '/api/asr/cancel', { method: 'POST' });
   const result = await (await pending).json();
   a.equal(result.status, 'incomplete'); a.match(result.error, /没听完/);
   a.doesNotMatch(result.error, /synthetic-private/);
-  a.equal(path.dirname(result.saved), path.join(dir, 'analysis', 'transcripts'));
-  a.deepEqual(JSON.parse(fs.readFileSync(result.saved, 'utf8')).words, doc.words);
+  a.doesNotMatch(JSON.stringify(result), /someone|synthetic-private/);
+  if (partial) {
+    a.equal(path.posix.dirname(result.saved), 'analysis/transcripts');
+    a.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, result.saved), 'utf8')).words, doc.words);
+  } else {
+    a.equal(result.saved, null); a.match(result.error, /analysis\/transcripts/);
+  }
 });

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Keep incomplete transcription replies private: saved transcript paths are relative to the data root, with consistent direct/bounded notices and sanitized underlying errors.
+
 - Add durable bounded tool receipts, keyed retries and project-scoped background speech/song/highlight edits; checkpoint each completed speech paragraph and report saved paths on cancellation.
 
 - Embedded editor (`?host=cindy`): the built-in assistant sends nothing — no service key read, no AI service reached, no message sent (the desktop main process refuses its requests from such a page too) — and an approval it would ask for is denied at once with `HOST_EMBEDDED` (QQ on #219). Light theme inside Cindy: every text at least 4.5:1, and track separators follow the theme (VV on #219).

@@ -2256,9 +2256,10 @@ async function handleRequest(req, res) {
       sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated, spans: doc.spans || null });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      const saved = transcripts.get(src, track) ? transcripts.file(src, track) : null;
+      const saved = transcripts.get(src, track)
+        ? path.relative(DATA_DIR, transcripts.file(src, track)).split(path.sep).join('/') : null;
       if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500,
-        { code, status: 'incomplete', saved, error: '没听完。' + (saved ? '已完成段落已保存到 ' + saved + '。' : '') + AsrStatus.hidePaths(String(e.message || e)) });
+        { code, status: 'incomplete', saved, error: AsrStatus.incompleteText(e, saved) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }

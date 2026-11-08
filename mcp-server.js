@@ -858,8 +858,9 @@ async function speechWords(args, fileMode) {
         what: "transcription job", timeoutError: "没听完：听写任务达到 timeout。" });
     } catch (e) {
       const cache = require('./transcripts').createTranscripts({ dir: path.join(ANALYSIS_DIR, 'transcripts'), resolveSrc: mediaFile });
-      const saved = todo.filter(src => cache.get(src, tracks[src])).map(src => cache.file(src, tracks[src]));
-      e.saved = saved; e.message += saved.length ? ' 已完成段落已保存到 ' + saved.join(', ') : ' 已完成段落会保留在 ' + path.join(ANALYSIS_DIR, 'transcripts');
+      const saved = todo.filter(src => cache.get(src, tracks[src]))
+        .map(src => path.relative(DATA_DIR, cache.file(src, tracks[src])).split(path.sep).join('/'));
+      e.saved = saved; e.message = require('./asr-status').incompleteText(e, saved);
       throw e;
     }
     if (job.status !== "done") {
