@@ -15,7 +15,7 @@ const { createEmbed, TASK_TICKET_MS } = require("../embed");
 const Host = require("../host-embed");
 const { toolError } = require("../tool-error");
 const { redactProblem } = require("../problem-redact");
-const { makeDataDir, freePort } = require("./helpers");
+const { makeDataDir, freePort, endTree } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");
 const hex = () => crypto.randomBytes(32).toString("hex");
@@ -103,6 +103,9 @@ test("the ticket leaves the address at once; a ticket message counts only from t
 /* ── over HTTP: one embedded engine, two task editors (A, B) on the same port ── */
 
 async function engine(t) {
+  // the engine stops before its data folder is removed (helpers.js, #233): this hook is added first, so it runs first
+  let stop = () => { };
+  t.after(() => stop());
   const token = hex(), port = await freePort(), dir = makeDataDir(t);
   let out = "";
   const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
@@ -113,7 +116,7 @@ async function engine(t) {
   child.stdout.on("data", (c) => { out += c; });
   child.stderr.on("data", (c) => { out += c; });
   const exited = new Promise((r) => child.on("exit", r));
-  t.after(async () => { child.kill(); await exited; });
+  stop = async () => { endTree(child); await exited; };
   const base = `http://127.0.0.1:${port}`, worker = { "X-MontClip-Session": token };
   for (let i = 0; i < 400; i++) {
     try { if ((await fetch(base + "/api/project", { headers: worker })).status === 200) break; } catch { }

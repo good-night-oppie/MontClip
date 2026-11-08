@@ -14,7 +14,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const { spawn, spawnSync } = require("node:child_process");
 const { createExportJobs } = require("../export-jobs");
-const { makeDataDir, freePort, startServer } = require("./helpers");
+const { makeDataDir, freePort, startServer, endTree } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");
 let HAS_FFMPEG = false;
@@ -104,6 +104,9 @@ test("an editor tab showing another project fails the ticket with EXPORT_PROJECT
 
 const hex = () => crypto.randomBytes(32).toString("hex");
 async function embedded(t) {
+  // the engine stops before its data folder is removed (helpers.js, #233): this hook is added first, so it runs first
+  let stop = () => { };
+  t.after(() => stop());
   const token = hex(), port = await freePort();
   const dir = makeDataDir(t);
   const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
@@ -112,7 +115,7 @@ async function embedded(t) {
       FABLECUT_CHROME: path.join(dir, "no-such-browser"), MONTCLIP_DESKTOP: "", MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token },
   });
   const exited = new Promise((r) => child.on("exit", r));
-  t.after(async () => { child.kill(); await exited; });
+  stop = async () => { endTree(child); await exited; };
   const base = `http://127.0.0.1:${port}`;
   const worker = { "X-MontClip-Session": token };
   for (let i = 0; i < 400; i++) {

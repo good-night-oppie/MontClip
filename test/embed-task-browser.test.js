@@ -12,22 +12,19 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { spawn, spawnSync } = require("node:child_process");
-const { makeDataDir, freePort, seedProject } = require("./helpers");
+const { spawn } = require("node:child_process");
+const { makeDataDir, freePort, seedProject, endTree } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");
 const browser = (() => { try { return require("../export-jobs").findBrowser(); } catch { return null; } })();
 
-function endTree(child) {
-  if (!child || child.exitCode !== null) return;
-  if (process.platform === "win32")
-    spawnSync(path.join(process.env.SystemRoot || "C:\\Windows", "System32", "taskkill.exe"), ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
-  else child.kill("SIGKILL");
-}
-
 test("A/B in a real browser: two task editors on one engine and port, B's command never reaches A", { skip: browser ? false : "no Chrome / Edge", timeout: 120000 }, async (t) => {
   const token = crypto.randomBytes(32).toString("hex");
   const port = await freePort(), parentPort = await freePort();
+  // stopped before the data folder is removed: hooks run in the order they are added, and the folder's own hook comes
+  // next (helpers.js, #233 — a running engine keeps the folder, and a throwing hook would leave everything running)
+  const stops = [];
+  t.after(async () => { for (const stop of stops.reverse()) try { await stop(); } catch { } });
   const dir = makeDataDir(t, seedProject({ media: [], clips: [{ id: "c_t", kind: "text", mediaId: null, track: "V1", start: 0, duration: 8, props: { text: "synthetic" } }] }));
   const engine = spawn(process.execPath, [path.join(ROOT, "server.js")], {
     cwd: ROOT, stdio: "ignore",
@@ -35,7 +32,7 @@ test("A/B in a real browser: two task editors on one engine and port, B's comman
       MONTCLIP_DESKTOP: "", MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token },
   });
   const engineGone = new Promise((r) => engine.on("exit", r));
-  t.after(async () => { engine.kill(); await engineGone; });
+  stops.push(async () => { endTree(engine); await engineGone; });
   const base = `http://127.0.0.1:${port}`, worker = { "X-MontClip-Session": token, "Content-Type": "application/json" };
   const call = (p, body) => fetch(base + p, { method: "POST", headers: worker, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }));
   for (let i = 0; i < 400; i++) {
@@ -63,12 +60,12 @@ test("A/B in a real browser: two task editors on one engine and port, B's comman
       });</script>`);
   });
   await new Promise((r) => parent.listen(parentPort, "127.0.0.1", r));
-  t.after(() => parent.close());
+  stops.push(() => parent.close());
 
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-e2e-"));
   const chrome = spawn(browser, ["--headless=new", "--disable-gpu", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check",
     "--disable-extensions", "--mute-audio", "--window-size=1900,700", `http://localhost:${parentPort}/`], { stdio: "ignore", windowsHide: true });
-  t.after(() => { endTree(chrome); setTimeout(() => fs.rm(profile, { recursive: true, force: true }, () => { }), 1500); });
+  stops.push(() => { endTree(chrome); fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); });
 
   const state = (session) => call("/api/ui/command", { cmd: "state", session, project });
   const deadline = Date.now() + 90_000;
