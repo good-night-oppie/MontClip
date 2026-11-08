@@ -2259,7 +2259,7 @@ async function handleRequest(req, res) {
       const saved = transcripts.get(src, track)
         ? path.relative(DATA_DIR, transcripts.file(src, track)).split(path.sep).join('/') : null;
       if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500,
-        { code, status: 'incomplete', saved, error: AsrStatus.incompleteText(e, saved) });
+        require('./tool-error').toolError({ code, status: 'incomplete', saved, error: AsrStatus.incompleteText(e, saved) }, { dataDir: DATA_DIR }));
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }

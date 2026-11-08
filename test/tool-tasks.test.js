@@ -76,7 +76,7 @@ test('terminal receipt write failure stays uncertain without exposing unrelated 
   const io = Object.create(fs);
   io.renameSync = () => { throw Object.assign(new Error('disk full at C:/Users/private-account/unrelated'), {code:'ENOSPC'}); };
   require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../tool-tasks.js'), 'utf8'), {
-    module: mod, require: id => id === 'node:fs' ? io : require(id), process, setTimeout, clearTimeout,
+    module: mod, require: id => id === 'node:fs' ? io : id === './tool-error' ? require('../tool-error') : require(id), process, setTimeout, clearTimeout,
   });
   const tasks = mod.exports.createToolTasks({dir});
   let mutations = 0;
@@ -96,7 +96,7 @@ test('a Windows reader briefly holding the receipt does not fail a successful mu
     return fs.renameSync(...args);
   };
   require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../tool-tasks.js'), 'utf8'), {
-    module:mod, require:id => id === 'node:fs' ? io : require(id), process, setTimeout, clearTimeout,
+    module:mod, require:id => id === 'node:fs' ? io : id === './tool-error' ? require('../tool-error') : require(id), process, setTimeout, clearTimeout,
   });
   const input = {scope:'p',name:'captions',args:{},key:'reader',waitForCompletion:true};
   const r = await mod.exports.createToolTasks({dir}).call(input, update => { update({done:1,total:1}); return ++mutations; });

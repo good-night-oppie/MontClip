@@ -94,6 +94,6 @@ function hidePaths(text) {
 function incompleteText(error, saved) {
   const files = Array.isArray(saved) ? saved : saved ? [saved] : [];
   return '没听完。' + (files.length ? '已完成段落已保存到 ' + files.join(', ') + '。'
-    : '尚无已完成段落。完成段落保存位置：analysis/transcripts/。') + hidePaths(String(error?.message || error || ''));
+    : '尚无已完成段落。完成段落保存位置：analysis/transcripts/。') + require('./tool-error').toolError(String(error?.message || error || ''));
 }
 module.exports = { code, userText, agentCode, SAY, modelMb, aboutMb, hidePaths, incompleteText };

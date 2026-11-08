@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Route tool errors and warning fields through one privacy boundary; migrate old terminal receipts before replay without repeating edits.
+
 - Keep incomplete transcription replies private: saved transcript paths are relative to the data root, with consistent direct/bounded notices and sanitized underlying errors.
 - Redact paths with spaced directory names, forward-slash UNC roots and file URLs; repeated redaction preserves the same error text.
 

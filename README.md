@@ -70,3 +70,6 @@ Incomplete transcription replies identify saved paragraphs with data-root-relati
 paths such as `analysis/transcripts/name.json`. Direct and bounded tool calls use
 the same incomplete-work notice; local absolute paths stay out of that notice and
 the `saved` field. Local clients resolve these paths against their own data root.
+Tool error text, including warnings inside normal replies, uses one redaction
+boundary. Older terminal task receipts are scrubbed on disk before replay;
+the operation itself is never repeated.
