@@ -38,8 +38,9 @@ function toolError(value,{dataDir,legacy=false,result=false}={}) {
     if(legacy && !/error|message|warning|why|detail/i.test(key||'')) s=s.replace(/(?<![\w:/\\])\/(?:media|library|exports|analysis|proxies)\/[^\s"'`,;()<>\[\]{}]+/g,
       route=>{routes.push(route);return '\uE000'+(routes.length-1)+'\uE001';});
     s=hidePaths(s);
-    // an embedded editor's one-time task ticket or launch token, should a page address end up in a message (MontClip-Cindy#18)
-    s=s.replace(/([?&#](?:ticket|token)=)[^&\s"'#<>]+/gi,'$1…');
+    // an embedded editor's one-time task ticket or launch token, in a page address or a request body (MontClip-Cindy#18);
+    // the same key shape problem-redact.js uses
+    s=s.replace(/\b((?:ticket|token)["']?\s*[:=]\s*["']?)[^&\s"',;#<>]+/gi,'$1…');
     return legacy?s.replace(/\uE000(\d+)\uE001/g,(_,i)=>routes[+i]):s;
   };
   const visit=(v,key)=>{

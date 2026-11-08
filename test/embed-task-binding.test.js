@@ -244,6 +244,12 @@ test("the ticket stays out of logs, error text and Referer: no-referrer on every
   await claim(s, ticket, "nope");
   assert.ok(!s.out().includes(ticket), "the engine's output never shows a ticket");
   const msg = "page http://127.0.0.1:47777/?host=cindy&ticket=" + ticket + "&theme=dark failed";
-  assert.ok(!JSON.stringify(toolError({ error: msg })).includes(ticket), "the tool error outlet (#240) takes it out");
-  assert.ok(!redactProblem("ticket=" + ticket).includes(ticket), "and so do copied problem details");
+  // the shapes a ticket can take in a message: a page address, a claim body, a key=value pair (Rea, #251 review)
+  const body = 'POST /api/embed/claim {"ticket":"' + ticket + '","conn":"c1"} refused';
+  for (const m of [msg, body, "ticket=" + ticket, "ticket: " + ticket]) {
+    assert.ok(!JSON.stringify(toolError({ error: m })).includes(ticket), "the tool error outlet (#240) takes it out: " + m.slice(0, 24));
+    assert.ok(!redactProblem(m).includes(ticket), "and so do copied problem details: " + m.slice(0, 24));
+  }
+  assert.ok(JSON.stringify(toolError({ error: body })).includes('"conn'), "the rest of the message stays readable");
+  assert.ok(JSON.stringify(toolError({ error: msg })).includes("theme=dark"), "and the rest of the address too");
 });
