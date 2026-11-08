@@ -237,6 +237,13 @@
       "时间线 {time} 处的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。"],
     "export-clip-silent": ["Clip {n} (at {time} on the timeline) is silent. Please check that this is what you want.", "第 {n} 段（时间线 {time} 处）是无声的，请确认是不是你想要的。"],
     "export-clip-silent-track": ["The sound at {time} on the timeline is silent. Please check that this is what you want.", "时间线 {time} 处的声音是无声的，请确认是不是你想要的。"],
+    // JJ 定稿 (2026-11-08, #238 issuecomment-6716851239), word for word: a piece silent in the export whose file took too
+    // long to read back (a slow disk, a 2-hour MP4 written in fragments) — the export is kept, and the sentence says both
+    // that the export has no sound there and that the original could not be checked. Same numbers and times as above.
+    "export-clip-unchecked": ["Clip {n} (at {time} on the timeline) has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.",
+      "第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。"],
+    "export-clip-unchecked-track": ["The sound at {time} on the timeline is silent in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.",
+      "时间线 {time} 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。"],
     "err-export-page-crashed": ["Something went wrong while exporting, so this export stopped and no file was made. The originals are unchanged. You can start the export again; if it happens again, use \"Copy problem details\" and send it to us.",
       "导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。可以直接重新导出；还是这样的话，点「复制问题信息」发给我们。"],
     // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
@@ -1443,7 +1450,7 @@
   Object.assign(FLV_REASONS, { FLV_PROBE_FAILED: "flvUnreadable", FLV_NOT_FLV: "flvUnreadable", FLV_NOT_FOUND: "flvUnreadable",
     FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
   /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
-  const ERROR_TEXT = { EXPORT_AUDIO_FAILED: "own.export-audio-failed", EXPORT_PAGE_CRASHED: "own.err-export-page-crashed", EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
+  const ERROR_TEXT = { EXPORT_AUDIO_FAILED: "own.export-audio-failed", EXPORT_CLIP_UNCHECKED: "own.export-clip-unchecked", EXPORT_PAGE_CRASHED: "own.err-export-page-crashed", EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
     NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
     EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
     extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed",
@@ -1475,7 +1482,7 @@
     // an export's own rows before the Settings sentences (h264Message): frameTooSmall says the smallest size it takes
     if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) {
       // a sound on its own has no number: JJ's -track sentence, by its time on the timeline (#231)
-      key = ERROR_TEXT[code] + (code === "EXPORT_AUDIO_FAILED" && (p.n == null || p.n === "") ? "-track" : "");
+      key = ERROR_TEXT[code] + ((code === "EXPORT_AUDIO_FAILED" || code === "EXPORT_CLIP_UNCHECKED") && (p.n == null || p.n === "") ? "-track" : "");
       s = fill(t[key], { n: String(p.n), time: String(p.time) });
     }
     if (!s && code) { s = h264Message(l, { code, params: e.params, featurePack: e.featurePack }); if (s) key = code; }
@@ -1501,6 +1508,8 @@
     "own.err-job-busy": 1, "own.err-editor-stopped": 1,
     // MC-14 / MC-15: what happened is the first sentence
     "own.export-audio-failed": 1, "own.export-audio-failed-track": 1, "own.err-export-page-crashed": 1,
+    // #231 follow-up (JJ 定稿, #238): listed in WHAT_TEXT too, which says it
+    "own.export-clip-unchecked": 1, "own.export-clip-unchecked-track": 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {
@@ -1510,6 +1519,9 @@
     extRemoveFailed: { "zh-CN": "没能停用这个 FFmpeg。", en: "Could not stop using this FFmpeg." },
     extNeeded: { "zh-CN": "这个导出设置要用 x264，需要一个带 x264 的 FFmpeg。", en: "This export setting uses x264, which needs an FFmpeg that includes x264." },
     extNotFullPath: { "zh-CN": "选的不是 FFmpeg 程序文件本身。", en: "The selected item isn't the FFmpeg program file itself." },
+    // #231 follow-up, JJ 定稿 (2026-11-08, #238 issuecomment-6716851239 / 6718419080): the status line for both keys, word for word
+    "own.export-clip-unchecked": { "zh-CN": "有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。", en: "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made." },
+    "own.export-clip-unchecked-track": { "zh-CN": "有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。", en: "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made." },
   };
   const sentencesOf = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim());
   /* Reassurance (「原片没有改动」, "the original is unchanged") is for the streamer, not for the developers the copy goes to

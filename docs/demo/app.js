@@ -20896,6 +20896,10 @@ function exportCheckText(c) {
     const p = exportClipWords([{ n: c.n ?? null, t: +c.t || 0 }]);
     return uiText(p.n != null ? "own.export-clip-silent" : "own.export-clip-silent-track", p);
   }
+  if (c.code === "EXPORT_CLIP_UNCHECKED") {   // its file took too long to read: kept, she listens to it herself
+    const p = exportClipWords([{ n: c.n ?? null, t: +c.t || 0 }]);
+    return uiText(p.n != null ? "own.export-clip-unchecked" : "own.export-clip-unchecked-track", p);
+  }
   return c.text;
 }
 function exportReportLine(r) {
@@ -21270,10 +21274,12 @@ async function fastExport(opts = {}) {
     }
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
     if (!end.src) throw exportEndError(end, "encode failed");
-    const outs = end.outputs || [{ file: decodeURIComponent(end.src.split("/").pop()), ok: true, src: end.src }];
+    // a profile export's warnings (a silent piece, one not checked in time) come as end.report (server.js warningReport)
+    const outs = end.outputs || [{ file: decodeURIComponent(end.src.split("/").pop()), ok: true, src: end.src, ...(end.report ? { report: end.report } : {}) }];
     // what each output was asked to be, beside what came out
     result = { outputs: outs.map((o, i) => ({ ...o, ...(begin.outputs && begin.outputs[i] ? { summary: begin.outputs[i].summary, notes: begin.outputs[i].notes } : {}) })) };
-    if (job) await reportExportJob(job, { status: "done", src: end.src, ...(delivery ? { result: { summary: begin.summary, notes: begin.notes || [], outputs: result.outputs } } : {}) }, true);
+    if (job) await reportExportJob(job, { status: "done", src: end.src, ...(delivery ? { result: { summary: begin.summary, notes: begin.notes || [], outputs: result.outputs } }
+      : end.report ? { result: { outputs: result.outputs } } : {}) }, true);
     else if (opts.silent) { /* the queue lists the files */ }
     else if (delivery && result.outputs[0]) {
       const o = result.outputs[0];
@@ -21285,7 +21291,7 @@ async function fastExport(opts = {}) {
       saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg: oneSided ? () => showOneSidedWarning(oneSided) :
         o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map(exportCheckText).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}` });
     }
-    else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
+    else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, ...(end.report ? { savedMsg: exportReportLine(end.report) } : {}) });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
@@ -21294,7 +21300,8 @@ async function fastExport(opts = {}) {
     const msg = unsupportedProfile ? uiText("own.export-profile-unsupported")
       : e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     result = { error: msg, code: e && e.code, params: e && e.params, featurePack: e && e.featurePack, cancelled: msg === "cancelled" };
-    if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
+    // the reason's code goes into the job record too (EXPORT_AUDIO_FAILED …), not only the English
+    if (job) await reportExportJob(job, { status: "failed", error: msg, ...(e && typeof e.code === "string" ? { code: e.code } : {}) }, true);
     else if (msg !== "cancelled" && !opts.silent) { if (unsupportedProfile) alert(msg); else sayExportFailure(e); }
   } finally {
     exportAbort = null;

@@ -52,16 +52,12 @@ function findBrowser(env = process.env) {
   return candidates.find((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } }) || null;
 }
 
-/** How to start the headless browser (MC-15). On Linux it is started as the first thing the kernel's out-of-memory
- *  killer takes (oom_score_adj 1000, which its pages inherit), so an export page that runs the machine out of memory
- *  ends itself and its job, not the shared engine that started it (europa, 2026-11-07: the engine's process id changed
- *  twice while exports read 1.2–1.4 GB FLACs). Raising one's own score needs no privilege; where /proc is not writable
- *  the browser starts as before. `exec` keeps the browser's own process id, so ending the job still ends the browser.
- *  → {cmd, args}. */
-function browserCommand(exe, args, platform = process.platform) {
-  if (platform !== "linux") return { cmd: exe, args };
-  return { cmd: "/bin/sh", args: ["-c", 'echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec "$0" "$@"', exe, ...args] };
-}
+/* Which process the Linux out-of-memory killer takes first (MC-15) is not set by MontClip. #231 started the headless
+   browser with oom_score_adj 1000; on europa (Video, #231 issuecomment-6715105038) Chrome sets its own per process type
+   as it starts — browser and zygote 0, GPU and utility 200, renderer (the export page) 300 — and the 1000 lasted under a
+   second, the same as main without it. So that line was removed. The export page is still above the engine (0), which
+   makes it the likelier one to be killed, but that is Chrome's default, not ours, and nobody has run a machine out of
+   memory to see which one goes. What MontClip does do: a page that dies ends its job (EXPORT_PAGE_CRASHED, below). */
 
 /** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
  *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one,
@@ -136,14 +132,14 @@ function createExportJobs(opts) {
     const kept = opts.keepProfile ? opts.keepProfile(j.kind) : null;
     if (kept) fs.mkdirSync(kept, { recursive: true });
     const profileDir = kept || fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-export-"));
-    const run = browserCommand(exe, [
+    const args = [
       "--headless=new", `--user-data-dir=${profileDir}`, "--no-first-run", "--no-default-browser-check",
       "--disable-extensions", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
       "--disable-background-timer-throttling", "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows", "--window-size=1600,900",
       opts.url(j.id),
-    ]);
-    const proc = spawn(run.cmd, run.args, { stdio: "ignore", windowsHide: true });
+    ];
+    const proc = spawn(exe, args, { stdio: "ignore", windowsHide: true });
     j.browser = { proc, profileDir, keep: !!kept };
     proc.on("error", (e) => end(j, "failed", { error: "could not start the headless browser: " + e.message }));
     // the page crashed with its browser (MC-15): this job ends, said in the interface language (EXPORT_PAGE_CRASHED); the
@@ -211,7 +207,7 @@ function createExportJobs(opts) {
       return true;
     },
     /** Progress / result from the running tab. Returns {cancel} so a cancel reaches it. */
-    report(id, { progress, status, src, result, error, at, tabId, hidden } = {}) {
+    report(id, { progress, status, src, result, error, code, at, tabId, hidden } = {}) {
       const j = jobs.get(id);
       if (!j) return null;
       // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken.
@@ -228,7 +224,8 @@ function createExportJobs(opts) {
       if (status === "done" && j.kind === "export" && opts.finished && !opts.finished(String(src || "")))
         end(j, "failed", { error: "the export said it was done, but its file is not in place" });
       else if (status === "done") end(j, "done", { progress: 1, src: String(src || ""), result: result && typeof result === "object" ? result : null });
-      else if (status === "failed") end(j, "failed", { error: String(error || "export failed") });
+      // the page's reason code (EXPORT_AUDIO_FAILED, EXPORT_NO_H264 …) is kept in the record and its view; anything else is not
+      else if (status === "failed") end(j, "failed", { error: String(error || "export failed"), ...(typeof code === "string" && /^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(code) ? { errorCode: code } : {}) });
       return { cancel: false };
     },
     cancel(id) {
@@ -243,4 +240,4 @@ function createExportJobs(opts) {
   };
 }
 
-module.exports = { createExportJobs, findBrowser, browserCommand, TAB_SILENT_MS, JOB_HEARTBEAT_MS };
+module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS };

@@ -220,6 +220,10 @@ data dir. Production leaves watching on so the UI live-reloads.
 Tests may also set **`FABLECUT_NO_AUTOSTART=1`** so `ensureUIServer()` reports
 a missing editor server instead of spawning one — the auto-start is detached,
 so a test that triggers it would leave a `server.js` running after it finishes.
+Tests may set **`MONTCLIP_EXPORT_CHECK_TIMEOUT_MS`** to change how long the export's
+self-check may spend reading back one clip's file (default 20000), standing in for a slow
+disk. A read that runs out of time is a warning on a kept file, never a failed export
+(`EXPORT_CLIP_UNCHECKED`; a file that really can't be read still fails it, `EXPORT_AUDIO_FAILED`).
 
 ## Run
 

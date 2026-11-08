@@ -287,3 +287,20 @@ test('the auto-slices page keeps its state when the project only now gets an id 
   runtime.projectId = 'p_2';          // another project: a fresh page
   a.equal(autoState().exportIds, null);
 });
+
+// #231 follow-up: a piece that could not be checked in time — JJ 定稿 (2026-11-08, #238 issuecomment-6716851239). Registered
+// like the other texts with a code (ERROR_TEXT); no number → the -track sentence, as for EXPORT_AUDIO_FAILED.
+test('EXPORT_CLIP_UNCHECKED (JJ 定稿): numbered like #231, time only for a sound on its own', () => {
+  a.ok(V.ERROR_CODES.includes('EXPORT_CLIP_UNCHECKED'));
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '3', time: '1:12:04' } }).text, '第 3 段（时间线 1:12:04 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { time: '1:12:04' } }).text, '时间线 1:12:04 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');
+  a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '3', time: '1:12:04' } }).text, "Clip 3 (at 1:12:04 on the timeline) has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.");
+  a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params: { time: '1:12:04' } }).text, "The sound at 1:12:04 on the timeline is silent in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.");
+  // 〔复制问题信息〕 copies JJ's status line for both keys, word for word
+  for (const params of [{ n: '3', time: '1:12:04' }, { time: '1:12:04' }]) {
+    a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params }).what, '有一段在成片里没有声音，没能确认原片是不是也没有。成片已经导出。');
+    a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params }).what, "One part has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made.");
+  }
+  // a warning, not a failure: never one of a batch's failure reasons
+  a.notEqual(V.batchReason('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '3', time: '0:10' } }), zh('own.export-clip-unchecked', { n: '3', time: '0:10' }));
+});
