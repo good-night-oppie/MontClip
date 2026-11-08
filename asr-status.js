@@ -71,9 +71,14 @@ const CODES = ["ASR_MANIFEST_MISSING", "ASR_ENGINE_MISSING", "ASR_MODEL_MISSING"
 const SAY = {};
 for (const c of CODES) Object.defineProperty(SAY, c, { enumerable: true, get: () => say(c) });
 
-/* A Windows path (C:\…, \\server\…) or a POSIX one (/…, ~/…) up to a quote, a space-free stretch's end, a comma or a
-   bracket. The last part stays, so "open '…/asr-manifest.json'" still says what is missing. */
-const PATHS = /(?:(?<![\w])[A-Za-z]:[\\/]|\\\\|~[\\/]|(?<![\w.:\/])\/(?=[^\s/]))[^'"`\s,;()<>\[\]{}]*/g;
+/* Recognize local roots, including file URLs and both UNC spellings, but not web URLs, relative paths or our
+   own …/ replacement. Directory components can contain internal spaces (e.g. "Some One"). A component cannot
+   end in whitespace: that separates the path from prose before another path. Keep the final filename and
+   surrounding quotes/punctuation so errors remain useful, and a second pass produces exactly the same text. */
+const PATH_ROOT = String.raw`(?<![\w.:/\\…])(?:file:[\\/]+|[\\/]{2}\?[\\/](?:UNC[\\/]|[a-z]:[\\/])|[a-z]:[\\/]|[\\/]{2}|~[\\/]|/)`;
+const PATH_COMPONENT = String.raw`[^\\/'"\x60\s,;()<>\[\]{}。！？：](?:[^\\/'"\x60\r\n,;()<>\[\]{}。！？：]*[^\\/'"\x60\s,;()<>\[\]{}。！？：])?[\\/]`;
+const PATH_END = String.raw`[^\\/'"\x60\s,;()<>\[\]{}。！？：]*`;
+const PATHS = new RegExp(PATH_ROOT + '(?:' + PATH_COMPONENT + ')*' + PATH_END, 'gi');
 function hidePaths(text) {
   return String(text == null ? "" : text).replace(PATHS, (p) => {
     const last = p.split(/[\\/]+/).filter(Boolean).pop();

@@ -1,0 +1,21 @@
+'use strict';
+const test=require('node:test'), a=require('node:assert/strict');
+const {hidePaths}=require('../asr-status');
+const paths=require('./fixtures/private-paths.cjs');
+for(const [i,p] of paths.entries()) test('hidePaths private and idempotent variant '+i,()=>{
+ for(const wrap of [s=>'open '+s+' failed',s=>"open '"+s+"' failed",s=>'open "'+s+'" failed',s=>'open ('+s+') failed',s=>'无法打开'+s+'。']){
+  const raw=wrap(p),out=hidePaths(raw);
+  a.doesNotMatch(out,/someone|Some One|Some%20One|server|share/i);
+  a.equal(out,wrap('…/x.json'));
+  a.equal(hidePaths(out),out);
+ }
+});
+test('hidePaths keeps ordinary errors, web URLs and relative saved paths intact',()=>{
+ for(const text of ['ENOENT: could not load model; try again','see http://127.0.0.1:7777/api/asr','https://example.test/a/b','ratio 1/2 at 12:30','basic_string::_S_create','analysis/transcripts/a.json','…/model.bin','无法打开…/model.bin。']){
+  a.equal(hidePaths(text),text);
+ }
+ a.equal(hidePaths('open /home/someone/x.json failed; see /Users/someone/y.bin'),'open …/x.json failed; see …/y.bin');
+ a.equal(hidePaths('open /home/someone/x.json failed while reading /Users/someone/y.bin'),'open …/x.json failed while reading …/y.bin');
+});
+
+

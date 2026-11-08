@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Keep incomplete transcription replies private: saved transcript paths are relative to the data root, with consistent direct/bounded notices and sanitized underlying errors.
+- Redact paths with spaced directory names, forward-slash UNC roots and file URLs; repeated redaction preserves the same error text.
 
 - Add durable bounded tool receipts, keyed retries and project-scoped background speech/song/highlight edits; checkpoint each completed speech paragraph and report saved paths on cancellation.
 

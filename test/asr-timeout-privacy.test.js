@@ -9,8 +9,12 @@ for(const partial of [false,true]) test('MCP timeout privacy and direct/bounded 
  fs.writeFileSync(path.join(dir,'media','a.wav'),'synthetic');
  const cache=require('../transcripts').createTranscripts({dir:path.join(dir,'analysis','transcripts'),resolveSrc:()=>path.join(dir,'media','a.wav')});
  if(partial) cache.put('/media/a.wav',{duration:60,words:[['kept',0,1]],gaps:[],spans:[[0,1]]});
+ let injectedError=null;
  const server=http.createServer((req,res)=>{
   req.resume(); res.setHeader('Content-Type','application/json');
+  if(injectedError && req.url.startsWith('/api/export/job')) {
+   res.statusCode=500; res.end(JSON.stringify({error:injectedError})); return;
+  }
   let out={};
   if(req.url==='/api/project')out=project;
   else if(req.url==='/api/transcript/status')out={status:{'/media/a.wav':false}};
@@ -33,5 +37,15 @@ for(const partial of [false,true]) test('MCP timeout privacy and direct/bounded 
   a.equal(bounded.saved.length,1);a.match(bounded.saved[0],/^analysis\/transcripts\/[^/]+\.json$/);
   a.equal(JSON.parse(fs.readFileSync(path.join(dir,bounded.saved[0]),'utf8')).words[0][0],'kept');
  }else {a.deepEqual(bounded.saved,[]);a.match(bounded.error,/analysis\/transcripts/);}
+ for(const [i,p] of require('./fixtures/private-paths.cjs').entries()){
+  injectedError="could not open '"+p+"' (EACCES)";
+  const input={mediaIds:['m'],timeout:30+i};
+  const raw=await mcp.callTool('fablecut_transcribe',input);
+  const receipt=JSON.parse((await mcp.callTool('fablecut_transcribe',{...input,wait_ms:5000})).text);
+  a.equal(raw.text,'Error: '+receipt.error,p);
+  a.doesNotMatch(JSON.stringify({raw,receipt}),/someone|Some One|Some%20One|server|share/i,p);
+  a.match(receipt.error,/could not open '…\/x.json' \(EACCES\)/);
+  a.deepEqual(receipt.saved,bounded.saved);
+ }
 });
 
