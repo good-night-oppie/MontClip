@@ -22,7 +22,9 @@ test("the pinned build to download: URL, SHA-256 and the exact size cindy.downlo
   assert.equal(s.bytes, 167488790);
   assert.match(s.url, /^https:\/\/github\.com\/good-night-oppie\/MontClip\/releases\/download\//);
   assert.equal(s.license, "LGPL-3.0-or-later");
-  assert.equal(ffmpegSpec(manifest, "linux-x64").supported, false, "no byte count pinned: not offered");
+  // main's manifest pins the Linux byte count since MontClip #150, so linux-x64 is offered too
+  assert.equal(ffmpegSpec(manifest, "linux-x64").supported, true, "byte count pinned (MontClip #150): offered");
+  assert.equal(ffmpegSpec({ builds: { x: { url: "https://a/b", sha256: "0".repeat(64) } } }, "x").supported, false, "no byte count pinned: not offered");
   assert.equal(ffmpegSpec(manifest, "darwin-arm64").supported, false);
   assert.equal(ffmpegSpec({ builds: { x: { url: "http://a/b", sha256: "0".repeat(64), bytes: 1 } } }, "x").supported, false, "https only");
 });
