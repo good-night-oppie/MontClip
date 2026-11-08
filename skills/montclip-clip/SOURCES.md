@@ -51,14 +51,15 @@
 
 ## C. MontClip 的证据
 
-依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `77ec40f2411a7ebd59c41a2544e258a9e21064d2`（2026-11-07，和 GitHub 上一致；本轮新增 #161、#146、#177、#132、#219、#221、#222，另含此前已收的 #130、#202、#213、#164、#129、#183、#120、#125、#138、#154、#155、#165、#162、#109、#176、#175、#159、#193、#190、#172、#170、#137 等）。读法是只读的独立克隆与 `git show origin/main:<文件>`；本机工作区落后 main 很多个提交，所以没有用工作区。
+依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `4e70d8889593a7428442a88e086915ac8b338a87`（2026-11-08，和 GitHub 上一致；本轮新增 #224 / #227、#231、#233、#235、#236、#237，另含此前已收的 #161、#146、#177、#132、#219、#221、#222、#130、#202、#213、#164、#129、#183、#120、#125、#138、#154、#155、#165、#162、#109、#176、#175、#159、#193、#190、#172、#170、#137 等）。读法是只读的独立克隆与 `gh api` / `git show origin/main:<文件>`；本机工作区落后 main 很多个提交，所以没有用工作区。
 
-**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `91fed559bd612fcfee707c9dd3273ee73af18ca3`，2026-11-07 复查）：
+**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `2732eae4c30b7fe3bfc3ca59a648d0c676cd2f4c`，2026-11-08 复查）：
 - 工具定义在 `ghost.json`：`montclip_status`、`list_tools`、`call_tool`、`montclip_undo`、`montclip_redo`、`montclip_seek`、`montclip_export`、`montclip_install_ffmpeg`、`montclip_open_task_view`。
 - 分类和转发在 `main.js` 第 6–20 行和第 361–378 行。
-- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `77ec40f2`：main 上有 675 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...77ec40f2`，status=diverged）。
+- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `4e70d888`：main 上有 693 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...4e70d888`，status=diverged）。
 - MontClip-Cindy 上一轮实质增量：#20（合并提交 `e859bdef`）把导出中途停止的提示定稿为「导出到一半停了，这次没导完。原片没有改动，可以再导一次：点〔重试〕」，见 `main.js` 第 135–136 行；#35（合并提交 `db03b4ee`）接上主播自选、带 libx264 的 FFmpeg 仅用于 H.264 导出，`node/worker.cjs` 第 88–92 行只在安全的设置路径上设置 `MONTCLIP_EXTERNAL_FFMPEG_SETTINGS`，`node/lib.cjs` 第 312–350 行定义插件设置目录、真实路径与 DATA 隔离检查；没有选择界面、不新增工具、引擎锁不变。`docs/decisions/ADR-005-plugin-external-ffmpeg.md` 第 22–44 行明确无文件时行为不变、Windows 尚未做端到端导出实测。上一轮 #7（状态卡「听写」行）、#9（后台导出 job）、#22（无硬链接时回退复制）继续有效。插件版本 0.5.1、引擎锁 `5b312e63` 均未变。
-- MontClip-Cindy 本轮实质增量：#23（合并提交 `68a27cde`）在 `embed/panel-model.js` 的 `CHANNEL_NAMES` 给其余关键帧通道中文名和单位，未知字段显示「其他属性」；#25（合并提交 `8a9a44c8`）在 `main-view-model.js` 的 `taskOpenResult` 要求同 session 且 `focusRequested:true` 才算已请求切换，缺字段是未确认、失败是没成功，`main-view.js` 显示对应定稿文案；#24（合并提交 `91fed559`）在 `node/worker.cjs` 用 `cindy-export-results.json` 留最近 200 个完成结果，引擎 404 时可找回，查询 / 取消 / 交付 / 打开所选文件夹先查 session，不符报 `EXPORT_TASK_MISMATCH`，`main.js` 对 `NO_JOB` 给定稿提示和〔打开导出文件夹〕，重载后的完成结果仍是 `exported`、`copied:null`，不冒充 `done`。插件版本和引擎锁仍未变。
+- MontClip-Cindy 此前一轮实质增量：#23（合并提交 `68a27cde`）在 `embed/panel-model.js` 的 `CHANNEL_NAMES` 给其余关键帧通道中文名和单位，未知字段显示「其他属性」；#25（合并提交 `8a9a44c8`）在 `main-view-model.js` 的 `taskOpenResult` 要求同 session 且 `focusRequested:true` 才算已请求切换，缺字段是未确认、失败是没成功，`main-view.js` 显示对应定稿文案；#24（合并提交 `91fed559`）在 `node/worker.cjs` 用 `cindy-export-results.json` 留最近 200 个完成结果，引擎 404 时可找回，查询 / 取消 / 交付 / 打开所选文件夹先查 session，不符报 `EXPORT_TASK_MISMATCH`，`main.js` 对 `NO_JOB` 给定稿提示和〔打开导出文件夹〕，重载后的完成结果仍是 `exported`、`copied:null`，不冒充 `done`。
+- MontClip-Cindy 本轮实质增量：#8（合并提交 `2732eae4`）听写引擎和模型首次使用时下载——确认框与按钮定稿文案在 `main.js` 的 `ASR_TEXT`（第 112–148 行：「要把说的话转成文字，先要下载听写程序和中文听写模型，共约 N MB，只下这一次。」「从哪下：GitHub 上 MontClip 的发布页…」「只下载这些文件，不会发出你的录像、字幕或项目。下载完会逐个核对，对不上就不装。」，按钮〔下载〕/〔先不下〕，大小只出现在第一行）；文件清单、字节数与 SHA-256 钉在 `node/asr-runtime.json`（release `asr-runtime-2.0.1-montclip1`，含 sherpa-onnx 2.0.1、silero VAD、Paraformer 中文模型，各带许可与出处）；下载只进数据目录 `asr/` 和 `asr-models/`（`node/asr-install.cjs`），先核对字节再核 SHA-256，解压拒绝绝对路径、`..`、链接与特殊文件（用系统绝对路径的 tar，不回退 PATH），整套装不上就全清掉。**但开关默认关闭**：`asr-download.json` 的 `enabled:false`，正式包不显示〔下载听写程序和模型…〕按钮、不注册 `montclip_install_asr`，源码直接跑也是关的；打开前提（主人核文件、国内网络实测、真实 Cindy 里点下载跑通）都未完成，见 `docs/validation/2026-11-07-asr-download-gate.md`。ASR 错误细节不进 Agent 结果（`9d6bb6f8`），状态卡「听写」行的状态判断不变。插件版本 0.5.1 和引擎锁 `5b312e63` 均未变。
 
 **工具名和参数**：都在 `mcp-tools.js`（main），按行号：
 
@@ -112,7 +113,12 @@
 - Cindy 嵌入界面（#219，合并提交 `b6b49529`；#221，合并提交 `22fc8c47`；#222，合并提交 `37f84afc`）：`host-embed.js` 只认 `?host=cindy` 和 light / dark，主题消息同时核对 parent source 与 origin；`style.css` 跟随宿主主题。#221 在 `app.js`、`desktop/main.js`、`desktop/view-preload.js` 禁止嵌入页内置助手读取密钥 / 声音或发请求，`agent-approval.js` 的兜底直接 deny；`ui-preferences.js` 的 `own.ap-embedded-declined` 是定稿提示，歌词卡不受影响。#222 在 `app.js` 用现有 8000 ms 常量让该提示停留 8 秒、悬停不消失。没有 Cindy 实窗端到端验收，skill 不写成已实测。
 - 歌词边界仍以 main #205 为准：配方 A 只收主播提供的歌词，明确「不要自己去网上找歌词填」。本轮没有恢复此前撤回的在线查找写法。
 
-**界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里）：
+**本轮新增证据（以下行号以 MontClip main `4e70d888` 为准）**：
+- 无头导出逐帧对齐（#224，合并提交 `b3177098`，PR #227）：`b4621632` 把硬定位的目标点改成帧内 1 ms，毫秒取整的 WebM / MKV 帧不会再被当成前一帧；`29de5903` 让导出画元素实际持有的那一帧、按时间戳核对，不按回调报的名字。用户不可见的正确性修复，只进「插件版落后提醒」。
+- 导出前逐段核对声音（#231，合并提交 `e39628f1`，MC-14 / MC-15 / MC-11）：`export-check.js` 的 `soundPeak` 里读不出（ffmpeg 失败、超时或没解出声音）返回 null，永远不算无声；`cleanPlan` 的 silent 计划带 `{n, t}`，单独的声音（音乐、配音）n 为 null。`server.js` 在 `blankCheck` 判出 `EXPORT_AUDIO_FAILED` 时删掉输出文件、不交付；`withQuiet` 把「片段在文件里本来无声」写成报告里的 `EXPORT_CLIP_SILENT` 警告。JJ 定稿文案在 `ui-preferences.js` 的 `export-audio-failed`（「第 {n} 段（时间线 {time} 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。」）、`export-audio-failed-track`（「时间线 {time} 处的声音没读出来…」）、`export-clip-silent` / `-track` 与 `err-export-page-crashed`（「导出时出了意外…可以直接重新导出…」）。`export-jobs.js` 给无头浏览器退出和失联任务标 `EXPORT_PAGE_CRASHED`，Linux 下把导出页面进程的 `oom_score_adj` 提到 1000，内存耗尽时先死导出页而不是引擎。MC-11：`mcp-server.js` 的 `speechWords` 对时长未知的文件也只听写片段窗口，不再整段跑。
+- CI 与测试基建（#233、#235、#236）：测试任务加超时、Windows 挂死修复、ASR 下载 ADR 把 a/b/c 实跑移到打开开关的 PR——纯流程与测试，不进 skill 正文。
+
+**界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里，本轮新增两条定稿）：
 
 | 文案 | 位置 |
 |---|---|
@@ -140,6 +146,7 @@
 | 「帮我修好」 | `repair-button` / `repair-menu` / `repair-done` / `media-slow-mark` / `media-duration-unknown`，第 322–334 行 |
 | 「导出画面」 | `ef-title`，第 1036 行 |
 | 「找回录像」「找到它…」「先找回来…」「照样导出」 | `rl-title`、`off-find-it`、`off-find-first`、`off-export-anyway`，第 96–148 行 |
+| 「导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。」 | `err-export-page-crashed`（#231 定稿） |
 | 「导出单帧」「导出队列」「轨道锁」「属性面板 → 蒙版」「新建序列…」「查找词」「添加字幕」「文稿」 | `ui-terms.js` |
 | 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 585、628、632 行，对应 `help-4`、`help-27`、`help-31` |
 
@@ -155,9 +162,8 @@
 - 此前几轮新增收进：#137 / #193（找回录像与中文对话框）、#159（显示尺寸）、#170（AI 数据说明 v3）、#172（空方案不出按钮、做不到的事先说）、#175 / #176（桌面助手改比例与末帧跟随）、#190（限定路径的 ProRes 末尾声音修复）、#165（长录像只听写片段窗口与缺听写保护）、#155（蒙版/裁切坐标与抽帧尺寸映射）、#154（AI 抠像确认与资产校验）、#162（窄窗口素材面板）。合并提交见上方逐条证据。
 - 上一轮新增收进（MontClip `aba1d4c8..aedb7eaa`）：#120（助手确认卡放进消息流）、#125（H.264 编码器预检）、#138（桌面版「在文件夹里显示」）。
 - 上一轮新增收进（MontClip `aedb7eaa..6bcb72ff`）：#130（FLV 小断点直接导入、大断点同意后转换及 0.1 秒 / 40 ms 验收）、#202（撤回不安全隐私模糊配方，保留不透明遮挡与逐帧检查）、#213（界面改名「全自动」）、#164（`fablecut_lyrics` / `fablecut_lyrics_apply` 两步歌词对齐，移出「即将可用」）、#129（白话报错、导出条数、脱敏问题信息）、#183（旧项目单耳询问、成片单耳检查）。#163、#133 已关闭且未合并。
-- 本轮新增收进（MontClip `6bcb72ff..77ec40f2`）：#161（整片黑屏 / 无声判失败、非零时间戳修复，移出「即将可用」）、#146（自动找 FFmpeg 与分模式导出限制，移出「即将可用」）、#177（`fablecut_audio_track` 和界面选音轨）、#132（后台任务心跳、失联失败和 `JOB_BUSY` 处理）、#219 / #221 / #222（Cindy 嵌入主题、内置助手禁发和拒绝提示）。「即将可用」两项都已合并，因此移除空表。
-- 仍开放且改到 `skills/` 的非本任务 PR：本轮 `gh pr list` 没有发现；#202 已合并，#186 已关闭。安全遮挡段落以 main 为准，没有回写撤回做法。#227（无头导出帧内定位）和 #231（声音读不出时停止、逐段查无声）仍开放且不改 `skills/`，不写成已合并功能。
-- 其它本轮合并但未进 skill 的：#204（文档编辑链接）、#209（SOP v3 决策记录）属于文档 / 流程；#205 和 MontClip-Cindy #28 是本任务上一轮 skill 同步，不算实质增量；纯测试、文档重建、CI 与内部决策文档不作为新剪辑能力。
-- MontClip-Cindy：上一轮收进 #20（导出中途停止的定稿提示）和 #35（主播手工自选 FFmpeg 的安全接线与未实测边界）。本轮收进 #23（侧栏关键帧中文名）、#24（导出结果保存、过期找回与任务隔离）、#25（总览页打开任务回执）；#38 只修正 releaseNotes / 开发文档里的引擎提交写法，不改变操作，不收进 skill。仓库 main 现为 `91fed559`，插件版本 0.5.1 与引擎锁 `5b312e63` 均未变；#7、#9、#20、#22、#35 的插件用法继续有效。
+- 本轮新增收进（MontClip `77ec40f2..4e70d888`）：#224 / #227（无头导出逐帧对齐，仅进落后提醒）、#231（导出前逐段核对声音、读不出停下并点名、时长未知文件只听写片段窗口、页面崩溃定稿文案）。#233（CI 超时）、#235（Windows 测试清理）、#236（ASR ADR）、#237（SOP v3.1 决策记录）是测试 / 流程 / 文档，不进 skill；#232 和 MontClip-Cindy #40 是本任务上一轮 skill 同步，不算实质增量。
+- 仍开放且改到 `skills/` 的非本任务 PR：本轮 `gh pr list` 没有发现（#211、#237、#238 均不改 `skills/`）。安全遮挡段落以 main 为准，没有回写撤回做法。
+- MontClip-Cindy：本轮收进 #8（听写首次下载，默认关闭、验收前提未完成）。#38 只修正 releaseNotes / 开发文档里的引擎提交写法，不改变操作，不收进 skill。仓库 main 现为 `2732eae4`，插件版本 0.5.1 与引擎锁 `5b312e63` 均未变；#7、#9、#20、#22、#35 的插件用法继续有效。
 
-用 `gh api repos/good-night-oppie/<repo>/compare/<旧>...main` 读增量，并用 `gh pr list` / `gh pr view` 核对合并与开放 PR，时间 2026-11-07。
+用 `gh api repos/good-night-oppie/<repo>/compare/<旧>...main` 读增量，并用 `gh pr list` / `gh pr view` 核对合并与开放 PR，时间 2026-11-08。
