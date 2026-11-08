@@ -11,7 +11,7 @@ for(const [i,p] of paths.entries()) test('hidePaths private and idempotent varia
  }
 });
 test('hidePaths keeps ordinary errors, web URLs and relative saved paths intact',()=>{
- for(const text of ['ENOENT: could not load model; try again','see http://127.0.0.1:7777/api/asr','https://example.test/a/b','ratio 1/2 at 12:30','basic_string::_S_create','analysis/transcripts/a.json','…/model.bin','无法打开…/model.bin。']){
+ for(const text of ['read / write failed','ENOENT: could not load model; try again','see http://127.0.0.1:7777/api/asr','https://example.test/a/b','ratio 1/2 at 12:30','basic_string::_S_create','analysis/transcripts/a.json','…/model.bin','无法打开…/model.bin。']){
   a.equal(hidePaths(text),text);
  }
  a.equal(hidePaths('open /home/someone/x.json failed; see /Users/someone/y.bin'),'open …/x.json failed; see …/y.bin');
@@ -21,5 +21,3 @@ test('hidePaths keeps ordinary errors, web URLs and relative saved paths intact'
  }
  a.equal(hidePaths('failed C:/Users/someone/x.json see https://example.com/help'),'failed …/x.json see https://example.com/help');
 });
-
-

@@ -75,7 +75,7 @@ for (const c of CODES) Object.defineProperty(SAY, c, { enumerable: true, get: ()
    own …/ replacement. Directory components can contain internal spaces (e.g. "Some One"). A component cannot
    end in whitespace: that separates the path from prose before another path. Keep the final filename and
    surrounding quotes/punctuation so errors remain useful, and a second pass produces exactly the same text. */
-const PATH_ROOT = String.raw`(?<![\w.:/\\…])(?:file:[\\/]+(?:[a-z]:[\\/])?|[\\/]{2}\?[\\/](?:UNC[\\/]|[a-z]:[\\/])|[a-z]:[\\/]|[\\/]{2}|~[\\/]|/)`;
+const PATH_ROOT = String.raw`(?<![\w.:/\\…])(?:file:[\\/]+(?:[a-z]:[\\/])?|[\\/]{2}\?[\\/](?:UNC[\\/]|[a-z]:[\\/])|[a-z]:[\\/]|[\\/]{2}|~[\\/]|/(?=[^\s/]))`;
 const PATH_COMPONENT = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。！？：](?:[^\\/'"\x60\r\n,;:()<>\[\]{}。！？：]*[^\\/'"\x60\s,;:()<>\[\]{}。！？：])?[\\/]`;
 const PATH_END = String.raw`[^\\/'"\x60\s,;:()<>\[\]{}。！？：]*`;
 const PATHS = new RegExp(PATH_ROOT + '(?:' + PATH_COMPONENT + ')*' + PATH_END, 'gi');
@@ -93,4 +93,3 @@ function incompleteText(error, saved) {
     : '尚无已完成段落。完成段落保存位置：analysis/transcripts/。') + hidePaths(String(error?.message || error || ''));
 }
 module.exports = { code, userText, agentCode, SAY, modelMb, aboutMb, hidePaths, incompleteText };
-
