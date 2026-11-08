@@ -163,3 +163,39 @@ test('a failed export job keeps its reason code (EXPORT_AUDIO_FAILED …) in the
   a.ok(fast.includes('reportExportJob(job, { status: "failed", error: msg, ...(e && typeof e.code === "string" ? { code: e.code } : {}) }, true);'));
   a.match(read('mcp-server.js'), /\$\{j\.code \? ` \(\$\{j\.code\}\)` : ""\}/);
 });
+
+/* QQ on #238 (export-check.js:63): a read stopped for time can still print a max_volume. On Linux / macOS Node stops
+   ffmpeg with SIGTERM and it prints what it decoded so far — maybe only the quiet start of the stretch (Rea, #238
+   issuecomment-6716796422; on Windows the kill leaves no statistics). Out of time is unchecked, whatever was printed. */
+test('a read stopped for time that still printed a max_volume is unchecked, never quiet (any OS: a stand-in runner)', async () => {
+  const said = (stderr, timedOut) => async () => ({ ok: !timedOut, stdout: '', stderr, timedOut });
+  const partial = said('[Parsed_volumedetect_0 @ 0] n_samples: 96000\n[Parsed_volumedetect_0 @ 0] max_volume: -91.0 dB\n', true);
+  a.deepEqual(await C.soundRead('ffmpeg', 'rec.flac', 1700, 30, 1000, partial), { db: -91, timedOut: true });
+  a.deepEqual(await C.soundRead('ffmpeg', 'rec.flac', 1700, 30, 1000, said('max_volume: -inf dB\n', true)), { db: -Infinity, timedOut: true });
+  const plan = C.cleanPlan({ video: [], audio: [], silent: [{ n: 2, t: 10, src: '/media/rec.flac', at: 1690, dur: 20 }] });
+  const resolve = () => 'rec.flac';
+  const r = await C.check({ ffmpeg: 'ffmpeg', file: 'out.mov', plan, resolve, silent: false, mix: null, run: partial });
+  a.deepEqual([r.ok, r.lost, r.quiet, r.unchecked], [true, [], [], [{ n: 2, t: 10 }]], 'unchecked, not quiet');
+  a.deepEqual(C.warningReport(r.quiet, r.unchecked).checks.map((c) => c.code), ['EXPORT_CLIP_UNCHECKED']);
+  // a loud partial read stopped for time: not lost either (the file is kept, with the warning)
+  const loud = await C.check({ ffmpeg: 'ffmpeg', file: 'out.mov', plan, resolve, silent: false, mix: null, run: said('max_volume: -6.0 dB\n', true) });
+  a.deepEqual([loud.ok, loud.lost, loud.quiet, loud.unchecked], [true, [], [], [{ n: 2, t: 10 }]]);
+  // the same statistics from a read that finished: quiet and lost as before
+  const done = await C.check({ ffmpeg: 'ffmpeg', file: 'out.mov', plan, resolve, silent: false, mix: null, run: said('max_volume: -91.0 dB\n', false) });
+  a.deepEqual([done.quiet, done.unchecked], [[{ n: 2, t: 10 }], []]);
+  const heard = await C.check({ ffmpeg: 'ffmpeg', file: 'out.mov', plan, resolve, silent: false, mix: null, run: said('max_volume: -6.0 dB\n', false) });
+  a.deepEqual([heard.ok, heard.lost, heard.unchecked], [false, [{ n: 2, t: 10 }], []]);
+});
+
+test('Rea\'s source on #238: a long FLAC, quiet first and a tone after, read with a small limit — timed out, on every OS', { skip: noFf, timeout: 180_000 }, async (t) => {
+  const dir = tmp(t, 'mcto-'), flac = path.join(dir, 'late-tone.flac');
+  // 1800 s, mono: silence to 1700 s, then a 1 kHz tone (read to its end: about −18 dB)
+  execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=f=1000:r=48000:d=1800', '-af', 'volume=0:enable=lt(t\\,1700)',
+    '-c:a', 'flac', flac], { windowsHide: true });
+  const full = await C.soundRead(FF.path('ffmpeg'), flac, 0, null, 120000);
+  a.equal(full.timedOut, false); a.ok(full.db > C.QUIET_DB, 'the tone is there when read to the end: ' + full.db);
+  // stopped part way: Windows leaves no statistics (db null), Linux / macOS may print the quiet start's — timed out either way
+  const cut = await C.soundRead(FF.path('ffmpeg'), flac, 0, null, 300);
+  a.equal(cut.timedOut, true, JSON.stringify(cut));
+  a.ok(cut.db == null || cut.db <= C.QUIET_DB, 'only the quiet start, if anything: ' + cut.db);
+});

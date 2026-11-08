@@ -53,14 +53,17 @@ async function frameMax(ffmpeg, file, t) {
  *  or decoded nothing there — volumedetect says nothing then. A read that failed used to count as silence, so a
  *  source that couldn't be read never showed that the export had lost its sound. */
 async function soundPeak(ffmpeg, file, at = 0, dur = null) { return (await soundRead(ffmpeg, file, at, dur)).db; }
-/** soundPeak's answer, and whether the read ran out of time: {db, timedOut}. timedOut says nothing about the file. */
-async function soundRead(ffmpeg, file, at = 0, dur = null, timeoutMs = TIMEOUT_MS) {
-  const r = await run(ffmpeg, ["-hide_banner", "-nostdin", "-nostats", ...(at > 0 ? ["-ss", String(at)] : []), "-i", file,
+/** soundPeak's answer, and whether the read ran out of time: {db, timedOut}. timedOut says nothing about the file.
+ *  A read stopped for time stays timedOut even when ffmpeg printed a max_volume (QQ on #238): on Linux / macOS it is
+ *  stopped with SIGTERM and still prints what it decoded so far, a part of the stretch, maybe only its quiet start.
+ *  runner: run, or a stand-in with the same answer (tests). */
+async function soundRead(ffmpeg, file, at = 0, dur = null, timeoutMs = TIMEOUT_MS, runner = run) {
+  const r = await runner(ffmpeg, ["-hide_banner", "-nostdin", "-nostats", ...(at > 0 ? ["-ss", String(at)] : []), "-i", file,
     ...(dur > 0 ? ["-t", String(dur)] : []), "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"], "utf8", timeoutMs);
   const m = /max_volume:\s*(-?[\d.]+|-inf)\s*dB/.exec(r.stderr);
   // no sound stream at all, in older ffmpeg's words and in 8 / 9's ("Failed to set value '0:a:0' for option 'map'")
   if (!m) return { db: /Stream map '0:a:0' matches no streams|does not contain any stream|value '0:a:0' for option 'map'/i.test(r.stderr) ? -Infinity : null, timedOut: r.timedOut };
-  return { db: m[1] === "-inf" ? -Infinity : Number(m[1]), timedOut: false };
+  return { db: m[1] === "-inf" ? -Infinity : Number(m[1]), timedOut: r.timedOut };
 }
 async function pool(items, fn) {
   const out = new Array(items.length);
@@ -92,7 +95,8 @@ function cleanPlan(plan) {
  *  pieces whose file took longer than the time allowed to read (a warning: not known to be lost, the file is kept).
  *  o: {ffmpeg, file (the export), plan (cleanPlan), resolve(src) → file | null,
  *      silent: true | false | null (null: measure the mix), mix: the WAV sent with the export, or null,
- *      timeoutMs: how long one read of a piece's file may take (tests; default TIMEOUT_MS)} */
+ *      timeoutMs: how long one read of a piece's file may take (tests; default TIMEOUT_MS),
+ *      run: a stand-in for run when the pieces' files are read (tests; default run)} */
 async function check(o) {
   const t0 = Date.now();
   const plan = o.plan || { video: [], audio: [] };
@@ -122,7 +126,7 @@ async function check(o) {
   const lost = [], quiet = [], unchecked = [];
   const silent = plan.silent || [];
   if (silent.length) {
-    const reads = await pool(silent, (p) => { const f = o.resolve(p.src); return f ? soundRead(o.ffmpeg, f, p.at, p.dur, o.timeoutMs) : { db: null, timedOut: false }; });
+    const reads = await pool(silent, (p) => { const f = o.resolve(p.src); return f ? soundRead(o.ffmpeg, f, p.at, p.dur, o.timeoutMs, o.run || run) : { db: null, timedOut: false }; });
     // out of time: not known either way — kept, with a warning; sound there, or its file couldn't be read: lost — never
     // "silent in its file too"
     silent.forEach((p, i) => (reads[i].timedOut ? unchecked : reads[i].db == null || reads[i].db > QUIET_DB ? lost : quiet).push({ n: p.n, t: p.t }));
