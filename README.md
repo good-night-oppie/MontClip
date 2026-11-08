@@ -63,3 +63,5 @@ muted audio after explicit stream reordering. Unsupported mappings or filter
 selectors are refused instead of silently replacing an existing audio filter.
 
 A busy visible editor keeps its queued job. Silent hidden or disconnected editors release the queue after 20 seconds; the busy response includes cancellation instructions.
+
+Agent speech/song/highlight tools support bounded waits and saved task results; retries with an idempotency key do not duplicate edits. Completed transcript paragraphs remain on disk after cancellation. See the [agent manual](CLAUDE.md) for the same-tool retrieval contract.

@@ -250,8 +250,8 @@ function createHistory({ projects, autoMinutes = 10, keepAuto = 30 }) {
   }
 
   /* Before an agent changes the project: one version per session start / rewrite, not one per edit. */
-  function beforeAgent(name) {
-    const pid = projects.activeId();
+  function beforeAgent(name, projectId = null) {
+    const pid = projectId || projects.activeId();
     const cur = projects.readDoc(pid);
     const last = entries(pid)[0];
     if (last && last.revision === (cur.revision || 0)) return null;   // already saved as it is

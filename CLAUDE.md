@@ -88,6 +88,10 @@ Every Claude Code session then has these tools:
 - `fablecut_danmaku` — import a Bilibili recording's danmaku XML (录播姬 or Bilibili's own) for one
   recording, list or remove them. See "Danmaku (Bilibili recordings)" below.
 
+Long speech/song/highlight calls can use `wait_ms` (0–15000, default 6000 in Cindy). The same tool returns a durable `taskId`, `status` and `progress`; retrieve the result with `{taskId, wait_ms}` in the originating project. Do not busy-poll. Supply `idempotency_key` for modifications: retry the same key and arguments to retrieve the original result, use a new key for a new intended edit. With bounded calls and no explicit key, identical arguments reuse the previous task. Completed results survive worker restart; an interrupted mutation is reported as interrupted and is never automatically repeated. Receipts are local files in `analysis/tool-tasks/`.
+
+Transcription saves completed paragraphs to `analysis/transcripts/` before the next paragraph. A transcription `timeout` stops its editor job and reports incomplete work with saved transcript paths. This timeout is separate from `wait_ms`, which only limits how long the caller waits and does not stop the background work. A worker exit can interrupt remaining work; saved paragraphs remain. No model is downloaded automatically.
+
 ### Token-efficient editing (important for agents)
 
 Editing via full get→modify→set costs thousands of tokens per change. Cheaper:

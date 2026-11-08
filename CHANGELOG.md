@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add durable bounded tool receipts, keyed retries and project-scoped background speech/song/highlight edits; checkpoint each completed speech paragraph and report saved paths on cancellation.
+
 - Embedded editor (`?host=cindy`): the built-in assistant sends nothing — no service key read, no AI service reached, no message sent (the desktop main process refuses its requests from such a page too) — and an approval it would ask for is denied at once with `HOST_EMBEDDED` (QQ on #219). Light theme inside Cindy: every text at least 4.5:1, and track separators follow the theme (VV on #219).
 - Embedded editor (`?host=cindy`, `host-embed.js`): inside Cindy the built-in assistant is hidden (Cindy's chat takes that place) and the editor follows Cindy's light / dark theme — `?theme=light|dark` at load, then theme messages only from the framing page (its window and its origin). Light theme re-maps the surface colours and fixes low-contrast text. Unchanged without `?host=cindy`.
 - Embedded in Cindy (`MONTCLIP_HOST=cindy`): the engine answers only requests with the plugin's session token (`X-MontClip-Session`, or the HttpOnly `montclip_embed` cookie — a random session of its own, not the token — a `?token=` page load trades for, with a 302 to the URL without it); `mcp-server.js` sends the header; headless browsers get a one-time ticket instead of the token. Unchanged without the variable.

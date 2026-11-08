@@ -1298,7 +1298,11 @@ async function handleRequest(req, res) {
         sendJSON(res, 200, { deleted });
       } else {
         const status = {};
-        for (const src of (Array.isArray(body.srcs) ? body.srcs.slice(0, 2000).map(String) : [])) status[src] = transcripts.info(src, audioTrackFor(src));
+        for (const src of (Array.isArray(body.srcs) ? body.srcs.slice(0, 2000).map(String) : [])) {
+          const track = audioTrackFor(src, body.tracks?.[src]);
+          if (Number.isNaN(track)) throw new Error('invalid audio track');
+          status[src] = transcripts.info(src, track);
+        }
         sendJSON(res, 200, { status });
       }
     } catch (e) { sendJSON(res, e.code === 404 ? 404 : 400, { error: String(e.message || e) }); }
@@ -1320,6 +1324,11 @@ async function handleRequest(req, res) {
       let spec;
       try {
         spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true };
+        spec.tracks = Object.fromEntries(spec.srcs.map(src => {
+          const track = audioTrackFor(src, t.tracks?.[src]);
+          if (Number.isNaN(track)) throw new Error('invalid audio track');
+          return [src, track];
+        }));
         // ranges: {src: [[from, to], …]} — a long file's clips are listened to in their windows only (P8)
         if (t.ranges != null) {
           if (!t.ranges || typeof t.ranges !== "object" || Array.isArray(t.ranges)) throw new Error("ranges must be {src: [[from, to], …]}");
@@ -2231,6 +2240,11 @@ async function handleRequest(req, res) {
         return;
       }
       const r = await A.transcribe(file, { signal: ac.signal, duration: dur, ranges: plan ? plan.read : null, track,
+        onCheckpoint: (part) => {
+          let add = TR.validate({ ...part, src, model: TR.DEFAULT_MODEL, created: new Date().toISOString(), gaps: part.gaps.map(g => [g.start, g.end, g.reason]) });
+          if (plan) add = TR.keepIn(add, plan.core);
+          transcripts.put(src, TR.mergeDocs(transcripts.get(src, track) || null, add), track);
+        },
         onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
       let add = TR.validate({ src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
         gaps: r.gaps.map((g) => [g.start, g.end, g.reason]), ...(r.spans ? { spans: r.spans } : {}) });
@@ -2242,7 +2256,9 @@ async function handleRequest(req, res) {
       sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated, spans: doc.spans || null });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: AsrStatus.hidePaths(String(e.message || e)) });
+      const saved = transcripts.get(src, track) ? transcripts.file(src, track) : null;
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500,
+        { code, status: 'incomplete', saved, error: '没听完。' + (saved ? '已完成段落已保存到 ' + saved + '。' : '') + AsrStatus.hidePaths(String(e.message || e)) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }
