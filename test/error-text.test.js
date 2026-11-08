@@ -287,3 +287,15 @@ test('the auto-slices page keeps its state when the project only now gets an id 
   runtime.projectId = 'p_2';          // another project: a fresh page
   a.equal(autoState().exportIds, null);
 });
+
+// #231 follow-up (Deja 2026-11-08): a piece that could not be checked in time — DRAFTS awaiting JJ's final wording. Registered
+// like the other texts with a code (ERROR_TEXT); no number → the -track sentence, as for EXPORT_AUDIO_FAILED.
+test('EXPORT_CLIP_UNCHECKED (draft for JJ): numbered like #231, time only for a sound on its own', () => {
+  a.ok(V.ERROR_CODES.includes('EXPORT_CLIP_UNCHECKED'));
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '3', time: '1:12:04' } }).text, '第 3 段（时间线 1:12:04 处）的声音这次没能核对完，成片已经导出。请自己听一下这一段。');
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { time: '1:12:04' } }).text, '时间线 1:12:04 处的声音这次没能核对完，成片已经导出。请自己听一下这一段。');
+  a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '3', time: '1:12:04' } }).text, "The sound of clip 3 (at 1:12:04 on the timeline) couldn't be fully checked this time. The export was made. Please listen to this part yourself.");
+  a.equal(V.errorText('en', { code: 'EXPORT_CLIP_UNCHECKED', params: { time: '1:12:04' } }).text, "The sound at 1:12:04 on the timeline couldn't be fully checked this time. The export was made. Please listen to this part yourself.");
+  // a warning, not a failure: never one of a batch's failure reasons
+  a.notEqual(V.batchReason('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '3', time: '0:10' } }), zh('own.export-clip-unchecked', { n: '3', time: '0:10' }));
+});
