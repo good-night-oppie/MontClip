@@ -6,6 +6,17 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 "use strict";
 
+/* MontClip#263: this page is an editor's hidden export page (?exportWorker=<job id>, bg-export.js): it renders the copy
+   of the timeline its editor sends and reports back. It saves nothing, keeps no undo history and listens to no event
+   stream; its toasts go to the editor. */
+const EXPORT_WORKER = (() => {
+  try {
+    const id = new URLSearchParams(location.search).get("exportWorker");
+    return id && window.parent !== window && /^[\w-]{1,80}$/.test(id) ? id : null;
+  } catch { return null; }
+})();
+let bgWorker = null;   // the export page's side (MontClipBgExport.createWorker), on an export page only
+
 /* ── Constants ─────────────────────────────────────────────────────────── */
 const VIDEO_TRACK_COLORS = ["#4f8cff", "#7b6cff", "#ffd166", "#ff6b9d", "#45d9c2", "#f4a261", "#e76f51", "#a8dadc"];
 const AUDIO_TRACK_COLORS = ["#7ec249", "#5a9e3a", "#4a8a2f", "#3a7226", "#2d5a1e", "#8fbc5a", "#6b9e3a", "#4d7a28"];
@@ -1427,6 +1438,7 @@ function toastHeld(msg) {
   toastHold.start();
 }
 function toast(msg) {
+  if (EXPORT_WORKER) { bgWorker?.hooks.toast(msg); return; }   // nobody looks at an export page: the editor says it
   if (!els.toast) return;
   els.toast.classList.remove("held");
   els.toast.textContent = msg;
@@ -1458,6 +1470,11 @@ async function connectServer() {
     state.connected = true;
     els.projectName.textContent = projectStatusText();
     runtime.projectId = res.headers.get("X-FableCut-Project");
+    if (EXPORT_WORKER) {   // an export page: the server's answers only; no undo history, no event stream, no dashboard
+      const ff = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
+      state.ffmpeg = !!ff.available;
+      return;
+    }
     await restoreUndoStack();   // a reloaded page gets its undo history back
     checkMonoLeftStems();       // applyProject ran before the page was connected
     window.addEventListener("pagehide", keepPlayheadOnLeave);
@@ -2012,11 +2029,12 @@ function centreMonoStems(ids, side = "left") {
 }
 function scheduleSave() {
   state.dirtyTimeline = true;
-  if (!state.connected) return;
+  if (!state.connected || EXPORT_WORKER) return;   // an export page holds a copy: it never writes it back
   clearTimeout(runtime.saveTimer);
   runtime.saveTimer = setTimeout(() => { runtime.saveTimer = null; runtime.saving = saveNow(); }, 400);
 }
 async function saveNow() {
+  if (EXPORT_WORKER) return false;
   project.revision++;
   const body = JSON.stringify({ ...projectJSON(), agentLog: eventLog().toJSON() }, null, 2);   // the event log is kept in the project (summaries)
   try {
@@ -5182,7 +5200,7 @@ function onUiCommand(data) {
    has a stack of its own, which is not kept. */
 function undoStackUrl(sub = "") { return "/api/ui/undo-stack" + sub + "?project=" + encodeURIComponent(runtime.projectId || "default"); }
 function persistUndoSoon() {
-  if (!state.connected || state.compCtx) return;
+  if (!state.connected || state.compCtx || EXPORT_WORKER) return;
   clearTimeout(runtime.undoPersistTimer);
   runtime.undoPersistTimer = setTimeout(() => {
     runtime.undoPersistTimer = null;
@@ -5251,7 +5269,7 @@ function startHostChannel(channel) {
 }
 /* the page is going away (Cindy switching tasks, a reload): keep where the playhead was (connectServer listens) */
 function keepPlayheadOnLeave() {
-  if (!state.connected || state.compCtx) return;
+  if (!state.connected || state.compCtx || EXPORT_WORKER) return;
   try { fetch(undoStackUrl("/time"), { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: state.time }) }).catch(() => { }); } catch { }
 }
 
@@ -14363,7 +14381,12 @@ function bgRemoveExportError(clipId, realtime = false) {
 }
 /* A fresh/headless page cannot inherit consent. Refuse before starting an encoder, then verify every frame below. */
 function noteExportBgRemove(range = exportRange(), realtime = false) {
-  const c = mediaClips().find((c) => {
+  const c = exportBgRemoveClip(range);
+  if (c && (!bgSeg.seg || realtime)) throw bgRemoveExportError(c.id, realtime);
+}
+/** The first clip in the range whose picture uses AI background removal (also by a keyframe), or undefined. */
+function exportBgRemoveClip(range = exportRange()) {
+  return mediaClips().find((c) => {
     if (!clipRenders(c) || (c.kind !== "video" && c.kind !== "image")) return false;
     const start = Math.max(c.start, range.start), end = Math.min(clipEnd(c), range.end);
     if (start >= end) return false;
@@ -14371,7 +14394,6 @@ function noteExportBgRemove(range = exportRange(), realtime = false) {
     return evalProps(c, start).bgRemove || evalProps(c, Math.max(start, end - 1e-9)).bgRemove ||
       (c.keyframes?.bgRemove || []).some((k) => k.t + c.start >= start && k.t + c.start < end && k.v);
   });
-  if (c && (!bgSeg.seg || realtime)) throw bgRemoveExportError(c.id, realtime);
 }
 /* Serialize sends; returns a promise that resolves once the mask is refreshed.
    Preview calls are dropped while one is in flight (masks lag a frame at most);
@@ -19881,9 +19903,10 @@ function renderExportEngineText() {
   const ef = getExportFrame();
   const fastOk = state.connected && state.ffmpeg;
   const wcOk = fastOk && state.webCodecs && !ef;
+  // MontClip#263: says whether this export goes to the background (bg-export.js), never more than it does
+  const fastNote = uiText(typeof MontClipBgExport === "undefined" ? "term.engine-fast-note-here" : MontClipBgExport.noteKey("fast", fastExportBlocker()));
   $("engineFastNote").textContent = fastOk
-    ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). Keeps rendering if you switch tabs."
-      : uiText("term.engine-fast-note"))
+    ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). " + fastNote : fastNote)
     : (ef
       ? "Needs the server + MontClip's bundled FFmpeg to export a cropped delivery frame."
       : "Needs the server + MontClip's bundled FFmpeg.");
@@ -19904,6 +19927,7 @@ function renderExportEngineText() {
   }
 }
 async function openExportSetup() {
+  if (bgExportBusy()) { showBgExportOverlay(); return; }   // the Export button while one runs: its progress, and Cancel
   if (state.exporting) return;
   if (!project.clips.length) { alert("Timeline is empty — add some clips first."); return; }
   await detectWebCodecs();
@@ -20000,8 +20024,11 @@ function startChosenExport() {
     if (c.kind === "delivery") {
       if (!dlvSpec) { const n = normalizeDelivery(c.id); dlvSpec = n.spec; dlvNotes = n.notes; }   // never the raw x264 profile
       setSetting("delivery", dlvSpec);
-      fastExport({ delivery: dlvSpec });
-    } else fastExport({ profile: c.id });
+    }
+    const fastOpts = c.kind === "delivery" ? { delivery: dlvSpec } : { profile: c.id };
+    // in the background from a copy of this timeline (MontClip#263), unless this export has to run in this window
+    if (bgExport && !fastExportBlocker()) startBgExport(fastOpts);
+    else fastExport(fastOpts);
   }
   else if (useSecond && state.connected && state.ffmpeg && state.webCodecs && !getExportFrame()) webCodecsExport();
   else startExport();
@@ -21191,7 +21218,8 @@ async function fastExport(opts = {}) {
   const signal = exportAbort.signal;
   if (!opts.silent) els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
-  els.exportNote.textContent = uiText("term.engine-fast-note");
+  // this export runs in this page (the background one sets its own note, showBgExportOverlay)
+  els.exportNote.textContent = uiText("term.engine-fast-note-here");
   restoreExportVideoState();
   const deliveries = opts.deliveries || (opts.delivery ? [{ delivery: opts.delivery }] : null);
   const delivery = deliveries ? deliveries[0].delivery : null;
@@ -21209,6 +21237,7 @@ async function fastExport(opts = {}) {
     if (refused) throw Object.assign(new Error(refused), { code: "EXPORT_NO_H264" });
     noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
+    if (opts.onPhase) opts.onPhase("mixing");
     await mediaInfoSettled();
     const silent = [];
     const wav = await renderAudioMix(t0, t1, { silent });
@@ -21223,7 +21252,7 @@ async function fastExport(opts = {}) {
       } : {
         fps,
         frames,
-        name: exportBaseName("export"),
+        name: opts.name || exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
         job,
@@ -21233,6 +21262,7 @@ async function fastExport(opts = {}) {
     }).then((r) => r.json());
     if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
+    if (opts.onSession) opts.onSession(sessId);   // a background export's editor can discard it if this page stops answering
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
     exportFullCanvas = !!delivery;
@@ -21263,6 +21293,7 @@ async function fastExport(opts = {}) {
       const poll = setInterval(tick, 4);
       tick();
     });
+    if (opts.onPhase) opts.onPhase("rendering");
     try {
     for (let f = 0; f < frames; f++) {
       if (renderCancelled || signal.aborted) throw new Error("cancelled");
@@ -21313,6 +21344,7 @@ async function fastExport(opts = {}) {
     await pixelChain;
     if (uploadError) throw uploadError;
     els.exportTitle.textContent = uiText("own.encoding");
+    if (opts.onPhase) opts.onPhase("encoding");
     await up.done();
     if (uploadError) throw uploadError;
     } finally {
@@ -21374,7 +21406,7 @@ const exportQueue = [];
 function exportCloseState() {
   // a copy still being written to where the streamer chose is not "not saved": deleting it would leave half a file (QQ)
   const unsaved = exportQueue.filter((q) => q.status === "done" && !q.saved && !q.saving);
-  return { exporting: !!state.exporting, unsaved: unsaved.length, files: unsaved.map((q) => q.file).filter(Boolean) };
+  return { exporting: !!state.exporting || bgExportBusy(), unsaved: unsaved.length, files: unsaved.map((q) => q.file).filter(Boolean) };
 }
 let queueRunning = false, queueStop = false;
 function queueLabel(spec) {
@@ -21441,8 +21473,10 @@ function renderQueue() {
   $("btnQueueClear").disabled = queueRunning || !exportQueue.some((q) => q.status !== "pending" && q.status !== "running");
   if (!exportQueue.length) { list.innerHTML = `<li class="xq-empty">The queue is empty</li>`; return; }
   list.innerHTML = exportQueue.map((q) => {
-    const ext = Delivery.CONTAINERS[q.spec.container].ext;
-    const fr = deliveryFrame(q.spec), fps = q.spec.fps || projectFps();
+    // a background export of an encoding profile (MontClip#263) has no delivery spec: its profile's summary instead
+    const ext = q.spec ? Delivery.CONTAINERS[q.spec.container].ext : "";
+    const fr = q.spec ? deliveryFrame(q.spec) : null, fps = (q.spec && q.spec.fps) || projectFps();
+    const sub = q.spec ? Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }) : exportProfileMeta(q.profile).summary;
     // a failure in plain words: v2's sentence for its code, else its last row (MontClipView.batchReason); nothing raw
     const why = q.status === "failed" ? MontClipView.batchReason(mcView.get().language, q) : null;
     // a file that came out black or silent (export-check.js): JJ's sentence as it is, and the 〔复制问题信息〕 it asks for
@@ -21456,14 +21490,17 @@ function renderQueue() {
       // 保存 opens the save window again; once a save went through, 已保存
       q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
       q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${q.id}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
-      q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
+      q.bg && q.status === "running" ? `<button type="button" class="btn tiny" data-q-bgcancel="${q.id}">${escapeHtml(uiText("term.cancel"))}</button>` : "",
+      // a background export is started again from Export (a new copy of the timeline), not from here
+      !q.bg && (q.status === "failed" || q.status === "cancelled") ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
       blank ? `<button type="button" class="btn tiny" data-q-copy="${q.id}" title="${escapeHtml(uiText("copyProblemNote"))}">${escapeHtml(uiText("btnCopyProblem"))}</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
     return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
-      `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
+      `<span class="xq-sub">${escapeHtml(sub)} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
+      (q.note ? `<span class="xq-note">${escapeHtml(q.note)}</span>` : "") +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(exportReportLine(q.report))}</span>` : "") +
       (q.report && q.report.checks.some((c) => !c.ok && c.code === "AUDIO_ONE_SIDED" && oneSidedWarning(c).ids)
         ? `<button type="button" class="btn tiny" data-q-fix="${q.id}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
@@ -21483,6 +21520,7 @@ function renderQueueProgress() {
 async function runQueue(opts) {
   const quiet = !!(opts && opts.quiet);   // the auto-slices dialog says a refusal on its own page
   if (queueRunning || state.exporting) return;
+  if (bgExportBusy()) { toast(uiText("own.bg-export-busy")); return; }
   if (!(state.connected && state.ffmpeg)) { toastProblem(sayError({ code: "EXPORT_NEEDS_SERVER", error: "the export queue needs the server and ffmpeg" }, "export-queue")); return; }
   queueRunning = true; queueStop = false;
   renderQueue();
@@ -21543,6 +21581,166 @@ function stopQueue() {
   queueStop = true;
   renderCancelled = true;
   try { exportAbort?.abort(); } catch { }
+}
+
+/* ── Background export (MontClip#263; bg-export.js) ──
+   Fast export from the Export dialog runs in a hidden page of this origin (?exportWorker=<id>) from a copy of the
+   timeline taken at the click, so the progress window can be closed and the editing goes on: this page is never in its
+   exporting state for it. The top bar's Export button shows the percentage and opens the progress window again, with
+   Cancel; the export queue lists it. The result comes back as a toast and the queue entry, as before. An export that has
+   to run here (fastExportBlocker: an open composition, AI background removal) keeps the progress window of before. */
+const BgExport = typeof MontClipBgExport === "undefined" ? null : MontClipBgExport;
+/** Why the next Fast export has to run in this window (a code), or null when it goes to the background. */
+function fastExportBlocker() {
+  if (!BgExport) return "NO_WORKER";
+  return BgExport.blocker({ worker: !!state.connected && !EXPORT_WORKER, compOpen: !!state.compCtx, bgRemove: !!exportBgRemoveClip() });
+}
+let bgExportShown = false;   // the progress window is showing the background export
+const bgExport = !BgExport || EXPORT_WORKER ? null : BgExport.createController({
+  makeFrame(id) {
+    const f = document.createElement("iframe");
+    f.className = "bg-export-frame"; f.title = "export"; f.tabIndex = -1;
+    f.setAttribute("aria-hidden", "true");
+    f.src = "/?exportWorker=" + encodeURIComponent(id);
+    // only that page's window, from this origin, speaks for the job
+    const onMessage = (e) => { if (e.source === f.contentWindow && e.origin === location.origin) bgExport.receive(e.data); };
+    window.addEventListener("message", onMessage);
+    document.body.appendChild(f);
+    return {
+      post: (m) => f.contentWindow?.postMessage(m, location.origin),
+      remove: () => { window.removeEventListener("message", onMessage); f.remove(); },
+    };
+  },
+  // the page did not answer a cancel: its half-made file goes here (server.js cleanupExport)
+  discard: (sess) => fetch("/api/export/end?id=" + encodeURIComponent(sess) + "&discard=1", { method: "POST" }).catch(() => { }),
+  onChange: (j) => renderBgExport(j),
+  onToast: (_j, text) => toast(text),
+  onDone: (j, result) => finishBgExport(j, result),
+});
+const bgExportBusy = () => !!(bgExport && bgExport.busy());
+function bgExportTitle(j) {
+  const pct = Math.round((j.progress || 0) * 100);
+  if (j.state === "cancelling") return uiText("own.bg-export-cancelling");
+  if (j.phase === "mixing") return uiText("own.mixing-audio");
+  if (j.phase === "encoding") return uiText("own.encoding");
+  if (j.phase === "rendering") return uiText("own.rendering-pct", { pct });
+  return uiText("term.exporting");
+}
+/** The top bar's Export button, the queue entry and (when open) the progress window follow the job. */
+function renderBgExport(j = bgExport && bgExport.job()) {
+  const b = $("btnExport");
+  if (b && j) {
+    b.textContent = uiText("own.bg-export-btn", { pct: Math.round((j.progress || 0) * 100) });
+    b.title = uiText("own.bg-export-btn-title");
+    b.classList.add("bg-exporting");
+    b.disabled = false;
+  } else if (b && b.classList.contains("bg-exporting")) {
+    b.classList.remove("bg-exporting");
+    b.textContent = uiText("term.export-2");
+    b.title = b.dataset.titleBefore || "";
+    applyFfmpegState();
+  }
+  if (j && j.q) { j.q.progress = j.progress || 0; renderQueueProgress(); }
+  if (j && bgExportShown) {
+    els.exportProgress.style.width = ((j.progress || 0) * 100).toFixed(1) + "%";
+    els.exportTitle.textContent = bgExportTitle(j);
+    $("btnCancelExport").disabled = j.state === "cancelling";
+  }
+}
+function showBgExportOverlay() {
+  if (!bgExportBusy()) return;
+  bgExportShown = true;
+  els.exportNote.textContent = uiText("term.engine-fast-note");   // = BgExport.noteKey("fast")
+  els.exportOverlay.classList.add("bg-export");
+  $("btnExportHide")?.classList.remove("hidden");
+  els.exportOverlay.classList.remove("hidden");
+  renderBgExport();
+  $("btnExportHide")?.focus();
+}
+/** Closes the progress window; the export goes on. */
+function hideBgExportOverlay() {
+  if (!bgExportShown) return;
+  bgExportShown = false;
+  els.exportOverlay.classList.add("hidden");
+  els.exportOverlay.classList.remove("bg-export");
+  $("btnExportHide")?.classList.add("hidden");
+  $("btnCancelExport").disabled = false;
+  els.exportTitle.textContent = uiText("term.exporting");
+  els.exportNote.textContent = uiText("term.export-note-realtime");
+  els.exportProgress.style.width = "0%";
+  if (document.activeElement === document.body || els.exportOverlay.contains(document.activeElement)) $("btnExport")?.focus();
+}
+/** fastOpts: {delivery} or {profile}, as startChosenExport picked. The copy of the timeline is taken now. */
+function startBgExport(fastOpts) {
+  if (bgExportBusy()) { showBgExportOverlay(); return null; }
+  const range = exportRangeMode();
+  const delivery = fastOpts.delivery || null;
+  const name = delivery ? deliveryFileName(delivery, delivery.fps || projectFps()) : exportBaseName("export");
+  const opts = delivery ? { deliveries: [{ delivery, name }], range } : { profile: fastOpts.profile, name, range };
+  const q = { id: "q" + Math.random().toString(36).slice(2, 8), bg: true, spec: delivery,
+    label: delivery ? queueLabel(delivery) : exportProfileMeta(fastOpts.profile).label, profile: delivery ? null : fastOpts.profile,
+    name, range, status: "running", progress: 0 };
+  const j = bgExport.start(projectJSON(), opts, { q });
+  if (!j) return null;
+  exportQueue.push(q);
+  renderQueue();
+  renderBgExport(j);
+  showBgExportOverlay();
+  return j;
+}
+const bgClock = (ms) => new Date(ms).toLocaleTimeString(mcView.get().language === "en" ? "en-GB" : "zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+/** The job ended (done, failed, cancelled): the queue entry, and a toast that says which timeline the file was made from. */
+function finishBgExport(j, res) {
+  hideBgExportOverlay();
+  renderBgExport(null);
+  const q = j.q;
+  const version = uiText(BgExport.sameTimeline(j.doc, projectJSON()) ? "own.bg-export-version" : "own.bg-export-version-changed", { time: bgClock(j.startedAt) });
+  q.note = version;
+  if (res && res.cancelled) {
+    q.status = "cancelled";
+    renderQueue();
+    toast(uiText("own.bg-export-cancelled"));
+    return;
+  }
+  const o = res && Array.isArray(res.outputs) ? res.outputs[0] : null;
+  if (!o || !o.ok || !o.src) {
+    Object.assign(q, { status: "failed", error: (o && o.error) || (res && res.error) || "export failed",
+      ...(o && o.code ? { code: o.code } : res ? { code: res.code, params: res.params, featurePack: res.featurePack } : {}) });
+    renderQueue();
+    if (q.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED") toast(uiText("own.export-profile-unsupported"));
+    else sayExportFailure(Object.assign(new Error(q.error), { code: q.code, params: q.params, featurePack: q.featurePack }));
+    return;
+  }
+  const file = o.file || decodeURIComponent(o.src.split("/").pop());
+  Object.assign(q, { status: "done", src: o.src, file, progress: 1, report: o.report || null });
+  renderQueue();
+  // the readback check's warnings (export-check.js) are said as before; the version sentence follows
+  toastHeld((o.report && !o.report.ok ? exportReportLine(o.report) : uiText("own.bg-export-done", { file })) + " " + version);
+  const oneSided = o.report && o.report.checks.find((c) => !c.ok && c.code === "AUDIO_ONE_SIDED");
+  saveDownload(o.src, file, { exportFile: true, ...(oneSided ? { savedMsg: () => showOneSidedWarning(oneSided) } : {}) });
+}
+/* The export page's side: it takes the copy its editor sends, runs Fast export on it and reports back. */
+function bootExportWorker() {
+  if (!BgExport) return;
+  bgWorker = BgExport.createWorker(EXPORT_WORKER, {
+    post: (m) => { try { window.parent.postMessage(m, location.origin); } catch { } },
+    cancel: () => { renderCancelled = true; try { exportAbort?.abort(); } catch { } },
+    run: runBgExportHere,
+  });
+  window.addEventListener("message", (e) => { if (e.source === window.parent && e.origin === location.origin) bgWorker.receive(e.data); });
+  bgWorker.ready();
+}
+async function runBgExportHere(doc, opts, hooks) {
+  if (!state.connected || !state.ffmpeg) return { error: "the export needs MontClip's server and FFmpeg", code: "EXPORT_NEEDS_SERVER" };
+  applyProject(doc);
+  await probeMissingMeta();
+  await fetchEncodeProfiles();
+  if (opts.deliveries) await fetchDeliveryInfo();
+  exportRangeForced = opts.range === "in-out" ? "in-out" : "entire";
+  try {
+    const run = opts.deliveries ? { deliveries: opts.deliveries } : { profile: opts.profile, name: opts.name };
+    return await fastExport({ ...run, silent: true, onProgress: hooks.onProgress, onPhase: hooks.onPhase, onSession: hooks.onSession });
+  } finally { exportRangeForced = null; }
 }
 
 /* ── Batch outputs (project.outputs) ──
@@ -21641,7 +21839,7 @@ function jobProblem(id, reply) {
    next job instead of holding it. A cancel can arrive as the reply. */
 const JOB_HEARTBEAT_MS = 5000;
 async function runExportJob(ticket) {
-  if (!ticket?.id || state.exporting) return; // a busy tab leaves it for another
+  if (!ticket?.id || state.exporting || bgExportBusy()) return; // a busy tab leaves it for another
   const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden, conn: runtime.sseConn || undefined }) })
     .then((r) => r.ok).catch(() => false);
   if (!claimed) return;
@@ -22373,6 +22571,7 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
+  if (e.target.dataset.qBgcancel) { bgExport?.cancel(); return; }
   const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, c = e.target.dataset.qCopy, f = e.target.dataset.qFix, rv = e.target.dataset.qReveal;
   const q = exportQueue.find((v) => v.id === (r || x || s || c || f || rv));
   if (!q) return;
@@ -22405,7 +22604,11 @@ $("exportWcMode")?.addEventListener("change", async () => {
   syncExportWcOpts();
   if (!els.exportSetup.classList.contains("hidden")) openExportSetup();
 });
+$("btnExportHide")?.addEventListener("click", hideBgExportOverlay);
+els.exportOverlay.addEventListener("keydown", (e) => { if (e.key === "Escape" && bgExportShown) { e.preventDefault(); hideBgExportOverlay(); } });
+els.exportOverlay.addEventListener("click", (e) => { if (e.target === els.exportOverlay && bgExportShown) hideBgExportOverlay(); });
 $("btnCancelExport").addEventListener("click", () => {
+  if (bgExportShown) { bgExport.cancel(); return; }
   if (state.rendering) {
     renderCancelled = true;
     try { exportAbort?.abort(); } catch { }
@@ -24580,7 +24783,7 @@ const initialWorkspace=workspacePreference.load(mcView.get().mode);
 if(initialWorkspace.workspace==='color')setWorkspace('color',false);
 else if(mcView.get().mode==='simple')setWorkspace('edit',false);
 if(!initialWorkspace.ok)toast(MontClipView.text[mcView.get().language].workspaceReadFailed);
-connectServer().then(() => { loadLibraryFonts(); runExportJobFromUrl(); });
+connectServer().then(() => { loadLibraryFonts(); if (EXPORT_WORKER) bootExportWorker(); else runExportJobFromUrl(); });
 requestAnimationFrame(loop);
 
 // Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
@@ -24993,7 +25196,7 @@ mcAgent=agentEmbedded?{render(){},sync(){},identify(){},flush:()=>true,showNotic
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(MontClipCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
-setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
+if(!EXPORT_WORKER)setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
 /* 设置 › AI 助手 (Deja and JJ, 2026-11-04): the switch the main process keeps — off, it refuses every send — and the
    「AI 数据说明」 again. Desktop only: the browser editor has no assistant service. */
 { const box=$("setAi"),box2=$("setAiEnabled"),svc=agentEmbedded?null:window.montclipAgentService;

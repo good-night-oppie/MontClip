@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fast export from the Export dialog runs in the background (#263): a hidden page renders a copy of the timeline taken at the click, so the progress window can be closed and editing goes on; the Export button shows the percentage and reopens progress with Cancel; the result is a toast naming the timeline's time and an export-queue entry. The engine notes now say which exports must stay in the window.
+
 - Route tool errors and warning fields through one privacy boundary; migrate old terminal receipts before replay without repeating edits.
 
 - Keep incomplete transcription replies private: saved transcript paths are relative to the data root, with consistent direct/bounded notices and sanitized underlying errors.

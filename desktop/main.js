@@ -122,8 +122,11 @@ async function start() {
   });
   ses.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders };
-    if (local(details.url) && details.resourceType === "mainFrame") {
-      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"];
+    // the editor may frame only its own origin: the hidden page a background export renders in (MontClip#263, bg-export.js);
+    // that page gets the same policy and frames nothing
+    if (local(details.url) && (details.resourceType === "mainFrame" || details.resourceType === "subFrame")) {
+      const frames = details.resourceType === "mainFrame" ? "'self'" : "'none'";
+      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src " + frames + "; base-uri 'none'; form-action 'none'"];
     }
     callback({ responseHeaders: headers });
   });

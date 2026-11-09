@@ -5,7 +5,7 @@
 // (muted) and its sound on A1, whole, and is exported with fastExport (master, MONTCLIP_AV_ENCODER, default h264_mf).
 // Every flash is paired with its beep by desktop/av-sync-measure.cjs (≤ 40 ms), and each flash must sit within a frame of
 // where the source has it — the last ones included, so a drift towards the end shows.
-//   MONTCLIP_AV_OUT=<folder> [MONTCLIP_AV_SECONDS=10|600] electron desktop/export-av-sync-smoke.cjs --montclip-smoke --user-data-dir=<fresh>
+//   MONTCLIP_AV_OUT=<folder> [MONTCLIP_AV_SECONDS=10|600] [MONTCLIP_AV_BACKGROUND=1: the background export, #263] electron desktop/export-av-sync-smoke.cjs --montclip-smoke --user-data-dir=<fresh>
 // ffmpeg: MONTCLIP_FFMPEG_DIR (MontClip's own build). Prints AV_EXPORT_PASS / AV_EXPORT_FAIL and writes <out>/av-export-<s>s.json.
 const electron = require('electron'), { app, BrowserWindow } = electron, fs = require('node:fs'), path = require('node:path');
 const cp = require('node:child_process'), crypto = require('node:crypto'), os = require('node:os');
@@ -34,7 +34,7 @@ function source() {
   return { dir, file };
 }
 
-async function exercise({ b64Path, seconds, encoder }) {
+async function exercise({ b64Path, seconds, encoder, background }) {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let i = 0; i < 200 && !runtime.projectId; i++) await wait(50);
   const bin = await (await fetch(b64Path)).arrayBuffer();
@@ -49,7 +49,15 @@ async function exercise({ b64Path, seconds, encoder }) {
   applyProject(doc); scheduleSave(); if (!await flushSave()) throw Error('save failed');
   setTime(0); await fetchEncodeProfiles();
   const t = performance.now();
-  const r = await fastExport({ silent: true, delivery: { preset: 'master', video: { codec: 'h264', encoder } } });
+  let r;
+  if (background) {   // MONTCLIP_AV_BACKGROUND=1: the background export (#263), its hidden page and its copy of the timeline
+    saveDownload = () => { };
+    const j = startBgExport({ delivery: normalizeDelivery({ preset: 'master', video: { codec: 'h264', encoder } }).spec });
+    if (!j) throw Error('background export did not start');
+    while (bgExportBusy()) await wait(100);
+    const q = j.q;
+    r = q.status === 'done' ? { outputs: [{ ok: true, src: q.src, report: q.report }] } : { error: q.error || q.status };
+  } else r = await fastExport({ silent: true, delivery: { preset: 'master', video: { codec: 'h264', encoder } } });
   if (!r || !r.outputs || r.outputs.some((o) => !o.ok)) throw Error('export failed: ' + JSON.stringify(r));
   return { src: r.outputs[0].src, report: r.outputs[0].report && r.outputs[0].report.line, ms: Math.round(performance.now() - t) };
 }
@@ -65,7 +73,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     // the page fetches the source from the server's media folder (no base64 through executeJavaScript for long sources)
     const media = path.join(profile, 'workspace', 'media'); fs.mkdirSync(media, { recursive: true });
     fs.copyFileSync(made.file, path.join(media, 'source-flash-beep.mp4'));
-    const res = await read(`(${exercise.toString()})(${JSON.stringify({ b64Path: '/media/source-flash-beep.mp4', seconds: SECONDS, encoder: ENCODER })})`);
+    const res = await read(`(${exercise.toString()})(${JSON.stringify({ b64Path: '/media/source-flash-beep.mp4', seconds: SECONDS, encoder: ENCODER, background: process.env.MONTCLIP_AV_BACKGROUND === '1' })})`);
     const file = path.join(profile, 'workspace', 'exports', decodeURIComponent(res.src.replace(/^\/exports\//, '')));
     const m = Measure.measure(file, { ffmpeg, limit: 0.04, expect: events() });
     const last = m.placement.slice(-3).map((p) => ({ expected: p.expected, errorMs: p.error == null ? null : Math.round(p.error * 1e4) / 10 }));

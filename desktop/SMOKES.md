@@ -29,6 +29,7 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 | `av-sync-smoke.cjs` | `AV_SYNC_PASS` | 在用；需要 `MONTCLIP_AV_INPUT` 指向一段闪光加蜂鸣的测试视频 |
 | `caption-quick-smoke.cjs` | `CAPTION_QUICK_PASS` | 在用 |
 | `card-lyrics-smoke.cjs` | `CARD_LYRICS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
+| `background-export-smoke.cjs` | `BG_EXPORT_PASS` | 在用；仅合成素材；后台导出（#263）：关掉进度窗口后在时间线上点选、按键删片段，成片仍是点导出那一刻的时间线；取消后不留半截文件 |
 | `cindy-parts-smoke.cjs` | `CINDY_PARTS_PASS` | 在用 |
 | `chinese-names-smoke.cjs` | `CN_NAMES_COMPLETE` | 在用 |
 | `corrections-smoke.cjs` | `CORRECTIONS_PASS` | 在用 |

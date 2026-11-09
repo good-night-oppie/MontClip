@@ -288,8 +288,11 @@
     "trim-io": ["Trim", "裁剪", "own", "JJ 定稿表 #92"],
     "import-url-stored-locally": ["Downloads an HTTPS video, audio or image into the project media folder. The file is stored locally — the URL is not used as the playback source. Remote SVGs are not imported (they can run script if opened as a document).", "把一个网址（HTTPS）上的视频、音频或图片下载到这个项目的素材文件夹里。会联网访问这个网址一次，下载好以后存在你的电脑上，播放时不会再去访问它。网上的 SVG 图片不会导入，因为它可能带脚本，不安全。", "own", "JJ 定稿表 #93"],
     "in-out-range": ["IN–OUT", "入点–出点", "own", "JJ 定稿表 #94"],
-    "engine-fast-note": ["Frame-accurate ffmpeg encode. Keeps rendering if you switch tabs.", "用 FFmpeg 导出，每一帧都准。导出时切到别的页面也不影响。", "own", "JJ 定稿表 #95"],
-    "engine-webcodecs-note": ["Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.", "每一帧都准。画面由浏览器编码，再由 MontClip 打包成视频文件。需要较新的 Chromium 内核浏览器，也要装好 FFmpeg。", "own", "JJ 定稿表 #96"],
+    // #263: the old note promised editing could go on during an export (the window was covered until the end). Fast now
+    // goes to the background (bg-export.js); when one export has to stay in this window, -here says so. JJ to review.
+    "engine-fast-note": ["Frame-accurate ffmpeg encode. Once it starts you can close the progress window and keep editing. The file is made from the timeline as it was when you clicked Export.", "用 FFmpeg 导出，每一帧都准。开始以后可以关掉进度窗口，接着剪。导出的是你点「导出」那一刻的时间线，之后的改动不会进这个文件。", "own", "JJ 定稿表 #95，#263 改成实话（待 JJ 审）"],
+    "engine-fast-note-here": ["Frame-accurate ffmpeg encode. This export runs in this window: keep it open, and wait for it to finish before you edit again.", "用 FFmpeg 导出，每一帧都准。这次导出要在这个窗口里做完：导出时请别关闭这个窗口，等它做完再接着剪。", "own", "#263 新增（待 JJ 审）：有复合片段打开、或用了 AI 抠像时"],
+    "engine-webcodecs-note": ["Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg. It runs in this window: keep it open, and wait for it to finish before you edit again.", "每一帧都准。画面由浏览器编码，再由 MontClip 打包成视频文件。需要较新的 Chromium 内核浏览器，也要装好 FFmpeg。导出时请别关闭这个窗口，等它做完再接着剪。", "own", "JJ 定稿表 #96，#263 补上最后一句（待 JJ 审）"],
     "color-2": ["Color", "色彩", "own", "JJ 定稿表 #97"],
     "crf-label": ["CRF", "恒定画质（CRF）", "own", "JJ 定稿表 #101，按规矩 6(c)"],
     "webcodecs-no-crf": ["WebCodecs has no CRF — quality is driven by bitrate. VBR spends bits on hard frames; CBR holds a steady rate.", "WebCodecs 没有恒定画质（CRF），画质由码率决定。动态码率（VBR）把码率多花在复杂的画面上；固定码率（CBR）一直保持同一个码率。", "own", "JJ 定稿表 #105"],

@@ -227,6 +227,16 @@
     "encoding": ["Encoding…", "正在编码…"],
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
+    // background export (#263; for JJ to review)
+    "bg-keep-editing": ["Keep editing", "关掉窗口，接着剪"],
+    "bg-export-btn": ["Exporting {pct}%", "导出中 {pct}%"],
+    "bg-export-btn-title": ["An export is running. Click to see its progress or cancel it.", "正在导出。点这里看进度，或者取消。"],
+    "bg-export-busy": ["An export is still running. Wait for it to finish, or cancel it first.", "还有一个导出没做完。等它做完，或者先取消它。"],
+    "bg-export-cancelling": ["Cancelling…", "正在取消…"],
+    "bg-export-cancelled": ["Export cancelled. No file was kept.", "导出已取消，没有留下文件。"],
+    "bg-export-done": ["Exported {file}.", "导出完成：{file}。"],
+    "bg-export-version": ["It was made from the timeline as it was at {time}, when the export started.", "用的是 {time} 开始导出时的时间线。"],
+    "bg-export-version-changed": ["It was made from the timeline as it was at {time}, when the export started. Edits made after that are not in this file.", "用的是 {time} 开始导出时的时间线，之后的改动不在这个文件里。"],
     // MC-14 / MC-15: JJ 定稿, both languages, word for word (#231 issuecomment-6714366423). {n}: the number of a piece with a
     // picture (app.js exportSegmentNumbers), {time}: where it is on the timeline (MontClipAutoSlices.hms) — several are
     // listed (「3、5、8」, app.js exportClipWords). A sound on its own (music, a voice-over) has no number: the -track

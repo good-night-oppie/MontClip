@@ -346,11 +346,11 @@
     </div>
     <label class="engine-opt">
       <input type="radio" name="engine" id="engineFast">
-      <span><b data-i18n="term.fast-ffmpeg">Fast (FFmpeg)</b><br><span class="dim" id="engineFastNote" data-i18n="term.engine-fast-note">Frame-accurate ffmpeg encode. Keeps rendering if you switch tabs.</span></span>
+      <span><b data-i18n="term.fast-ffmpeg">Fast (FFmpeg)</b><br><span class="dim" id="engineFastNote" data-i18n="term.engine-fast-note">Frame-accurate ffmpeg encode. Once it starts you can close the progress window and keep editing. The file is made from the timeline as it was when you clicked Export.</span></span>
     </label>
     <label class="engine-opt">
       <input type="radio" name="engine" id="engineRealtime">
-      <span><b data-i18n="own.engine-webcodecs">WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote" data-i18n="term.engine-webcodecs-note">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.</span></span>
+      <span><b data-i18n="own.engine-webcodecs">WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote" data-i18n="term.engine-webcodecs-note">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg. It runs in this window: keep it open, and wait for it to finish before you edit again.</span></span>
     </label>
     <div class="export-profile-row dlv" id="exportProfileRow">
       <div class="dlv-preset-line">
@@ -505,7 +505,7 @@
     <h2 id="exportTitle" data-i18n="term.exporting">Exporting…</h2>
     <p class="dim" id="exportNote" data-i18n="term.export-note-realtime">Rendering your sequence in real time. Keep this tab focused.</p>
     <div class="progress"><div class="progress-fill" id="exportProgress"></div></div>
-    <div class="dialog-actions"><button class="btn" id="btnCancelExport" data-i18n="term.cancel">Cancel</button></div>
+    <div class="dialog-actions"><button class="btn" id="btnCancelExport" data-i18n="term.cancel">Cancel</button><button class="btn primary hidden" id="btnExportHide" data-i18n="own.bg-keep-editing">Keep editing</button></div>
   </div>
 </div>
 
@@ -778,6 +778,7 @@
 <script src="templates.js"></script>
 <script src="media-lib.js"></script>
 <script src="delivery.js"></script>
+<script src="bg-export.js"></script>
 <script src="mp4-demux.js"></script>
 <script src="ui-terms.js"></script>
 <script src="narrow-layout.js"></script>
