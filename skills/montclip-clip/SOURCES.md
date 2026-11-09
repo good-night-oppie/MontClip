@@ -51,12 +51,12 @@
 
 ## C. MontClip 的证据
 
-依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `de6640df37a5`（2026-11-09，和 GitHub 上一致；本轮新增 #249 / #251 / #260 / #259 / #256 / #258，另含此前已收的 #240、#238 / #245、#224 / #227、#231、#233、#235、#236、#237，以及更早的 #161、#146、#177、#132、#219、#221、#222、#130、#202、#213、#164、#129、#183、#120、#125、#138、#154、#155、#165、#162、#109、#176、#175、#159、#193、#190、#172、#170、#137 等）。读法是只读的 `gh api` 文件与补丁读取（`contents` / `compare`）加只读的 `git clone --depth 200`；没有运行仓库脚本，本机工作区落后 main 很多个提交，所以没有用工作区。
+依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `197de6759b0c`（2026-11-09，和 GitHub 上一致；本轮新增 #264，另含此前已收的 #249 / #251 / #260 / #259 / #256 / #258、#240、#238 / #245、#224 / #227、#231、#233、#235、#236、#237，以及更早的 #161、#146、#177、#132、#219、#221、#222、#130、#202、#213、#164、#129、#183、#120、#125、#138、#154、#155、#165、#162、#109、#176、#175、#159、#193、#190、#172、#170、#137 等）。读法是只读的 `gh api` 文件与补丁读取（`contents` / `compare`）加只读的独立克隆 `git fetch`；没有运行仓库脚本，本机工作区落后 main 很多个提交，所以没有用工作区。
 
-**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `c4213f412eff`，2026-11-09 复查）：
+**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `c403253f5420`，2026-11-09 复查）：
 - 工具定义在 `ghost.json`：`montclip_status`、`list_tools`、`call_tool`、`montclip_undo`、`montclip_redo`、`montclip_seek`、`montclip_export`、`montclip_install_ffmpeg`、`montclip_open_task_view`。
 - 分类和转发在 `main.js` 第 6–20 行和第 361–378 行。
-- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `de6640df`：main 上有 763 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...de6640df`，status=diverged）。
+- 内置引擎钉在 `engine-lock.json` 的 `de6640df37a5`（2026-11-08 由插件 #48 从 `5b312e63` 推进到 main）。对比 main `197de675`：main 上有 11 个提交不在快照里（实质功能是 #264 的 7 个提交，其余 4 个是 skill 同步），快照自身不带 main 之外的提交（`gh api repos/good-night-oppie/MontClip/compare/de6640df...197de675`）。
 - MontClip-Cindy 上一轮实质增量：#20（合并提交 `e859bdef`）把导出中途停止的提示定稿为「导出到一半停了，这次没导完。原片没有改动，可以再导一次：点〔重试〕」，见 `main.js` 第 135–136 行；#35（合并提交 `db03b4ee`）接上主播自选、带 libx264 的 FFmpeg 仅用于 H.264 导出，`node/worker.cjs` 第 88–92 行只在安全的设置路径上设置 `MONTCLIP_EXTERNAL_FFMPEG_SETTINGS`，`node/lib.cjs` 第 312–350 行定义插件设置目录、真实路径与 DATA 隔离检查；没有选择界面、不新增工具、引擎锁不变。`docs/decisions/ADR-005-plugin-external-ffmpeg.md` 第 22–44 行明确无文件时行为不变、Windows 尚未做端到端导出实测。上一轮 #7（状态卡「听写」行）、#9（后台导出 job）、#22（无硬链接时回退复制）继续有效。插件版本 0.5.1、引擎锁 `5b312e63` 均未变。
 - MontClip-Cindy 此前一轮实质增量：#23（合并提交 `68a27cde`）在 `embed/panel-model.js` 的 `CHANNEL_NAMES` 给其余关键帧通道中文名和单位，未知字段显示「其他属性」；#25（合并提交 `8a9a44c8`）在 `main-view-model.js` 的 `taskOpenResult` 要求同 session 且 `focusRequested:true` 才算已请求切换，缺字段是未确认、失败是没成功，`main-view.js` 显示对应定稿文案；#24（合并提交 `91fed559`）在 `node/worker.cjs` 用 `cindy-export-results.json` 留最近 200 个完成结果，引擎 404 时可找回，查询 / 取消 / 交付 / 打开所选文件夹先查 session，不符报 `EXPORT_TASK_MISMATCH`，`main.js` 对 `NO_JOB` 给定稿提示和〔打开导出文件夹〕，重载后的完成结果仍是 `exported`、`copied:null`，不冒充 `done`。
 - MontClip-Cindy 本轮实质增量：#8（合并提交 `2732eae4`）听写引擎和模型首次使用时下载——确认框与按钮定稿文案在 `main.js` 的 `ASR_TEXT`（第 112–148 行：「要把说的话转成文字，先要下载听写程序和中文听写模型，共约 N MB，只下这一次。」「从哪下：GitHub 上 MontClip 的发布页…」「只下载这些文件，不会发出你的录像、字幕或项目。下载完会逐个核对，对不上就不装。」，按钮〔下载〕/〔先不下〕，大小只出现在第一行）；文件清单、字节数与 SHA-256 钉在 `node/asr-runtime.json`（release `asr-runtime-2.0.1-montclip1`，含 sherpa-onnx 2.0.1、silero VAD、Paraformer 中文模型，各带许可与出处）；下载只进数据目录 `asr/` 和 `asr-models/`（`node/asr-install.cjs`），先核对字节再核 SHA-256，解压拒绝绝对路径、`..`、链接与特殊文件（用系统绝对路径的 tar，不回退 PATH），整套装不上就全清掉。**但开关默认关闭**：`asr-download.json` 的 `enabled:false`，正式包不显示〔下载听写程序和模型…〕按钮、不注册 `montclip_install_asr`，源码直接跑也是关的；打开前提（主人核文件、国内网络实测、真实 Cindy 里点下载跑通）都未完成，见 `docs/validation/2026-11-07-asr-download-gate.md`。ASR 错误细节不进 Agent 结果（`9d6bb6f8`），状态卡「听写」行的状态判断不变。插件版本 0.5.1 和引擎锁 `5b312e63` 均未变。
@@ -128,18 +128,27 @@
 - 缺 FFmpeg 时的 remedy（#259，E4，合并提交 `3d085774`）：`ffmpeg-path.js` 第 180 行 `MONTCLIP_FFMPEG_REMEDY` 缺省值「Reinstall MontClip to restore it.」，第 183–188 行把它拼进「找不到捆绑 ffmpeg/ffprobe」的报错。设这个变量的只有 Cindy 插件：MontClip-Cindy `node/worker.cjs` 第 121 行，值是「In Cindy, install it from the MontClip editor tab's banner, or ask the chat to run montclip_install_ffmpeg.」；Windows 桌面版不设，用缺省句。skill 的口径按 JJ 在 #261 / MontClip-Cindy#51 的意见：照实转意思、英文转白话中文；只针对这一条不另教主播去网上找 ffmpeg，引擎在别处叫主播选 FFmpeg（如 x264）时照引擎的话说（MontClip-Cindy#35、#46 允许主播指定带 libx264 的 FFmpeg）。
 - 仅测试与文档：#254（ASR checkpoint 同步）、#258（embed 403 不被误读为 project id，#257）、`docs/decisions/2026-11-08-embed-task-binding.md`、`docs/demo/*` 同步、CHANGELOG / README，不进 skill 正文。
 
-**本轮 MontClip-Cindy 新增证据（以下行号以 MontClip-Cindy main `c4213f41` 为准）**：
+**本轮新增证据（以下行号以 MontClip main `197de675` 为准）**：
+- Fast 导出放后台（#264，合并提交 `197de675`，含 `dbae3415` / `0cfea4d3` / `69e622d0` / `342c4622` / `133c0081` / `25015bdf`）：新文件 `bg-export.js`——第 16–20 行 `ENGINES` 只有 `fast` 可后台（`webcodecs` / `realtime` 不行），第 24–33 行 `blocker`（打开复合片段 `COMP_OPEN`、用 AI 抠像 `BG_REMOVE`、隐藏页起不来 `NO_WORKER` 时留在当前窗口），第 40–46 行 `snapshot` 是时间线的深拷贝。`app.js` 第 21588–21695 行是装配：隐藏 iframe `?exportWorker=<id>`、顶栏按钮变「导出中 {pct}%」/「准备导出…」、进导出队列、〔收起，接着剪〕关窗（Esc / 点窗外同效）；第 21698–21725 行 `finishBgExport`：完成时若时间线又改过，用 `own.bg-export-version-changed`（「这个文件是你 {time} 点「导出」时的样子，之后的改动不在里面。想带上新改动，请再导出一次。」），取消说「导出已取消，没有留下文件。」。JJ 定稿文案在 `ui-terms.js` 第 293–297 行（`engine-fast-note` 与三种 `-here`）和 `ui-preferences.js` 第 231–240 行（`bg-keep-editing` 〔收起，接着剪〕、`bg-progress-note`、`bg-export-btn`、`bg-export-preparing`、`bg-export-busy`、`bg-export-cancelled`、`bg-export-done`、`bg-export-version-changed`）。桌面端 `desktop/main.js` 只允许编辑器 frame 自己的 origin。测试：`test/bg-export.test.js`、`desktop/background-export-smoke.cjs`（真实输入事件，离屏 Electron）。一次只跑一个后台导出（`bg-export.js` 第 71–103 行 `createController`）。
+- 同步 PR：#261 是本任务上一轮 skill 同步，不算实质增量。
+
+**上一轮 MontClip-Cindy 新增证据（以下行号以 MontClip-Cindy main `c4213f41` 为准）**：
 - FFmpeg 报错白名单（#45，合并提交 `6d0f427d`；#41 先起）：`main.js` 第 74–95 行 `FFMPEG_ERRORS` 固定中英两套白话句（`DOWNLOAD_FAILED` / `INSTALL_FAILED` / `DISK_FULL` / `CANCELLED` / `UNSUPPORTED_PLATFORM` / `HOST_TOO_OLD` / `SIZE_MISMATCH` / `SHA256_MISMATCH` / `BAD_ARCHIVE`），第 97–100 行 `FFMPEG_CODE_ALIASES` 把 `ENOSPC` / `EDQUOT` 合进 `DISK_FULL`，`ffmpegSafeFailure` 把任何未列出的 code 都归到 `INSTALL_FAILED`，不再回传 ffmpeg 原始报错与本机路径。`ffmpeg-banner.js` 的 `TEXT`（zh/en）是 JJ 定稿原文，按钮 / 卡片语一并给 Agent 的卡片走这份。
 - 「编码 MP4 的 FFmpeg 是哪一个」（#46，合并提交 `c4213f41`）：`main.js` 第 514–525 行 `h264Export()` 读 `node/lib.cjs` 给出来源：`bundled` / `settings` / `path` / `env` / 本机自带；卡片和 `montclip_status` / `montclip_export` 用「用 MontClip 下载的 ffmpeg」「设置文件里指定的 ffmpeg（版本 x.y）」「系统里找到的 ffmpeg（具体是哪一个，这里看不出来）」「启动时指定的 ffmpeg」「这台电脑自己的 ffmpeg（具体是哪一个，这里看不出来）」「现在查不到是哪个 ffmpeg」六种说法之一。第 538–539 行 `MP4_PLAIN` 是给 Agent 的措辞约束：只用大白话、只说到这条事实，不要再补来源、版本号、环境变量名或文件夹名。
 - 卡片窄窗口任意换行（280 / 360 px）：`main-view.js`（或同名 view）给卡片值加 `min-width:0; overflow-wrap:anywhere`，仅是 UI 细节，不进 skill 正文。
-- 同步 PR：#44、#47、#49 是本任务前几轮 skill 同步，不算实质增量。
+- 同步 PR：#44、#47、#49、#51 是本任务前几轮 skill 同步，不算实质增量。
+
+**本轮 MontClip-Cindy 新增证据（以下行号以 MontClip-Cindy main `c403253f` 为准）**：
+- 引擎推进与任务绑定（#48，合并提交 `ee46dfb4`）：`engine-lock.json` 第 3 行钉到 MontClip main `de6640df`（E1–E5 全在里面）；`docs/validation/2026-11-08-engine-pin-48-update.md` 记录两轮全绿 CI 后才推进、worker 的 `EXPORT_TASK_MISMATCH` 检查保留（契约测试 2/2），以及**未完成的真实 Cindy 验收**（真实浏览器双任务 A/B 隔离与一次有声导出）——skill 据此不把面板隔离说成已实测。`node/worker.cjs` 新增 `montclip/editor-ticket`（一次性 ticket 不进日志）；`frame.js` 第 108–129 行每次放置先取新 ticket、只回答来自引擎 origin 的 `montclip-need-ticket`；`embed/panel.js` 第 13–16 行没有 ticket 时不读项目、不显示行、不能 seek（JJ 定稿提示），第 45–51 行用 ticket 换 channel，没有 channel 就退回「编辑器没打开」，不再有跨任务的无作用域 UI 指令。
+- 导出卡片修复（#48 同批）：`main.js` 第 533–536 行卡片更新至少隔 1.1 秒（Cindy 每秒只收一次卡片更新，过快的会静默丢弃，曾把失败卡在「正在导出 0%」）；导出完成卡片按内容估高、警告一行一条（`exportCardHeight`，VV 实测 280 / 360 px）；「导出没有完成」卡片也说引擎的 EXPORT_AUDIO_FAILED 定稿句。这些是插件外壳 UI 细节，只在这里记证据，不进 SKILL 正文。
+- 切走时不承诺导出继续（#55，合并提交 `c403253f`；#53 是主人 2026-11-09 的方向记录）：`main.js` 的 `montclip_export` 提示不再说 "The export runs in the background"，改成让 Agent 如实说「导出要在这个任务的 MontClip 剪辑器页签里做完，请先别关掉它；切走的话我没法保证不会中断。」（JJ 在 #55 定稿）；「切走后会不会变慢/停止」的说法标为未核实。`ghost.json` 的 `montclip_export` 描述同步去掉 background 说法。插件版本 0.5.1 未变，引擎锁为 `de6640df`（见上条 #48）。
 **上一轮新增证据（以下行号以 MontClip main `ccb789f2` 为准）**：
 - 长工具的等待、取回与幂等重试（#240，合并提交 `ccb789f2`，MC-04 / MC-08 / MC-12）：`mcp-tools.js` 第 470–474 行给每个工具加 `idempotency_key`，并给 `fablecut_transcribe` / `fablecut_captions` / `fablecut_songs` / `fablecut_highlights` 加 `wait_ms`（0–15000，默认 6000）与 `taskId`；`mcp-server.js` 第 81–82 行创建 `tool-tasks` 并列出这四个长工具，第 1633–1637 行把带这些参数的调用交给持久回执。`tool-tasks.js`：回执写在 `analysis/tool-tasks/`，完成要落盘后才报完成；回执写不进去报 `TASK_RECEIPT_SAVE_FAILED` 且不重放改动；中断的任务标 `interrupted`，不会自动重复；同一把 `idempotency_key` 加同样参数返回原结果，换新钥匙才是新改动。`CLAUDE.md` 第 91 行是同一份约定的 Agent 手册原文。
 - 听写逐段存盘与「没听完」提示（#240）：`asr-local.js` 第 159、184 行的 `onCheckpoint` 在每段听完后先存盘再听下一段；`mcp-server.js` 第 859–864 行超时时停掉听写任务，`saved` 只给相对数据根的路径（`analysis/transcripts/…`），`asr-status.js` 第 95–98 行的 `incompleteText` 拼「没听完。已完成段落已保存到 …」；没有完成段落时说「尚无已完成段落。完成段落保存位置：analysis/transcripts/。」`CLAUDE.md` 第 93 行写明 `timeout` 会停任务而 `wait_ms` 只限等待，两者不是一回事。
 - 工具报错统一脱敏（#240）：新文件 `tool-error.js` 是唯一边界——给工具的报错、警告和回执先脱掉本机绝对路径；旧回执（含成功回执里的警告）先在本机改写干净再返回，不重跑改动；数据根以外的路径字段省略或留空。`asr-status.js` 的 `hidePaths` 正则重写（带空格的 Windows 目录、UNC、`file:` URL，重复脱敏结果不变），`mcp-server.js` 各处 `publicError(...)` 均走这条边界。
 - 仅测试与文档：本轮其余改动是测试（`test/tool-tasks.test.js`、`test/asr-*-privacy.test.js` 等）、CHANGELOG 与 README 说明，不进 skill 正文。
 
-**界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里，本轮新增两条定稿）：
+**界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里）：
 
 | 文案 | 位置 |
 |---|---|
@@ -169,6 +178,10 @@
 | 「找回录像」「找到它…」「先找回来…」「照样导出」 | `rl-title`、`off-find-it`、`off-find-first`、`off-export-anyway`，第 96–148 行 |
 | 「导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。」 | `err-export-page-crashed`（#231 定稿） |
 | 「第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。」 | `export-clip-unchecked` / `-track`（#238 定稿，main `38f77fcc` 第 243–246 行） |
+| 「收起，接着剪」「导出中 {pct}%」「准备导出…」「正在取消…」 | `bg-keep-editing` / `bg-export-btn` / `bg-export-preparing` / `bg-export-cancelling`，`ui-preferences.js` 第 231–237 行（#264） |
+| 「导出已取消，没有留下文件。」「导出完成：{file}。」「导出完成：{file}。这个文件是你 {time} 点「导出」时的样子，之后的改动不在里面。想带上新改动，请再导出一次。」 | `bg-export-cancelled` / `bg-export-done` / `bg-export-version-changed`，`ui-preferences.js` 第 238–240 行（#264） |
+| 「用 FFmpeg 导出，每一帧都准。开始以后可以把进度收起来，接着剪，导出会继续做。成片是你点「导出」那一刻的样子，之后的改动不会进这个文件。」 | `term.engine-fast-note`，`ui-terms.js` 第 293 行（#264 JJ 定稿） |
+| 「这次没法一边导出一边剪（打开着复合片段，或用了 AI 抠像）。导出期间请别关掉 MontClip，等它做完再接着剪。」 | `term.engine-fast-note-here` / `-comp` / `-cutout` / `-unavailable`，`ui-terms.js` 第 294–297 行（#264 JJ 定稿） |
 | 「导出单帧」「导出队列」「轨道锁」「属性面板 → 蒙版」「新建序列…」「查找词」「添加字幕」「文稿」 | `ui-terms.js` |
 | 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 585、628、632 行，对应 `help-4`、`help-27`、`help-31` |
 
@@ -188,7 +201,8 @@
 - 本轮新增收进（MontClip `4e70d888..38f77fcc`）：#238 / #245 的 #231 后续——核对读盘超时（默认 20 秒）改警告并保留文件（`EXPORT_CLIP_UNCHECKED`）、profile 导出把「本来无声 / 没来得及核对」的警告带在 `end.report`、`export-jobs.js` 的失败任务记录原因代码、JJ 定稿的核对超时文案、Linux 下导出页 `oom_score_adj 1000` 那行删除（Chrome 自己按进程类型设，和 main 一样）。
 - 上一轮新增收进（MontClip `38f77fcc..ccb789f2`）：#240（MC-04/08/12）——四个长工具的 `wait_ms` / `taskId` / `idempotency_key`、中断任务标 `interrupted` 不重放、听写逐段存盘与「没听完」提示、工具报错与警告统一脱敏（`tool-error.js`）。纯测试、CHANGELOG / README 说明不收。
 - 本轮新增收进（MontClip `ccb789f2..de6640df`）：#249 / #251 / #260（#215 的 E5a / E5b / E3，嵌入编辑器 ticket 绑定到 SSE 连接、导出按 `{project, session}` 作用域、面板用 HMAC 派生的 BroadcastChannel 只跟自己任务的 editor 通信）、#259（E4，`MONTCLIP_FFMPEG_REMEDY` 缺省「Reinstall MontClip to restore it.」）、#256（#255，错误里 `ticket` / `token` 单独成 key 的值脱敏；`channel` 的脱敏在 #260）、#258（#257，测试把项目 id 里的「403」当成拒绝访问的偶发失败，只改测试，不进 skill 口径）。#254（ASR checkpoint 同步测试）、docs/decisions 与 docs/demo 同步、CHANGELOG / README 不进 skill。
-- 仍开放且改到 `skills/` 的非本任务 PR：本轮 `gh pr list` 没有发现（MontClip 当前没有开着的 PR 改 `skills/`；MontClip-Cindy 开着 #42、#48，都不改 `skills/`；上一轮同步 PR MontClip #250、MontClip-Cindy #49 已合并）。#186 已于 2026-11-07 CLOSED 未合并，其撤回的模糊配方不会写回 skill；安全遮挡段落以 main #202 为准。
-- MontClip-Cindy 本轮实质增量（`250a203a..c4213f41`）：#45（FFmpeg 报错白名单，JJ 定稿白话，去掉路径与原始报错）、#46（`montclip_status` / `montclip_export` 写明编码 MP4 的是哪一个 FFmpeg，并给 Agent 一条「只用大白话」的措辞约束）。#44 / #47 / #49 是本任务前几轮 skill 同步，不算实质增量。此前收进的 #8（听写首次下载，默认关闭、验收前提未完成）、#23、#24、#25、#7、#9、#20、#22、#35 继续有效。仓库 main 现为 `c4213f41`，插件版本 0.5.1 与引擎锁 `5b312e63` 均未变。
+- 本轮新增收进（MontClip `de6640df..197de675`）：#264（Fast 导出放后台：隐藏页渲染点「导出」那一刻的时间线拷贝、〔收起，接着剪〕、顶栏「导出中 {pct}%」、复合片段 / AI 抠像 / 隐藏页不可用时留在当前窗口、一次一个、取消不留文件）。#261 是本任务上一轮 skill 同步，不算实质增量。
+- 仍开放且改到 `skills/` 的非本任务 PR：本轮 `gh pr list` 没有发现（MontClip 没有开着的 PR；MontClip-Cindy 开着 #42，不改 `skills/`）。#186 已于 2026-11-07 CLOSED 未合并，其撤回的模糊配方不会写回 skill；安全遮挡段落以 main #202 为准。
+- MontClip-Cindy 本轮实质增量（`c4213f41..c403253f`）：#48（内置引擎从 `5b312e63` 推进到 main `de6640df`——此前各轮「插件没有」的引擎修复随之进入插件；编辑器 / 面板按任务 ticket 绑定，面板无 ticket 时 fail-closed；导出卡片 1.1 秒节流、按内容估高、失败说引擎定稿句）、#55（`montclip_export` 不再承诺切走后导出继续，JJ 定稿如实说法：「导出要在这个任务的 MontClip 剪辑器页签里做完，请先别关掉它；切走的话我没法保证不会中断。」）。#51 是本任务上一轮 skill 同步，不算实质增量。此前收进的 #45、#46、#8、#23、#24、#25、#7、#9、#20、#22、#35 继续有效。仓库 main 现为 `c403253f`，插件版本 0.5.1 未变，引擎锁 `de6640df`。
 
 用 `gh api repos/good-night-oppie/<repo>/compare/<旧>...main` 读增量，并用 `gh pr list` / `gh pr view` 核对合并与开放 PR，时间 2026-11-09。
