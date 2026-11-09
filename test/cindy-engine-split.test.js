@@ -252,6 +252,7 @@ function editorWorld({ clips, stack = null, sequence = "main" }) {
     SeqLib: { others: () => [], activeId: () => sequence, find: () => null }, seqRoot: () => project,
     reloadMediaSource() {}, renderBin() {}, scheduleOfflineCheck() {},
     setTime: (t) => { state.time = t; }, projDur: () => 600,
+    EXPORT_WORKER: null,   // an editor, not a background export's page (#263)
   };
   const names = Object.keys(env);
   const fns = new Function(...names, `${SRC.slice(i, j)}

@@ -3532,6 +3532,7 @@ kbd {
 
 /* ── Toast ── */
 #toast {
+  white-space: pre-line;
   position: fixed;
   left: 50%;
   bottom: 26px;
@@ -4438,6 +4439,13 @@ input[type="range"].cq-hue {
 .xq-list .xq-status { font-size: 11px; color: var(--muted, #9a9aaa); word-break: break-word; }
 .xq-list li.done .xq-status { color: #8fd6ae; }
 .xq-list li.failed .xq-status { color: #ff9a9e; }
+.xq-list .xq-note { font-size: 11px; color: var(--muted, #9a9aaa); }
+/* MontClip#263: the hidden page a background export renders in — off screen, never focused or clicked */
+.bg-export-frame { position: fixed; left: -20000px; top: 0; width: 640px; height: 360px; border: 0; opacity: 0; pointer-events: none; }
+/* Reserve each language's widest state, rounded up from Win11 measurements. */
+#btnExport { text-align: center; font-variant-numeric: tabular-nums; }
+html:lang(zh) #btnExport { min-width: 100px; }
+html:lang(en) #btnExport { min-width: 135px; }
 .xq-list .xq-report { font-size: 11px; color: #8fd6ae; word-break: break-word; }
 .xq-list .xq-report.warn { color: #f0c14a; }
 .xq-list .xq-actions { display: flex; gap: 6px; flex: none; }
@@ -4792,6 +4800,10 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 @media(max-width:560px) {
  .topbar-right,.topbar-right > .mc-history { gap:2px; }
  .topbar-right > .btn,.topbar-right > .mc-history > .btn { padding-left:5px; padding-right:5px; }
+ html:lang(zh) #btnExport { min-width:86px; }
+ /* CSS alone selects the compact label; the widest short label is "⬇ Export" at 59.41px on Win11. */
+ html:lang(en) #btnExport { min-width:60px; font-size:0; }
+ html:lang(en) #btnExport::after { content:attr(data-export-short); font-size:13px; }
  .topbar-right > #btnSettings { width:30px; padding-left:0; padding-right:0; }
  .topbar-right > #btnHelp { min-width:28px; }
 }

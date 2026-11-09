@@ -317,8 +317,10 @@ test("a copy being saved (q.saving) is not counted as not saved, in the page and
   const queue = [{ status: "done", file: "a.mp4" }, { status: "done", file: "b.mp4", saving: true }, { status: "done", file: "c.mp4", saved: true }];
   a.equal(Close.unsavedCount(queue), 1);
   const app = read("app.js"), i = app.indexOf("function exportCloseState()"), fn = app.slice(i, app.indexOf("\n}", i) + 2);
-  const state = new Function("exportQueue", "state", fn + "return exportCloseState();")(queue, { exporting: false });
+  const state = new Function("exportQueue", "state", "bgExportBusy", fn + "return exportCloseState();")(queue, { exporting: false }, () => false);
   a.deepEqual(state, { exporting: false, unsaved: 1, files: ["a.mp4"] });
+  // a background export (#263) counts as exporting: closing the window would stop it
+  a.equal(new Function("exportQueue", "state", "bgExportBusy", fn + "return exportCloseState();")(queue, { exporting: false }, () => true).exporting, true);
 });
 test("a file the server refuses to delete counts as not deleted: it is named, the window stays until the streamer answers", async () => {
   const r = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.GIVE_UP], [{ deleted: [U.files[0]], failed: [], refused: [U.files[1]] }]);

@@ -2875,11 +2875,22 @@ Export is the Export button → dialog, or `fablecut_export` from an agent (belo
 1. **Fast** — browser renders each frame with the normal compositor (SVG, keys,
    AI masks), streams JPEGs + an offline WAV mix to the server; a single ffmpeg
    pass encodes them via an **encoding profile** into `./exports/`. Quality /
-   software path; keeps rendering if you switch tabs.
+   software path. From the Export dialog it runs **in the background**
+   (`bg-export.js`, MontClip#263): a hidden page of the editor (`/?exportWorker=<id>`)
+   renders a copy of the timeline taken when Export is clicked, so the progress
+   window can be closed and editing goes on; later edits are not in that file. The
+   top bar's Export button and progress title show Preparing export… until the
+   first progress message; then both show Exporting N%. The button reopens the progress window
+   (Cancel). The toast and queue name the file; only a changed timeline adds the
+   click time (HH:MM) and asks to export again to include later edits. Readback
+   warnings precede that message on a separate line. One background export at a time. It stays in the window
+   (the old progress window) while a composition is open for editing or the range
+   uses `bgRemove`. Agent exports (`fablecut_export`) are unchanged.
 2. **WebCodecs** — same frame-accurate compositor loop, but the browser’s
    `VideoEncoder` produces Annex-B H.264 (Main 4:2:0) and the server stream-copies
    (`-c:v copy`) while muxing the WAV. Faster uploads, less server CPU. Requires
    Chromium-class `VideoEncoder` with `avc: { format: "annexb" }` plus ffmpeg.
+   Runs in the window: keep it open until it finishes.
    Encoding profiles do not apply (the bitstream is already encoded). No ffmpeg-style
    CRF — quality is bitrate + VBR/CBR (export dialog; remembered in localStorage).
    Optional `bitrateMode: "quantizer"` (fixed QP) exists in the spec but is rarely

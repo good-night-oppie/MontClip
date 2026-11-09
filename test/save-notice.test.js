@@ -60,7 +60,7 @@ test('the page: success only once saved; a cancel says how to save again; captio
   // an export's failed save: JJ's table v2 (#116 row, with 〔换个文件夹〕; test/error-text.test.js); the general one otherwise
   a.match(app, /else if \(wasExport\) \{[^]*?toastAction\(uiText\("exportSaveFolderFailed"\)[^]*?else toast\(uiText\("own\.save-failed"\)\);/, 'a failed save: the export line for an export, the general one otherwise');
   a.match(app, /saveDownload\(url, name, \{ kind: "captions", savedMsg:/);
-  a.equal((app.match(/exportFile: true/g) || []).length, 5, 'three export paths, the queue\'s Save and 〔换个文件夹〕 after a failed save');
+  a.equal((app.match(/exportFile: true/g) || []).length, 6, 'four export paths (with the background one, #263), the queue\'s Save and 〔换个文件夹〕 after a failed save');
   a.doesNotMatch(app, /toast\(o\.report && !o\.report\.ok \? `Exported/);
 });
 
