@@ -4442,8 +4442,10 @@ input[type="range"].cq-hue {
 .xq-list .xq-note { font-size: 11px; color: var(--muted, #9a9aaa); }
 /* MontClip#263: the hidden page a background export renders in — off screen, never focused or clicked */
 .bg-export-frame { position: fixed; left: -20000px; top: 0; width: 640px; height: 360px; border: 0; opacity: 0; pointer-events: none; }
-/* Reserve the widest state, "Preparing export…" (134.34px on Win11); keep Undo/Redo still. */
-#btnExport { min-width: 136px; text-align: center; font-variant-numeric: tabular-nums; }
+/* Reserve each language's widest state, rounded up from Win11 measurements. */
+#btnExport { text-align: center; font-variant-numeric: tabular-nums; }
+html:lang(zh) #btnExport { min-width: 100px; }
+html:lang(en) #btnExport { min-width: 135px; }
 .xq-list .xq-report { font-size: 11px; color: #8fd6ae; word-break: break-word; }
 .xq-list .xq-report.warn { color: #f0c14a; }
 .xq-list .xq-actions { display: flex; gap: 6px; flex: none; }
@@ -4798,6 +4800,13 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 @media(max-width:560px) {
  .topbar-right,.topbar-right > .mc-history { gap:2px; }
  .topbar-right > .btn,.topbar-right > .mc-history > .btn { padding-left:5px; padding-right:5px; }
+ html:lang(zh) #btnExport { min-width:86px; }
+ html:lang(en) #btnExport { min-width:121px; }
+ /* Full English export text needs the workspace group's excess padding back at 420px. */
+ html:lang(en) .topbar-right,html:lang(en) .topbar-right > .mc-history { gap:1px; }
+ html:lang(en) .topbar-right > .ws-switch > .btn { padding-left:3px; padding-right:3px; }
+ html:lang(en) .topbar-right > .btn:not(#btnExport):not(#btnSettings):not(#btnHelp),
+ html:lang(en) .topbar-right > .mc-history > .btn { padding-left:2px; padding-right:2px; }
  .topbar-right > #btnSettings { width:30px; padding-left:0; padding-right:0; }
  .topbar-right > #btnHelp { min-width:28px; }
 }

@@ -85,27 +85,40 @@ BrowserWindow.prototype.loadURL = async function (...args) {
   };
   try {
     await wc.executeJavaScript(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
-    win.setContentSize(1280, 820);
+    // Exact CSS viewports: native window minimum size and Win11 DPI rounding must not mask narrow layouts.
+    const size = async (width) => {
+      wc.enableDeviceEmulation({screenPosition:'desktop',screenSize:{width,height:820},viewPosition:{x:0,y:0},deviceScaleFactor:0,viewSize:{width,height:820},scale:1});
+      for(let i=0;i<100 && await read('innerWidth')!==width;i++) await wait(25);
+      if(await read('innerWidth')!==width) throw Error('viewport did not reach '+width);
+    };
     // Measure the real toolbar in both languages, including the narrow layout; no synthetic DOM widths.
-    for (const width of [1280, 420]) {
-      win.setContentSize(width, 820); await wait(100);
+    for (const width of [360, 420, 520, 800, 1280]) {
+      await size(width);
+      await wait(150);
       for (const language of ['zh-CN', 'en']) {
         await read(`updateMontClipView({language:${JSON.stringify(language)}})`);
-        const rows = await read(`(()=>{
+        const rows = await read(`(async()=>{
           const b=document.getElementById('btnExport'), rows=[];
+          const settle=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+          const visible=selector=>{const e=document.querySelector(selector),r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&s.visibility!=='hidden'&&s.display!=='none'&&!e.closest('[hidden]');};
+          await settle();
           for(const pct of [null,'preparing',0,50,100,null]) {
             if(pct===null) renderBgExport(null); else renderBgExport({state:'running',hasProgress:pct!=='preparing',progress:pct==='preparing'?0:pct/100});
+            await settle();
             const r=b.getBoundingClientRect();
-            const row={pct,text:b.textContent,width:r.width,undo:document.getElementById('mcUndo').getBoundingClientRect().x,redo:document.getElementById('mcRedo').getBoundingClientRect().x, fits:b.scrollWidth<=b.clientWidth};
-            b.style.minWidth='0'; row.naturalWidth=b.getBoundingClientRect().width; b.style.minWidth=''; rows.push(row);
+            const row={pct,text:b.textContent,width:r.width,undo:document.getElementById('mcUndo').getBoundingClientRect().x,redo:document.getElementById('mcRedo').getBoundingClientRect().x, fits:b.scrollWidth<=b.clientWidth, viewport:innerWidth,lang:document.documentElement.lang,padding:getComputedStyle(b).paddingLeft,edit:visible('.topbar [data-ws="edit"]'),color:visible('.topbar [data-ws="color"]')};
+            const clone=b.cloneNode(true);clone.style.cssText='position:fixed;left:-10000px;min-width:0;width:auto;';b.parentElement.appendChild(clone);row.naturalWidth=clone.getBoundingClientRect().width;clone.remove();rows.push(row);
           }
           return rows;
         })()`);
-        check('toolbar stays fixed: '+width+' '+language, rows.every(r => r.width === rows[0].width && r.undo === rows[0].undo && r.redo === rows[0].redo && r.fits), rows);
+        const baseline = process.env.MONTCLIP_BG_BASELINE === '1';
+        check((baseline ? 'baseline toolbar measurements: ' : 'toolbar stays fixed: ')+width+' '+language, rows.every(r => r.fits && r.viewport===width && r.lang===language && (baseline || r.width === rows[0].width && r.undo === rows[0].undo && r.redo === rows[0].redo)), rows);
+        if(width===420) check('420 keeps Edit and Color: '+language, (process.env.MONTCLIP_BG_BASELINE==='1' ? [rows[0]] : rows).every(r=>r.edit&&r.color), rows);
+        if(width===420 && language==='en') out('BG_LAYOUT_BUDGET',await read(`(()=>{const bar=document.querySelector('.topbar-right'),w=document.getElementById('wsSwitch').cloneNode(true);bar.appendChild(w);const result={available:bar.clientWidth,items:[...bar.children].filter(e=>e.getBoundingClientRect().width).map(e=>({id:e.id,text:e.textContent.trim().slice(0,40),width:e.getBoundingClientRect().width,pad:getComputedStyle(e).paddingLeft}))};w.remove();return result;})()`));
       }
     }
     await read(`updateMontClipView({language:'zh-CN'})`);
-    win.setContentSize(1280, 820);
+    await size(1280);
     if (process.env.MONTCLIP_BG_LAYOUT_ONLY === '1') { out(checks.every(c=>c.ok)?'BG_EXPORT_PASS':'BG_EXPORT_FAIL',{checks}); app.exit(checks.every(c=>c.ok)?0:1); return; }
     const b64 = recording().toString('base64');
     await read(`(${setup.toString()})(${JSON.stringify({ b64 })})`);
