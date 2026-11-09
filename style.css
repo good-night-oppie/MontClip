@@ -4801,12 +4801,9 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
  .topbar-right,.topbar-right > .mc-history { gap:2px; }
  .topbar-right > .btn,.topbar-right > .mc-history > .btn { padding-left:5px; padding-right:5px; }
  html:lang(zh) #btnExport { min-width:86px; }
- html:lang(en) #btnExport { min-width:121px; }
- /* Full English export text needs the workspace group's excess padding back at 420px. */
- html:lang(en) .topbar-right,html:lang(en) .topbar-right > .mc-history { gap:1px; }
- html:lang(en) .topbar-right > .ws-switch > .btn { padding-left:3px; padding-right:3px; }
- html:lang(en) .topbar-right > .btn:not(#btnExport):not(#btnSettings):not(#btnHelp),
- html:lang(en) .topbar-right > .mc-history > .btn { padding-left:2px; padding-right:2px; }
+ /* CSS alone selects the compact label; the widest short label is "⬇ Export" at 59.41px on Win11. */
+ html:lang(en) #btnExport { min-width:60px; font-size:0; }
+ html:lang(en) #btnExport::after { content:attr(data-export-short); font-size:13px; }
  .topbar-right > #btnSettings { width:30px; padding-left:0; padding-right:0; }
  .topbar-right > #btnHelp { min-width:28px; }
 }

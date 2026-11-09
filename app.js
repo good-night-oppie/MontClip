@@ -21629,7 +21629,9 @@ function renderBgExport(j = bgExport && bgExport.job()) {
   const b = $("btnExport");
   if (b && j) {
     b.textContent = j.hasProgress ? uiText("own.bg-export-btn", { pct: Math.round((j.progress || 0) * 100) }) : uiText("own.bg-export-preparing");
-    b.title = uiText("own.bg-export-btn-title");
+    b.dataset.exportShort = j.hasProgress ? "⬇ " + Math.round((j.progress || 0) * 100) + "%" : "⬇ …";
+    b.title = b.textContent;
+    b.setAttribute("aria-label", b.textContent);
     b.classList.add("bg-exporting");
     b.disabled = false;
   } else if (b && b.classList.contains("bg-exporting")) {
@@ -21637,6 +21639,11 @@ function renderBgExport(j = bgExport && bgExport.job()) {
     b.textContent = uiText("term.export-2");
     b.title = b.dataset.titleBefore || "";
     applyFfmpegState();
+  }
+  if (b && !j) {
+    b.dataset.exportShort = "⬇ Export";
+    b.setAttribute("aria-label", b.textContent);
+    if (!b.disabled) b.title = b.textContent;
   }
   if (j && j.q) { j.q.progress = j.progress || 0; renderQueueProgress(); }
   if (j && bgExportShown) {

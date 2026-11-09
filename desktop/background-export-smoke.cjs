@@ -92,7 +92,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       if(await read('innerWidth')!==width) throw Error('viewport did not reach '+width);
     };
     // Measure the real toolbar in both languages, including the narrow layout; no synthetic DOM widths.
-    for (const width of [360, 420, 520, 800, 1280]) {
+    for (const width of [360, 420, 520, 560, 800, 1280]) {
       await size(width);
       await wait(150);
       for (const language of ['zh-CN', 'en']) {
@@ -107,13 +107,26 @@ BrowserWindow.prototype.loadURL = async function (...args) {
             await settle();
             const r=b.getBoundingClientRect();
             const row={pct,text:b.textContent,width:r.width,undo:document.getElementById('mcUndo').getBoundingClientRect().x,redo:document.getElementById('mcRedo').getBoundingClientRect().x, fits:b.scrollWidth<=b.clientWidth, viewport:innerWidth,lang:document.documentElement.lang,padding:getComputedStyle(b).paddingLeft,edit:visible('.topbar [data-ws="edit"]'),color:visible('.topbar [data-ws="color"]')};
+            row.title=b.title; row.aria=b.getAttribute('aria-label'); row.short=b.dataset.exportShort;
+            row.pseudo=getComputedStyle(b,'::after').content; row.fontSize=getComputedStyle(b).fontSize;
+            // Edit/Color and S/M/L are segmented controls: measure each group as one control, excluding its intentional 0px internal gaps.
+            const controls=[...new Set([...document.querySelectorAll('.topbar-right button')].map(e=>e.closest('#wsSwitch, #trackSizeGroup')||e))];
+            const buttons=controls.filter(e=>{const q=e.getBoundingClientRect();return q.width>0&&q.height>0&&!e.closest('[hidden]')&&getComputedStyle(e).visibility!=='hidden';}).map(e=>({label:e.id||e.textContent.trim(),r:e.getBoundingClientRect()})).sort((a,b)=>a.r.left-b.r.left);
+            row.gaps=[];
+            for(let i=1;i<buttons.length;i++){const a=buttons[i-1],b=buttons[i];if(Math.min(a.r.bottom,b.r.bottom)-Math.max(a.r.top,b.r.top)>Math.min(a.r.height,b.r.height)/2)row.gaps.push({pair:a.label+' / '+b.label,px:b.r.left-a.r.right});}
+            row.segmentGaps=[];
+            for(const id of ['wsSwitch','trackSizeGroup']){const group=document.getElementById(id);if(group.closest('[hidden]')||!group.getBoundingClientRect().width)continue;const children=[...group.querySelectorAll('button')];for(let i=1;i<children.length;i++)row.segmentGaps.push({group:id,px:children[i].getBoundingClientRect().left-children[i-1].getBoundingClientRect().right});}
             const clone=b.cloneNode(true);clone.style.cssText='position:fixed;left:-10000px;min-width:0;width:auto;';b.parentElement.appendChild(clone);row.naturalWidth=clone.getBoundingClientRect().width;clone.remove();rows.push(row);
           }
           return rows;
         })()`);
         const baseline = process.env.MONTCLIP_BG_BASELINE === '1';
         check((baseline ? 'baseline toolbar measurements: ' : 'toolbar stays fixed: ')+width+' '+language, rows.every(r => r.fits && r.viewport===width && r.lang===language && (baseline || r.width === rows[0].width && r.undo === rows[0].undo && r.redo === rows[0].redo)), rows);
-        if(width===420) check('420 keeps Edit and Color: '+language, (process.env.MONTCLIP_BG_BASELINE==='1' ? [rows[0]] : rows).every(r=>r.edit&&r.color), rows);
+        if(width===420||width===560) {
+          check(width+' keeps Edit and Color: '+language, rows.every(r=>r.edit&&r.color), rows);
+          check(width+' independent controls have at least 2px gaps; segmented controls stay joined: '+language, rows.every(r=>r.gaps.length>0&&r.gaps.every(g=>g.px>=1.99)&&r.segmentGaps.every(g=>Math.abs(g.px)<0.01)), rows);
+          if(language==='en') check(width+' English short labels keep complete accessible text',rows.every(r=>{const full=r.pct===null?'⬇ Export':r.pct==='preparing'?'Preparing export…':'Exporting '+r.pct+'%';const short=r.pct===null?'⬇ Export':r.pct==='preparing'?'⬇ …':'⬇ '+r.pct+'%';return r.title===full&&r.aria===full&&r.short===short&&r.pseudo===JSON.stringify(short)&&r.fontSize==='0px';}),rows);
+        }
         if(width===420 && language==='en') out('BG_LAYOUT_BUDGET',await read(`(()=>{const bar=document.querySelector('.topbar-right'),w=document.getElementById('wsSwitch').cloneNode(true);bar.appendChild(w);const result={available:bar.clientWidth,items:[...bar.children].filter(e=>e.getBoundingClientRect().width).map(e=>({id:e.id,text:e.textContent.trim().slice(0,40),width:e.getBoundingClientRect().width,pad:getComputedStyle(e).paddingLeft}))};w.remove();return result;})()`));
       }
     }
