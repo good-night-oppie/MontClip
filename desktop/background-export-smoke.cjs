@@ -86,12 +86,39 @@ BrowserWindow.prototype.loadURL = async function (...args) {
   try {
     await wc.executeJavaScript(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
     win.setContentSize(1280, 820);
+    // Measure the real toolbar in both languages, including the narrow layout; no synthetic DOM widths.
+    for (const width of [1280, 420]) {
+      win.setContentSize(width, 820); await wait(100);
+      for (const language of ['zh-CN', 'en']) {
+        await read(`updateMontClipView({language:${JSON.stringify(language)}})`);
+        const rows = await read(`(()=>{
+          const b=document.getElementById('btnExport'), rows=[];
+          for(const pct of [null,0,50,100,null]) {
+            if(pct===null) renderBgExport(null); else renderBgExport({state:'running',progress:pct/100});
+            const r=b.getBoundingClientRect();
+            rows.push({pct,text:b.textContent,width:r.width,undo:document.getElementById('mcUndo').getBoundingClientRect().x,redo:document.getElementById('mcRedo').getBoundingClientRect().x, fits:b.scrollWidth<=b.clientWidth});
+          }
+          return rows;
+        })()`);
+        check('toolbar stays fixed: '+width+' '+language, rows.every(r => r.width === rows[0].width && r.undo === rows[0].undo && r.redo === rows[0].redo && r.fits), rows);
+      }
+    }
+    await read(`updateMontClipView({language:'zh-CN'})`);
+    win.setContentSize(1280, 820);
+    if (process.env.MONTCLIP_BG_LAYOUT_ONLY === '1') { out(checks.every(c=>c.ok)?'BG_EXPORT_PASS':'BG_EXPORT_FAIL',{checks}); app.exit(checks.every(c=>c.ok)?0:1); return; }
     const b64 = recording().toString('base64');
     await read(`(${setup.toString()})(${JSON.stringify({ b64 })})`);
     out('BG_STAGE', 'setup');
     check('Fast export can go to the background here', await read('fastExportBlocker()') === null, await read('fastExportBlocker()'));
     check('the dialog\'s Fast note says she can close the window and keep editing', /可以收起进度窗口，接着剪/.test(await read(`(renderExportEngineText(), document.getElementById('engineFastNote').textContent)`)));
     await startFromDialog();
+    const zeroObservedAt = Date.now();
+    let observedLabel = await read(`document.getElementById('btnExport').textContent`);
+    const sawZero = observedLabel === '导出中 0%';
+    while (observedLabel === '导出中 0%' && Date.now() - zeroObservedAt < 30000) {
+      await wait(25); observedLabel = await read(`document.getElementById('btnExport').textContent`);
+    }
+    out('BG_STARTUP_OBSERVATION', { sawZero, observedZeroMs: Date.now() - zeroObservedAt, nextLabel: observedLabel, note: 'Offscreen observation starts after the click helper returns; not visible-window acceptance.' });
     await wait(300);
     check('the export runs in the background', await read('bgExportBusy()'));
     check('the progress window opened, with 〔收起进度，接着剪〕', await read(`!els.exportOverlay.classList.contains('hidden') && !document.getElementById('btnExportHide').classList.contains('hidden') && document.getElementById('btnExportHide').textContent`) === '收起进度，接着剪');
