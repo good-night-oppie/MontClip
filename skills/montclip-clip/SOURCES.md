@@ -90,7 +90,7 @@
 - 「导出画面」下拉框按界面语言显示（#173）：`app.js` 第 262 行 `EXPORT_FRAME_ASPECTS`，文案 `ui-preferences.js` 第 1031–1036 行（`ef-title`「导出画面」、`ef-9-16`「9:16 竖屏」等）。
 - 桌面助手空方案与限制提示（#172，合并提交 `299bdaefd4b0`）：`chat-proposal.js` 的 `unchanged` 判断、`agent-limits.js`、`agent-format.js`；〔查看剪辑建议〕按钮行为在 `agent-ui/pane.tsx`。
 - 桌面助手改比例（#175，合并提交 `aba11e3fc782`）：`capabilities.js` 第 29–31、51–54、135–138 行（只允许 9:16 / 1:1 / 4:5，`reframe` 为 sensitive 且每次确认）；`app.js` 第 23480–23598 行（先读画面、进度与取消、建成新序列、一次撤销返回）；中文文案 `ui-preferences.js` 第 844–858 行。
-- Reframe 末帧（#176，合并提交 `8545430d52e2`）：`reframe.js` 第 20、125–136 行（每秒 5 帧加 `sampleTimes` 的最后一帧）；编辑器、桌面助手和 MCP 共用，`CLAUDE.md` 第 2030–2055 行说明老项目只有重新执行才会重算。
+- Reframe 末帧（#176，合并提交 `8545430d52e2`）：`reframe.js` 第 20、125–136 行（每秒 5 帧加 `sampleTimes` 的最后一帧）；编辑器、桌面助手和 MCP 共用，`CLAUDE.md` Reframe 一节第 2204–2225 行（第 2211 行讲末帧，第 2222 行讲重新执行会替换它自己写的关键帧）；「老项目不会自动重新计算」的原话来源是 PR #176 正文。
 - 显示尺寸（#159，合并提交 `df2811d23991`）：`media-lib.js` 第 29–30、184–196、223–235 行（`width` / `height` 是显示尺寸，`storedWidth` / `storedHeight` 记录不同的原始尺寸）；界面文案 `ui-preferences.js` 第 763 行。
 - 找回录像（#137，合并提交 `8eaad3ce84d3`；#193，合并提交 `1b6054a13543`）：按钮和导出提醒在 `ui-preferences.js` 第 96–116 行，「找回录像」18 处文案在第 120–148 行；自动接回只接受同名同大小且唯一的候选，见 `media-lib.js` 第 491–497 行 `autoRelinkPick` 和 `app.js` 第 3338–3348 行。
 - 「AI 数据说明」v3（#170，合并提交 `412f36c45cf1`）：`desktop/agent-data-notice.js` 第 8–9 行 `NOTICE_VERSION = 3`；「只是数字、不是录音、声音本身不发」在 `ui-preferences.js` 第 1193、1222 行。
