@@ -228,15 +228,15 @@
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     // background export (#263; for JJ to review)
-    "bg-keep-editing": ["Keep editing", "关掉窗口，接着剪"],
+    "bg-keep-editing": ["Hide progress, keep editing", "收起进度，接着剪"],
+    "bg-progress-note": ["The export keeps going. To check on it, click \"Exporting\" at the top.","导出会继续做。想看进度，点顶栏的「导出中」。"],
     "bg-export-btn": ["Exporting {pct}%", "导出中 {pct}%"],
     "bg-export-btn-title": ["An export is running. Click to see its progress or cancel it.", "正在导出。点这里看进度，或者取消。"],
     "bg-export-busy": ["An export is still running. Wait for it to finish, or cancel it first.", "还有一个导出没做完。等它做完，或者先取消它。"],
     "bg-export-cancelling": ["Cancelling…", "正在取消…"],
     "bg-export-cancelled": ["Export cancelled. No file was kept.", "导出已取消，没有留下文件。"],
     "bg-export-done": ["Exported {file}.", "导出完成：{file}。"],
-    "bg-export-version": ["It was made from the timeline as it was at {time}, when the export started.", "用的是 {time} 开始导出时的时间线。"],
-    "bg-export-version-changed": ["It was made from the timeline as it was at {time}, when the export started. Edits made after that are not in this file.", "用的是 {time} 开始导出时的时间线，之后的改动不在这个文件里。"],
+    "bg-export-version-changed": ["Exported {file}. This file is how things were at {time}, when you clicked Export. Edits made after that are not in it. To include them, export again.","导出完成：{file}。这个文件是你 {time} 点「导出」时的样子，之后的改动不在里面。想带上新改动，请再导出一次。"],
     // MC-14 / MC-15: JJ 定稿, both languages, word for word (#231 issuecomment-6714366423). {n}: the number of a piece with a
     // picture (app.js exportSegmentNumbers), {time}: where it is on the timeline (MontClipAutoSlices.hms) — several are
     // listed (「3、5、8」, app.js exportClipWords). A sound on its own (music, a voice-over) has no number: the -track
@@ -906,7 +906,6 @@
     "fps-value": ["{n} fps", "{n} 帧/秒"],
     "resolution-stored": ["{display} (stored as {stored})", "{display}（文件里存的是 {stored}）"],
     "export-range-full": ["Full timeline · {from} → {to}", "整条时间线 · {from} → {to}"],
-    "engine-fast-note": ["Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.", "逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。"],
     "engine-webcodecs": ["WebCodecs (HW encode)", "显卡加速编码"],
     // 「快速（ffmpeg）」 is the Fast radio's own Chinese label (term.fast-ffmpeg)
     "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（FFmpeg）」那一项更快。"],

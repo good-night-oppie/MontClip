@@ -2880,8 +2880,9 @@ Export is the Export button → dialog, or `fablecut_export` from an agent (belo
    renders a copy of the timeline taken when Export is clicked, so the progress
    window can be closed and editing goes on; later edits are not in that file. The
    top bar's Export button shows the percentage and reopens the progress window
-   (Cancel); the result is a toast that names the timeline's time and an
-   export-queue entry. One background export at a time. It stays in the window
+   (Cancel). The toast and queue name the file; only a changed timeline adds the
+   click time (HH:MM) and asks to export again to include later edits. Readback
+   warnings precede that message on a separate line. One background export at a time. It stays in the window
    (the old progress window) while a composition is open for editing or the range
    uses `bgRemove`. Agent exports (`fablecut_export`) are unchanged.
 2. **WebCodecs** — same frame-accurate compositor loop, but the browser’s

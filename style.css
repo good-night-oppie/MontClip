@@ -3532,6 +3532,7 @@ kbd {
 
 /* ── Toast ── */
 #toast {
+  white-space: pre-line;
   position: fixed;
   left: 50%;
   bottom: 26px;

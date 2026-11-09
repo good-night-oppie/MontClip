@@ -42,7 +42,6 @@ const KEYS={
  'fps-value':['{n} fps','{n} 帧/秒','app'],
  // 弹窗: 导出窗口
  'export-range-full':['Full timeline · {from} → {to}','整条时间线 · {from} → {to}','app'],
- 'engine-fast-note':['Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.','逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。','app'],
  'engine-webcodecs':['WebCodecs (HW encode)','显卡加速编码','html'],
  // v2（JJ 定稿表 #119，2026-11-05）改了写法：括号里不再套括号
  'dlv-note-master':['Project size · H.264 CRF 16 · AAC 320k','和项目一样大 · 高画质 · H.264 恒定画质（CRF）16 · AAC 320k','app'],

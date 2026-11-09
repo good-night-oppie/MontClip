@@ -15,8 +15,8 @@ const fn = (name, next) => app.slice(app.indexOf(`function ${name}(`), app.index
 
 test('renderExportEngineText() really writes the fast and WebCodecs notes into the dialog (#263: they say what the export does)', () => {
   const BgExport = require('../bg-export');
-  for (const [blocker, fast] of [[null, '用 FFmpeg 导出，每一帧都准。开始以后可以关掉进度窗口，接着剪。导出的是你点「导出」那一刻的时间线，之后的改动不会进这个文件。'],
-    ['BG_REMOVE', '用 FFmpeg 导出，每一帧都准。这次导出要在这个窗口里做完：导出时请别关闭这个窗口，等它做完再接着剪。']]) {
+  for (const [blocker, fast] of [[null, '用 FFmpeg 导出，每一帧都准。开始后可以收起进度窗口，接着剪，导出会继续做。成片是你点「导出」那一刻的样子，之后的改动不会进这个文件。'],
+    ['BG_REMOVE', '这次没法一边导出一边剪（用了 AI 抠像）。导出期间请别关闭 MontClip 窗口，等它做完再接着剪。']]) {
     const nodes = { engineFastNote: { textContent: '' }, engineWebCodecsNote: { textContent: '' } };
     const render = new Function('state', 'getExportFrame', 'uiText', '$', 'els', 'MontClipBgExport', 'fastExportBlocker',
       fn('renderExportEngineText', '\nasync function openExportSetup') + '\nreturn renderExportEngineText;')(
@@ -24,13 +24,13 @@ test('renderExportEngineText() really writes the fast and WebCodecs notes into t
         (key) => view.t('zh-CN', key), (id) => nodes[id], { engineRealtime: null }, BgExport, () => blocker);
     render();
     a.equal(nodes.engineFastNote.textContent, fast);
-    a.equal(nodes.engineWebCodecsNote.textContent, '每一帧都准。画面由浏览器编码，再由 MontClip 打包成视频文件。需要较新的 Chromium 内核浏览器，也要装好 FFmpeg。导出时请别关闭这个窗口，等它做完再接着剪。');
+    a.equal(nodes.engineWebCodecsNote.textContent, '每一帧都准。画面由浏览器编码，再由 MontClip 打包成视频文件。需要较新的 Chromium 内核浏览器，也要装好 FFmpeg。导出期间请别关闭 MontClip 窗口，等它做完再接着剪。');
   }
 });
 
 test('the running Fast and WebCodecs exports use their notes: in this window, or in the background (#263)', () => {
-  a.match(app, /els\.exportNote\.textContent = uiText\("term\.engine-fast-note-here"\);/);
-  a.match(app, /els\.exportNote\.textContent = uiText\("term\.engine-fast-note"\);/);
+  a.ok(app.includes('MontClipBgExport.noteKey("fast", fastExportBlocker() || "NO_WORKER")'));
+  a.match(app, /els\.exportNote\.textContent = uiText\("own\.bg-progress-note"\);/);
   a.match(app, /els\.exportNote\.textContent = uiText\("term\.engine-webcodecs-note"\);/);
 });
 

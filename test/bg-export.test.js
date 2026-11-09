@@ -12,6 +12,19 @@ const view = require("../ui-preferences");
 
 const doc0 = () => ({ name: "p", revision: 3, fps: 30, clips: [{ id: "c1", start: 0, duration: 5 }, { id: "c2", start: 5, duration: 5 }], media: [] });
 
+test("Fast export waits for the discard request before its worker may be removed", async () => {
+  const fast = app.slice(app.indexOf('async function fastExport('), app.indexOf('/* ── Export queue'));
+  const discard = fast.match(/if \(sessId\) [^\n]+discard=1[^\n]+/)[0];
+  let acknowledge, finished = false;
+  const request = new Promise(resolve => { acknowledge = resolve; });
+  const run = new (Object.getPrototypeOf(async function(){}).constructor)('sessId', 'fetch', discard);
+  const done = run('s1', () => request).then(() => { finished = true; });
+  await Promise.resolve(); await Promise.resolve();
+  a.equal(finished, false, 'the page must remain alive until the server receives discard');
+  acknowledge({ ok: true }); await done;
+  a.equal(finished, true);
+});
+
 /** A fake clock and an editor ↔ export page pair wired like app.js (postMessage replaced by direct calls). */
 function rig({ run, answerCancel = true } = {}) {
   let t = 1000; const timers = [];
@@ -123,7 +136,7 @@ function el(id) {
     focus() { doc.activeElement = this; }, contains: () => false, remove() { this.removed = true; }, setAttribute() { } };
 }
 const doc = { activeElement: null };
-function editor() {
+function editor(language = "zh-CN") {
   const ids = ["btnExport", "btnExportHide", "btnCancelExport", "exportOverlay", "exportProgress", "exportTitle", "exportNote"];
   const E = Object.fromEntries(ids.map((i) => [i, el(i)]));
   E.exportOverlay.classList.add("hidden"); E.btnExportHide.classList.add("hidden");
@@ -135,7 +148,7 @@ function editor() {
   a.ok(start > 0 && end > start, "the background export block is in app.js");
   const deps = {
     state, EXPORT_WORKER: null, MontClipBgExport: BgExport, $: (id) => E[id], els: E,
-    uiText: (k, v) => view.t("zh-CN", k, v), mcView: { get: () => ({ language: "zh-CN" }) },
+    uiText: (k, v) => view.t(language, k, v), mcView: { get: () => ({ language }) },
     exportRangeMode: () => "entire", deliveryFileName: () => "p_master", projectFps: () => 30, exportBaseName: () => "p",
     queueLabel: () => "Master", exportProfileMeta: (id) => ({ label: id, summary: id }), exportQueue: queue,
     renderQueue: () => { }, renderQueueProgress: () => { }, projectJSON: () => JSON.parse(JSON.stringify(live)),
@@ -165,7 +178,7 @@ test("a background export leaves the editor usable: not in its exporting state, 
   a.match(w.frames[0].src, /^\/\?exportWorker=bg/);
   a.equal(w.E.exportOverlay.classList.contains("hidden"), false, "the progress window opens first");
   a.equal(w.E.btnExportHide.classList.contains("hidden"), false, "with a button to close it");
-  a.equal(w.E.exportNote.textContent, view.t("zh-CN", "term.engine-fast-note"));
+  a.equal(w.E.exportNote.textContent, '导出会继续做。想看进度，点顶栏的「导出中」。');
   w.api.hideBgExportOverlay();
   a.equal(w.E.exportOverlay.classList.contains("hidden"), true, "closed: nothing covers the editor");
   a.equal(w.api.bgExportBusy(), true, "the export goes on");
@@ -190,8 +203,8 @@ test("a background export leaves the editor usable: not in its exporting state, 
   w.fromPage({ bgExport: 1, id: j.id, type: "done", result: { outputs: [{ ok: true, src: "/exports/p_master.mp4", file: "p_master.mp4" }] } });
   a.equal(w.queue[0].status, "done");
   a.deepEqual(w.saved, ["p_master.mp4"]);
-  a.match(w.said.at(-1), /^导出完成：p_master\.mp4。 用的是 .+ 开始导出时的时间线，之后的改动不在这个文件里。$/);
-  a.match(w.queue[0].note, /之后的改动不在这个文件里/);
+  a.match(w.said.at(-1), /^导出完成：p_master\.mp4。这个文件是你 \d{2}:\d{2} 点「导出」时的样子，之后的改动不在里面。想带上新改动，请再导出一次。$/);
+  a.equal(w.queue[0].note, w.said.at(-1));
   a.equal(w.E.btnExport.classList.contains("bg-exporting"), false, "the button is the Export button again");
   a.equal(w.frames[0].removed, true);
 });
@@ -206,7 +219,21 @@ test("a background export's failure and its readback warnings are said as before
   const report = { ok: false, checks: [{ ok: false, code: "EXPORT_CLIP_SILENT" }] };
   w.fromPage({ bgExport: 1, id: j.id, type: "done", result: { outputs: [{ ok: true, src: "/exports/p.mp4", file: "p.mp4", report }] } });
   a.equal(w.queue[1].status, "done"); a.equal(w.queue[1].report, report, "the check's report is kept unchanged");
-  a.match(w.said.at(-1), /^report 用的是 .+ 开始导出时的时间线。$/);
+  a.equal(w.said.at(-1), "report\n导出完成：p.mp4。");
+  a.equal(w.queue[1].note, "导出完成：p.mp4。");
+});
+
+test("unchanged timeline has no version sentence; warnings precede a changed version on a separate line", () => {
+  const w = editor();
+  let j = w.api.startBgExport({ profile: "default" });
+  w.fromPage({ bgExport: 1, id: j.id, type: "done", result: { outputs: [{ ok: true, src: "/exports/p.mp4", file: "p.mp4" }] } });
+  a.equal(w.said.at(-1), "导出完成：p.mp4。");
+  a.equal(w.queue[0].note, w.said.at(-1));
+  j = w.api.startBgExport({ profile: "default" });
+  w.live.clips.pop();
+  w.fromPage({ bgExport: 1, id: j.id, type: "done", result: { outputs: [{ ok: true, src: "/exports/p.mp4", file: "p.mp4", report: { ok: false, checks: [] } }] } });
+  a.match(w.said.at(-1), /^report\n导出完成：p.mp4。这个文件是你 \d{2}:\d{2} 点「导出」/);
+  a.equal(w.said.at(-1), "report\n" + w.queue[1].note);
 });
 
 test("Cancel in the progress window or the queue stops the background export", () => {
@@ -251,22 +278,46 @@ test("the notes say what each engine does: only an engine that runs in the backg
   for (const [engine, info] of Object.entries(BgExport.ENGINES)) {
     for (const k of [info.note]) {
       if (info.background) {
-        a.match(zh(k), /可以关掉进度窗口，接着剪/, engine);
-        a.match(zh(k), /点「导出」那一刻的时间线/, engine + ": the copy");
-        a.match(en(k), /close the progress window and keep editing/, engine);
+        a.match(zh(k), /可以收起进度窗口，接着剪，导出会继续做/, engine);
+        a.match(zh(k), /点「导出」那一刻的样子/, engine + ": the copy");
+        a.match(en(k), /hide the progress window and keep editing; the export keeps going/, engine);
       } else {
-        a.match(zh(k), /请别关闭这个窗口|请一直停在这个页面/, engine + " says to stay");
+        a.match(zh(k), /请别关闭 MontClip 窗口|请一直停在这个页面/, engine + " says to stay");
         a.doesNotMatch(zh(k), /可以关掉进度窗口/, engine);
         a.doesNotMatch(en(k), /keep editing/i, engine);
       }
     }
   }
   const here = BgExport.noteKey("fast", "BG_REMOVE");
-  a.equal(here, BgExport.FAST_HERE_NOTE);
-  a.match(zh(here), /请别关闭这个窗口/); a.doesNotMatch(en(here), /keep editing/i);
+  a.match(zh(here), /（用了 AI 抠像）/);
+  a.doesNotMatch(zh(here), /复合片段/);
+  a.match(zh(BgExport.noteKey("fast", "COMP_OPEN")), /（打开着复合片段）/);
+  a.match(zh(here), /请别关闭 MontClip 窗口/);
   a.equal(BgExport.noteKey("fast", null), "term.engine-fast-note");
   // the old promise is gone everywhere
   for (const f of ["ui-terms.js", "ui-preferences.js", "index.html", "app.js"]) {
-    a.doesNotMatch(read(f), /切到别的页面也不影响|Keeps rendering if you switch tabs/, f);
+    a.doesNotMatch(read(f), /切到别的页面也不影响|切到别的页面也会继续导出|Keeps rendering if you switch tabs/, f);
   }
+});
+
+test("JJ progress copy is permanent and bilingual", () => {
+  a.equal(view.t('zh-CN', 'own.bg-keep-editing'), '收起进度，接着剪');
+  a.equal(view.t('en', 'own.bg-keep-editing'), 'Hide progress, keep editing');
+  a.equal(view.t('en', 'own.bg-progress-note'), 'The export keeps going. To check on it, click "Exporting" at the top.');
+  a.equal(view.t('en', 'own.bg-export-version-changed', { file: 'p.mp4', time: '15:02' }), 'Exported p.mp4. This file is how things were at 15:02, when you clicked Export. Edits made after that are not in it. To include them, export again.');
+});
+
+test("English completion also omits the version when unchanged and separates warnings when edited", () => {
+  const w = editor("en");
+  let j = w.api.startBgExport({ profile: "default" });
+  const output = { ok: true, src: "/exports/p.mp4", file: "p.mp4" };
+  w.fromPage({ bgExport: 1, id: j.id, type: "done", result: { outputs: [output] } });
+  a.equal(w.said.at(-1), "Exported p.mp4.");
+  j = w.api.startBgExport({ profile: "default" });
+  w.live.clips.pop();
+  w.fromPage({ bgExport: 1, id: j.id, type: "done", result: { outputs: [{ ...output, report: { ok: false, checks: [] } }] } });
+  a.match(w.said.at(-1), /^report\nExported p.mp4\. This file is how things were at \d{2}:\d{2}, when you clicked Export\. Edits made after that are not in it\. To include them, export again\.$/);
+  a.equal(w.said.at(-1), "report\n" + w.queue[1].note);
+  a.match(read("style.css"), /#toast\s*\{\s*white-space: pre-line;/);
+  a.ok(app.indexOf('(q.report ? `<span class="xq-report') < app.indexOf('(q.note ? `<span class="xq-note'), "queue warning precedes completion");
 });

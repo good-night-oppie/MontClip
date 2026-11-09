@@ -33,7 +33,7 @@
   }
   /** The note key for an engine, given blocker()'s answer for Fast. */
   function noteKey(engine, why = null) {
-    if (engine === "fast" && why) return FAST_HERE_NOTE;
+    if (engine === "fast" && why) return "term.engine-fast-note-" + (why === "COMP_OPEN" ? "comp" : why === "BG_REMOVE" ? "cutout" : "unavailable");
     return (ENGINES[engine] || ENGINES.realtime).note;
   }
 

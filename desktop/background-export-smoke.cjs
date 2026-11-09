@@ -3,7 +3,7 @@
 // recording (ffmpeg testsrc2 + a sine, 320×180, 30 fps, 20 s; no real footage). Input is real input events
 // (webContents.sendInputEvent), not function calls, wherever the streamer would click or press a key.
 //   electron desktop/background-export-smoke.cjs --montclip-smoke --user-data-dir=<fresh>
-// 1. Export (the dialog's own 〔导出〕 button, Fast) → the progress window → 〔关掉窗口，接着剪〕 → nothing covers the editor;
+// 1. Export (the dialog's own 〔导出〕 button, Fast) → the progress window → 〔收起进度，接着剪〕 → nothing covers the editor;
 //    a click selects a clip on the timeline, the Inspector shows it, Home moves the playhead; the top bar shows 导出中 N%.
 // 2. While it renders: the second clip is selected and deleted (Delete key) and the edit is saved.
 // 3. It finishes: a toast that names the timeline's time and says later edits are not in it; the queue has the file;
@@ -90,14 +90,14 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`(${setup.toString()})(${JSON.stringify({ b64 })})`);
     out('BG_STAGE', 'setup');
     check('Fast export can go to the background here', await read('fastExportBlocker()') === null, await read('fastExportBlocker()'));
-    check('the dialog\'s Fast note says she can close the window and keep editing', /可以关掉进度窗口，接着剪/.test(await read(`(renderExportEngineText(), document.getElementById('engineFastNote').textContent)`)));
+    check('the dialog\'s Fast note says she can close the window and keep editing', /可以收起进度窗口，接着剪/.test(await read(`(renderExportEngineText(), document.getElementById('engineFastNote').textContent)`)));
     await startFromDialog();
     await wait(300);
     check('the export runs in the background', await read('bgExportBusy()'));
-    check('the progress window opened, with 〔关掉窗口，接着剪〕', await read(`!els.exportOverlay.classList.contains('hidden') && !document.getElementById('btnExportHide').classList.contains('hidden') && document.getElementById('btnExportHide').textContent`) === '关掉窗口，接着剪');
-    check('its note', await read('els.exportNote.textContent') === await read(`uiText('term.engine-fast-note')`));
+    check('the progress window opened, with 〔收起进度，接着剪〕', await read(`!els.exportOverlay.classList.contains('hidden') && !document.getElementById('btnExportHide').classList.contains('hidden') && document.getElementById('btnExportHide').textContent`) === '收起进度，接着剪');
+    check('its permanent progress note', await read('els.exportNote.textContent') === '导出会继续做。想看进度，点顶栏的「导出中」。');
     await click('#btnExportHide');
-    check('〔关掉窗口，接着剪〕 closes it', await read(`els.exportOverlay.classList.contains('hidden')`));
+    check('〔收起进度，接着剪〕 closes it', await read(`els.exportOverlay.classList.contains('hidden')`));
     check('the editor is not in its exporting state', await read('!state.exporting && !state.rendering'));
     // wait until frames are rendering, then use the editor
     for (let i = 0; i < 600 && !(await read('(bgExport.job() && bgExport.job().progress) || 0') > 0.02); i++) await wait(25);
@@ -124,7 +124,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     out('BG_STAGE', { q });
     check('it finished, and the queue has the file', q && q.status === 'done' && q.file, q);
     const toastText = await read('els.toast.textContent');
-    check('the toast names the file and says later edits are not in it', toastText.includes(q.file) && /用的是 \d\d:\d\d:\d\d 开始导出时的时间线，之后的改动不在这个文件里。/.test(toastText), toastText);
+    check('the toast names the file and says later edits are not in it', toastText.includes(q.file) && /这个文件是你 \d\d:\d\d 点「导出」时的样子，之后的改动不在里面。想带上新改动，请再导出一次。/.test(toastText), toastText);
     check('the file is handed to the Save window as before', (await read('window.__saved')).includes(q.file));
     const file = path.join(exportsDir, q.file), len = seconds(file);
     check('the file is the timeline as it was at the click: 12 s (both clips), not 6 s', Math.abs(len - 12) < 0.25, len);

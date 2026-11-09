@@ -21219,7 +21219,7 @@ async function fastExport(opts = {}) {
   if (!opts.silent) els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
   // this export runs in this page (the background one sets its own note, showBgExportOverlay)
-  els.exportNote.textContent = uiText("term.engine-fast-note-here");
+  els.exportNote.textContent = uiText(typeof MontClipBgExport === "undefined" ? "term.engine-fast-note-here" : MontClipBgExport.noteKey("fast", fastExportBlocker() || "NO_WORKER"));
   restoreExportVideoState();
   const deliveries = opts.deliveries || (opts.delivery ? [{ delivery: opts.delivery }] : null);
   const delivery = deliveries ? deliveries[0].delivery : null;
@@ -21371,7 +21371,8 @@ async function fastExport(opts = {}) {
     }
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, ...(end.report ? { savedMsg: exportReportLine(end.report) } : {}) });
   } catch (e) {
-    if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
+    // The export worker is removed as soon as this returns; keep it alive until discard reaches the server.
+    if (sessId) await fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
     // JJ final copy (#190): one full sentence for alert and queue; the
     // technical code stays only in the structured result for logs.
@@ -21500,8 +21501,8 @@ function renderQueue() {
       `<span class="xq-sub">${escapeHtml(sub)} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
-      (q.note ? `<span class="xq-note">${escapeHtml(q.note)}</span>` : "") +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(exportReportLine(q.report))}</span>` : "") +
+      (q.note ? `<span class="xq-note">${escapeHtml(q.note)}</span>` : "") +
       (q.report && q.report.checks.some((c) => !c.ok && c.code === "AUDIO_ONE_SIDED" && oneSidedWarning(c).ids)
         ? `<button type="button" class="btn tiny" data-q-fix="${q.id}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
       `</div><div class="xq-actions">${actions}</div></li>`;
@@ -21650,7 +21651,7 @@ function renderBgExport(j = bgExport && bgExport.job()) {
 function showBgExportOverlay() {
   if (!bgExportBusy()) return;
   bgExportShown = true;
-  els.exportNote.textContent = uiText("term.engine-fast-note");   // = BgExport.noteKey("fast")
+  els.exportNote.textContent = uiText("own.bg-progress-note");
   els.exportOverlay.classList.add("bg-export");
   $("btnExportHide")?.classList.remove("hidden");
   els.exportOverlay.classList.remove("hidden");
@@ -21688,14 +21689,12 @@ function startBgExport(fastOpts) {
   showBgExportOverlay();
   return j;
 }
-const bgClock = (ms) => new Date(ms).toLocaleTimeString(mcView.get().language === "en" ? "en-GB" : "zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const bgClock = (ms) => new Date(ms).toLocaleTimeString(mcView.get().language === "en" ? "en-GB" : "zh-CN", { hour: "2-digit", minute: "2-digit" });
 /** The job ended (done, failed, cancelled): the queue entry, and a toast that says which timeline the file was made from. */
 function finishBgExport(j, res) {
   hideBgExportOverlay();
   renderBgExport(null);
   const q = j.q;
-  const version = uiText(BgExport.sameTimeline(j.doc, projectJSON()) ? "own.bg-export-version" : "own.bg-export-version-changed", { time: bgClock(j.startedAt) });
-  q.note = version;
   if (res && res.cancelled) {
     q.status = "cancelled";
     renderQueue();
@@ -21712,10 +21711,11 @@ function finishBgExport(j, res) {
     return;
   }
   const file = o.file || decodeURIComponent(o.src.split("/").pop());
-  Object.assign(q, { status: "done", src: o.src, file, progress: 1, report: o.report || null });
+  const completed = uiText(BgExport.sameTimeline(j.doc, projectJSON()) ? "own.bg-export-done" : "own.bg-export-version-changed", { file, time: bgClock(j.startedAt) });
+  Object.assign(q, { status: "done", src: o.src, file, progress: 1, report: o.report || null, note: completed });
   renderQueue();
   // the readback check's warnings (export-check.js) are said as before; the version sentence follows
-  toastHeld((o.report && !o.report.ok ? exportReportLine(o.report) : uiText("own.bg-export-done", { file })) + " " + version);
+  toastHeld((o.report && !o.report.ok ? exportReportLine(o.report) + "\n" : "") + completed);
   const oneSided = o.report && o.report.checks.find((c) => !c.ok && c.code === "AUDIO_ONE_SIDED");
   saveDownload(o.src, file, { exportFile: true, ...(oneSided ? { savedMsg: () => showOneSidedWarning(oneSided) } : {}) });
 }
