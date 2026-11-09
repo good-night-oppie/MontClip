@@ -196,7 +196,7 @@ test("a background export leaves the editor usable: not in its exporting state, 
   // the button opens the progress window again
   w.api.showBgExportOverlay();
   a.equal(w.E.exportOverlay.classList.contains("hidden"), false);
-  a.equal(w.E.exportTitle.textContent, "正在渲染… 40%");
+  a.equal(w.E.exportTitle.textContent, "导出中 40%");
   w.api.hideBgExportOverlay();
   // she deletes a clip meanwhile; the file is the old timeline, and the toast says so
   w.live.clips.splice(1, 1);
@@ -278,11 +278,11 @@ test("the notes say what each engine does: only an engine that runs in the backg
   for (const [engine, info] of Object.entries(BgExport.ENGINES)) {
     for (const k of [info.note]) {
       if (info.background) {
-        a.match(zh(k), /可以收起进度窗口，接着剪，导出会继续做/, engine);
+        a.match(zh(k), /可以把进度收起来，接着剪，导出会继续做/, engine);
         a.match(zh(k), /点「导出」那一刻的样子/, engine + ": the copy");
-        a.match(en(k), /hide the progress window and keep editing; the export keeps going/, engine);
+        a.match(en(k), /hide the progress and keep editing; the export keeps going/, engine);
       } else {
-        a.match(zh(k), /请别关闭 MontClip 窗口|请一直停在这个页面/, engine + " says to stay");
+        a.match(zh(k), /请别关掉 MontClip|请一直停在这个页面/, engine + " says to stay");
         a.doesNotMatch(zh(k), /可以关掉进度窗口/, engine);
         a.doesNotMatch(en(k), /keep editing/i, engine);
       }
@@ -292,7 +292,7 @@ test("the notes say what each engine does: only an engine that runs in the backg
   a.match(zh(here), /（用了 AI 抠像）/);
   a.doesNotMatch(zh(here), /复合片段/);
   a.match(zh(BgExport.noteKey("fast", "COMP_OPEN")), /（打开着复合片段）/);
-  a.match(zh(here), /请别关闭 MontClip 窗口/);
+  a.match(zh(here), /请别关掉 MontClip/);
   a.equal(BgExport.noteKey("fast", null), "term.engine-fast-note");
   // the old promise is gone everywhere
   for (const f of ["ui-terms.js", "ui-preferences.js", "index.html", "app.js"]) {
@@ -301,10 +301,28 @@ test("the notes say what each engine does: only an engine that runs in the backg
 });
 
 test("JJ progress copy is permanent and bilingual", () => {
-  a.equal(view.t('zh-CN', 'own.bg-keep-editing'), '收起进度，接着剪');
-  a.equal(view.t('en', 'own.bg-keep-editing'), 'Hide progress, keep editing');
+  a.equal(view.t('zh-CN', 'own.bg-keep-editing'), '收起，接着剪');
+  a.equal(view.t('en', 'own.bg-keep-editing'), 'Hide, keep editing');
   a.equal(view.t('en', 'own.bg-progress-note'), 'The export keeps going. To check on it, click "Exporting" at the top.');
   a.equal(view.t('en', 'own.bg-export-version-changed', { file: 'p.mp4', time: '15:02' }), 'Exported p.mp4. This file is how things were at 15:02, when you clicked Export. Edits made after that are not in it. To include them, export again.');
+});
+
+test("both languages prepare until a real progress message, not a ready or phase message", () => {
+  for (const [language, preparing, progressed] of [['zh-CN','准备导出…','导出中 50%'],['en','Preparing export…','Exporting 50%']]) {
+    const w = editor(language), j = w.api.startBgExport({profile:'default'});
+    const assertPreparing = () => { a.equal(w.E.btnExport.textContent, preparing); a.equal(w.E.exportTitle.textContent, preparing); };
+    assertPreparing();
+    for (const message of [{type:'ready'},{type:'phase',phase:'mixing'},{type:'session',sess:'s1'},{type:'phase',phase:'rendering'},{type:'progress',f:NaN}]) {
+      w.fromPage({bgExport:1,id:j.id,...message}); assertPreparing();
+    }
+    w.fromPage({bgExport:1,id:j.id,type:'progress',f:0.5});
+    a.equal(w.E.btnExport.textContent, progressed); a.equal(w.E.exportTitle.textContent, progressed);
+    w.fromPage({bgExport:1,id:j.id,type:'phase',phase:'encoding'});
+    a.equal(w.E.exportTitle.textContent, progressed);
+    w.fromPage({bgExport:1,id:j.id,type:'done',result:{cancelled:true}});
+    const next=w.api.startBgExport({profile:'default'}); assertPreparing();
+    w.fromPage({bgExport:1,id:next.id,type:'done',result:{cancelled:true}});
+  }
 });
 
 test("English completion also omits the version when unchanged and separates warnings when edited", () => {

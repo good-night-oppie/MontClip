@@ -95,7 +95,7 @@
         if (job) return null;
         const id = "bg" + now().toString(36) + "_" + (++seq);
         const j = job = { id, doc: snapshot(doc), opts: snapshot(opts), startedAt: now(), state: "starting", phase: "starting",
-          progress: 0, sess: null, frame: null, bootTimer: null, cancelTimer: null, ...extra };
+          progress: 0, hasProgress: false, sess: null, frame: null, bootTimer: null, cancelTimer: null, ...extra };
         j.frame = deps.makeFrame(id);
         j.bootTimer = setTimer(() => finish(j, { error: "the export page did not start", code: "EXPORT_BACKGROUND_NOT_STARTED" }), bootMs);
         if (deps.onChange) deps.onChange(j);
@@ -111,7 +111,7 @@
           clearTimer(j.bootTimer);
           j.state = "running";
           post(j, { type: "start", doc: j.doc, opts: j.opts });
-        } else if (m.type === "progress") j.progress = m.f;
+        } else if (m.type === "progress") { j.progress = m.f; j.hasProgress = true; }
         else if (m.type === "phase") j.phase = m.phase;
         else if (m.type === "session") j.sess = m.sess;
         else if (m.type === "toast") { if (deps.onToast) deps.onToast(j, m.text); return true; }

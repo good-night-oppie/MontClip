@@ -3,7 +3,7 @@
 // recording (ffmpeg testsrc2 + a sine, 320×180, 30 fps, 20 s; no real footage). Input is real input events
 // (webContents.sendInputEvent), not function calls, wherever the streamer would click or press a key.
 //   electron desktop/background-export-smoke.cjs --montclip-smoke --user-data-dir=<fresh>
-// 1. Export (the dialog's own 〔导出〕 button, Fast) → the progress window → 〔收起进度，接着剪〕 → nothing covers the editor;
+// 1. Export (the dialog's own 〔导出〕 button, Fast) → the progress window → 〔收起，接着剪〕 → nothing covers the editor;
 //    a click selects a clip on the timeline, the Inspector shows it, Home moves the playhead; the top bar shows 导出中 N%.
 // 2. While it renders: the second clip is selected and deleted (Delete key) and the edit is saved.
 // 3. It finishes: a toast that names the timeline's time and says later edits are not in it; the queue has the file;
@@ -93,10 +93,11 @@ BrowserWindow.prototype.loadURL = async function (...args) {
         await read(`updateMontClipView({language:${JSON.stringify(language)}})`);
         const rows = await read(`(()=>{
           const b=document.getElementById('btnExport'), rows=[];
-          for(const pct of [null,0,50,100,null]) {
-            if(pct===null) renderBgExport(null); else renderBgExport({state:'running',progress:pct/100});
+          for(const pct of [null,'preparing',0,50,100,null]) {
+            if(pct===null) renderBgExport(null); else renderBgExport({state:'running',hasProgress:pct!=='preparing',progress:pct==='preparing'?0:pct/100});
             const r=b.getBoundingClientRect();
-            rows.push({pct,text:b.textContent,width:r.width,undo:document.getElementById('mcUndo').getBoundingClientRect().x,redo:document.getElementById('mcRedo').getBoundingClientRect().x, fits:b.scrollWidth<=b.clientWidth});
+            const row={pct,text:b.textContent,width:r.width,undo:document.getElementById('mcUndo').getBoundingClientRect().x,redo:document.getElementById('mcRedo').getBoundingClientRect().x, fits:b.scrollWidth<=b.clientWidth};
+            b.style.minWidth='0'; row.naturalWidth=b.getBoundingClientRect().width; b.style.minWidth=''; rows.push(row);
           }
           return rows;
         })()`);
@@ -110,21 +111,22 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`(${setup.toString()})(${JSON.stringify({ b64 })})`);
     out('BG_STAGE', 'setup');
     check('Fast export can go to the background here', await read('fastExportBlocker()') === null, await read('fastExportBlocker()'));
-    check('the dialog\'s Fast note says she can close the window and keep editing', /可以收起进度窗口，接着剪/.test(await read(`(renderExportEngineText(), document.getElementById('engineFastNote').textContent)`)));
+    check('the dialog\'s Fast note says she can close the window and keep editing', /可以把进度收起来，接着剪/.test(await read(`(renderExportEngineText(), document.getElementById('engineFastNote').textContent)`)));
+    await read(`(()=>{
+      document.getElementById('btnStartExport').addEventListener('click',()=>{window.__bgStartup={clickAt:Date.now(),events:[]};},{capture:true,once:true});
+      const receive=bgExport.receive.bind(bgExport);
+      bgExport.receive=(m)=>{const t=window.__bgStartup;if(t&&!t.firstProgressAt){t.events.push({type:m.type,phase:m.phase,elapsedMs:Date.now()-t.clickAt});if(m.type==='progress'&&Number.isFinite(m.f))t.firstProgressAt=Date.now();}return receive(m);};
+    })()`);
     await startFromDialog();
-    const zeroObservedAt = Date.now();
-    let observedLabel = await read(`document.getElementById('btnExport').textContent`);
-    const sawZero = observedLabel === '导出中 0%';
-    while (observedLabel === '导出中 0%' && Date.now() - zeroObservedAt < 30000) {
-      await wait(25); observedLabel = await read(`document.getElementById('btnExport').textContent`);
-    }
-    out('BG_STARTUP_OBSERVATION', { sawZero, observedZeroMs: Date.now() - zeroObservedAt, nextLabel: observedLabel, note: 'Offscreen observation starts after the click helper returns; not visible-window acceptance.' });
+    check('both surfaces say preparing before progress', await read(`!bgExport.job().hasProgress && document.getElementById('btnExport').textContent==='准备导出…' && els.exportTitle.textContent==='准备导出…'`));
+    for(let i=0;i<1200 && !(await read('window.__bgStartup.firstProgressAt'));i++) await wait(25);
+    out('BG_STARTUP_OBSERVATION', await read(`({...window.__bgStartup,clickToFirstProgressMs:window.__bgStartup.firstProgressAt-window.__bgStartup.clickAt})`));
     await wait(300);
     check('the export runs in the background', await read('bgExportBusy()'));
-    check('the progress window opened, with 〔收起进度，接着剪〕', await read(`!els.exportOverlay.classList.contains('hidden') && !document.getElementById('btnExportHide').classList.contains('hidden') && document.getElementById('btnExportHide').textContent`) === '收起进度，接着剪');
+    check('the progress window opened, with 〔收起，接着剪〕', await read(`!els.exportOverlay.classList.contains('hidden') && !document.getElementById('btnExportHide').classList.contains('hidden') && document.getElementById('btnExportHide').textContent`) === '收起，接着剪');
     check('its permanent progress note', await read('els.exportNote.textContent') === '导出会继续做。想看进度，点顶栏的「导出中」。');
     await click('#btnExportHide');
-    check('〔收起进度，接着剪〕 closes it', await read(`els.exportOverlay.classList.contains('hidden')`));
+    check('〔收起，接着剪〕 closes it', await read(`els.exportOverlay.classList.contains('hidden')`));
     check('the editor is not in its exporting state', await read('!state.exporting && !state.rendering'));
     // wait until frames are rendering, then use the editor
     for (let i = 0; i < 600 && !(await read('(bgExport.job() && bgExport.job().progress) || 0') > 0.02); i++) await wait(25);

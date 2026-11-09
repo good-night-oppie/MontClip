@@ -228,9 +228,10 @@
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     // background export (#263; for JJ to review)
-    "bg-keep-editing": ["Hide progress, keep editing", "收起进度，接着剪"],
+    "bg-keep-editing": ["Hide, keep editing", "收起，接着剪"],
     "bg-progress-note": ["The export keeps going. To check on it, click \"Exporting\" at the top.","导出会继续做。想看进度，点顶栏的「导出中」。"],
     "bg-export-btn": ["Exporting {pct}%", "导出中 {pct}%"],
+    "bg-export-preparing": ["Preparing export…", "准备导出…"],
     "bg-export-btn-title": ["An export is running. Click to see its progress or cancel it.", "正在导出。点这里看进度，或者取消。"],
     "bg-export-busy": ["An export is still running. Wait for it to finish, or cancel it first.", "还有一个导出没做完。等它做完，或者先取消它。"],
     "bg-export-cancelling": ["Cancelling…", "正在取消…"],

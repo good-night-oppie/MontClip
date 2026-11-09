@@ -21622,16 +21622,13 @@ const bgExportBusy = () => !!(bgExport && bgExport.busy());
 function bgExportTitle(j) {
   const pct = Math.round((j.progress || 0) * 100);
   if (j.state === "cancelling") return uiText("own.bg-export-cancelling");
-  if (j.phase === "mixing") return uiText("own.mixing-audio");
-  if (j.phase === "encoding") return uiText("own.encoding");
-  if (j.phase === "rendering") return uiText("own.rendering-pct", { pct });
-  return uiText("term.exporting");
+  return j.hasProgress ? uiText("own.bg-export-btn", { pct }) : uiText("own.bg-export-preparing");
 }
 /** The top bar's Export button, the queue entry and (when open) the progress window follow the job. */
 function renderBgExport(j = bgExport && bgExport.job()) {
   const b = $("btnExport");
   if (b && j) {
-    b.textContent = uiText("own.bg-export-btn", { pct: Math.round((j.progress || 0) * 100) });
+    b.textContent = j.hasProgress ? uiText("own.bg-export-btn", { pct: Math.round((j.progress || 0) * 100) }) : uiText("own.bg-export-preparing");
     b.title = uiText("own.bg-export-btn-title");
     b.classList.add("bg-exporting");
     b.disabled = false;

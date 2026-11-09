@@ -4442,8 +4442,8 @@ input[type="range"].cq-hue {
 .xq-list .xq-note { font-size: 11px; color: var(--muted, #9a9aaa); }
 /* MontClip#263: the hidden page a background export renders in — off screen, never focused or clicked */
 .bg-export-frame { position: fixed; left: -20000px; top: 0; width: 640px; height: 360px; border: 0; opacity: 0; pointer-events: none; }
-/* Reserve the wider English "Exporting 100%" (117.69px on Win11); keep Undo/Redo still. */
-#btnExport { min-width: 120px; text-align: center; font-variant-numeric: tabular-nums; }
+/* Reserve the widest state, "Preparing export…" (134.34px on Win11); keep Undo/Redo still. */
+#btnExport { min-width: 136px; text-align: center; font-variant-numeric: tabular-nums; }
 .xq-list .xq-report { font-size: 11px; color: #8fd6ae; word-break: break-word; }
 .xq-list .xq-report.warn { color: #f0c14a; }
 .xq-list .xq-actions { display: flex; gap: 6px; flex: none; }

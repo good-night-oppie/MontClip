@@ -2879,7 +2879,8 @@ Export is the Export button → dialog, or `fablecut_export` from an agent (belo
    (`bg-export.js`, MontClip#263): a hidden page of the editor (`/?exportWorker=<id>`)
    renders a copy of the timeline taken when Export is clicked, so the progress
    window can be closed and editing goes on; later edits are not in that file. The
-   top bar's Export button shows the percentage and reopens the progress window
+   top bar's Export button and progress title show Preparing export… until the
+   first progress message; then both show Exporting N%. The button reopens the progress window
    (Cancel). The toast and queue name the file; only a changed timeline adds the
    click time (HH:MM) and asks to export again to include later edits. Readback
    warnings precede that message on a separate line. One background export at a time. It stays in the window

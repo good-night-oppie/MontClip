@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fast export from the Export dialog runs in the background (#263): a hidden page renders a copy of the timeline taken at the click, so the progress window can be hidden and editing goes on; the Export button shows the percentage and reopens progress with Cancel. The result names the file; only a changed timeline adds the click time and asks to export again. Readback warnings appear first on a separate line. The engine notes name the reason when editing must wait.
 - A cancelled Fast export waits for its discard request before the hidden export page is removed, so closing the page cannot cut off that cleanup request.
+- Fast export shows Preparing export… until the first real progress message, then Exporting N% in both the top bar and progress window. The button reserves the widest English state so Undo/Redo stay still; progress uses Hide, keep editing, while closing guidance explicitly names MontClip.
 
 - Route tool errors and warning fields through one privacy boundary; migrate old terminal receipts before replay without repeating edits.
 
