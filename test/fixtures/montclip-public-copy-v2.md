@@ -21,117 +21,145 @@
 
 ### 中文版（docs/i18n/README.zh-CN.md）
 
-```markdown
+````markdown
 # MontClip
 
-给剪自己直播的主播用的视频剪辑软件。中文优先，可切换英文。
+**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。按句选段和字幕导出还在验证；现在能用的是导入和导出 MP4。
 
-基于 [ronak-create/FableCut]({upstream})（MIT 许可）。
+目前还没有安装包，需要从源码运行。[怎么开始](#怎么开始) · [现在能做的](#现在能做的) · [计划中](#计划中) · [English](../../README.md)
+
+基于 [ronak-create/FableCut](https://github.com/ronak-create/FableCut)（MIT 许可）。
 
 <p align="center">
   <img src="../../docs/assets/demo/readme-demo-cover.png" width="720" alt="MontClip 演示片的一帧：左边是合成直播间的原画，右边是 MontClip 裁切、放大并遮住一块区域后的导出画面。画面是合成的，不是真实录像。">
   <br><sub>演示片（22 秒，合成素材，不是真实录像）。<a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-07">观看演示片</a></sub>
 </p>
 
-## MontClip 是什么
-
-MontClip 是一个装在自己电脑上用的剪辑软件。你把直播录像导进来，按字幕一句一句挑出想留的部分，导出成片和字幕文件。录像默认在你的电脑上处理。联网只发生在你自己打开的功能里，发之前先给你看。
-
 ## 现在能做的
 
 - **导入本地录像**：把电脑里的视频文件导进项目。
-- **按句选段**：有字幕时，勾选想保留的句子，软件会把它们按顺序接起来。可以先试听，再应用；一步就能撤销，原文件不会被改动。
-- **导出 MP4 和字幕**：导出成片 MP4，同时导出对应的 SRT 字幕文件。
-- **可选的 AI 助手**：可以连接你自己的 AI 服务账号，让它帮你提剪辑建议。每次发送前会先给你看要发出去的文字；建议要你点「应用」才会改片子，也能撤销。不连接也能正常剪辑。使用 AI 服务的费用由你自己的账号承担。
+- **导出 MP4**：导出成片 MP4。
+
+录像默认在你的电脑上处理。联网只发生在你自己打开的功能里，发之前先给你看。
+
+## 怎么开始
+
+目前还没有安装包，需要用开发者方式从源码运行。
+
+需要先装好：
+
+- [Git](https://git-scm.com/downloads)（用来下载 MontClip）
+- [Node.js](https://nodejs.org/) 18 或更新
+- Chromium 内核的浏览器（Chrome 或 Edge）
+- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装或太旧的话，MontClip 会提示你
+
+这些步骤目前有人在 Windows 11 上照着走过一遍；在 Linux 上只试过启动。
+
+然后在终端里运行：
+
+```bash
+git clone https://github.com/good-night-oppie/MontClip.git
+cd MontClip
+node server.js
+```
+
+用浏览器打开 <http://localhost:7777>。用的时候别关掉那个终端窗口。一开始是一个空项目。要导入视频，把它拖进窗口，或者点 **+ 导入**；看不到这个按钮的话，先点开 **素材** 面板。如果终端报 `EADDRINUSE`，说明 7777 端口已经被占用，常见原因是之前开的 MontClip 还在运行。先把它关掉，不然打开的会是旧的那个。项目和导出的文件默认存在 `server.js` 旁边；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
 
 ## 计划中
 
 下面这些还在做，或者还没验证完，现在不能用：
 
+- 按句选段：还在验证，验证完才算数。
+- 导出配套的 SRT 字幕文件：还在验证。
+- 可选的 AI 助手（发送前先给你看内容）：还在验证。
 - 更多中文界面（部分面板和弹窗还是英文）
 - 安装包（目前需要开发者方式运行）
 - 中文按单个字词剪辑（现在中文听写只有整句的时间）
-- macOS 和 Linux 版本（目前只在 Windows 上测试过）
+- macOS 和 Linux 版本（还没有完整验证；Linux 上目前只试过启动）
 
 ## 关于上游
 
-MontClip 基于 FableCut 修改而来，并沿用它的 MIT 许可。FableCut 本身还有很多功能，MontClip 没有逐一验证，所以这里不列出。想了解可以看 [上游 FableCut 文档]({upstream-docs})。
+MontClip 基于 FableCut 修改而来，并沿用它的 MIT 许可。FableCut 本身还有很多功能，MontClip 没有逐一验证，所以这里不列出。想了解可以看 [上游 FableCut 文档](https://github.com/ronak-create/FableCut)。
 
 ## 许可
 
-MIT。详见 [LICENSE](LICENSE) 和第三方许可说明。
+MIT。详见 [LICENSE](../../LICENSE) 和[第三方许可说明](../../LICENSES.md)。
 
-## 技术参考
+## 给开发者
 
-### 示意图（给开发者）
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="../../docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="示意图（给开发者看）：通过 MCP 接口控制 MontClip 的智能体，先读项目的文字摘要，只有拿不准时才请求几张画面；这些画面会返回给它。">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="../../docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="示意图（当前版本）：导入 FLV 录像时的检查流程。先看有哪些流，再扫描能读的范围；断点超过 5 毫秒就拒绝并说明原因；没有断点、流也兼容就直接重新封装，否则只在你明确同意后才转码；最后检查输出。">
-</picture>
-```
+从源码运行的详细说明：[DEVELOPMENT.md](../../DEVELOPMENT.md)。架构示意图、导出和智能体/API 说明：[技术参考](../technical-reference.md)（英文）。
+````
 
 ### English version (README.md)
 
-```markdown
+````markdown
 # MontClip
 
-A video editor for streamers who cut their own streams. Chinese first, English one click away.
+**MontClip: a video editor for streamers who cut their own streams.** Bring in your recordings, pick the parts to keep sentence by sentence from the subtitles, and export an MP4 with subtitles. Keeping by sentence and subtitle export are still being verified; what works today is importing and exporting MP4.
 
-Based on [ronak-create/FableCut]({upstream}) (MIT).
+There is no installer yet: for now you run it from source. [Get started](#get-started) · [What it can do today](#what-it-can-do-today) · [Planned](#planned) · [简体中文](docs/i18n/README.zh-CN.md)
+
+Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT).
 
 <p align="center">
   <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="One frame from the MontClip demo: on the left, the original picture of a synthetic live room; on the right, the MontClip export after cropping, zooming in and hiding one area. The footage is synthetic, not a real recording.">
   <br><sub>Demo (22 seconds, synthetic footage, not a real recording). <a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-07">Watch the demo video</a></sub>
 </p>
 
-## What MontClip is
-
-MontClip is an editor you install and run on your own computer. Bring in your stream recordings, pick the parts you want to keep sentence by sentence from the subtitles, and export the finished clip with its subtitle file. Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
-
 ## What it can do today
 
 - **Import local recordings**: add video files from your computer to a project.
-- **Keep by sentence**: when subtitles are available, tick the sentences you want to keep and MontClip joins them in order. Preview first, then apply; one Undo reverts it, and your original files are never changed.
-- **Export MP4 and subtitles**: export the finished clip as MP4, together with a matching SRT subtitle file.
-- **Optional AI assistant**: connect your own AI service account and ask it for editing suggestions. Before every send you see the exact text that will go out; a suggestion only changes your clip when you click Apply, and it can be undone. Editing works fine without it. Service charges are billed to your own AI account.
+- **Export MP4**: export the finished clip as MP4.
+
+Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
+
+## Get started
+
+There is no installer yet. For now MontClip runs from source, the developer way.
+
+You need:
+
+- [Git](https://git-scm.com/downloads) (to download MontClip)
+- [Node.js](https://nodejs.org/) 18 or newer
+- A Chromium-based browser (Chrome or Edge)
+- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing or too old, MontClip tells you.
+
+So far these steps have been walked through on Windows 11; on Linux, only starting MontClip has been tried.
+
+Then, in a terminal:
+
+```bash
+git clone https://github.com/good-night-oppie/MontClip.git
+cd MontClip
+node server.js
+```
+
+Open <http://localhost:7777> in your browser. Keep the terminal window open while you edit. You start with an empty project. To bring in a video, drag it into the window, or click **+ 导入** (the Import button; most of the interface is in Chinese for now). If you don't see that button, open the **素材** (Media) panel first. If the terminal says `EADDRINUSE`, port 7777 is already in use, often by a MontClip you started earlier. Close that one first; otherwise the page you open is the old one. Your projects and exports are saved next to `server.js`; to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Planned
 
 These are still in progress or not yet verified, and are not available now:
 
+- Keep by sentence: still being verified; it counts only once verified.
+- Export a matching SRT subtitle file: still being verified.
+- Optional AI assistant (you see what is sent before it goes out): still being verified.
 - More of the interface in Chinese (some panels and dialogs are still in English)
 - An installer (for now MontClip runs the developer way)
 - Cutting Chinese by individual words (Chinese transcription currently has sentence-level timing only)
-- macOS and Linux versions (only tested on Windows so far)
+- macOS and Linux versions (not fully verified yet; on Linux, only starting MontClip has been tried)
 
 ## About the upstream project
 
-MontClip is a modified version of FableCut and keeps its MIT license. FableCut has many more features that MontClip has not verified one by one, so they are not listed here. See the [upstream FableCut documentation]({upstream-docs}).
+MontClip is a modified version of FableCut and keeps its MIT license. FableCut has many more features that MontClip has not verified one by one, so they are not listed here. See the [upstream FableCut documentation](https://github.com/ronak-create/FableCut).
 
 ## License
 
-MIT. See [LICENSE](LICENSE) and the third-party notices.
+MIT. See [LICENSE](LICENSE) and the [third-party notices](LICENSES.md).
 
-## Technical reference
+## For developers
 
-### Diagrams (for developers)
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="Diagram (for developers): an agent that controls MontClip through the MCP interface reads a text summary of the project first, and asks for a few frames only when it is unsure. Those frames are returned to that agent.">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="Diagram (current version): how an imported FLV recording is checked. MontClip looks at the streams, then scans the readable range; if a gap is longer than 5 ms it refuses and explains why; with no gap and compatible streams it remuxes, otherwise it transcodes only with your explicit consent; the output is then checked.">
-</picture>
-```
+Running from source in detail: [DEVELOPMENT.md](DEVELOPMENT.md). Architecture diagrams, export and agent/API notes: [technical reference](docs/technical-reference.md).
+````
 
 ---
 
@@ -244,5 +272,5 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 ## 4. 等 Deja 确认的（不影响落地）
 
 - `{upstream-docs}` 的实际地址。
-- 「录像不上传」这一句，依据是默认零网络、AI 只发文字。如果发布版本里还有其它联网功能（例如「从网址导入」），这句要改成「导入和剪辑都在你的电脑上完成；只有你主动用 AI 助手或网址导入时才会联网」，或者把网址导入在发布版里关掉。
+- 隐私句：旧句「录像不上传」已在 #272、#273 换成「录像默认在你的电脑上处理。联网只发生在你自己打开的功能里，发之前先给你看。」（meta 用短句「录像默认在本机处理。」），依据是 SOP v4 第 3 条：联网功能存在，只发生在主播自己打开的功能里。不再写「不上传」。
 - 导入格式：本文只写「视频文件」，不列格式名。FLV 等录播格式的支持情况，等实测结果出来再补。

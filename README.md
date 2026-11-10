@@ -1,35 +1,57 @@
 # MontClip
 
-A video editor for streamers who cut their own streams. Chinese first, English one click away.
+**MontClip: a video editor for streamers who cut their own streams.** Bring in your recordings, pick the parts to keep sentence by sentence from the subtitles, and export an MP4 with subtitles. Keeping by sentence and subtitle export are still being verified; what works today is importing and exporting MP4.
+
+There is no installer yet: for now you run it from source. [Get started](#get-started) · [What it can do today](#what-it-can-do-today) · [Planned](#planned) · [简体中文](docs/i18n/README.zh-CN.md)
 
 Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT).
-
-[简体中文](docs/i18n/README.zh-CN.md)
 
 <p align="center">
   <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="One frame from the MontClip demo: on the left, the original picture of a synthetic live room; on the right, the MontClip export after cropping, zooming in and hiding one area. The footage is synthetic, not a real recording.">
   <br><sub>Demo (22 seconds, synthetic footage, not a real recording). <a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-07">Watch the demo video</a></sub>
 </p>
 
-## What MontClip is
-
-MontClip is an editor you install and run on your own computer. Bring in your stream recordings, pick the parts you want to keep sentence by sentence from the subtitles, and export the finished clip with its subtitle file. Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
-
 ## What it can do today
 
 - **Import local recordings**: add video files from your computer to a project.
-- **Keep by sentence**: when subtitles are available, tick the sentences you want to keep and MontClip joins them in order. Preview first, then apply; one Undo reverts it, and your original files are never changed.
-- **Export MP4 and subtitles**: export the finished clip as MP4, together with a matching SRT subtitle file.
-- **Optional AI assistant**: connect your own AI service account and ask it for editing suggestions. Before every send you see the exact text that will go out; a suggestion only changes your clip when you click Apply, and it can be undone. Editing works fine without it. Service charges are billed to your own AI account.
+- **Export MP4**: export the finished clip as MP4.
+
+Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
+
+## Get started
+
+There is no installer yet. For now MontClip runs from source, the developer way.
+
+You need:
+
+- [Git](https://git-scm.com/downloads) (to download MontClip)
+- [Node.js](https://nodejs.org/) 18 or newer
+- A Chromium-based browser (Chrome or Edge)
+- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing or too old, MontClip tells you.
+
+So far these steps have been walked through on Windows 11; on Linux, only starting MontClip has been tried.
+
+Then, in a terminal:
+
+```bash
+git clone https://github.com/good-night-oppie/MontClip.git
+cd MontClip
+node server.js
+```
+
+Open <http://localhost:7777> in your browser. Keep the terminal window open while you edit. You start with an empty project. To bring in a video, drag it into the window, or click **+ 导入** (the Import button; most of the interface is in Chinese for now). If you don't see that button, open the **素材** (Media) panel first. If the terminal says `EADDRINUSE`, port 7777 is already in use, often by a MontClip you started earlier. Close that one first; otherwise the page you open is the old one. Your projects and exports are saved next to `server.js`; to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Planned
 
 These are still in progress or not yet verified, and are not available now:
 
+- Keep by sentence: still being verified; it counts only once verified.
+- Export a matching SRT subtitle file: still being verified.
+- Optional AI assistant (you see what is sent before it goes out): still being verified.
 - More of the interface in Chinese (some panels and dialogs are still in English)
 - An installer (for now MontClip runs the developer way)
 - Cutting Chinese by individual words (Chinese transcription currently has sentence-level timing only)
-- macOS and Linux versions (only tested on Windows so far)
+- macOS and Linux versions (not fully verified yet; on Linux, only starting MontClip has been tried)
 
 ## About the upstream project
 
@@ -37,39 +59,8 @@ MontClip is a modified version of FableCut and keeps its MIT license. FableCut h
 
 ## License
 
-MIT. See [LICENSE](LICENSE) and the third-party notices.
+MIT. See [LICENSE](LICENSE) and the [third-party notices](LICENSES.md).
 
-## Technical reference
+## For developers
 
-### Diagrams (for developers)
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="Diagram (for developers): an agent that controls MontClip through the MCP interface reads a text summary of the project first, and asks for a few frames only when it is unsure. Those frames are returned to that agent.">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="Diagram (current version): how an imported FLV recording is checked. MontClip looks at the streams, then scans the readable range; if a gap is longer than 5 ms it refuses and explains why; with no gap and compatible streams it remuxes, otherwise it transcodes only with your explicit consent; the output is then checked.">
-</picture>
-
-See the [agent and API manual](CLAUDE.md) for media repair and background duration merging, and the [timestamp repair comparison](docs/testing/repair-timestamp-jump.md) for the reproducible test and its limits.
-
-JPEG ProRes exports use the selected range's frame count to preserve audio through
-the project end. Direct REST callers can supply `frames` with `fps`; see the
-[export boundary decision](docs/decisions/2026-11-05-prores-project-end.md) for scope and compatibility.
-Bounded ProRes preserves filters selected by the output stream index, including
-muted audio after explicit stream reordering. Unsupported mappings or filter
-selectors are refused instead of silently replacing an existing audio filter.
-
-A busy visible editor keeps its queued job. Silent hidden or disconnected editors release the queue after 20 seconds; the busy response includes cancellation instructions.
-
-Agent speech/song/highlight tools support bounded waits and saved task results; retries with an idempotency key do not duplicate edits. Completed transcript paragraphs remain on disk after cancellation. See the [agent manual](CLAUDE.md) for the same-tool retrieval contract.
-
-Incomplete transcription replies identify saved paragraphs with data-root-relative
-paths such as `analysis/transcripts/name.json`. Direct and bounded tool calls use
-the same incomplete-work notice; local absolute paths stay out of that notice and
-the `saved` field. Local clients resolve these paths against their own data root.
-Tool error text, including warnings inside normal replies, uses one redaction
-boundary. Older terminal task receipts are scrubbed on disk before replay;
-the operation itself is never repeated.
+Running from source in detail: [DEVELOPMENT.md](DEVELOPMENT.md). Architecture diagrams, export and agent/API notes: [technical reference](docs/technical-reference.md).

@@ -14,7 +14,7 @@ node server.js        # → http://localhost:7777
 
 Projects, media and exports go to the default data folder next to `server.js`; set `FABLECUT_DATA_DIR` to put them elsewhere.
 
-Requirements: **Node 18+** and a Chromium-based browser. **ffmpeg on PATH** is
+Requirements: **Node 18+** and a Chromium-based browser. **ffmpeg 6.0 or newer on PATH** is
 optional but recommended (fast export + upload remuxing). AI background
 removal fetches its model from a CDN on first use.
 
