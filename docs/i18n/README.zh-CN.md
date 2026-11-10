@@ -1,19 +1,15 @@
 # MontClip
 
-给剪自己直播的主播用的视频剪辑软件。中文优先，可切换英文。
+**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。
+
+目前还没有安装包，需要从源码运行。[怎么开始](#怎么开始) · [现在能做的](#现在能做的) · [现在还不能用的](#计划中) · [English](../../README.md)
 
 基于 [ronak-create/FableCut](https://github.com/ronak-create/FableCut)（MIT 许可）。
-
-[English](../../README.md)
 
 <p align="center">
   <img src="../../docs/assets/demo/readme-demo-cover.png" width="720" alt="MontClip 演示片的一帧：左边是合成直播间的原画，右边是 MontClip 裁切、放大并遮住一块区域后的导出画面。画面是合成的，不是真实录像。">
   <br><sub>演示片（22 秒，合成素材，不是真实录像）。<a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-07">观看演示片</a></sub>
 </p>
-
-## MontClip 是什么
-
-MontClip 是一个装在自己电脑上用的剪辑软件。你把直播录像导进来，按字幕一句一句挑出想留的部分，导出成片和字幕文件。录像只在你的电脑上处理，不会上传。
 
 ## 现在能做的
 
@@ -21,6 +17,29 @@ MontClip 是一个装在自己电脑上用的剪辑软件。你把直播录像�
 - **按句选段**：有字幕时，勾选想保留的句子，软件会把它们按顺序接起来。可以先试听，再应用；一步就能撤销，原文件不会被改动。
 - **导出 MP4 和字幕**：导出成片 MP4，同时导出对应的 SRT 字幕文件。
 - **可选的 AI 助手**：可以连接你自己的 AI 服务账号，让它帮你提剪辑建议。每次发送前会先给你看要发出去的文字；建议要你点「应用」才会改片子，也能撤销。不连接也能正常剪辑。使用 AI 服务的费用由你自己的账号承担。
+
+录像默认在你的电脑上处理。联网只发生在你自己打开的功能里，发之前先给你看。
+
+## 怎么开始
+
+目前还没有安装包，需要用开发者方式从源码运行。
+
+需要先装好：
+
+- [Node.js](https://nodejs.org/) 18 或更新
+- Chromium 内核的浏览器（Chrome 或 Edge）
+- [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出（没装或版本太旧，MontClip 会提示你）
+- Windows：目前只在 Windows 上测试过
+
+然后在终端里运行：
+
+```bash
+git clone https://github.com/good-night-oppie/MontClip.git
+cd MontClip
+node server.js
+```
+
+用浏览器打开 <http://localhost:7777>。一开始是一个空项目：把视频拖进来，或者点 **+ 导入**。项目和导出的文件默认存在 `server.js` 旁边；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
 
 ## 计划中
 
@@ -37,18 +56,8 @@ MontClip 基于 FableCut 修改而来，并沿用它的 MIT 许可。FableCut �
 
 ## 许可
 
-MIT。详见 [LICENSE](../../LICENSE) 和第三方许可说明。
+MIT。详见 [LICENSE](../../LICENSE) 和[第三方许可说明](../../LICENSES.md)。
 
-## 技术参考
+## 给开发者
 
-### 示意图（给开发者）
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="../../docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="示意图（给开发者看）：通过 MCP 接口控制 MontClip 的智能体，先读项目的文字摘要，只有拿不准时才请求几张画面；这些画面会返回给它。">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="../../docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="示意图（当前版本）：导入 FLV 录像时的检查流程。先看有哪些流，再扫描能读的范围；断点超过 5 毫秒就拒绝并说明原因；没有断点、流也兼容就直接重新封装，否则只在你明确同意后才转码；最后检查输出。">
-</picture>
+从源码运行的详细说明：[DEVELOPMENT.md](../../DEVELOPMENT.md)。架构示意图、导出和智能体/API 说明：[技术参考](../technical-reference.md)（英文）。
