@@ -18,8 +18,7 @@ function expectedReadme(lang){
   const planned=lines.findIndex(l=>l==='## 计划中'||l==='## Planned');let first=planned+1;
   while(!/^- /.test(lines[first]))first++;lines.splice(first,0,'- '+AI_PLANNED[lang]);
  }
- const credit=lines.findIndex(l=>/^(基于|Based on) \[ronak-create\/FableCut\]/.test(l));
- lines.splice(credit+1,0,'',lang==='en'?'[简体中文](docs/i18n/README.zh-CN.md)':'[English](../../README.md)');
+ // Since #268 the language link sits in the copy itself (first-screen jump links), so nothing is inserted here.
  let text=lines.join('\n')+'\n';
  if(lang==='zh')text=text.replace('[LICENSE](LICENSE)','[LICENSE](../../LICENSE)');
  return text;
@@ -52,11 +51,9 @@ test('the copy file is the one JJ delivered',()=>{a.equal(src.sha(),src.SHA256);
 
 test('README (English) and README.zh-CN are JJ\'s text, word for word',()=>{
  for(const lang of ['en','zh']){
-  // The approved product copy stays intact. In English it ends with the two diagrams at the top of
-  // "Technical reference" (Deja, #201 issuecomment-6704689435); the developer documentation follows them.
+  // Since #268 the technical reference lives in docs/technical-reference.md, so both READMEs are the copy, whole.
   const text=read(READMES[lang]),expected=expectedReadme(lang);
-  if(lang==='en'){a.equal(text.slice(0,expected.length),expected,READMES[lang]);a.match(text.slice(expected.length),/^\n\S/,READMES[lang]+': developer docs after the diagrams');}
-  else a.equal(text,expected,READMES[lang]);
+  a.equal(text,expected,READMES[lang]);
  }
 });
 

@@ -14,9 +14,7 @@ Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT)
 ## What it can do today
 
 - **Import local recordings**: add video files from your computer to a project.
-- **Keep by sentence**: when subtitles are available, tick the sentences you want to keep and MontClip joins them in order. Preview first, then apply; one Undo reverts it, and your original files are never changed.
-- **Export MP4 and subtitles**: export the finished clip as MP4, together with a matching SRT subtitle file.
-- **Optional AI assistant**: connect your own AI service account and ask it for editing suggestions. Before every send you see the exact text that will go out; a suggestion only changes your clip when you click Apply, and it can be undone. Editing works fine without it. Service charges are billed to your own AI account.
+- **Export MP4**: export the finished clip as MP4.
 
 Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
 
@@ -47,6 +45,9 @@ Open <http://localhost:7777> in your browser. Keep the terminal window open whil
 
 These are still in progress or not yet verified, and are not available now:
 
+- Keep by sentence: still being verified; it counts only once verified.
+- Export a matching SRT subtitle file: still being verified.
+- Optional AI assistant (you see what is sent before it goes out): still being verified.
 - More of the interface in Chinese (some panels and dialogs are still in English)
 - An installer (for now MontClip runs the developer way)
 - Cutting Chinese by individual words (Chinese transcription currently has sentence-level timing only)
