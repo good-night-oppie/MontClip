@@ -4,7 +4,7 @@
 // read the same sentences. Placeholders are filled with the values Deja confirmed.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const FILE=path.join(__dirname,'fixtures','montclip-public-copy-v2.md');
-const SHA256='ec840f3a04119843a8fedd597ff465aa2dfc2fa7d259d8bded77358732572ba4';
+const SHA256='53d9a26a5d85005ad1dd8fd91e7037060e11530e565f4a8620df988a04103324';
 const VALUES={'{repo}':'https://github.com/good-night-oppie/MontClip','{upstream}':'https://github.com/ronak-create/FableCut','{upstream-docs}':'https://github.com/ronak-create/FableCut'};
 const fill=s=>s.replace(/\{repo\}|\{upstream-docs\}|\{upstream\}/g,k=>VALUES[k]);
 function source(){return fs.readFileSync(FILE,'utf8').replace(/\r\n/g,'\n');}

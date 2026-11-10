@@ -1,6 +1,6 @@
 # MontClip
 
-**MontClip: a video editor for streamers who cut their own streams.** Bring in your recordings, pick the parts to keep sentence by sentence from the subtitles, and export an MP4 with subtitles.
+**MontClip: a video editor for streamers who cut their own streams.** Bring in your recordings, pick the parts to keep sentence by sentence from the subtitles, and export an MP4 with subtitles. Keeping by sentence and subtitle export are still being verified; what works today is importing and exporting MP4.
 
 There is no installer yet: for now you run it from source. [Get started](#get-started) · [What it can do today](#what-it-can-do-today) · [Not available yet](#planned) · [简体中文](docs/i18n/README.zh-CN.md)
 
@@ -27,9 +27,9 @@ You need:
 - [Git](https://git-scm.com/downloads) (to download MontClip)
 - [Node.js](https://nodejs.org/) 18 or newer
 - A Chromium-based browser (Chrome or Edge)
-- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing or too old, MontClip tells you.
+- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing, MontClip tells you.
 
-MontClip has only been tested on Windows so far.
+So far these steps have been walked through on Windows 11; on Linux, only starting MontClip has been tried.
 
 Then, in a terminal:
 

@@ -1,6 +1,6 @@
 # MontClip
 
-**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。
+**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。 按句选段和字幕导出还在验证；现在能用的是导入和导出 MP4。
 
 目前还没有安装包，需要从源码运行。[怎么开始](#怎么开始) · [现在能做的](#现在能做的) · [现在还不能用的](#计划中) · [English](../../README.md)
 
@@ -27,9 +27,9 @@
 - [Git](https://git-scm.com/downloads)（用来下载 MontClip）
 - [Node.js](https://nodejs.org/) 18 或更新
 - Chromium 内核的浏览器（Chrome 或 Edge）
-- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装或太旧，MontClip 会提示你
+- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装的话，MontClip 会提示你
 
-目前只在 Windows 上测试过。
+这些步骤目前有人在 Windows 11 上照着走过一遍；在 Linux 上只试过启动。
 
 然后在终端里运行：
 
