@@ -7,6 +7,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { makeProfile, dropProfile, sweepLeftovers, noteCleanupError } = require("./browser-procs");
+let swept = false;
 
 /* Runs in the page: [{text, ratio, fg, bg, where}] for each element with its own visible text, plus the skipped ones. */
 const MEASURE = String.raw`(() => {
@@ -67,7 +69,10 @@ async function cdpPage(prof) {
  *  run(page): page.evaluate(expression) and page.requests (every URL the page asked for since it was opened). `init`:
  *  a script run in the page before its own (Page.addScriptToEvaluateOnNewDocument). → what run returns */
 async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3000, init = "" }, run) {
-  const prof = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-contrast-"));
+  // leftovers of earlier runs that were killed before their cleanup (once per process), then our own folder with its
+  // owner record (browser-procs.js, MontClip#243)
+  if (!swept) { swept = true; try { await sweepLeftovers(); } catch (e) { noteCleanupError("sweep", e); /* cleaning up is never what fails a test */ } }
+  const prof = makeProfile();
   const b = spawn(browser, ["--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--hide-scrollbars",
     `--user-data-dir=${prof}`, "--remote-debugging-port=0", `--window-size=${width},${height}`, "about:blank"], { stdio: "ignore" });
   try {
@@ -92,9 +97,12 @@ async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3
     ws.close();
     return out;
   } finally {
+    // The child we spawned is not always the browser: started from an elevated Windows session the browser restarts
+    // itself and `b` has already exited, so b.kill() alone would leave it running. The browser is whoever runs with
+    // exactly our folder; the folder goes only when no such process is left.
     b.kill();
-    await new Promise((r) => setTimeout(r, 500));
-    try { fs.rmSync(prof, { recursive: true, force: true }); } catch { }
+    try { const r = await dropProfile(prof); if (r.left.length || !r.removed) noteCleanupError("drop", `left ${r.left.length} browser(s), folder removed: ${r.removed}`); }
+    catch (e) { noteCleanupError("drop", e); /* the next run's sweep takes it */ }
   }
 }
 
