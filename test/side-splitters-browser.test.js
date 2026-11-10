@@ -18,7 +18,8 @@ const LAYOUT = `(() => {
   const q = (s) => document.querySelector(s), cv = q("#preview").getBoundingClientRect();
   return { bin: r(q(".upper > .bin")), monitor: r(q(".upper > .monitor")), inspector: r(q(".upper > .inspector")),
     left: r(q("#splitBinMonitor")), right: r(q("#splitMonitorInspector")), bottom: r(q("#splitUpperTimeline")),
-    timeline: r(q("#timelinePanel")), picture: cv.height ? cv.width / cv.height : 0,
+    timeline: r(q("#timelinePanel")), picture: cv.height ? cv.width / cv.height : 0, pictureH: Math.round(cv.height), vh: innerHeight,
+    transport: r(q("#monitorPanel .transport")),
     exportBtn: r(q("#btnExport")), bodyClass: document.body.className,
     playing: typeof state !== "undefined" && !!state.playing,
     selection: String(getSelection()) };
@@ -126,6 +127,30 @@ test("the two side edges can be dragged, each on its own; the edge above the tim
     const j = await layout();
     assert.equal(j.timeline.h, i.timeline.h - 40, "the timeline edge still drags");
     assert.deepEqual([j.bin.w, j.inspector.w], [i.bin.w, i.inspector.w], "and does not move the side edges");
+    // …and now also up: the default is not the tallest it can be (PG on #270: 「可从默认高度继续向上拉大」)
+    assert.ok(i.timeline.h <= Math.round(i.vh * 0.32) + 1, `the default is still at most 32% of the window: ${i.timeline.h} of ${i.vh}`);
+    const [bx2, by2] = mid(j.bottom);
+    await drag(bx2, by2, bx2, by2 - 160);
+    const k = await layout();
+    assert.equal(k.timeline.h, j.timeline.h + 160, "dragged up 160: the timeline is 160 taller");
+    assert.ok(k.timeline.h > i.timeline.h, "taller than the default");
+    assert.ok(Math.abs(k.picture - a.picture) < 0.01, "the picture keeps its shape");
+    // dragged all the way up: the preview keeps its header, its player and a picture; the buttons stay on the page
+    const [bx3, by3] = mid(k.bottom);
+    await drag(bx3, by3, bx3, 2);
+    const m = await layout();
+    assert.ok(m.timeline.h > k.timeline.h, "it went further");
+    assert.ok(m.monitor.h >= L.UPPER_MIN, `the upper row keeps at least ${L.UPPER_MIN} px: ${m.monitor.h}`);
+    assert.ok(m.pictureH >= 60, `a picture is still shown: ${m.pictureH} px tall`);
+    assert.ok(m.transport && m.transport.h > 0 && m.transport.y + m.transport.h <= m.bottom.y + 1, "the player's buttons are above the edge, not under the timeline");
+    assert.ok(m.exportBtn.y >= 0 && m.exportBtn.h > 0, "the export button is still there");
+    t.diagnostic(JSON.stringify({ window: m.vh, default: i.timeline.h, tallest: m.timeline.h, upperAtTallest: m.monitor.h, pictureAtTallest: m.pictureH }));
+    // double-click the edge: the default again
+    const [bx4, by4] = mid(m.bottom);
+    await mouse("mousePressed", bx4, by4, { button: "left", clickCount: 1 }); await mouse("mouseReleased", bx4, by4, { button: "left", clickCount: 1 });
+    await mouse("mousePressed", bx4, by4, { button: "left", clickCount: 2 }); await mouse("mouseReleased", bx4, by4, { button: "left", clickCount: 2 });
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal((await layout()).timeline.h, i.timeline.h, "double-click: the default height");
     assert.equal(await saved(), project0, "after all of it the project is as it was: nothing cut, added or saved");
     assert.match(project0, /^\d+ \/ 1 clips$/, "(and the project was read)");
     assert.equal(j.playing, false, "and nothing is playing");

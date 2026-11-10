@@ -23497,11 +23497,14 @@ function setTimelineHeight(px) {
   return h;
 }
 /* Tall enough for the toolbar + ruler + every track row (no vertical overflow). */
+const TL_DEFAULT_SHARE = 0.32;   // of the window's height: what style.css capped every height at until MontClip#270
 function defaultTimelineHeight() {
   const tracksH = TRACKS.reduce((s, t) => s + t.h, 0);
   const toolbar = document.querySelector(".timeline-toolbar");
   const toolbarH = toolbar ? toolbar.getBoundingClientRect().height : 40;
-  return tracksH + RULER_H + toolbarH + 8;
+  // the default is what it was (at most 32% of the window); from there she can drag the edge up as far as
+  // setTimelineHeight lets her
+  return Math.min(tracksH + RULER_H + toolbarH + 8, Math.round(window.innerHeight * TL_DEFAULT_SHARE));
 }
 function resetTimelineHeight() {
   const h = setTimelineHeight(defaultTimelineHeight());

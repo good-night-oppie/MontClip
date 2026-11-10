@@ -4784,7 +4784,11 @@ body[data-mc-mode] .app:not(.ws-color) .upper > .h-split { display:block; }
 body[data-mc-mode] .upper > .bin { grid-column:1; grid-row:1; }
 body[data-mc-mode] .upper > .monitor { grid-column:2; grid-row:1; }
 body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
-.app .timeline-panel { flex-basis:clamp(180px,var(--timeline-h,180px),32vh); min-height:180px; }
+/* No upper limit here (MontClip#270): the 32vh that used to be in this rule made the default the tallest the timeline could
+   be, so its edge only dragged down. How tall it may get is app.js setTimelineHeight (availableTimelineMax: the
+   preview keeps its header, its player and a picture); the default is still at most 32% of the window
+   (defaultTimelineHeight). */
+.app .timeline-panel { flex-basis:max(180px,var(--timeline-h,180px)); min-height:180px; }
 .track[hidden],.track-head[hidden] { display:none; }
 .app .upper > .inspector { display:flex; flex-direction:column; min-height:0; }
 .side-tabs { flex-shrink:0; overflow-x:auto; }
