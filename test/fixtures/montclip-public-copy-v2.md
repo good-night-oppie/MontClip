@@ -24,9 +24,9 @@
 ````markdown
 # MontClip
 
-**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。 按句选段和字幕导出还在验证；现在能用的是导入和导出 MP4。
+**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。按句选段和字幕导出还在验证；现在能用的是导入和导出 MP4。
 
-目前还没有安装包，需要从源码运行。[怎么开始](#怎么开始) · [现在能做的](#现在能做的) · [现在还不能用的](#计划中) · [English](../../README.md)
+目前还没有安装包，需要从源码运行。[怎么开始](#怎么开始) · [现在能做的](#现在能做的) · [计划中](#计划中) · [English](../../README.md)
 
 基于 [ronak-create/FableCut](https://github.com/ronak-create/FableCut)（MIT 许可）。
 
@@ -51,7 +51,7 @@
 - [Git](https://git-scm.com/downloads)（用来下载 MontClip）
 - [Node.js](https://nodejs.org/) 18 或更新
 - Chromium 内核的浏览器（Chrome 或 Edge）
-- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装的话，MontClip 会提示你
+- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装或太旧的话，MontClip 会提示你
 
 这些步骤目前有人在 Windows 11 上照着走过一遍；在 Linux 上只试过启动。
 
@@ -75,7 +75,7 @@ node server.js
 - 更多中文界面（部分面板和弹窗还是英文）
 - 安装包（目前需要开发者方式运行）
 - 中文按单个字词剪辑（现在中文听写只有整句的时间）
-- macOS 和 Linux 版本（目前只在 Windows 上测试过）
+- macOS 和 Linux 版本（还没有完整验证；Linux 上目前只试过启动）
 
 ## 关于上游
 
@@ -97,7 +97,7 @@ MIT。详见 [LICENSE](../../LICENSE) 和[第三方许可说明](../../LICENSES.
 
 **MontClip: a video editor for streamers who cut their own streams.** Bring in your recordings, pick the parts to keep sentence by sentence from the subtitles, and export an MP4 with subtitles. Keeping by sentence and subtitle export are still being verified; what works today is importing and exporting MP4.
 
-There is no installer yet: for now you run it from source. [Get started](#get-started) · [What it can do today](#what-it-can-do-today) · [Not available yet](#planned) · [简体中文](docs/i18n/README.zh-CN.md)
+There is no installer yet: for now you run it from source. [Get started](#get-started) · [What it can do today](#what-it-can-do-today) · [Planned](#planned) · [简体中文](docs/i18n/README.zh-CN.md)
 
 Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT).
 
@@ -122,7 +122,7 @@ You need:
 - [Git](https://git-scm.com/downloads) (to download MontClip)
 - [Node.js](https://nodejs.org/) 18 or newer
 - A Chromium-based browser (Chrome or Edge)
-- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing, MontClip tells you.
+- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing or too old, MontClip tells you.
 
 So far these steps have been walked through on Windows 11; on Linux, only starting MontClip has been tried.
 
@@ -146,7 +146,7 @@ These are still in progress or not yet verified, and are not available now:
 - More of the interface in Chinese (some panels and dialogs are still in English)
 - An installer (for now MontClip runs the developer way)
 - Cutting Chinese by individual words (Chinese transcription currently has sentence-level timing only)
-- macOS and Linux versions (only tested on Windows so far)
+- macOS and Linux versions (not fully verified yet; on Linux, only starting MontClip has been tried)
 
 ## About the upstream project
 

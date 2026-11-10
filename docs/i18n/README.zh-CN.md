@@ -1,8 +1,8 @@
 # MontClip
 
-**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。 按句选段和字幕导出还在验证；现在能用的是导入和导出 MP4。
+**MontClip：给剪自己直播的主播用的剪辑软件。** 导入直播录像，按字幕一句一句挑出想留的部分，导出 MP4 和字幕。按句选段和字幕导出还在验证；现在能用的是导入和导出 MP4。
 
-目前还没有安装包，需要从源码运行。[怎么开始](#怎么开始) · [现在能做的](#现在能做的) · [现在还不能用的](#计划中) · [English](../../README.md)
+目前还没有安装包，需要从源码运行。[怎么开始](#怎么开始) · [现在能做的](#现在能做的) · [计划中](#计划中) · [English](../../README.md)
 
 基于 [ronak-create/FableCut](https://github.com/ronak-create/FableCut)（MIT 许可）。
 
@@ -27,7 +27,7 @@
 - [Git](https://git-scm.com/downloads)（用来下载 MontClip）
 - [Node.js](https://nodejs.org/) 18 或更新
 - Chromium 内核的浏览器（Chrome 或 Edge）
-- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装的话，MontClip 会提示你
+- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装或太旧的话，MontClip 会提示你
 
 这些步骤目前有人在 Windows 11 上照着走过一遍；在 Linux 上只试过启动。
 
@@ -51,7 +51,7 @@ node server.js
 - 更多中文界面（部分面板和弹窗还是英文）
 - 安装包（目前需要开发者方式运行）
 - 中文按单个字词剪辑（现在中文听写只有整句的时间）
-- macOS 和 Linux 版本（目前只在 Windows 上测试过）
+- macOS 和 Linux 版本（还没有完整验证；Linux 上目前只试过启动）
 
 ## 关于上游
 

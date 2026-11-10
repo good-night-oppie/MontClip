@@ -2,7 +2,7 @@
 
 **MontClip: a video editor for streamers who cut their own streams.** Bring in your recordings, pick the parts to keep sentence by sentence from the subtitles, and export an MP4 with subtitles. Keeping by sentence and subtitle export are still being verified; what works today is importing and exporting MP4.
 
-There is no installer yet: for now you run it from source. [Get started](#get-started) · [What it can do today](#what-it-can-do-today) · [Not available yet](#planned) · [简体中文](docs/i18n/README.zh-CN.md)
+There is no installer yet: for now you run it from source. [Get started](#get-started) · [What it can do today](#what-it-can-do-today) · [Planned](#planned) · [简体中文](docs/i18n/README.zh-CN.md)
 
 Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT).
 
@@ -27,7 +27,7 @@ You need:
 - [Git](https://git-scm.com/downloads) (to download MontClip)
 - [Node.js](https://nodejs.org/) 18 or newer
 - A Chromium-based browser (Chrome or Edge)
-- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing, MontClip tells you.
+- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing or too old, MontClip tells you.
 
 So far these steps have been walked through on Windows 11; on Linux, only starting MontClip has been tried.
 
@@ -51,7 +51,7 @@ These are still in progress or not yet verified, and are not available now:
 - More of the interface in Chinese (some panels and dialogs are still in English)
 - An installer (for now MontClip runs the developer way)
 - Cutting Chinese by individual words (Chinese transcription currently has sentence-level timing only)
-- macOS and Linux versions (only tested on Windows so far)
+- macOS and Linux versions (not fully verified yet; on Linux, only starting MontClip has been tried)
 
 ## About the upstream project
 
