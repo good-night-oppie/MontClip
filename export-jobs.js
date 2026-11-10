@@ -59,6 +59,30 @@ function findBrowser(env = process.env) {
    makes it the likelier one to be killed, but that is Chrome's default, not ours, and nobody has run a machine out of
    memory to see which one goes. What MontClip does do: a page that dies ends its job (EXPORT_PAGE_CRASHED, below). */
 
+/* MontClip#247: opened with "Run as administrator" (Windows), Chrome and Edge start themselves again without the
+   elevation and the process we started exits at once — exit code 0, nothing said. That used to end the job as a
+   crashed page, and she retried with no way to know why. It is said as what it is only when BOTH hold: this process
+   is elevated, and the browser we started exited with code 0 within FAST_EXIT_MS before its page took the job. Any
+   other exit stays EXPORT_PAGE_CRASHED (a quick exit alone is not proof: JJ's spec, PG on #223). Nothing is done to
+   make the browser work elevated — no sandbox or de-elevation switch (QQ's ruling on #243). */
+const FAST_EXIT_MS = 3000;   // measured on Win11: 140–206 ms; a browser that came up never exits 0 this early by itself
+let elevatedKnown = null;
+/** Is this process elevated (Windows: high or system integrity level)? Asked once, of whoami in the Windows folder by
+ *  its full path, with fixed arguments. Anything that cannot be read is "no": the plain crash sentence is the default. */
+function isElevated(env = process.env, platform = process.platform) {
+  if (platform !== "win32") return false;
+  if (elevatedKnown !== null) return elevatedKnown;
+  try {
+    const out = spawnSync(path.join(env.SystemRoot || env.windir || "C:\\Windows", "System32", "whoami.exe"), ["/groups", "/fo", "csv", "/nh"],
+      { encoding: "utf8", windowsHide: true, timeout: 5000 }).stdout || "";
+    elevatedKnown = /S-1-16-(12288|16384)\b/.test(out);
+  } catch { elevatedKnown = false; }
+  return elevatedKnown;
+}
+/** The code a job ends with, by who started the engine: the sentence names that program (JJ, #247), or "this program"
+ *  where that is not known. host: "cindy" (the plugin) | "montclip" (the Windows app) | anything else. */
+const elevatedCode = (host) => host === "cindy" ? "EXPORT_ELEVATED_CINDY" : host === "montclip" ? "EXPORT_ELEVATED_MONTCLIP" : "EXPORT_ELEVATED_PROGRAM";
+
 /** opts: {url(id) → page to open headless, broadcast(event, data, task), editors(task) → open tab count (task: a job's
  *  {project, session} when it names a Cindy task, else null — only the editor connections bound to that task count and
  *  get its ticket), claimAllowed(job, body) → may this tab claim it (a task's job: only its own connection),
@@ -66,7 +90,9 @@ function findBrowser(env = process.env) {
  *  now() → the clock (tests),
  *  activeProject() → the open project's id: a job asked for one project ends when another is open (EXPORT_PROJECT_CHANGED),
  *  onEnd(job) → a job ended without its file (failed or cancelled): stop what it left running,
- *  finished(src) → is the file an export job says it made really in place (renamed from .part)?} */
+ *  finished(src) → is the file an export job says it made really in place (renamed from .part)?,
+ *  isElevated() → is this process elevated (tests; default: asked of Windows once), host → who started the engine
+ *  ("cindy" | "montclip" | ""), log(line) → one line for the engine's log (default console.warn)} */
 function createExportJobs(opts) {
   const clock = typeof opts.now === "function" ? opts.now : () => Date.now();   // late-bound: tests may stub Date.now
   function assertWhere(where = "auto") {
@@ -148,11 +174,25 @@ function createExportJobs(opts) {
       opts.url(j.id),
     ];
     const proc = spawn(exe, args, { stdio: "ignore", windowsHide: true });
+    const started = Date.now();
     j.browser = { proc, profileDir, keep: !!kept };
     proc.on("error", (e) => end(j, "failed", { error: "could not start the headless browser: " + e.message }));
     // the page crashed with its browser (MC-15): this job ends, said in the interface language (EXPORT_PAGE_CRASHED); the
     // engine and the queue carry on
-    proc.on("exit", () => { if (j.browser) { j.browser = null; if (!isEnded(j)) end(j, "failed", { errorCode: "EXPORT_PAGE_CRASHED", error: "the headless browser exited before the export finished" }); } });
+    proc.on("exit", (code) => {
+      if (!j.browser) return;
+      j.browser = null;
+      if (isEnded(j)) return;
+      const ms = Date.now() - started;
+      // #247: only a clean, immediate exit before the page took the job, and only when this process is elevated
+      if (code === 0 && ms < FAST_EXIT_MS && j.status === "pending" && (typeof opts.isElevated === "function" ? opts.isElevated() : isElevated())) {
+        try { (opts.log || console.warn)(`export: running elevated (administrator); the headless browser exited within ${ms} ms`); } catch {}
+        end(j, "failed", { errorCode: elevatedCode(opts.host), error: "this program was started with \"Run as administrator\", and the browser an export needs exits at once that way; " +
+          "no file was made. Close it, start it normally (not as administrator) and export again" });
+        return;
+      }
+      end(j, "failed", { errorCode: "EXPORT_PAGE_CRASHED", error: "the headless browser exited before the export finished" });
+    });
   }
 
   return {
@@ -253,4 +293,4 @@ function createExportJobs(opts) {
   };
 }
 
-module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS };
+module.exports = { createExportJobs, findBrowser, isElevated, elevatedCode, FAST_EXIT_MS, TAB_SILENT_MS, JOB_HEARTBEAT_MS };

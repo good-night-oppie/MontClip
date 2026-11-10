@@ -901,6 +901,8 @@ const freshExports = new Set();
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
+  // #247: the sentence names the program she opened — Cindy (the plugin), MontClip (the Windows app), else "this program"
+  host: EMBED ? "cindy" : DESKTOP ? "montclip" : "",
   // embedded: a one-time ticket the page trades for the session cookie — the token itself stays off the command line
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
