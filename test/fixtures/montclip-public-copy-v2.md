@@ -144,7 +144,7 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 | 位置 | 文字 |
 |---|---|
 | `<title>` | MontClip · 给主播的直播切片剪辑软件 |
-| meta description | 装在自己电脑上的剪辑软件：导入直播录像，按字幕逐句挑出想留的部分，导出 MP4 和 SRT 字幕。录像不上传。 |
+| meta description | 装在自己电脑上的剪辑软件：导入直播录像，按字幕逐句挑出想留的部分，导出 MP4 和 SRT 字幕。录像默认在本机处理。 |
 | 主标题 | MontClip |
 | 副标题 | 把直播录像剪成切片，按句挑，挑完就导出。 |
 | 基于 | 基于 FableCut（MIT 许可）修改而来。 |
@@ -168,7 +168,7 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 | Position | Text |
 |---|---|
 | `<title>` | MontClip · A clip editor for streamers |
-| meta description | An editor that runs on your own computer: import stream recordings, keep the parts you want sentence by sentence from the subtitles, and export MP4 with SRT subtitles. Recordings are not uploaded. |
+| meta description | An editor that runs on your own computer: import stream recordings, keep the parts you want sentence by sentence from the subtitles, and export MP4 with SRT subtitles. Recordings are processed on your computer by default. |
 | Heading | MontClip |
 | Subheading | Turn stream recordings into clips. Pick by sentence, then export. |
 | Based on | A modified version of FableCut (MIT). |
@@ -204,7 +204,7 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 | 小节标题 | 系统要求 |
 | 系统要求正文 | 目前只在 Windows 11 上测试过。macOS 和 Linux 还没有测试。 |
 | 小节标题 | 你的录像去哪了 |
-| 录像说明 | 导入、剪辑、导出都在你的电脑上完成，录像不会上传。 |
+| 录像说明 | 录像默认在你的电脑上处理。联网只发生在你自己打开的功能里，发之前先给你看。 |
 | 小节标题 | 关于 AI 助手 |
 | AI 说明 | AI 助手是可选的。要用的话，在软件里连接你自己的 AI 服务账号，费用由该账号承担。每次发送前会先给你看要发出去的文字。不连接也能正常剪辑。 |
 | 小节标题 | 常见问题 |
@@ -227,7 +227,7 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 | Section | System requirements |
 | Requirements | Tested on Windows 11 only so far. macOS and Linux have not been tested. |
 | Section | Where your recordings go |
-| Recordings | Importing, editing and exporting all happen on your computer. Recordings are not uploaded. |
+| Recordings | Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out. |
 | Section | About the AI assistant |
 | AI note | The AI assistant is optional. To use it, connect your own AI service account in the app; charges are billed to that account. Before each send you see the text that will go out. Editing works fine without it. |
 | Section | FAQ |
