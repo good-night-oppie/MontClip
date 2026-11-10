@@ -26,10 +26,12 @@ There is no installer yet. For now MontClip runs from source, the developer way.
 
 You need:
 
+- [Git](https://git-scm.com/downloads) (to download MontClip)
 - [Node.js](https://nodejs.org/) 18 or newer
 - A Chromium-based browser (Chrome or Edge)
-- [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export (MontClip tells you if yours is missing or too old)
-- Windows: MontClip has only been tested on Windows so far
+- Recommended: [FFmpeg](https://ffmpeg.org/download.html) 6.0 or newer, for fast export. If it is missing or too old, MontClip tells you.
+
+MontClip has only been tested on Windows so far.
 
 Then, in a terminal:
 
@@ -39,7 +41,7 @@ cd MontClip
 node server.js
 ```
 
-Open <http://localhost:7777> in your browser. You start with an empty project: drag a video in, or click **+ 导入** (Import). Your projects and exports are saved next to `server.js`; to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
+Open <http://localhost:7777> in your browser. Keep the terminal window open while you edit. You start with an empty project: drag a video in, or click **+ 导入** (the Import button; most of the interface is in Chinese for now). Your projects and exports are saved next to `server.js`; to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Planned
 

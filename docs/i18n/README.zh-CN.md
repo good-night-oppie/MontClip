@@ -26,10 +26,12 @@
 
 需要先装好：
 
+- [Git](https://git-scm.com/downloads)（用来下载 MontClip）
 - [Node.js](https://nodejs.org/) 18 或更新
 - Chromium 内核的浏览器（Chrome 或 Edge）
-- [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出（没装或版本太旧，MontClip 会提示你）
-- Windows：目前只在 Windows 上测试过
+- 建议装 [FFmpeg](https://ffmpeg.org/download.html) 6.0 或更新，用来快速导出；没装或太旧，MontClip 会提示你
+
+目前只在 Windows 上测试过。
 
 然后在终端里运行：
 
@@ -39,7 +41,7 @@ cd MontClip
 node server.js
 ```
 
-用浏览器打开 <http://localhost:7777>。一开始是一个空项目：把视频拖进来，或者点 **+ 导入**。项目和导出的文件默认存在 `server.js` 旁边；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
+用浏览器打开 <http://localhost:7777>。用的时候别关掉那个终端窗口。一开始是一个空项目：把视频拖进来，或者点 **+ 导入**。项目和导出的文件默认存在 `server.js` 旁边；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
 
 ## 计划中
 
