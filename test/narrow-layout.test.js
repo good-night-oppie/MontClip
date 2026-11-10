@@ -167,3 +167,27 @@ test('≤560 px: a double-click that loads Source puts the bin away; click, star
   a.match(smoke, /sameFiles:ids\(\)===before\.ids/, 'and the files are all still there');
 });
 function MontClipT(lang, key) { return require('../ui-preferences').t(lang, key); }
+
+// MontClip#270: the side edges. The numbers are the columns of style.css; a drag never takes the preview under its
+// least width and never pushes the other side panel.
+test('a side panel follows the drag between its least width and what the preview and the other side leave',()=>{
+ const room={min:L.SIDE_LEFT_MIN,other:320,total:1572,gap:6,centerMin:L.SIDE_CENTER_MIN};
+ a.equal(L.sideWidth({want:280,...room}),280);
+ a.equal(L.sideWidth({want:280.4,...room}),280,'whole pixels');
+ a.equal(L.sideWidth({want:-50,...room}),150,'not under its least width');
+ a.equal(L.sideWidth({want:5000,...room}),1572-12-260-320,'the preview keeps 260 and the other side its 320');
+ a.equal(L.sideWidth({want:NaN,...room}),150,'no number: the least width');
+ a.equal(L.sideWidth({want:400,...room,total:700}),150,'a row too narrow for all three: the least width, never less');
+});
+test('with the assistant open the right panel and the preview keep 280; the columns in style.css say the same numbers',()=>{
+ a.deepEqual(L.sideMins(false),{left:150,right:260,center:260});
+ a.deepEqual(L.sideMins(true),{left:150,right:280,center:280});
+ const css=read('style.css');
+ a.ok(css.includes('.app .upper { position:relative; grid-template-columns:minmax(150px,var(--bin-w,200px)) minmax(260px,1fr) minmax(260px,var(--inspector-w,320px));'),'defaults 200 and 320 as before');
+ a.ok(css.includes('.app.agent-open .upper { grid-template-columns:minmax(150px,var(--bin-w,190px)) minmax(280px,1fr) minmax(280px,var(--inspector-w,min(var(--agent-pane-width,340px),34vw))); }'));
+ const app=read('app.js'),drag=app.slice(app.indexOf('function initSideSplits()'),app.indexOf('/* ── Boot ── */'));
+ for(const end of ['pointerup','pointercancel','lostpointercapture'])a.ok(drag.includes('"'+end+'"'),'a drag that ends by '+end+' puts the page back');
+ a.match(drag,/classList\.remove\("resizing-columns"\)/);
+ const reset=app.slice(app.indexOf('function restoreDefaultLayout() {'),app.indexOf('function clampTimelineHeight()'));
+ a.ok(reset.includes('resetSideWidth("left"); resetSideWidth("right");'),'Layout brings both back');
+});

@@ -23546,6 +23546,7 @@ function setTrackSize(size, { persist = true, fitPane = true } = {}) {
 function restoreDefaultLayout() {
   setTrackSize("l", { persist: true, fitPane: false });
   resetTimelineHeight();
+  resetSideWidth("left"); resetSideWidth("right");
 }
 function clampTimelineHeight() {
   const cur = $("timelinePanel")?.getBoundingClientRect().height;
@@ -23589,6 +23590,81 @@ function initPanelSplit() {
     e.preventDefault();
     resetTimelineHeight();
   });
+}
+
+/* ── The side edges: media panel | preview | inspector (MontClip#270) ──
+   Each edge sets the width of the panel on its own side (--bin-w, --inspector-w on .app, read by the columns in
+   style.css) and nothing else; the preview takes what is left. A width is kept on this computer. Least widths:
+   MontClipNarrow.sideMins / sideWidth — the preview never drops under its own, the other side is never pushed.
+   Only resizing happens here: the press is taken by the edge (pointer capture), so nothing under it is selected,
+   dragged or clicked, and every way a drag can end (release, cancel, lost capture) puts the page back. */
+const SIDE_W_KEY = { left: "montclip-bin-w", right: "montclip-inspector-w" };
+const SIDE_W_VAR = { left: "--bin-w", right: "--inspector-w" };
+const sidePanel = (side) => document.querySelector(side === "left" ? ".upper > .bin" : ".upper > .inspector");
+function sideRoom(side) {
+  const upper = document.querySelector(".upper"), other = sidePanel(side === "left" ? "right" : "left");
+  const mins = MontClipNarrow.sideMins($("app").classList.contains("agent-open"));
+  return { min: mins[side], centerMin: mins.center, total: upper.getBoundingClientRect().width,
+    gap: parseFloat(getComputedStyle(upper).columnGap) || 0, other: other ? other.getBoundingClientRect().width : 0 };
+}
+function setSideWidth(side, want) {
+  const w = MontClipNarrow.sideWidth({ want, ...sideRoom(side) });
+  $("app").style.setProperty(SIDE_W_VAR[side], w + "px");
+  return w;
+}
+function resetSideWidth(side) {
+  $("app").style.removeProperty(SIDE_W_VAR[side]);
+  try { localStorage.removeItem(SIDE_W_KEY[side]); } catch { }
+  syncSideSplits();
+}
+function syncSideSplits() {
+  for (const handle of document.querySelectorAll(".h-split")) {
+    const panel = sidePanel(handle.dataset.side);
+    if (!panel || !handle.offsetParent) continue;
+    const room = sideRoom(handle.dataset.side);
+    handle.setAttribute("aria-valuemin", String(room.min));
+    handle.setAttribute("aria-valuemax", String(Math.max(room.min, Math.floor(room.total - 2 * room.gap - room.centerMin - room.other))));
+    handle.setAttribute("aria-valuenow", String(Math.round(panel.getBoundingClientRect().width)));
+  }
+}
+function initSideSplits() {
+  for (const handle of document.querySelectorAll(".h-split")) {
+    const side = handle.dataset.side, dir = side === "left" ? 1 : -1;
+    const keep = () => { try { localStorage.setItem(SIDE_W_KEY[side], String(Math.round(sidePanel(side).getBoundingClientRect().width))); } catch { } syncSideSplits(); };
+    let saved = NaN;
+    try { saved = parseFloat(localStorage.getItem(SIDE_W_KEY[side])); } catch { }
+    if (saved > 0) $("app").style.setProperty(SIDE_W_VAR[side], Math.round(saved) + "px");   // the columns hold it to what fits
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      const x0 = e.clientX, w0 = sidePanel(side).getBoundingClientRect().width;
+      const onMove = (ev) => setSideWidth(side, w0 + dir * (ev.clientX - x0));
+      const end = () => {
+        handle.classList.remove("dragging");
+        document.body.classList.remove("resizing-columns");
+        handle.removeEventListener("pointermove", onMove);
+        for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) handle.removeEventListener(type, end);
+        try { handle.releasePointerCapture(e.pointerId); } catch { }
+        keep();
+      };
+      try { handle.setPointerCapture(e.pointerId); } catch { }
+      handle.classList.add("dragging");
+      document.body.classList.add("resizing-columns");
+      handle.addEventListener("pointermove", onMove);
+      for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) handle.addEventListener(type, end);
+    });
+    handle.addEventListener("click", (e) => e.stopPropagation());
+    handle.addEventListener("dblclick", (e) => { e.preventDefault(); e.stopPropagation(); resetSideWidth(side); });
+    // with the keyboard: the arrows move the edge 16 px; the keys are kept from the editor's own shortcuts
+    handle.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault(); e.stopPropagation();
+      setSideWidth(side, sidePanel(side).getBoundingClientRect().width + dir * (e.key === "ArrowRight" ? 16 : -16));
+      keep();
+    });
+  }
+  syncSideSplits();
+  window.addEventListener("resize", syncSideSplits);
 }
 
 /* ── Boot ── */
@@ -24748,6 +24824,7 @@ for (const b of document.querySelectorAll("#wsSwitch [data-ws]"))
   b.addEventListener("click", () => setWorkspace(b.dataset.ws));
 
 initPanelSplit();
+initSideSplits();
 // Tools that do not fit go into the bar's More menu instead of being cut off (Snap last).
 MontClipNarrow.attach(document.querySelector(".timeline-toolbar"), $("btnTlMore"), $("tlMoreMenu"));
 MontClipNarrow.attach(document.querySelector("#monitorPanel .panel-head-actions"), $("btnMonMore"), $("monMoreMenu"), { floating: true });

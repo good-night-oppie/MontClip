@@ -10,6 +10,21 @@
   // The upper area keeps room for the monitor header, the player and a picture;
   // the timeline keeps its toolbar, the ruler and one track.
   const UPPER_MIN = 150, TIMELINE_MIN = 140;
+  // The side edges (MontClip#270): the least width of the media panel, of the inspector and of the preview between
+  // them — the same numbers as the columns in style.css. With the assistant open the right panel and the preview
+  // keep 280.
+  const SIDE_LEFT_MIN = 150, SIDE_RIGHT_MIN = 260, SIDE_CENTER_MIN = 260, SIDE_AGENT_MIN = 280;
+  const sideMins = (agentOpen) => ({ left: SIDE_LEFT_MIN, right: agentOpen ? SIDE_AGENT_MIN : SIDE_RIGHT_MIN, center: agentOpen ? SIDE_AGENT_MIN : SIDE_CENTER_MIN });
+
+  /** The width a side panel gets when its edge is dragged to `want`: never under its own least width, and never so
+      wide that the preview drops under its least width or the other side panel (`other`, as wide as it is now) is
+      pushed. total: the width of the whole upper row; gap: between two panels. A row too narrow for all three
+      leaves `min`. */
+  function sideWidth({ want, min, other, total, gap = 0, centerMin = SIDE_CENTER_MIN }) {
+    const max = Math.floor(total - 2 * gap - centerMin - other);
+    const w = Math.round(Number.isFinite(want) ? want : min);
+    return Math.max(min, Math.min(w, Math.max(min, max)));
+  }
 
   /** items: [{id, width, rank}] in bar order; rank null = never moves, higher ranks leave first.
       Returns {keep, more, needsMore}: what stays (in order), what moves (in the order it left). */
@@ -89,5 +104,5 @@
     return { layout, open, close, place };
   }
 
-  return { UPPER_MIN, TIMELINE_MIN, planOverflow, timelineMax, upperNeed, attach };
+  return { UPPER_MIN, TIMELINE_MIN, SIDE_LEFT_MIN, SIDE_RIGHT_MIN, SIDE_CENTER_MIN, SIDE_AGENT_MIN, sideMins, sideWidth, planOverflow, timelineMax, upperNeed, attach };
 });

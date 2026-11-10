@@ -129,6 +129,47 @@ body.resizing-panels * {
   user-select: none !important;
 }
 
+/* The side edges (MontClip#270): in the 6 px gap on either side of the preview. Laid over the row (absolute inside
+   the preview's column), so they are not grid items and move no panel. Shown only where all three panels are
+   (see the rules beside .app .upper below). */
+.h-split {
+  display: none;
+  position: absolute;
+  grid-column: 2 / 3;   /* both lines named: for a positioned box an end left to auto is the edge of the whole row */
+  grid-row: 1 / 2;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+  border-radius: 3px;
+  touch-action: none;
+}
+.h-split[data-side="left"] { left: -6px; }
+.h-split[data-side="right"] { right: -6px; }
+.h-split::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--border);
+  transition: background .15s;
+}
+.h-split:hover::after,
+.h-split:focus-visible::after,
+.h-split.dragging::after {
+  background: var(--accent);
+}
+.h-split:focus { outline: none; }
+body.resizing-columns,
+body.resizing-columns * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .hidden {
   display: none !important;
 }
@@ -4735,8 +4776,11 @@ body { background: var(--bg); }
 /* One right page region; header and timeline always span the workbench. */
 body { display:block; overflow:hidden; }
 .app { min-width:0; }
-.app .upper { grid-template-columns:minmax(150px,200px) minmax(260px,1fr) minmax(260px,320px); min-height:140px; }
-.app.agent-open .upper { grid-template-columns:minmax(150px,190px) minmax(280px,1fr) minmax(280px,min(var(--agent-pane-width,340px),34vw)); }
+/* --bin-w / --inspector-w: what she dragged a side edge to (MontClip#270, app.js initSideSplits); unset = the defaults
+   here. The least widths are also in narrow-layout.js (SIDE_*): change both. */
+.app .upper { position:relative; grid-template-columns:minmax(150px,var(--bin-w,200px)) minmax(260px,1fr) minmax(260px,var(--inspector-w,320px)); min-height:140px; }
+.app.agent-open .upper { grid-template-columns:minmax(150px,var(--bin-w,190px)) minmax(280px,1fr) minmax(280px,var(--inspector-w,min(var(--agent-pane-width,340px),34vw))); }
+body[data-mc-mode] .app:not(.ws-color) .upper > .h-split { display:block; }
 body[data-mc-mode] .upper > .bin { grid-column:1; grid-row:1; }
 body[data-mc-mode] .upper > .monitor { grid-column:2; grid-row:1; }
 body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
@@ -4764,6 +4808,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .topbar-right { flex-wrap:wrap; gap:4px; }
 @media(max-width:1100px) {
  .app .upper,.app.agent-open .upper { grid-template-columns:minmax(260px,1fr) minmax(250px,32vw); }
+ body[data-mc-mode] .app:not(.ws-color) .upper > .h-split { display:none; }
  body[data-mc-mode] .upper > .bin, .app.ws-color .upper > .scopes { display:none; }
  body[data-mc-mode] .upper > .monitor { grid-column:1; }
  body[data-mc-mode] .upper > .inspector { grid-column:2; }
