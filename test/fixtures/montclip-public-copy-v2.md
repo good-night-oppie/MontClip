@@ -35,7 +35,7 @@
 
 ## MontClip 是什么
 
-MontClip 是一个装在自己电脑上用的剪辑软件。你把直播录像导进来，按字幕一句一句挑出想留的部分，导出成片和字幕文件。录像只在你的电脑上处理，不会上传。
+MontClip 是一个装在自己电脑上用的剪辑软件。你把直播录像导进来，按字幕一句一句挑出想留的部分，导出成片和字幕文件。录像默认在你的电脑上处理。联网只发生在你自己打开的功能里，发之前先给你看。
 
 ## 现在能做的
 
@@ -92,7 +92,7 @@ Based on [ronak-create/FableCut]({upstream}) (MIT).
 
 ## What MontClip is
 
-MontClip is an editor you install and run on your own computer. Bring in your stream recordings, pick the parts you want to keep sentence by sentence from the subtitles, and export the finished clip with its subtitle file. Your recordings are processed on your computer and are not uploaded.
+MontClip is an editor you install and run on your own computer. Bring in your stream recordings, pick the parts you want to keep sentence by sentence from the subtitles, and export the finished clip with its subtitle file. Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
 
 ## What it can do today
 
