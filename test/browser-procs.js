@@ -31,8 +31,10 @@ function mustBeOurs(dir) {
   return dir;
 }
 const WIN = process.platform === "win32";
-/** Chrome and Edge only (and what the same browsers are called on Linux and macOS). */
-const BROWSER_NAME = /^(chrome|msedge)\.exe$|^(chrome|chromium|chromium-browser|msedge|microsoft-edge|Google Chrome|Microsoft Edge)$/i;
+/** Chrome and Edge only (and what the same browsers are called on Linux and macOS; Linux keeps 15 characters of a
+ *  process name, so chromium-browser is read as chromium-browse). The name only decides which processes are looked
+ *  at; what makes one ours is still the whole folder path. */
+const BROWSER_NAME = /^(chrome|msedge)\.exe$|^(chrome|chromium|chromium-browser|chromium-browse|msedge|microsoft-edge|Google Chrome|Microsoft Edge)$/i;
 
 const run = (file, args, opts = {}) => new Promise((resolve) => {
   execFile(file, args, { windowsHide: true, maxBuffer: 64 * 1024 * 1024, timeout: 30000, ...opts }, (error, stdout) => resolve({ error, stdout: String(stdout || "") }));
@@ -120,12 +122,18 @@ async function endBrowsersOf(dir, { list = listBrowsers, end = endProcess, round
 }
 
 const recordOf = (dir) => dir + ".owner.json";
+/** How old an unreadable owner record must be before its folder is swept. */
+const UNREADABLE_IS_STALE_MS = 10 * 60 * 1000;
 
 /** A new profile folder of this process, with its owner record. */
 function makeProfile(tmp = os.tmpdir(), prefix = PREFIX) {
   if (!PREFIXES.includes(prefix)) throw new Error("not a test profile prefix: " + prefix);
   const dir = fs.mkdtempSync(path.join(tmp, prefix));
-  fs.writeFileSync(recordOf(dir), JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
+  // written under another name and renamed: another test process sweeping at this moment sees no record or a whole
+  // one, never an empty file it could take for a dead run's (QQ on #276)
+  const tmpName = recordOf(dir) + "." + process.pid + ".tmp";
+  fs.writeFileSync(tmpName, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
+  fs.renameSync(tmpName, recordOf(dir));
   return dir;
 }
 
@@ -157,9 +165,11 @@ async function sweepLeftovers({ tmp = os.tmpdir(), ...opts } = {}) {
   for (const name of names) {
     const m = name.endsWith(".owner.json") && OURS.test(name.slice(0, -11)) ? [name, name.slice(0, -11)] : null;
     if (!m) continue;
-    let owner = null;
-    try { owner = JSON.parse(fs.readFileSync(path.join(tmp, name), "utf8")).pid; } catch { /* unreadable: treated as gone */ }
+    let owner = null, readable = true;
+    try { owner = JSON.parse(fs.readFileSync(path.join(tmp, name), "utf8")).pid; } catch { readable = false; }
     if (Number.isInteger(owner) && owner > 0 && alive(owner)) continue;   // a run that is still going, or a reused pid: left alone
+    // a record that cannot be read says nothing about its owner: only an old one is taken for a dead run's
+    if (!readable) { let age = 0; try { age = Date.now() - fs.statSync(path.join(tmp, name)).mtimeMs; } catch { continue; } if (age < UNREADABLE_IS_STALE_MS) continue; }
     const dir = path.join(tmp, m[1]);
     const r = await dropProfile(dir, opts);
     if (r.removed) try { fs.rmSync(path.join(tmp, name), { force: true }); } catch { }
@@ -168,4 +178,10 @@ async function sweepLeftovers({ tmp = os.tmpdir(), ...opts } = {}) {
   return done;
 }
 
-module.exports = { PREFIX, PREFIXES, BROWSER_NAME, hasProfileArg, listBrowsers, browsersOf, endBrowsersOf, makeProfile, dropProfile, sweepLeftovers, recordOf };
+/** Cleaning up never fails a test, but a cleanup that went wrong must not be silent either. */
+function noteCleanupError(where, e) {
+  try { process.stderr.write(`[browser-procs] ${where}: ${e && e.message ? e.message : e}
+`); } catch { }
+}
+
+module.exports = { PREFIX, PREFIXES, BROWSER_NAME, UNREADABLE_IS_STALE_MS, noteCleanupError, hasProfileArg, listBrowsers, browsersOf, endBrowsersOf, makeProfile, dropProfile, sweepLeftovers, recordOf };

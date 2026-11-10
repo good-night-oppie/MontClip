@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
-const { makeProfile, dropProfile, sweepLeftovers } = require("./browser-procs");
+const { makeProfile, dropProfile, sweepLeftovers, noteCleanupError } = require("./browser-procs");
 let swept = false;
 
 /* Runs in the page: [{text, ratio, fg, bg, where}] for each element with its own visible text, plus the skipped ones. */
@@ -71,7 +71,7 @@ async function cdpPage(prof) {
 async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3000, init = "" }, run) {
   // leftovers of earlier runs that were killed before their cleanup (once per process), then our own folder with its
   // owner record (browser-procs.js, MontClip#243)
-  if (!swept) { swept = true; try { await sweepLeftovers(); } catch { /* cleaning up is never what fails a test */ } }
+  if (!swept) { swept = true; try { await sweepLeftovers(); } catch (e) { noteCleanupError("sweep", e); /* cleaning up is never what fails a test */ } }
   const prof = makeProfile();
   const b = spawn(browser, ["--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--hide-scrollbars",
     `--user-data-dir=${prof}`, "--remote-debugging-port=0", `--window-size=${width},${height}`, "about:blank"], { stdio: "ignore" });
@@ -101,7 +101,8 @@ async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3
     // itself and `b` has already exited, so b.kill() alone would leave it running. The browser is whoever runs with
     // exactly our folder; the folder goes only when no such process is left.
     b.kill();
-    try { await dropProfile(prof); } catch { /* the next run's sweep takes it */ }
+    try { const r = await dropProfile(prof); if (r.left.length || !r.removed) noteCleanupError("drop", `left ${r.left.length} browser(s), folder removed: ${r.removed}`); }
+    catch (e) { noteCleanupError("drop", e); /* the next run's sweep takes it */ }
   }
 }
 

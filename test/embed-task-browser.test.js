@@ -14,7 +14,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { makeDataDir, freePort, seedProject, endTree } = require("./helpers");
-const { makeProfile, dropProfile, sweepLeftovers } = require("./browser-procs");
+const { makeProfile, dropProfile, sweepLeftovers, noteCleanupError } = require("./browser-procs");
 
 const ROOT = path.join(__dirname, "..");
 const browser = (() => { try { return require("../export-jobs").findBrowser(); } catch { return null; } })();
@@ -64,7 +64,7 @@ test("A/B in a real browser: two task editors on one engine and port, B's comman
   stops.push(() => parent.close());
 
   // the browser is put away by its folder, not by the child we spawned (browser-procs.js, MontClip#243)
-  try { await sweepLeftovers(); } catch { }
+  try { await sweepLeftovers(); } catch (err) { noteCleanupError("sweep", err); }
   const profile = makeProfile(os.tmpdir(), "montclip-e2e-");
   const chrome = spawn(browser, ["--headless=new", "--disable-gpu", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check",
     "--disable-extensions", "--mute-audio", "--window-size=1900,700", `http://localhost:${parentPort}/`], { stdio: "ignore", windowsHide: true });

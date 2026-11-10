@@ -66,7 +66,7 @@ test("--user-data-dir must be the whole path: a longer or shorter one is another
 });
 
 test("only Chrome and Edge are looked at", () => {
-  for (const n of ["chrome.exe", "msedge.exe", "chrome", "msedge", "chromium", "Google Chrome"]) assert.match(n, P.BROWSER_NAME);
+  for (const n of ["chrome.exe", "msedge.exe", "chrome", "msedge", "chromium", "chromium-browser", "chromium-browse", "Google Chrome"]) assert.match(n, P.BROWSER_NAME);
   for (const n of ["node.exe", "node", "firefox.exe", "chromedriver.exe", "notchrome.exe", "chrome.exe.bak", "cmd.exe"]) assert.doesNotMatch(n, P.BROWSER_NAME);
 });
 
@@ -146,6 +146,31 @@ test("a run that was killed before its cleanup: the next run sweeps its browser 
   assert.equal(fs.existsSync(living), true, "the living run's folder stays");
   assert.equal((await P.browsersOf(living)).length, 1, "and its browser");
   assert.equal(fs.existsSync(path.join(decoy, "file")), true, "a path written inside a record is never touched");
+});
+
+test("a record another process is still writing is not a dead run's: an empty or unreadable record is left alone while it is new (QQ on #276)", async (t) => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), "mc243-"));
+  t.after(() => cleanup(work));
+  // what a sweeping process could see of another process's makeProfile if the record were written in place
+  const fresh = fs.mkdtempSync(path.join(work, "montclip-contrast-"));
+  fs.writeFileSync(P.recordOf(fresh), "");
+  const garbled = fs.mkdtempSync(path.join(work, "montclip-contrast-"));
+  fs.writeFileSync(P.recordOf(garbled), "{not json");
+  const old = fs.mkdtempSync(path.join(work, "montclip-contrast-"));
+  fs.writeFileSync(P.recordOf(old), "");
+  const long = new Date(Date.now() - P.UNREADABLE_IS_STALE_MS - 60000);
+  fs.utimesSync(P.recordOf(old), long, long);
+  const swept = await P.sweepLeftovers({ tmp: work, list: async () => [] });
+  assert.equal(fs.existsSync(fresh), true, "the folder with a new empty record stays");
+  assert.equal(fs.existsSync(garbled), true, "so does the one with a new unreadable record");
+  assert.equal(fs.existsSync(old), false, "an unreadable record that is old is a dead run's");
+  assert.deepEqual(swept.map((s) => s.dir), [old]);
+  // and makeProfile never leaves such a moment: no file by the record's name exists before it is whole
+  const src = fs.readFileSync(path.join(__dirname, "browser-procs.js"), "utf8");
+  assert.ok(src.includes("fs.renameSync(tmpName, recordOf(dir));"), "the record is renamed into place");
+  const d = P.makeProfile(work);
+  assert.equal(JSON.parse(fs.readFileSync(P.recordOf(d), "utf8")).pid, process.pid);
+  assert.deepEqual(fs.readdirSync(work).filter((n) => n.endsWith(".tmp")), [], "no temporary record is left");
 });
 
 test("only an absolute path to one of the tests' own folders is ever handled: a typo is refused, not acted on", async () => {
