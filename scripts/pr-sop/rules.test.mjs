@@ -24,6 +24,9 @@ describe("PR SOP：逐项正负控", () => {
   });
   it("第一行缺失、带@、前置空行都失败", () => {
     for (const body of [BODY.replace("QQ 请审", ""), "@" + BODY, "\n" + BODY]) assert.ok(missing(run(body), "header"));
+    for (const first of ["DD 请审", "DD请审", "Rea 请审", "QQ请审"]) assert.equal(run(BODY.replace("QQ 请审", first)).status, "passed", first);
+    for (const first of ["@DD 请审", "DD  请审", "DD 请审。", "路人 请审", "GoodNightOppie 请审", "请审", "DD 请审 谢谢"]) assert.ok(missing(run(BODY.replace("QQ 请审", first)), "header"), first);
+    assert.ok(missing(run(BODY.replace("QQ 请审", "BB 请审")), "header"), "审查人不能是负责人自己");
   });
   it("第二行缺失、第三行才登记均失败", () => {
     assert.ok(missing(run(BODY.replace("负责人：BB", "")), "owner"));

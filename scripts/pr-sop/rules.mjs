@@ -4,11 +4,17 @@ const LABEL = { "改动": "changes", "复现": "reproduce", "测试": "tests", "
 const clean = (s) => String(s || "").replace(/^\s*(?:[-*]|\d+[.)])\s+/, "").trim();
 const placeholder = (s) => /^(?:TODO|待补|原因|无|N\/A|<[^>]+>)$/i.test(s);
 
-export const reviewHeaderValid = (body) => String(body || "").split(/\r?\n/)[0] === "QQ 请审";
+// 首行「<伙伴名> 请审」或「<伙伴名>请审」：伙伴名须是 QQ 或仓库伙伴名单里的一人，不带@、空行或其他文字。
+export function reviewRequestOf(body, teammates) {
+  const m = /^(\S+?) ?请审$/.exec(String(body || "").split(/\r?\n/)[0]);
+  if (!m) return null;
+  return ["QQ", ...(Array.isArray(teammates) ? teammates : [])].includes(m[1]) ? m[1] : null;
+}
+export const reviewHeaderValid = (body, teammates) => reviewRequestOf(body, teammates) !== null;
 
 export function ownerDeclaration(body, teammates, sharedAccounts = []) {
   const lines = String(body || "").split(/\r?\n/);
-  if (!reviewHeaderValid(body)) return { state: "missing", reason: "首行请写QQ 请审（不带@），第二行登记负责人" };
+  if (!reviewHeaderValid(body, teammates)) return { state: "missing", reason: "首行请写<伙伴名> 请审（不带@），第二行登记负责人" };
   const m = /^负责人：(.+)$/.exec(lines[1] || "");
   if (!m || !m[1].trim()) return { state: "missing", reason: "第二行请写负责人：<伙伴名>" };
   const owner = m[1].trim();
@@ -143,11 +149,12 @@ export function checkPR({ pr, files, repo, policy, teammates }) {
   }
   if (!Array.isArray(files)) issues.push({ item: "files", message: "改动文件列表不完整，请重试只读API，不能省略条件检查" });
   exception.invalid.forEach((message) => issues.push({ item: "exception", message }));
-  if (!reviewHeaderValid(pr.body)) add("header", "第一行请写QQ 请审，不带@、空行或其他文字");
+  if (!reviewHeaderValid(pr.body, teammates)) add("header", "第一行请写<伙伴名> 请审（伙伴名是 QQ 或名单里的一人），不带@、空行或其他文字");
   const owner = ownerDeclaration(pr.body, teammates, [...policy.sharedAccounts, pr.author?.login].filter(Boolean));
   if (/^负责人：\s*QQ\s*$/.test(String(pr.body || "").split(/\r?\n/)[1] || "")) {
     issues.push({item:"owner",message:"QQ是审查人，不能登记为负责人；QQ写PR时请Deja指定实际负责人"});
   } else if (owner.state !== "registered") add("owner", owner.reason + "；请Deja协调补负责人登记");
+  else if (owner.owner === reviewRequestOf(pr.body, teammates)) issues.push({ item: "header", message: "第一行请的审查人不能是负责人自己，请换一位伙伴" });
   const sections = sectionsOf(pr.body);
   for (const [key, label] of [["changes", "改动"], ["reproduce", "复现"], ["tests", "测试"]]) {
     if (!sections[key]?.length || sections[key].every(placeholder)) add(key, `请补非空的${label}：段`);
