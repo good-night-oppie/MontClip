@@ -175,19 +175,43 @@ test('a side panel follows the drag between its least width and what the preview
  a.equal(L.sideWidth({want:280,...room}),280);
  a.equal(L.sideWidth({want:280.4,...room}),280,'whole pixels');
  a.equal(L.sideWidth({want:-50,...room}),150,'not under its least width');
- a.equal(L.sideWidth({want:5000,...room}),1572-12-260-320,'the preview keeps 260 and the other side its 320');
+ a.equal(L.sideWidth({want:5000,...room}),1572-12-280-320,'the preview keeps 280 and the other side its 320');
+ // spec v3 item 4: a side panel is at most 40% of the window's width, whatever room the row has
+ a.equal(L.sideWidth({want:5000,...room,windowWidth:1584}),Math.floor(1584*0.4),'40% of the window');
+ a.equal(L.sideWidth({want:600,...room,windowWidth:1584}),600,'under the share: as dragged');
+ a.equal(L.sideWidth({want:5000,...room,windowWidth:1584,maxShare:L.SIDE_AGENT_SHARE}),Math.floor(1584*0.34),'the assistant\'s panel keeps its 34%');
+ // E2E ④: the window got smaller — a width set earlier is brought back into what fits now
+ a.equal(L.sideWidth({want:633,...room,total:1188,windowWidth:1200}),Math.floor(1200*0.4),'a smaller window: back to its share');
+ a.equal(L.sideWidth({want:633,...room,total:1112,other:400,windowWidth:1124}),1112-12-280-400,'…or to what the preview and the other side leave');
  a.equal(L.sideWidth({want:NaN,...room}),150,'no number: the least width');
  a.equal(L.sideWidth({want:400,...room,total:700}),150,'a row too narrow for all three: the least width, never less');
 });
 test('with the assistant open the right panel and the preview keep 280; the columns in style.css say the same numbers',()=>{
- a.deepEqual(L.sideMins(false),{left:150,right:260,center:260});
+ a.deepEqual(L.sideMins(false),{left:150,right:260,center:280});
  a.deepEqual(L.sideMins(true),{left:150,right:280,center:280});
  const css=read('style.css');
- a.ok(css.includes('.app .upper { position:relative; grid-template-columns:minmax(150px,var(--bin-w,200px)) minmax(260px,1fr) minmax(260px,var(--inspector-w,320px));'),'defaults 200 and 320 as before');
- a.ok(css.includes('.app.agent-open .upper { grid-template-columns:minmax(150px,var(--bin-w,190px)) minmax(280px,1fr) minmax(280px,var(--inspector-w,min(var(--agent-pane-width,340px),34vw))); }'));
- const app=read('app.js'),drag=app.slice(app.indexOf('function initSideSplits()'),app.indexOf('/* ── Boot ── */'));
+ a.ok(css.includes('.app .upper { position:relative; grid-template-columns:minmax(150px,min(var(--bin-w,200px),40vw)) minmax(280px,1fr) minmax(260px,min(var(--inspector-w,320px),40vw));'),'defaults 200 and 320 as before; the preview at least 280; a side at most 40%');
+ // E2E ⑥: with the assistant open the right column is the assistant's own width and nothing else — one value
+ a.ok(css.includes('.app.agent-open .upper { grid-template-columns:minmax(150px,min(var(--bin-w,190px),40vw)) minmax(280px,1fr) minmax(280px,min(var(--agent-pane-width,340px),34vw)); }'));
+ a.equal(L.SIDE_MAX_SHARE,0.4);a.equal(L.SIDE_AGENT_SHARE,0.34);
+ const app=read('app.js'),drag=app.slice(app.indexOf('function trackEdgeDrag('),app.indexOf('function initSideSplits()'));
+ // E2E ⑤ (spec item 7): every way a drag ends clears the dragging state — one helper for all three edges
  for(const end of ['pointerup','pointercancel','lostpointercapture'])a.ok(drag.includes('"'+end+'"'),'a drag that ends by '+end+' puts the page back');
- a.match(drag,/classList\.remove\("resizing-columns"\)/);
+ a.match(drag,/window\.addEventListener\("blur", end\)/,'the window losing focus ends it');
+ a.match(drag,/ev\.key === "Escape"[\s\S]{0,80}finish\(true\)/,'Esc ends it and puts the size back');
+ a.match(drag,/document\.body\.classList\.remove\(bodyClass\)/);
+ a.match(drag,/window\.removeEventListener\("blur", end\);\s*window\.removeEventListener\("keydown", onKey, true\)/,'and its own listeners go');
+ const sides=app.slice(app.indexOf('function initSideSplits()'),app.indexOf('/* ── Boot ── */')),split=app.slice(app.indexOf('function initPanelSplit()'),app.indexOf('/* Which value an edge sets.'));
+ a.match(sides,/trackEdgeDrag\(handle, e, "resizing-columns"/,'the two side edges');
+ a.match(split,/trackEdgeDrag\(handle, e, "resizing-panels"/,'and the edge above the timeline');
+ a.doesNotMatch(split,/addEventListener\("pointerup", onUp\)/,'no longer only the release');
+ // E2E ⑥: the right edge with the assistant open writes the assistant's width, not a second value
+ a.match(app,/const sideSlot = \(side\) => SIDE_SLOTS\[side === "left" \? "bin" : agentPaneOpen\(\) \? "agent" : "inspector"\];/);
+ a.match(app,/agent: \{ cssVar: "--agent-pane-width", key: "montclip-agent-pane-w" \}/);
+ // E2E ⑧, the negative control: the default height is not the upper limit any more
+ a.doesNotMatch(css,/\.app \.timeline-panel \{[^}]*32vh/,'no 32vh cap on the timeline panel');
+ a.match(app,/Math\.min\(tracksH \+ RULER_H \+ toolbarH \+ 8, Math\.round\(window\.innerHeight \* TL_DEFAULT_SHARE\)\)/,'the default is at most its share; setTimelineHeight is the limit');
  const reset=app.slice(app.indexOf('function restoreDefaultLayout() {'),app.indexOf('function clampTimelineHeight()'));
- a.ok(reset.includes('resetSideWidth("left"); resetSideWidth("right");'),'Layout brings both back');
+ a.ok(reset.includes('resetTimelineHeight();')&&reset.includes('resetAllSideWidths();'),'Layout brings all three edges back');
+ a.match(app,/function resetAllSideWidths\(\) \{\s*for \(const slot of Object\.values\(SIDE_SLOTS\)\)/,'the assistant\'s width too');
 });

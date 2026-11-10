@@ -53,9 +53,9 @@ test("the two side edges can be dragged, each on its own; the edge above the tim
     const a = await layout();
     assert.ok(a && a.bin && a.monitor && a.inspector, "the three panels are there");
     assert.ok(a.left && a.right, "both side edges are there");
-    assert.ok(a.left.w >= 6 && a.right.w >= 6 && a.left.h > 100 && a.right.h > 100, "each can be hit: at least 6 px wide, as tall as the panels");
+    assert.ok(a.left.w === 8 && a.right.w === 8 && a.left.h > 100 && a.right.h > 100, "each can be hit: 8 px wide (spec v3), as tall as the panels");
     const [lx, ly] = mid(a.left), [rx, ry] = mid(a.right);
-    assert.ok(Math.abs(a.left.x + a.left.w - a.monitor.x) <= 1 && Math.abs(a.right.x - (a.monitor.x + a.monitor.w)) <= 1, "each lies in the gap beside the preview");
+    assert.ok(Math.abs(a.left.x + a.left.w / 2 - (a.monitor.x - 3)) <= 1 && Math.abs(a.right.x + a.right.w / 2 - (a.monitor.x + a.monitor.w + 3)) <= 1, "each is centred on the gap beside the preview");
     assert.equal(await cursorAt(lx, ly), "col-resize", "the cursor says the left edge can be dragged");
     assert.equal(await cursorAt(rx, ry), "col-resize", "and the right one");
     for (const id of ["splitBinMonitor", "splitMonitorInspector"])
@@ -83,8 +83,35 @@ test("the two side edges can be dragged, each on its own; the edge above the tim
     const [lx3, ly3] = mid(c.left);
     await drag(lx3, ly3, lx3 + 3000, ly3);
     const d = await layout();
+    const vw0 = await evaluate("innerWidth");
+    assert.equal(d.bin.w, Math.floor(vw0 * L.SIDE_MAX_SHARE), `the media panel stops at 40% of the window (${vw0})`);
     assert.ok(d.monitor.w >= L.SIDE_CENTER_MIN, `the preview keeps at least ${L.SIDE_CENTER_MIN} px: ${d.monitor.w}`);
-    assert.ok(d.monitor.w <= L.SIDE_CENTER_MIN + 1, `and the media panel took the rest: ${d.monitor.w}`);
+    // the other side to its limit too: the preview still has its least width
+    const [rxm, rym] = mid(d.right);
+    await drag(rxm, rym, 2, rym);
+    const dm = await layout();
+    assert.ok(dm.inspector.w <= Math.floor(vw0 * L.SIDE_MAX_SHARE), `the inspector at most 40%: ${dm.inspector.w}`);
+    assert.ok(dm.monitor.w >= L.SIDE_CENTER_MIN, `both sides at their limit: the preview keeps ${L.SIDE_CENTER_MIN}: ${dm.monitor.w}`);
+    assert.equal(dm.bin.w, d.bin.w, "and the media panel was not pushed");
+    // Esc during a drag: the size from before the drag, no resizing state
+    const [rxe, rye] = mid(dm.right);
+    await mouse("mouseMoved", rxe, rye);
+    await mouse("mousePressed", rxe, rye, { button: "left", clickCount: 1 });
+    await mouse("mouseMoved", rxe + 90, rye, { button: "left", buttons: 1 });
+    const during = await layout();
+    assert.equal(during.inspector.w, dm.inspector.w - 90, "it follows while dragged");
+    assert.match(during.bodyClass, /resizing-columns/);
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await mouse("mouseReleased", rxe + 90, rye, { button: "left", clickCount: 1 });
+    await new Promise((r) => setTimeout(r, 300));
+    const esc = await layout();
+    assert.equal(esc.inspector.w, dm.inspector.w, "Esc: back to the size before the drag");
+    assert.doesNotMatch(esc.bodyClass, /resizing/, "and no resizing state");
+    // back to where the next steps expect the inspector
+    const [rxb, ryb] = mid(esc.right);
+    await drag(rxb, ryb, rxb + (esc.inspector.w - c.inspector.w), ryb);
+    assert.equal((await layout()).inspector.w, c.inspector.w, "(the inspector as before these two steps)");
     assert.equal(d.inspector.w, c.inspector.w, "the other side is not pushed");
     const [lx4, ly4] = mid(d.left);
     await drag(lx4, ly4, 2, ly4);

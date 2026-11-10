@@ -139,20 +139,20 @@ body.resizing-panels * {
   grid-row: 1 / 2;
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: 8px;   /* spec: about 8 px to hit; it looks like the thin line below */
   cursor: col-resize;
   z-index: 5;
   border-radius: 3px;
   touch-action: none;
 }
-.h-split[data-side="left"] { left: -6px; }
-.h-split[data-side="right"] { right: -6px; }
+.h-split[data-side="left"] { left: -7px; }
+.h-split[data-side="right"] { right: -7px; }
 .h-split::after {
   content: "";
   position: absolute;
   top: 18%;
   bottom: 18%;
-  left: 2px;
+  left: 3px;
   width: 2px;
   border-radius: 1px;
   background: var(--border);
@@ -4777,9 +4777,11 @@ body { background: var(--bg); }
 body { display:block; overflow:hidden; }
 .app { min-width:0; }
 /* --bin-w / --inspector-w: what she dragged a side edge to (MontClip#270, app.js initSideSplits); unset = the defaults
-   here. The least widths are also in narrow-layout.js (SIDE_*): change both. */
-.app .upper { position:relative; grid-template-columns:minmax(150px,var(--bin-w,200px)) minmax(260px,1fr) minmax(260px,var(--inspector-w,320px)); min-height:140px; }
-.app.agent-open .upper { grid-template-columns:minmax(150px,var(--bin-w,190px)) minmax(280px,1fr) minmax(280px,var(--inspector-w,min(var(--agent-pane-width,340px),34vw))); }
+   here. With the assistant open the right edge sets the assistant's own width, --agent-pane-width, the one value
+   that panel has. A side panel is at most 40% of the window (the assistant's 34%, as before); the preview keeps 280.
+   The same numbers are in narrow-layout.js (SIDE_*): change both. */
+.app .upper { position:relative; grid-template-columns:minmax(150px,min(var(--bin-w,200px),40vw)) minmax(280px,1fr) minmax(260px,min(var(--inspector-w,320px),40vw)); min-height:140px; }
+.app.agent-open .upper { grid-template-columns:minmax(150px,min(var(--bin-w,190px),40vw)) minmax(280px,1fr) minmax(280px,min(var(--agent-pane-width,340px),34vw)); }
 body[data-mc-mode] .app:not(.ws-color) .upper > .h-split { display:block; }
 body[data-mc-mode] .upper > .bin { grid-column:1; grid-row:1; }
 body[data-mc-mode] .upper > .monitor { grid-column:2; grid-row:1; }
