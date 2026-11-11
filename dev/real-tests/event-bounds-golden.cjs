@@ -3,7 +3,7 @@
    The table, the replays and their transcripts never enter the repository; this script reads them by path and prints
    numbers only: case ids (P01…), counts, seconds and shares — no creator, title, BV id, file name or text.
 
-     node real-tests/event-bounds-golden.cjs --table <truth csv> --replays <dir> --work <dir> [--asr <vendor/asr>]
+     node dev/real-tests/event-bounds-golden.cjs --table <truth csv> --replays <dir> --work <dir> [--asr <vendor/asr>]
        [--ffmpeg <path>] [--top 12] [--json <out file>]
 
    <truth csv>  columns used: case_id, start_sec, end_sec, 类型, 回放BV, 回放分P, 进调参 (rows with 进调参 = 是)
@@ -21,8 +21,8 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const H = require("../highlight-candidates");
-const B = require("../event-bounds");
+const H = require("../../highlight-candidates");
+const B = require("../../event-bounds");
 
 const arg = (n, d) => { const i = process.argv.indexOf("--" + n); return i > 0 ? process.argv[i + 1] : d; };
 const TABLE = arg("table"), REPLAYS = arg("replays"), WORK = arg("work"), ASR = arg("asr"), TOP = +arg("top", 12);
@@ -48,7 +48,7 @@ function csv(text) {
 const versionKey = (file) => { const st = fs.statSync(file); return crypto.createHash("sha256").update(path.basename(file) + "\0" + st.size + "\0" + Math.round(st.mtimeMs)).digest("hex").slice(0, 32); };
 
 async function loudness(file) {
-  const { createSignals } = require("../signals");
+  const { createSignals } = require("../../signals");
   return createSignals({ dir: path.join(WORK, "signals"), ffmpeg: FFMPEG }).loudness(file);
 }
 let asr = null;
@@ -56,7 +56,7 @@ async function transcript(file) {
   const out = path.join(WORK, "transcripts", versionKey(file) + ".json");
   try { return JSON.parse(fs.readFileSync(out, "utf8")); } catch { /* not made yet */ }
   if (!ASR) return null;
-  if (!asr) asr = require("../asr-local").createAsr({ asrDir: ASR, ffmpeg: FFMPEG, threads: 4 });
+  if (!asr) asr = require("../../asr-local").createAsr({ asrDir: ASR, ffmpeg: FFMPEG, threads: 4 });
   const t0 = Date.now();
   let r, skipped = 0;
   try { r = await asr.transcribe(file); }
@@ -73,7 +73,7 @@ async function transcript(file) {
   return doc;
 }
 async function bySegment(file) {
-  const { spawn } = require("child_process"), W = require("../asr-words"), { VAD } = require("../asr-local");
+  const { spawn } = require("child_process"), W = require("../../asr-words"), { VAD } = require("../../asr-local");
   const S = require(path.resolve(ASR, "engine", "node_modules", "sherpa-onnx-node")), RATE = 16000;
   const md = path.resolve(ASR, "models", "asr"), pd = path.resolve(ASR, "models", "punct");
   const rec = await S.OfflineRecognizer.createAsync({ featConfig: { sampleRate: RATE, featureDim: 80 },

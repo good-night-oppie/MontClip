@@ -6,12 +6,12 @@
 // (export fails with a caller-visible reason); the box names the host; "Not now" sends nothing; an explicit retry
 // recovers a failed script download. Synthetic masks remove the left half in preview and exported ProRes pixels;
 // a separate where:"headless" job must fail instead of inheriting consent. No speech/audio timing is involved.
-//   node real-tests/bgremove-consent-browser-smoke.cjs            (FABLECUT_CHROME picks the browser)
-//   MONTCLIP_SMOKE_REAL_NET=1 node real-tests/bgremove-consent-browser-smoke.cjs
+//   node dev/real-tests/bgremove-consent-browser-smoke.cjs            (FABLECUT_CHROME picks the browser)
+//   MONTCLIP_SMOKE_REAL_NET=1 node dev/real-tests/bgremove-consent-browser-smoke.cjs
 //     lets the cdn.jsdelivr.net requests through to the real MediaPipe, runs a cut-out on a frame, and records every
 //     request the page makes (host, method, body) — what is actually sent, not what the code says.
 const { spawn, spawnSync } = require("child_process"), fs = require("fs"), path = require("path"), os = require("os");
-const ROOT = path.join(__dirname, ".."), CHROME = require("../export-jobs").findBrowser();
+const ROOT = path.join(__dirname, "../.."), CHROME = require("../../export-jobs").findBrowser();
 if (!CHROME) { console.log("SKIP: no Chrome / Edge (set FABLECUT_CHROME)"); process.exit(0); }
 const REAL = process.env.MONTCLIP_SMOKE_REAL_NET === "1";
 const PORT = +process.env.SMOKE_PORT || 7843, DBG = PORT + 1600, ORIGIN = `http://127.0.0.1:${PORT}`;
@@ -35,7 +35,7 @@ const FAKE = `window.SelfieSegmentation = class { constructor(o) { this.o = o; f
   setOptions() {} onResults(f) { this.cb = f; } async send() { const c = document.createElement("canvas"); c.width = c.height = 8; const x=c.getContext('2d'); x.fillStyle='white'; x.fillRect(4,0,4,8); this.cb && this.cb({ segmentationMask: c }); } };`;
 // Replace only the inventory in the test page: actual fetch SRI + WebCrypto verify synthetic bytes.
 // Never claim these hashes or the fake segmentation are the production model.
-const fixtureBytes = Object.fromEntries(Object.keys(require('../bgremove-assets').FILES).map(name =>
+const fixtureBytes = Object.fromEntries(Object.keys(require('../../bgremove-assets').FILES).map(name =>
   [name, Buffer.from(name === 'selfie_segmentation.js' ? FAKE : 'synthetic fixture: '+name)]));
 const fixtureFiles = Object.fromEntries(Object.entries(fixtureBytes).map(([name,bytes]) =>
   [name,{size:bytes.length,sha256:require('crypto').createHash('sha256').update(bytes).digest('base64')}]));

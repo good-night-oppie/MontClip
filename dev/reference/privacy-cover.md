@@ -4,7 +4,7 @@
 defects (QQ review of #186). The harness in this repository already contains the
 fixes: `PORT=0` + IPC readiness + a random workspace proof, a private CDP pipe
 with an exclusive browser profile, and one resolved FFmpeg/FFprobe pair
-(`real-tests/privacy-runtime.cjs`, covered by `test/privacy-runtime.test.js`).
+(`dev/real-tests/privacy-runtime.cjs`, covered by `test/privacy-runtime.test.js`).
 The full review record follows in a separate PR split out of #186.
 Raw evidence is kept outside the repository (see "Evidence" below).
 
@@ -48,10 +48,10 @@ Windows PowerShell (Node 22+, installed Chrome/Edge, FFmpeg with libx264):
 ```powershell
 $env:MONTCLIP_FFMPEG=(Get-Command ffmpeg).Source
 $env:MONTCLIP_FFPROBE=(Get-Command ffprobe).Source
-node real-tests/privacy-cover.cjs out/privacy-cover
-node real-tests/privacy-cover-check.cjs out/privacy-cover/results.json blur
+node dev/real-tests/privacy-cover.cjs out/privacy-cover
+node dev/real-tests/privacy-cover-check.cjs out/privacy-cover/results.json blur
 # Expected exit 1: old recipe fails privacy acceptance.
-node real-tests/privacy-cover-check.cjs out/privacy-cover/results.json cover
+node dev/real-tests/privacy-cover-check.cjs out/privacy-cover/results.json cover
 # Expected exit 0: replacement cover passes this fixture.
 ```
 

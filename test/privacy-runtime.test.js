@@ -2,7 +2,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const http = require('node:http'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const { fork,spawn,execFileSync } = require('node:child_process');
-const { serverLease, resolveMediaTools,pipeClient,verifyBrowserArguments } = require('../real-tests/privacy-runtime.cjs');
+const { serverLease, resolveMediaTools,pipeClient,verifyBrowserArguments } = require('../dev/real-tests/privacy-runtime.cjs');
 const {makeDataDir}=require('./helpers');
 
 async function foreign(t) {

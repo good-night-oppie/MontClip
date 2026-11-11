@@ -108,7 +108,7 @@ test('browser mode: after Yes, only fonts.googleapis.com / fonts.gstatic.com, an
  for(const u of ext){a.ok(['fonts.googleapis.com','fonts.gstatic.com'].includes(hostOf(u)),u);a.ok(/family=Lobster[:&]/.test(u),u);}
  // Deja (on #151): no Referer and no cookies to Google Fonts. The stylesheet is fetched with no-referrer and no
  // credentials, then put in from a blob: address, so the font files it pulls from fonts.gstatic.com name no referrer
- // either (real-tests/font-consent-browser-smoke.cjs checks the headers a browser really sends)
+ // either (dev/real-tests/font-consent-browser-smoke.cjs checks the headers a browser really sends)
  const google=p.fetches.filter(x=>x.url.startsWith('https://fonts.googleapis.com/'));
  a.equal(google.length,1);a.equal(google[0].init?.referrerPolicy,'no-referrer');a.equal(google[0].init?.credentials,'omit');
  a.ok(p.links.length>=1);

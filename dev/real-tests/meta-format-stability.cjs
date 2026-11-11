@@ -4,11 +4,11 @@
 // httpsRequest, the fixed format note first, the quoted subtitles as references, as the pane sends them); the reply is
 // read the way the pane reads it (agent-conversation parseProposal / proposalSummary) and checked the way Apply checks
 // it (chat-proposal prepare against the project). Synthetic subtitles only.
-//   MONTCLIP_REAL_MODELS=1 node real-tests/meta-format-stability.cjs        (MONTCLIP_STABILITY_RUNS per prompt, default 5)
-// Key only from ~/.meta-montclip, mode 600 (real-tests/meta-key-file.cjs). Writes docs/validation/meta-format-stability.json.
+//   MONTCLIP_REAL_MODELS=1 node dev/real-tests/meta-format-stability.cjs        (MONTCLIP_STABILITY_RUNS per prompt, default 5)
+// Key only from ~/.meta-montclip, mode 600 (dev/real-tests/meta-key-file.cjs). Writes docs/validation/meta-format-stability.json.
 // Exit 0 = every reply usable, 1 = some were not (the report says which and why), 2 = skipped.
 const path=require('node:path'),fs=require('node:fs');
-const S=require('../desktop/agent-service'),F=require('../agent-format'),V=require('../agent-conversation'),P=require('../chat-proposal'),C=require('../captions'),K=require('./meta-key-file.cjs');
+const S=require('../../desktop/agent-service'),F=require('../../agent-format'),V=require('../../agent-conversation'),P=require('../../chat-proposal'),C=require('../../captions'),K=require('./meta-key-file.cjs');
 if(process.env.MONTCLIP_REAL_MODELS!=='1'){console.log('STABILITY SKIPPED: real-model tests are off (set MONTCLIP_REAL_MODELS=1)');process.exit(2);}
 const found=K.readKey();if(!found.key){console.log('STABILITY SKIPPED: '+found.skip);process.exit(2);}
 const KEY=found.key,hide=K.scrubber(KEY),MODEL=process.env.MONTCLIP_E2E_MODEL||S.DEFAULT_MODELS.meta,RUNS=Math.max(1,Math.min(20,Number(process.env.MONTCLIP_STABILITY_RUNS)||5));
@@ -43,7 +43,7 @@ const PROMPTS=[
  const by=p=>{const r=runs.filter(x=>x.prompt===p.say);return{prompt:p.say,runs:r.length,usable:r.filter(x=>x.valid).length,asked:r.filter(x=>x.right).length,fenced:r.filter(x=>x.fenced).length,errors:r.filter(x=>x.error).map(x=>x.error),medianMs:r.map(x=>x.ms).sort((a,b)=>a-b)[Math.floor(r.length/2)]};};
  const report={model:MODEL,date:new Date().toISOString(),runsPerPrompt:RUNS,summary:PROMPTS.map(by),runs};
  const text=JSON.stringify(report,null,1);if(text.includes(KEY))throw Error('key would be written');
- const out=process.env.MONTCLIP_STABILITY_OUT||path.join(__dirname,'..','docs','validation','meta-format-stability.json');fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,text+'\n');
+ const out=process.env.MONTCLIP_STABILITY_OUT||path.join(__dirname,'..','..','docs','validation','meta-format-stability.json');fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,text+'\n');
  console.log('STABILITY '+JSON.stringify(report.summary));
  process.exit(runs.every(x=>x.valid)?0:1);
 })();
