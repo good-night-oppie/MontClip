@@ -94,3 +94,49 @@ and the orphan guard lose the original association; that pre-existing damaged
 state is not repaired here. No arbitrary overlapping sound is guessed into a
 group. Long sequences of rounded edits and higher untested speeds are not claimed
 to have unlimited precision. App UI and JJ refusal wording are unchanged.
+
+## Slip follow-up approved by QQ
+
+[QQ's current-head decision](https://github.com/good-night-oppie/MontClip/pull/288#pullrequestreview-5866622431)
+approved closing the adjacent `slipClip` invariant in this same task. At
+`fe43df892f0a844c915837c04ae98ff4f8b2ce5e`, a saved group with picture B In 0
+and original A audio In 30 slipped by -0.1 incorrectly set all three In values
+to 0.1. The slip guard used a shared absolute In instead of a shared displacement.
+
+The fix takes each source member's own head room and its tail room computed
+with `timeAt(member, end)`. It clamps one common source-seconds shift to their
+intersection, adds that shift to each original In and returns the applied delta
+in the grabbed clip's timeline units. A known length bounds the tail; an unknown
+length keeps the existing unbounded-tail behavior. Non-finite/missing patch
+deltas are still rejected before edits. Locks, explicit unlink, timeline
+positions/durations and keyframes retain their existing behavior. It does not
+change slip into roll's all-or-nothing refusal, nor independently scale each
+member's displacement: the existing same-source 1x picture / 2x sound test
+continues to return -10 for its clamped request, keeping their In values equal.
+
+The initially saved 14-case red suite had 6 pass / 8 fail. Two additional
+compatibility cases cover invalid patch deltas and unknown source lengths:
+`node --test test/slip-replaced-picture.test.js` before the fix had 16 total,
+7 pass / 9 fail. Exact red source SHA-256:
+`9f0ff94543a80ca14926bbb61367d4c21d7bc8f5b2178bce3ee051eed6d8335d`;
+`slip-approved-red.tap` SHA-256:
+`0a7cecd25fb4ef0c606777748b42bb1097267d950552355877a81a2cf248aed2`.
+
+```text
+node --test --test-concurrency=2 test/slip-replaced-picture.test.js test/roll-replaced-picture.test.js test/trim-tools.test.js test/mcp-edit-ops.test.js
+node .github/scripts/release-check.js
+node docs/demo/sync.js
+```
+
+The focused run passed 248/248, including the existing mixed-speed contract;
+`slip-approved-green.tap` SHA-256:
+`f801c061e8aa2483d61f2d8c05e670916839804766461d727867725038534263`.
+Release readiness passed. Full logs remain in the isolated task's `.artifacts/issue285`.
+The final published head, full-suite and CI readbacks are appended to Issue #285.
+
+QQ explicitly waived repeating the candidate install, desktop use and the
+eight hidden exports for this small arithmetic increment. The 7 real Cindy
+cases remain on e3e988d6 and the 8 hidden cases on fe43df89; they are not labelled
+as new-head runs. QQ's promised written incremental verification on the final
+head is still required. No `app.js`, JJ wording, main sync, dependencies, model,
+network feature or CI change is included in this slip increment.
