@@ -146,7 +146,10 @@ locked clip, a media window past the file's end) aborts the whole patch unsaved.
 `setProject` also sets `inPoint` / `outPoint` (`null` clears).
 
 A picture-only `updateClip {mediaId}` keeps its recorded audio companions when
-their start, source In and duration still match, including after save/reopen.
+their timeline start and duration still match, including after save/reopen.
+The replacement picture may have a different source In; original-sound channels
+from the same file must still agree on theirs. Roll checks allow the editor's
+four-decimal split/trim rounding (150 microseconds), not a frame-sized gap.
 Mixed-source links are never guessed from overlapping clips; `unlinked:true`
 still opts out. Rolling such a cut moves both original-sound channels with the
 picture, preserving their continuous source window. If the paired channels,
