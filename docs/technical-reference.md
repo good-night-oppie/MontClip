@@ -38,3 +38,10 @@ the `saved` field. Local clients resolve these paths against their own data root
 Tool error text, including warnings inside normal replies, uses one redaction
 boundary. Older terminal task receipts are scrubbed on disk before replay;
 the operation itself is never repeated.
+
+Picture-only `updateClip` replacements retain matching recorded audio links
+across save/reopen. Roll edits keep the original sound continuous across the
+cut, or refuse atomically when source handles or continuity cannot be preserved.
+Explicitly unlinked audio stays independent; mixed-source links already lost in
+older files are not guessed from overlap. See the [timeline edit contract](../CLAUDE.md#timeline-edit-ops-fablecut_patch_project)
+and [#285 validation evidence](validation/issue285/README.md).
