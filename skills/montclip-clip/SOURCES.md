@@ -145,8 +145,8 @@
 - 同步 PR：#261 是本任务上一轮 skill 同步，不算实质增量。
 
 **本轮 MontClip-Cindy 新增证据（以下行号以 MontClip-Cindy main `8af4d0cdb918` 为准）**：
-- worker 日志与崩溃输出脱敏（#63，合并提交 `8af4d0cd`，代码提交 `31a46093`）：`node/worker.cjs` 第 24–37 行把 `console.log` / `info` / `debug` / `warn` / `error` 全部改走引擎自带的 `problem-redact.js`（`redactProblem`，参数带家目录、平台、用户名），加载不到脱敏函数时只写固定事件 `log-redaction-unavailable` 加 `LOG_REDACTION_UNAVAILABLE`，不写原文；第 96–103 行 `note` 先序列化再脱敏、再确认还是合法 JSON 才写，失败写 `LOG_REDACTION_FAILED`；第 105–124 行接管 `uncaughtException` / `unhandledRejection`，写一条脱敏后的 note 再退出（最多等 1 秒）。不新增文件日志，不改工具、按钮、错误码，也不改对主播说的话。
-- 验收边界：`docs/validation/2026-11-10-stderr-privacy-41.md` 记的是合成测试和打包 worker 的测试（新增 5 项、既有票据测试 2 项，`npm test` 160 项里 154 通过、2 失败、4 跳过，两个失败是既有布局测试），Win11 真实 Cindy 实跑还没做，不能把这条当成实跑验收。
+- worker 日志与崩溃输出脱敏（#63，合并提交 `8af4d0cd`，代码提交 `7e9257d4` / `b29862da`）：`node/worker.cjs` 第 24–37 行把 `console.log` / `info` / `debug` / `warn` / `error` 全部改走引擎自带的 `problem-redact.js`（`redactProblem`，参数带家目录、平台、用户名），加载不到脱敏函数时只写固定事件 `log-redaction-unavailable` 加 `LOG_REDACTION_UNAVAILABLE`，不写原文；第 96–103 行 `note` 先序列化再脱敏、再确认还是合法 JSON 才写，失败写 `LOG_REDACTION_FAILED`；第 105–124 行接管 `uncaughtException` / `unhandledRejection`，写一条脱敏后的 note 再退出（最多等 1 秒）。不新增文件日志，不改工具、按钮、错误码，也不改对主播说的话。
+- 验收边界：`docs/validation/2026-11-10-stderr-privacy-41.md` 记的是合成测试和打包 worker 的测试（按该文件「QQ 预审修订」节的合入态：新增日志测试 8 项、既有票据测试 2 项共 10/10 通过，`npm test` 163 项里 157 通过、2 失败、4 跳过，两个失败是既有布局测试），Win11 真实 Cindy 实跑还没做，不能把这条当成实跑验收。
 - #64 是本任务上一轮 skill 同步，不算功能增量。插件版本 0.5.1 和引擎锁 `de6640df` 未变。
 
 **上一轮 MontClip-Cindy 新增证据（以下行号以 MontClip-Cindy main `3b9c2b9efb2e` 为准）**：
