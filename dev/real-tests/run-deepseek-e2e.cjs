@@ -1,6 +1,6 @@
 'use strict';
 // e2e with a real model: DeepSeek Flash, in the real desktop app (visible window).
-//   MONTCLIP_REAL_MODELS=1 node real-tests/run-deepseek-e2e.cjs
+//   MONTCLIP_REAL_MODELS=1 node dev/real-tests/run-deepseek-e2e.cjs
 // Off unless MONTCLIP_REAL_MODELS=1; never run in CI. Key: only ~/.deepseek-serena-api-key
 // (passed to the app as a file path, typed into the password field, never printed).
 // Model: MONTCLIP_E2E_MODEL, else the "flash" model listed by api.deepseek.com/models.

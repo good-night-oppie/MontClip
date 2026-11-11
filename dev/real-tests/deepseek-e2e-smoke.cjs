@@ -2,7 +2,7 @@
 // End-to-end with a real model (DeepSeek Flash) in the real desktop app: fresh profile,
 // default project, connection set up through the AI service settings, two subtitles
 // referenced, a plain request, the review (format note shown), the real reply, the
-// proposal applied and undone. Run only through real-tests/run-deepseek-e2e.cjs.
+// proposal applied and undone. Run only through dev/real-tests/run-deepseek-e2e.cjs.
 // The key is typed into the password field like a user would; it is never printed.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke')||process.env.MONTCLIP_REAL_MODELS!=='1')throw Error('Explicit smoke with MONTCLIP_REAL_MODELS=1 required');
@@ -62,4 +62,4 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
 };
 // Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
 {const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
-require('../desktop/main');
+require('../../desktop/main');

@@ -1,6 +1,6 @@
 'use strict';
 // Where the Meta real-model test finds its key: ~/.meta-montclip (on europa, mode 600, written there by the owner over
-// SSH), or the file MONTCLIP_META_KEY_FILE names. The rules are #124's (real-tests/key-file.cjs for OpenRouter): no other
+// SSH), or the file MONTCLIP_META_KEY_FILE names. The rules are #124's (dev/real-tests/key-file.cjs for OpenRouter): no other
 // place is looked in; a file anyone but its owner can read is refused and the test is skipped with the reason; so is a
 // file another user owns, and a system whose files have no owner-only mode (Windows). The key, or any part of it, is
 // never printed, logged or written: reasons name the file, never what is in it.

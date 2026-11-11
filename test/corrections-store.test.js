@@ -63,7 +63,7 @@ test('not in the project, not in MCP: the server, MCP and project code never rea
 });
 
 test('the golden-set evaluation runs without corrections unless asked (they come from the same streamer: a leak)',()=>{
- const g=read('real-tests/songs-golden.cjs');
+ const g=read('dev/real-tests/songs-golden.cjs');
  a.match(g,/const corrections = arg\("--corrections"\);/);
  a.match(g,/corrections: off/);
  a.ok(!/corrections-store|userData/.test(g),'never the streamer’s own store');

@@ -159,6 +159,6 @@ test('a wrong key (401) and a wrong model name are explained in plain words; the
 });
 
 test('no real key in the synthetic tests or the Meta real-model files',()=>{
- for(const f of ['test/agent-meta-provider.test.js','real-tests/run-meta-e2e.cjs','real-tests/meta-e2e-smoke.cjs','real-tests/meta-key-file.cjs'])
+ for(const f of ['test/agent-meta-provider.test.js','dev/real-tests/run-meta-e2e.cjs','dev/real-tests/meta-e2e-smoke.cjs','dev/real-tests/meta-key-file.cjs'])
   a.ok(!/\b(sk|mk|meta)[-_][A-Za-z0-9]{20,}/.test(read(f)),f);
 });
