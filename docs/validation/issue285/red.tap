@@ -1,0 +1,2530 @@
+TAP version 13
+# Subtest: edit none out -2: L/R geometry and source continuity
+ok 1 - edit none out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 3.4438
+  type: 'test'
+  ...
+# Subtest: edit none out -0.5: L/R geometry and source continuity
+ok 2 - edit none out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.5278
+  type: 'test'
+  ...
+# Subtest: edit none out -0.1: L/R geometry and source continuity
+ok 3 - edit none out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.4703
+  type: 'test'
+  ...
+# Subtest: edit none out -0.04: L/R geometry and source continuity
+ok 4 - edit none out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.4179
+  type: 'test'
+  ...
+# Subtest: edit none out 0.04: L/R geometry and source continuity
+ok 5 - edit none out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.4749
+  type: 'test'
+  ...
+# Subtest: edit none out 0.1: L/R geometry and source continuity
+ok 6 - edit none out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 1.0912
+  type: 'test'
+  ...
+# Subtest: edit none out 0.5: L/R geometry and source continuity
+ok 7 - edit none out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.3696
+  type: 'test'
+  ...
+# Subtest: edit none out 2: L/R geometry and source continuity
+ok 8 - edit none out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2532
+  type: 'test'
+  ...
+# Subtest: edit none in -2: L/R geometry and source continuity
+ok 9 - edit none in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.7503
+  type: 'test'
+  ...
+# Subtest: edit none in -0.5: L/R geometry and source continuity
+ok 10 - edit none in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.5137
+  type: 'test'
+  ...
+# Subtest: edit none in -0.1: L/R geometry and source continuity
+ok 11 - edit none in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2519
+  type: 'test'
+  ...
+# Subtest: edit none in -0.04: L/R geometry and source continuity
+ok 12 - edit none in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1657
+  type: 'test'
+  ...
+# Subtest: edit none in 0.04: L/R geometry and source continuity
+ok 13 - edit none in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1732
+  type: 'test'
+  ...
+# Subtest: edit none in 0.1: L/R geometry and source continuity
+ok 14 - edit none in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.205
+  type: 'test'
+  ...
+# Subtest: edit none in 0.5: L/R geometry and source continuity
+ok 15 - edit none in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.21
+  type: 'test'
+  ...
+# Subtest: edit none in 2: L/R geometry and source continuity
+ok 16 - edit none in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1814
+  type: 'test'
+  ...
+# Subtest: edit before out -2: L/R geometry and source continuity
+not ok 17 - edit before out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 6.7281
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before out -0.5: L/R geometry and source continuity
+not ok 18 - edit before out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.3026
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before out -0.1: L/R geometry and source continuity
+not ok 19 - edit before out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.3152
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before out -0.04: L/R geometry and source continuity
+not ok 20 - edit before out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2724
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before out 0.04: L/R geometry and source continuity
+not ok 21 - edit before out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 1.8508
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before out 0.1: L/R geometry and source continuity
+not ok 22 - edit before out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2151
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before out 0.5: L/R geometry and source continuity
+not ok 23 - edit before out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2078
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before out 2: L/R geometry and source continuity
+not ok 24 - edit before out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1799
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in -2: L/R geometry and source continuity
+not ok 25 - edit before in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.3804
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in -0.5: L/R geometry and source continuity
+not ok 26 - edit before in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2696
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in -0.1: L/R geometry and source continuity
+not ok 27 - edit before in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1843
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in -0.04: L/R geometry and source continuity
+not ok 28 - edit before in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1749
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in 0.04: L/R geometry and source continuity
+not ok 29 - edit before in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 1.0492
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in 0.1: L/R geometry and source continuity
+not ok 30 - edit before in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.4187
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in 0.5: L/R geometry and source continuity
+not ok 31 - edit before in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2356
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit before in 2: L/R geometry and source continuity
+not ok 32 - edit before in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1577
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out -2: L/R geometry and source continuity
+not ok 33 - edit after out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1536
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out -0.5: L/R geometry and source continuity
+not ok 34 - edit after out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2022
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out -0.1: L/R geometry and source continuity
+not ok 35 - edit after out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1592
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out -0.04: L/R geometry and source continuity
+not ok 36 - edit after out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.144
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out 0.04: L/R geometry and source continuity
+not ok 37 - edit after out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.142
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out 0.1: L/R geometry and source continuity
+not ok 38 - edit after out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1701
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out 0.5: L/R geometry and source continuity
+not ok 39 - edit after out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1575
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after out 2: L/R geometry and source continuity
+not ok 40 - edit after out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1978
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in -2: L/R geometry and source continuity
+not ok 41 - edit after in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1439
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in -0.5: L/R geometry and source continuity
+not ok 42 - edit after in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1455
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in -0.1: L/R geometry and source continuity
+not ok 43 - edit after in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1539
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in -0.04: L/R geometry and source continuity
+not ok 44 - edit after in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1459
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in 0.04: L/R geometry and source continuity
+not ok 45 - edit after in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1434
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in 0.1: L/R geometry and source continuity
+not ok 46 - edit after in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1451
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in 0.5: L/R geometry and source continuity
+not ok 47 - edit after in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1426
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit after in 2: L/R geometry and source continuity
+not ok 48 - edit after in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1618
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out -2: L/R geometry and source continuity
+not ok 49 - edit both out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2712
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out -0.5: L/R geometry and source continuity
+not ok 50 - edit both out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1754
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out -0.1: L/R geometry and source continuity
+not ok 51 - edit both out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.168
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out -0.04: L/R geometry and source continuity
+not ok 52 - edit both out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1908
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out 0.04: L/R geometry and source continuity
+not ok 53 - edit both out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1709
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out 0.1: L/R geometry and source continuity
+not ok 54 - edit both out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1653
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out 0.5: L/R geometry and source continuity
+not ok 55 - edit both out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1462
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both out 2: L/R geometry and source continuity
+not ok 56 - edit both out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1386
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in -2: L/R geometry and source continuity
+not ok 57 - edit both in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1416
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in -0.5: L/R geometry and source continuity
+not ok 58 - edit both in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1399
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in -0.1: L/R geometry and source continuity
+not ok 59 - edit both in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1419
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in -0.04: L/R geometry and source continuity
+not ok 60 - edit both in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1617
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in 0.04: L/R geometry and source continuity
+not ok 61 - edit both in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.7684
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in 0.1: L/R geometry and source continuity
+not ok 62 - edit both in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1712
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in 0.5: L/R geometry and source continuity
+not ok 63 - edit both in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1484
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: edit both in 2: L/R geometry and source continuity
+not ok 64 - edit both in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1467
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch none out -2: L/R geometry and source continuity
+ok 65 - patch none out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.7699
+  type: 'test'
+  ...
+# Subtest: patch none out -0.5: L/R geometry and source continuity
+ok 66 - patch none out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2206
+  type: 'test'
+  ...
+# Subtest: patch none out -0.1: L/R geometry and source continuity
+ok 67 - patch none out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1718
+  type: 'test'
+  ...
+# Subtest: patch none out -0.04: L/R geometry and source continuity
+ok 68 - patch none out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1767
+  type: 'test'
+  ...
+# Subtest: patch none out 0.04: L/R geometry and source continuity
+ok 69 - patch none out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1831
+  type: 'test'
+  ...
+# Subtest: patch none out 0.1: L/R geometry and source continuity
+ok 70 - patch none out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1881
+  type: 'test'
+  ...
+# Subtest: patch none out 0.5: L/R geometry and source continuity
+ok 71 - patch none out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1563
+  type: 'test'
+  ...
+# Subtest: patch none out 2: L/R geometry and source continuity
+ok 72 - patch none out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1535
+  type: 'test'
+  ...
+# Subtest: patch none in -2: L/R geometry and source continuity
+ok 73 - patch none in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2315
+  type: 'test'
+  ...
+# Subtest: patch none in -0.5: L/R geometry and source continuity
+ok 74 - patch none in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1664
+  type: 'test'
+  ...
+# Subtest: patch none in -0.1: L/R geometry and source continuity
+ok 75 - patch none in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1566
+  type: 'test'
+  ...
+# Subtest: patch none in -0.04: L/R geometry and source continuity
+ok 76 - patch none in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1667
+  type: 'test'
+  ...
+# Subtest: patch none in 0.04: L/R geometry and source continuity
+ok 77 - patch none in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1535
+  type: 'test'
+  ...
+# Subtest: patch none in 0.1: L/R geometry and source continuity
+ok 78 - patch none in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1534
+  type: 'test'
+  ...
+# Subtest: patch none in 0.5: L/R geometry and source continuity
+ok 79 - patch none in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1516
+  type: 'test'
+  ...
+# Subtest: patch none in 2: L/R geometry and source continuity
+ok 80 - patch none in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1463
+  type: 'test'
+  ...
+# Subtest: patch before out -2: L/R geometry and source continuity
+not ok 81 - patch before out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.189
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before out -0.5: L/R geometry and source continuity
+not ok 82 - patch before out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1705
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before out -0.1: L/R geometry and source continuity
+not ok 83 - patch before out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.3012
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before out -0.04: L/R geometry and source continuity
+not ok 84 - patch before out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1748
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before out 0.04: L/R geometry and source continuity
+not ok 85 - patch before out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1892
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before out 0.1: L/R geometry and source continuity
+not ok 86 - patch before out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1877
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before out 0.5: L/R geometry and source continuity
+not ok 87 - patch before out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1736
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before out 2: L/R geometry and source continuity
+not ok 88 - patch before out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1517
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in -2: L/R geometry and source continuity
+not ok 89 - patch before in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1644
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in -0.5: L/R geometry and source continuity
+not ok 90 - patch before in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1927
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in -0.1: L/R geometry and source continuity
+not ok 91 - patch before in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1623
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in -0.04: L/R geometry and source continuity
+not ok 92 - patch before in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1693
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in 0.04: L/R geometry and source continuity
+not ok 93 - patch before in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1839
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in 0.1: L/R geometry and source continuity
+not ok 94 - patch before in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1622
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in 0.5: L/R geometry and source continuity
+not ok 95 - patch before in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1571
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch before in 2: L/R geometry and source continuity
+not ok 96 - patch before in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1561
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out -2: L/R geometry and source continuity
+not ok 97 - patch after out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1816
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out -0.5: L/R geometry and source continuity
+not ok 98 - patch after out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1867
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out -0.1: L/R geometry and source continuity
+not ok 99 - patch after out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.165
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out -0.04: L/R geometry and source continuity
+not ok 100 - patch after out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1572
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out 0.04: L/R geometry and source continuity
+not ok 101 - patch after out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1611
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out 0.1: L/R geometry and source continuity
+not ok 102 - patch after out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2003
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out 0.5: L/R geometry and source continuity
+not ok 103 - patch after out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.181
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after out 2: L/R geometry and source continuity
+not ok 104 - patch after out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2054
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in -2: L/R geometry and source continuity
+not ok 105 - patch after in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.203
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in -0.5: L/R geometry and source continuity
+not ok 106 - patch after in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1743
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in -0.1: L/R geometry and source continuity
+not ok 107 - patch after in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2234
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in -0.04: L/R geometry and source continuity
+not ok 108 - patch after in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2744
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in 0.04: L/R geometry and source continuity
+not ok 109 - patch after in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.3444
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in 0.1: L/R geometry and source continuity
+not ok 110 - patch after in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2048
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in 0.5: L/R geometry and source continuity
+not ok 111 - patch after in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1986
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch after in 2: L/R geometry and source continuity
+not ok 112 - patch after in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.4227
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 right start: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:31:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out -2: L/R geometry and source continuity
+not ok 113 - patch both out -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2098
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out -0.5: L/R geometry and source continuity
+not ok 114 - patch both out -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1907
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out -0.1: L/R geometry and source continuity
+not ok 115 - patch both out -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1868
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out -0.04: L/R geometry and source continuity
+not ok 116 - patch both out -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2114
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out 0.04: L/R geometry and source continuity
+not ok 117 - patch both out 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 1.328
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out 0.1: L/R geometry and source continuity
+not ok 118 - patch both out 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2407
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out 0.5: L/R geometry and source continuity
+not ok 119 - patch both out 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1658
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both out 2: L/R geometry and source continuity
+not ok 120 - patch both out 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.163
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in -2: L/R geometry and source continuity
+not ok 121 - patch both in -2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1597
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 28'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in -0.5: L/R geometry and source continuity
+not ok 122 - patch both in -0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1574
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in -0.1: L/R geometry and source continuity
+not ok 123 - patch both in -0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1748
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.9'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in -0.04: L/R geometry and source continuity
+not ok 124 - patch both in -0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1559
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 29.96'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in 0.04: L/R geometry and source continuity
+not ok 125 - patch both in 0.04: L/R geometry and source continuity
+  ---
+  duration_ms: 0.154
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.04'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in 0.1: L/R geometry and source continuity
+not ok 126 - patch both in 0.1: L/R geometry and source continuity
+  ---
+  duration_ms: 0.1685
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in 0.5: L/R geometry and source continuity
+not ok 127 - patch both in 0.5: L/R geometry and source continuity
+  ---
+  duration_ms: 0.2369
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.5'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: patch both in 2: L/R geometry and source continuity
+not ok 128 - patch both in 2: L/R geometry and source continuity
+  ---
+  duration_ms: 0.3024
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:40:5'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 32'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:46:7)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: picture replacement first captures inferred links in older agent documents
+not ok 129 - picture replacement first captures inferred links in older agent documents
+  ---
+  duration_ms: 0.7432
+  type: 'test'
+  location: '<worktree>\\test\\roll-replaced-picture.test.js:52:1'
+  failureType: 'testCodeFailure'
+  error: 'A1 left duration: 30 != 30.1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    near (<worktree>\test\roll-replaced-picture.test.js:24:50)
+    check (<worktree>\test\roll-replaced-picture.test.js:30:5)
+    TestContext.<anonymous> (<worktree>\test\roll-replaced-picture.test.js:55:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..129
+# tests 129
+# suites 0
+# pass 32
+# fail 97
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 244.4297
