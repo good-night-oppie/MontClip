@@ -19206,7 +19206,7 @@ async function loadGoogleFont(name) {
   } catch { return false; }
   // The stylesheet goes in from a blob: address, so its font files on fonts.gstatic.com carry no Referer either: a
   // sheet's requests name the sheet as their referrer, and a blob: address is never sent as one. (A <link> straight to
-  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; real-tests/font-consent-browser-smoke.cjs
+  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; dev/real-tests/font-consent-browser-smoke.cjs
   // checks the headers a browser really sends.)
   const href = URL.createObjectURL(new Blob([css], { type: "text/css" }));
   const ok = await new Promise((resolve) => {
