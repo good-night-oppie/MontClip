@@ -140,11 +140,11 @@ function npmPackCheck() {
   try {
     const app = path.join(out, "app");
     fs.mkdirSync(app);
-    run("npm", ["pack", "--pack-destination", out], { shell: NPM_SHELL, stdio: "inherit" });
+    run("npm", ["pack", "--pack-destination", NPM_SHELL ? `"${out}"` : out], { shell: NPM_SHELL, stdio: "inherit" });
     const tgz = fs.readdirSync(out).find((f) => f.endsWith(".tgz"));
     if (!tgz) throw new Error("npm pack produced no tarball");
     run("npm", ["init", "-y"], { cwd: app, shell: NPM_SHELL, stdio: "ignore" });
-    run("npm", ["install", "--no-audit", "--no-fund", path.join(out, tgz)], { cwd: app, shell: NPM_SHELL, stdio: "inherit" });
+    run("npm", ["install", "--no-audit", "--no-fund", NPM_SHELL ? `"${path.join(out, tgz)}"` : path.join(out, tgz)], { cwd: app, shell: NPM_SHELL, stdio: "inherit" });
     run(process.execPath, [path.join(ROOT, ".github", "scripts", "release-check.js"), "--installed", path.join(app, "node_modules", "montclip")], { stdio: "inherit" });
   } finally {
     fs.rmSync(out, { recursive: true, force: true });
