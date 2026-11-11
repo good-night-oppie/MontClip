@@ -32,6 +32,9 @@
   const CROSSFADE_DUR = 1;
   const GAP_EPS = 1e-4;
   const TRIM_EPS = 1e-3;
+  // Split/trim store source In and edges to four decimals. Allow their
+  // independent rounding, not a frame-sized gap or a different source window.
+  const ROLL_TIME_EPS = 1.5e-4;
   const XF_EPS = 0.02;
   const TRIM_LOCKED = "Locked — unlock the clip or its track to edit";
   const DEFAULT_TRACKS = [
@@ -259,7 +262,8 @@
         if (!audio.length || audio.length + 1 !== group.length ||
             new Set(group.map(c => c.track)).size !== group.length ||
             !audio.some(a => baseOf(a.mediaId) !== v.mediaId) ||
-            !audio.every(a => near(a.start, v.start) && near(a.in, v.in) && near(a.duration, v.duration))) continue;
+            !audio.every(a => near(a.start, v.start) && near(a.duration, v.duration) &&
+              audio.every(b => b.mediaId !== a.mediaId || near(a.in, b.in)))) continue;
         for (const c of group) kept.add(c.id);
       }
       for (const c of project.clips) {
@@ -888,22 +892,27 @@
           !withLinked([v]).some(x => x.kind === "audio") && P().clips.some(a =>
             a.kind === "audio" && a.unlinked !== true && !a.linkGroup &&
             Number.isInteger(a.props?.audioChannel) && a.mediaId !== v.mediaId &&
-            Math.abs(a.start - v.start) <= 1e-6 && Math.abs(a.in - v.in) <= 1e-6 &&
-            Math.abs(a.duration - v.duration) <= 1e-6)) return continuityRefusal;
+            Math.abs(a.start - v.start) <= ROLL_TIME_EPS &&
+            Math.abs(a.duration - v.duration) <= ROLL_TIME_EPS)) return continuityRefusal;
       if (mixed) {
         // Check every channel before touching either edge. A ramp or different
         // source rate cannot use the linear head/tail trims below losslessly.
         if (!left || !right || groups.some((g, i) => g.some(x => hasSpeedRamp(x) ||
             !(sourceLen(x) > 0) || clipSpeed(x) !== clipSpeed(i ? right : left) ||
-            Math.abs(x.start - (i ? right : left).start) > 1e-6 ||
-            Math.abs(x.in - (i ? right : left).in) > 1e-6 ||
-            Math.abs(x.duration - (i ? right : left).duration) > 1e-6))) return continuityRefusal;
+            Math.abs(x.start - (i ? right : left).start) > ROLL_TIME_EPS ||
+            ((getMedia(x.mediaId)?.derivedFrom || x.mediaId) === (i ? right : left).mediaId &&
+              Math.abs(x.in - (i ? right : left).in) > ROLL_TIME_EPS) ||
+            Math.abs(x.duration - (i ? right : left).duration) > ROLL_TIME_EPS))) return continuityRefusal;
         const audio = groups.map(g => g.filter(x => x.kind === "audio"));
+        // Source In belongs to each file. A replacement picture may start at
+        // zero while its original sound starts late in a different recording.
+        if (audio.some(g => g.some(a => g.some(b => b.mediaId === a.mediaId &&
+            Math.abs(a.in - b.in) > ROLL_TIME_EPS)))) return continuityRefusal;
         if (audio[0].length !== audio[1].length) return continuityRefusal;
         for (const a of audio[0]) {
           const matches = audio[1].filter(b => b.track === a.track && b.mediaId === a.mediaId &&
             b.props?.audioChannel === a.props?.audioChannel && clipSpeed(b) === clipSpeed(a));
-          if (matches.length !== 1 || Math.abs(timeAt(a, clipEnd(a)) - matches[0].in) > 1e-6)
+          if (matches.length !== 1 || Math.abs(timeAt(a, clipEnd(a)) - matches[0].in) > ROLL_TIME_EPS)
             return continuityRefusal;
         }
       }
