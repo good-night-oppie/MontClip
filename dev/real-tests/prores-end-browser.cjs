@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const cp=require('node:child_process');
 const {execFileSync}=cp;
 const assert=require('node:assert/strict');
-const ROOT=path.resolve(__dirname,'..');
+const ROOT=path.resolve(__dirname,'..','..');
 
 const OUT=path.resolve(process.argv[2]||'out/prores-end-browser');
 if(fs.existsSync(OUT))throw Error('Output must be a new directory');

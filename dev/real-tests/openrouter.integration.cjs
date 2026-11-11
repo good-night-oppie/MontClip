@@ -12,7 +12,7 @@ const ON=process.env.MONTCLIP_REAL_MODELS==='1';
 const found=ON?K.readKey():{},KEY=found.key||null;
 const off=!ON?'real-model tests are off (set MONTCLIP_REAL_MODELS=1)':!KEY?found.skip:false;
 const report=[];const scrub=K.scrubber(KEY);
-const out=process.env.MONTCLIP_REAL_REPORT||path.join(__dirname,'..','docs','validation','real-model-integration.json');
+const out=process.env.MONTCLIP_REAL_REPORT||path.join(__dirname,'..','..','docs','validation','real-model-integration.json');
 
 async function pickModel(){
  if(process.env.MONTCLIP_OPENROUTER_MODEL)return process.env.MONTCLIP_OPENROUTER_MODEL;

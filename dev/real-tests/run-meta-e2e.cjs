@@ -11,7 +11,7 @@
 // Exit 0 = passed, 2 = skipped (reason printed), 1 = failed.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process');
 const K=require('./meta-key-file.cjs'),S=require('../../desktop/agent-service');
-const root=path.resolve(__dirname,'..');
+const root=path.resolve(__dirname,'..','..');
 if(process.env.MONTCLIP_REAL_MODELS!=='1'){console.log('E2E SKIPPED: real-model tests are off (set MONTCLIP_REAL_MODELS=1)');process.exit(2);}
 const found=K.readKey();
 if(!found.key){console.log('E2E SKIPPED: '+found.skip);process.exit(2);}

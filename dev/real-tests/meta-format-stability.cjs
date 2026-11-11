@@ -43,7 +43,7 @@ const PROMPTS=[
  const by=p=>{const r=runs.filter(x=>x.prompt===p.say);return{prompt:p.say,runs:r.length,usable:r.filter(x=>x.valid).length,asked:r.filter(x=>x.right).length,fenced:r.filter(x=>x.fenced).length,errors:r.filter(x=>x.error).map(x=>x.error),medianMs:r.map(x=>x.ms).sort((a,b)=>a-b)[Math.floor(r.length/2)]};};
  const report={model:MODEL,date:new Date().toISOString(),runsPerPrompt:RUNS,summary:PROMPTS.map(by),runs};
  const text=JSON.stringify(report,null,1);if(text.includes(KEY))throw Error('key would be written');
- const out=process.env.MONTCLIP_STABILITY_OUT||path.join(__dirname,'..','docs','validation','meta-format-stability.json');fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,text+'\n');
+ const out=process.env.MONTCLIP_STABILITY_OUT||path.join(__dirname,'..','..','docs','validation','meta-format-stability.json');fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,text+'\n');
  console.log('STABILITY '+JSON.stringify(report.summary));
  process.exit(runs.every(x=>x.valid)?0:1);
 })();
