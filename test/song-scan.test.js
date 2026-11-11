@@ -7,7 +7,7 @@ const test=require('node:test'),a=require('node:assert/strict'),fs=require('node
 const {spawnSync}=require('node:child_process');
 const {makeDataDir,seedProject,startServer,startMcp,readProject}=require('./helpers');
 const {wav}=require('./songs-synth');
-const FF=require('../ffmpeg-path');
+const FF=require('../server/ffmpeg-path');
 const hasFfmpeg=()=>FF.resolveTool('ffmpeg').ok;
 const skip=!hasFfmpeg()&&"MontClip's ffmpeg is not in vendor/ (node desktop/fetch-ffmpeg.cjs)";
 // 8 minutes: two songs between talk; two segments of 300 s
@@ -17,7 +17,7 @@ const near=(got,want)=>{a.equal(got.length,want.length,JSON.stringify(got));got.
 
 test('ffmpeg reads one set of features every 0.5 s (astats + aspectralstats); each song found within ±2 s',{skip},async(t)=>{
  const d=tmp(t),file=path.join(d,'合成 演唱.wav');fs.writeFileSync(file,wav(PLAN));
- const scan=require('../song-scan').createSongScan({dir:path.join(d,'cache')});
+ const scan=require('../server/song-scan').createSongScan({dir:path.join(d,'cache')});
  const seen=[];const r=await scan.scan(file,{onSegment:(i)=>seen.push(i)});
  a.deepEqual(seen,[0,1]);a.equal(r.complete,true);a.equal(r.step,0.5);
  a.ok(Math.abs(r.rows.length-960)<=1,'rows: '+r.rows.length);
@@ -29,7 +29,7 @@ test('ffmpeg reads one set of features every 0.5 s (astats + aspectralstats); ea
 });
 test('stopped after the first segment, the next scan carries on from the second, and ends where one whole scan ends',{skip},async(t)=>{
  const d=tmp(t),file=path.join(d,'a.wav');fs.writeFileSync(file,wav(PLAN));
- const S=require('../song-scan'),scan=S.createSongScan({dir:path.join(d,'cache')});
+ const S=require('../server/song-scan'),scan=S.createSongScan({dir:path.join(d,'cache')});
  const stop=new AbortController();
  await a.rejects(scan.scan(file,{signal:stop.signal,onSegment:(i)=>{if(i===0)stop.abort();}}),(e)=>e.code==='SONGS_STOPPED');
  a.deepEqual(scan.cached(file),{done:1,complete:false,scanned:300});
@@ -43,7 +43,7 @@ test('stopped after the first segment, the next scan carries on from the second,
 });
 test('the cache belongs to the file version: a replaced file is read again',{skip},async(t)=>{
  const d=tmp(t),file=path.join(d,'a.wav');fs.writeFileSync(file,wav([['talk',30]]));
- const scan=require('../song-scan').createSongScan({dir:path.join(d,'cache')});
+ const scan=require('../server/song-scan').createSongScan({dir:path.join(d,'cache')});
  await scan.scan(file);fs.writeFileSync(file,wav([['talk',40]]));
  a.deepEqual(scan.cached(file),{done:0,complete:false,scanned:0});
  const r=await scan.scan(file);a.ok(Math.abs(r.rows.length-80)<=1);
@@ -72,7 +72,7 @@ test('MCP fablecut_songs: scans the recordings on the timeline and keeps the son
  a.ok(e.songs.every(s=>s.confidence==='likely'||s.confidence==='estimated'));
 });
 test('the patch op setSongs keeps one checked entry per file; null removes it; unknown files and bad songs are refused',()=>{
- const Ops=require('../project-ops');
+ const Ops=require('../server/project-ops');
  const doc=seedProject();const entry={key:'k1',complete:true,scanned:10,songs:[{from:1,to:9,confidence:'likely',marks:[]}]};
  Ops.applyPatch(doc,[{op:'setSongs',mediaId:'m_a',songs:entry}]);
  a.equal(doc.songs.m_a.v,1);a.equal(doc.songs.m_a.songs.length,1);

@@ -7,7 +7,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 
 const CLEAN = path.join(__dirname, "fixtures", "flv-truth-v2", "C0-clean.flv");
 const DUR = { video: 33, audio: 23 };   // ms, as ffprobe reports these packets

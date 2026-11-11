@@ -100,7 +100,7 @@ test("CONIN$ and CONOUT$ are reserved too", () => {
 });
 
 test("the MCP captions and mapping names go through fileSafeName's own limit, not a cut afterwards", () => {
-  const mcp = read("mcp-server.js");
+  const mcp = read("server/mcp-server.js");
   a.doesNotMatch(mcp, /fileSafeName\([^)]*\)\)?\.slice\(0, ?80\)/);
   a.match(mcp, /Delivery\.fileSafeName\(String\(proj\.name \|\| ""\), "captions", \{ max: 80 \}\)/);
 });
@@ -136,7 +136,7 @@ test("the delivery template names files by the same rule (one rule, written once
 });
 
 test("every place that names an exported file uses it: export, captions, mapping, the page's downloads", () => {
-  const app = read("app.js"), server = read("server.js"), mcp = read("mcp-server.js");
+  const app = read("app.js"), server = read("server/server.js"), mcp = read("server/mcp-server.js");
   a.doesNotMatch(app, /replace\(\/\[\^\\w\\- \]\+\/g/, "app.js: no name reduced to [A-Za-z0-9_- ]");
   a.doesNotMatch(mcp, /replace\(\/\[\^\\w\\- \]\+\/g/, "mcp-server.js: captions and mapping keep Chinese");
   // the fallback for a name with nothing usable is 直播切片 {月-日} in Chinese (第四批, test/default-names.test.js)
@@ -155,7 +155,7 @@ test("the server exports 未命名项目 as 未命名项目.mp4 and serves it un
   if (!h264.encoders.some((e) => !D.ENCODERS[e]?.min)) return t.skip("only a graphics-card encoder with a minimum frame size here");
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fc-cn-")); t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const jpg = path.join(tmp, "f.jpg");
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=160x90", "-frames:v", "1", "-q:v", "2", jpg]);
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=160x90", "-frames:v", "1", "-q:v", "2", jpg]);
   const post = (p, b) => fetch(base + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
   const sess = await (await post("/api/export/begin", { fps: 30, name: "未命名项目", hasAudio: false, duration: 0.2,
     delivery: { preset: "custom", width: 160, height: 90 }, canvasW: 160, canvasH: 90 })).json();

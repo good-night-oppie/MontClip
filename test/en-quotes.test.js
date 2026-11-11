@@ -26,7 +26,7 @@ test('every English value of the interface\'s tables quotes with “ ”, never 
 });
 
 test('every English string the interface shows quotes with “ ”, never 「」',()=>{
- const FILES=['ui-preferences.js','ui-terms.js','app.js','index.html','server.js','export-jobs.js','desktop/main.js','desktop/native-text.js','agent-ui/src/pane.tsx','cindy-official.js'];
+ const FILES=['ui-preferences.js','ui-terms.js','app.js','index.html','server/server.js','server/export-jobs.js','desktop/main.js','desktop/native-text.js','agent-ui/src/pane.tsx','cindy-official.js'];
  const LIT=/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g,bad=[];
  for(const f of FILES){const src=read(f);if(src==null)continue;
   // comments are not shown (blanked out, so line numbers stay)

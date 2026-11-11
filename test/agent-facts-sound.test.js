@@ -7,7 +7,7 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const {spawnSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const Facts=require('../agent-facts'),Cap=require('../capabilities'),F=require('../agent-format'),View=require('../ui-preferences');
-const FF=require('../ffmpeg-path');
+const FF=require('../server/ffmpeg-path');
 
 const SECRETS=['我的直播 11月5日.mp4','/media/私密/唱歌.mp4','C:\\Users\\主播\\Videos\\a.flv','天空好想下雨'];
 const doc=(clips)=>({media:[{id:'m1',name:SECRETS[0],src:SECRETS[1],kind:'video',duration:600,originalSrc:SECRETS[2]}],
@@ -118,8 +118,8 @@ test('synthetic sound (3 s silence + 5 s sine, made by ffmpeg): the singing part
   '-filter_complex','[0][1]concat=n=2:v=0:a=1','-c:a','pcm_s16le',file],{encoding:'utf8'});
  a.equal(r.status,0,r.stderr);
  // the server's own readers: the loudness every 0.5 s (signals.js) and the song scan's levels (song-scan.js)
- const L=await require('../signals').createSignals({dir:path.join(d,'signals')}).loudness(file);
- const scan=await require('../song-scan').createSongScan({dir:path.join(d,'songs')}).scan(file);
+ const L=await require('../server/signals').createSignals({dir:path.join(d,'signals')}).loudness(file);
+ const scan=await require('../server/song-scan').createSongScan({dir:path.join(d,'songs')}).scan(file);
  a.equal(L.values.length,16);
  // songs.js as the 「唱歌」 scan runs it, with its windows shrunk for an 8 s file (its defaults look for songs of 90 s and more)
  const songs=require('../songs').find(scan.rows.map(x=>x[0]),{complete:true,W:2,MIN_SONG:3,EDGE:1,MERGE:1});

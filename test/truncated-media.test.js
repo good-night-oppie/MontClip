@@ -9,8 +9,8 @@
    Each case first checks that ffprobe really sees the file that way, then what MontClip makes of it. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
-const FF = require("../ffmpeg-path");
-const MediaProbe = require("../media-probe");
+const FF = require("../server/ffmpeg-path");
+const MediaProbe = require("../server/media-probe");
 const MediaLib = require("../media-lib");
 const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
@@ -65,7 +65,7 @@ for (const name of ["cut.webm", "cut.mkv"]) {
 }
 
 test("cut.webm: fablecut_frame shows a moment inside it, and a moment past it says the real end, not 0 s", { skip }, async () => {
-  const { frame } = require("../analyze");
+  const { frame } = require("../server/analyze");
   const info = await MediaProbe.probeFile(made("cut.webm"));
   const r = await frame(made("cut.webm"), { t: 1, width: 160, stats: false });
   a.ok(r.jpeg && r.jpeg.length > 100, "a picture at 1 s");

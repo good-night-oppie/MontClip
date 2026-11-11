@@ -12,8 +12,8 @@ if(fs.existsSync(OUT))throw Error('Output must be a new directory');
 fs.mkdirSync(OUT,{recursive:true});
 const DATA=path.join(OUT,'data'),MEDIA=path.join(DATA,'media'),PROFILE=path.join(OUT,'chrome-profile');
 fs.mkdirSync(MEDIA,{recursive:true});
-const FF=require('../../ffmpeg-path').path('ffmpeg');
-const PROBE=require('../../ffmpeg-path').path('ffprobe');
+const FF=require('../../server/ffmpeg-path').path('ffmpeg');
+const PROBE=require('../../server/ffmpeg-path').path('ffprobe');
 const chrome=process.env.MONTCLIP_TEST_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sha=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const json=(name,x)=>fs.writeFileSync(path.join(OUT,name),JSON.stringify(x,null,2)+'\n');
@@ -105,7 +105,7 @@ async function stopOwned(child){if(!child)return true;if(!child.pid||child.exitC
     clips:[{id:'original_picture',kind:'video',track:'V1',mediaId:'original',start:0,in:0,duration:12,unlinked:true,props:{fit:'contain'}},
       {id:'original_sound',kind:'audio',track:'A1',mediaId:'sound',start:0,in:0,duration:12,unlinked:true,props:{volume:1,pan:0}}]};
   fs.writeFileSync(path.join(DATA,'project.json'),JSON.stringify(seed));
-  server=cp.spawn(process.execPath,[path.join(ROOT,'server.js')],{cwd:ROOT,windowsHide:true,
+  server=cp.spawn(process.execPath,[path.join(ROOT,'server','server.js')],{cwd:ROOT,windowsHide:true,
     env:{...process.env,HOST:'127.0.0.1',PORT:'0',FABLECUT_DATA_DIR:DATA,MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','pipe','pipe','ipc']});
   receipt.pids.server=server.pid;server.stdout.resume();server.stderr.resume();
   origin=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('owned server IPC timeout')),30000);

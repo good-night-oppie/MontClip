@@ -30,7 +30,7 @@ test('the shipped app and generated tester notes make no unsupported AI naming c
 });
 
 test('the package list is what package-win.cjs takes, and the program starts from it',()=>{
- for(const f of ['desktop/main.js','desktop/view-preload.js','server.js','app.js','index.html','asr-models.js'])a.ok(inPackage(f),f);
+ for(const f of ['desktop/main.js','desktop/view-preload.js','server/server.js','app.js','index.html','server/asr-models.js'])a.ok(inPackage(f),f);
  a.ok(!files.some((f)=>f.startsWith('test/')),'no tests');
 });
 
@@ -40,8 +40,9 @@ test('desktop/asr-manifest.json is in the package (the e8d0c16 start failure)',(
 
 test('every repository file the shipped code reads is in the package',()=>{
  // smoke modules run only in development (main.js loads them with --montclip-smoke); their fixtures are not shipped
- const reads=P.repoReads(ROOT,files.filter((f)=>/\.(c?js)$/.test(f)&&!/-smoke\.c?js$/.test(f)&&tracked.includes(f)),tracked);
- a.ok(reads.some((r)=>r.target==='desktop/asr-manifest.json'&&r.from==='asr-models.js'),'the scan sees asr-models.js reading the manifest');
+ const expanded=files.flatMap((f)=>(f.endsWith("/")?tracked.filter((t)=>t.startsWith(f)):[f]));
+ const reads=P.repoReads(ROOT,expanded.filter((f)=>/\.(c?js)$/.test(f)&&!/-smoke\.c?js$/.test(f)&&tracked.includes(f)),tracked);
+ a.ok(reads.some((r)=>r.target==='desktop/asr-manifest.json'&&r.from==='server/asr-models.js'),'the scan sees asr-models.js reading the manifest');
  const missing=reads.filter((r)=>!inPackage(r.target)).map((r)=>r.from+' → '+r.target);
  a.deepEqual(missing,[]);
 });

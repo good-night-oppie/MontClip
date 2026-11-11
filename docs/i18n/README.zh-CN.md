@@ -36,10 +36,10 @@
 ```bash
 git clone https://github.com/good-night-oppie/MontClip.git
 cd MontClip
-node server.js
+node server/server.js
 ```
 
-用浏览器打开 <http://localhost:7777>。用的时候别关掉那个终端窗口。一开始是一个空项目。要导入视频，把它拖进窗口，或者点 **+ 导入**；看不到这个按钮的话，先点开 **素材** 面板。如果终端报 `EADDRINUSE`，说明 7777 端口已经被占用，常见原因是之前开的 MontClip 还在运行。先把它关掉，不然打开的会是旧的那个。项目和导出的文件默认存在 `server.js` 旁边；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
+用浏览器打开 <http://localhost:7777>。用的时候别关掉那个终端窗口。一开始是一个空项目。要导入视频，把它拖进窗口，或者点 **+ 导入**；看不到这个按钮的话，先点开 **素材** 面板。如果终端报 `EADDRINUSE`，说明 7777 端口已经被占用，常见原因是之前开的 MontClip 还在运行。先把它关掉，不然打开的会是旧的那个。项目和导出的文件默认存在 MontClip 文件夹里（就是你下载下来的那个文件夹）；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
 
 ## 计划中
 

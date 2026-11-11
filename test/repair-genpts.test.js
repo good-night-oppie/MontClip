@@ -2,7 +2,7 @@
 const test = require("node:test"), a = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path"), vm = require("node:vm");
 const { EventEmitter } = require("node:events"), { PassThrough } = require("node:stream");
-const localRequire = require("node:module").createRequire(require.resolve("../make-editable"));
+const localRequire = require("node:module").createRequire(require.resolve("../server/make-editable"));
 
 // Exercise the repair pipeline with a successful process that reports a controlled header duration.
 // A zero exit status must not turn a non-finite duration into a completed repair.
@@ -27,7 +27,7 @@ function harness(t, duration) {
     });
     return child;
   }
-  vm.runInNewContext(fs.readFileSync(require.resolve("../make-editable"), "utf8"), {
+  vm.runInNewContext(fs.readFileSync(require.resolve("../server/make-editable"), "utf8"), {
     module: mod, exports: mod.exports, require(id) {
       if (id === "child_process") return { spawn };
       if (id === "./ffmpeg-path") return { path: (name) => name };
@@ -57,7 +57,7 @@ test("exit 0 with Infinity in the output header cannot complete a repair", async
   a.deepEqual(fs.readdirSync(h.dir), ["recording.mkv"], "invalid result and temporary file removed");
 });
 
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 test("a real PTS jump and truncated tail: genpts does not bypass the duration guard", {
   skip: !(FF.available("ffmpeg") && FF.available("ffprobe")) && "no ffmpeg / ffprobe here",
 }, async (t) => {

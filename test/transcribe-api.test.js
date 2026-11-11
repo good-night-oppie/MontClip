@@ -119,7 +119,7 @@ test('MC-04: captions finish in their original project after another task opens 
   const result = JSON.parse((await mcp.callTool('fablecut_captions', { taskId: started.taskId, wait_ms: 5000 })).text);
   assert.equal(result.status, 'complete', result.error);
   assert.ok(readProject(dir).clips.some(c => c.kind === 'text'));
-  const pj = require('../projects').createProjects({ dataDir: dir, projectFile: path.join(dir, 'project.json'), libraryDir: path.join(dir, 'library') });
+  const pj = require('../server/projects').createProjects({ dataDir: dir, projectFile: path.join(dir, 'project.json'), libraryDir: path.join(dir, 'library') });
   const second = pj.list().projects.find(p => p.name === 'Other task');
   assert.equal(pj.readDoc(second.id).clips.length, 0);
 });

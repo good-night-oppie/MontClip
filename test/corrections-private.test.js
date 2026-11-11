@@ -20,9 +20,9 @@ test('no other code names them — the assistant, its context and its request bu
  const files=[];
  const walk=(dir)=>{for(const n of fs.readdirSync(path.join(ROOT,dir))){const rel=dir?dir+'/'+n:n;
   if(/^(node_modules|vendor|docs|test|\.git|media|exports|analysis|projects|library|agent-ui)$/.test(n))continue;
-  const st=fs.statSync(path.join(ROOT,rel));if(st.isDirectory()){if(['desktop','dev','dev/real-tests'].includes(rel))walk(rel);}else if(/\.(c?js|tsx?)$/.test(n))files.push(rel);}};
+  const st=fs.statSync(path.join(ROOT,rel));if(st.isDirectory()){if(['desktop','dev','dev/real-tests','server'].includes(rel))walk(rel);}else if(/\.(c?js|tsx?)$/.test(n))files.push(rel);}};
  walk('');
- for(const must of ['agent-facts.js','agent-format.js','agent-conversation.js','agent-pane.js','chat-proposal.js','desktop/agent-service.js','mcp-server.js','mcp-tools.js','server.js','app.js','cindy-official.js'])
+ for(const must of ['agent-facts.js','agent-format.js','agent-conversation.js','agent-pane.js','chat-proposal.js','desktop/agent-service.js','server/mcp-server.js','server/mcp-tools.js','server/server.js','app.js','cindy-official.js'])
   a.ok(files.includes(must),'scanned: '+must);
  // the code, not its comments: event-bounds.js (#93) says in a comment that it runs after the habit shift of corrections.js,
  // and reads nothing of them

@@ -122,7 +122,7 @@ test('no wording the streamer sees mentions laughter (笑声)',()=>{
 // hears loudness. Every MCP tool's description (and the descriptions inside its arguments), and the manual fablecut_docs serves
 test('nothing the AI reads says the software hears laughter: the MCP tools and the manual',()=>{
  const walk=(v,out)=>{if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(k==='description'&&typeof x==='string')out.push(x);else walk(x,out);}return out;};
- const tools=require('../mcp-tools');a.ok(tools.length>20);
+ const tools=require('../server/mcp-tools');a.ok(tools.length>20);
  a.deepEqual(tools.filter(t=>walk(t,[]).some(d=>/笑声|laugh/i.test(d))).map(t=>t.name),[]);
  a.match(tools.find(t=>t.name==='fablecut_highlights').description,/a moment that is clearly louder than the seconds around it/);
  a.ok(!/笑声|laugh/i.test(read('CLAUDE.md')),'CLAUDE.md (fablecut_docs)');

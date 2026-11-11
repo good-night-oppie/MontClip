@@ -3,7 +3,7 @@
 // as readable and remuxed with its sound copied; read as a whole, picture and sound came out up to 2.5 s apart. Deja,
 // 2026-11-07: such a recording is refused (FLV_SOURCE_DAMAGED), never imported, converted or "accepted as readable".
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), os = require('node:os');
-const { accumulator } = require('../flv-readable-range');
+const { accumulator } = require('../server/flv-readable-range');
 
 const streams = [{ codec_type: 'video', avg_frame_rate: '30/1', time_base: '1/1000' }, { codec_type: 'audio', sample_rate: '48000', time_base: '1/1000' }];
 const packet = (type, t, d = type === 'video' ? 0.033 : 0.021) => `codec_type=${type}|pts_time=${t}|dts_time=${t}|duration_time=${d}`;
@@ -27,13 +27,13 @@ test('a decode clock that runs back is reported as a rewind; a steady clock and 
 });
 
 test('a synthetic FLV whose clock runs back is refused, even with acceptReadable, fixGaps and allowTranscode', async (t) => {
-  const FF = require('../ffmpeg-path');
+  const FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg') || !FF.available('ffprobe')) { t.skip('ffmpeg/ffprobe unavailable'); return; }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flv-rewind-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const { make } = require('./flv-fixtures');
   const { file } = make(dir, 'rewind.flv', [['rewind', { at: 8000, to: 500 }]]);
-  const P = require('../prepare-media');
+  const P = require('../server/prepare-media');
   for (const opts of [{}, { acceptReadable: true }, { acceptReadable: true, fixGaps: true, allowTranscode: true }]) {
     const e = await P.prepareMedia(file, opts).then(() => null, (x) => x);
     a.ok(e, 'refused with ' + JSON.stringify(opts));

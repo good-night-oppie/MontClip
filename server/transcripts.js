@@ -20,7 +20,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const T = require("./transcribe.js");
+const T = require("../transcribe.js");
 
 const hash = (s) => crypto.createHash("sha1").update(s).digest("hex").slice(0, 10);
 

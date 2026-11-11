@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { makeDataDir, startServer, seedProject } = require("./helpers");
 const { measureContrast } = require("./browser-contrast");
-const browser = (() => { try { return require("../export-jobs").findBrowser(); } catch { return null; } })();
+const browser = (() => { try { return require("../server/export-jobs").findBrowser(); } catch { return null; } })();
 const skip = !browser ? "no Chrome / Edge to measure in" : typeof WebSocket !== "function" ? "needs Node's WebSocket (Node 22)" : false;
 
 const caption = (id, start, text) => ({ id, kind: "text", mediaId: null, track: "V2", start, in: 0, duration: 3, props: { text, caption: true } });

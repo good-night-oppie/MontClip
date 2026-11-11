@@ -11,8 +11,8 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, spawnSync } = require("node:child_process");
 const { ROOT, makeDataDir, startServer, startMcp, bundledH264 } = require("./helpers");
-const WriterLock = require("../writer-lock");
-const { createUndoStacks, MAX_STEPS } = require("../undo-stacks");
+const WriterLock = require("../server/writer-lock");
+const { createUndoStacks, MAX_STEPS } = require("../server/undo-stacks");
 
 const json = (r) => r.json();
 const post = (url, body, method = "POST") => fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -21,7 +21,7 @@ const post = (url, body, method = "POST") => fetch(url, { method, headers: { "Co
 
 test("mcp-server.js required by another shell hands over its tools and leaves stdin alone", (t) => {
   const dir = makeDataDir(t);
-  const code = `const m = require(${JSON.stringify(path.join(ROOT, "mcp-server.js"))});
+  const code = `const m = require(${JSON.stringify(path.join(ROOT, "server/mcp-server.js"))});
     m.callTool("fablecut_get_project", { compact: true }).then((r) => {
       process.stdout.write(JSON.stringify({ tools: m.TOOLS.length, call: typeof m.callTool, ensure: typeof m.ensureUIServer,
         names: m.TOOLS.map((x) => x.name), text: typeof r === "string" ? r : JSON.stringify(r) }));
@@ -177,7 +177,7 @@ test("a second engine on the same data folder refuses to start and names the fir
   const holder = WriterLock.holder(dir);
   assert.equal(holder.shell, "desktop");
   assert.equal(holder.port, first.port);
-  const second = spawnSync(process.execPath, [path.join(ROOT, "server.js")], { cwd: ROOT, encoding: "utf8", timeout: 20000,
+  const second = spawnSync(process.execPath, [path.join(ROOT, "server/server.js")], { cwd: ROOT, encoding: "utf8", timeout: 20000,
     env: { ...process.env, PORT: "0", HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1", MONTCLIP_SHELL: "cindy" } });
   assert.notEqual(second.status, 0);
   assert.match(second.stderr, /Another MontClip \(desktop, pid \d+ on port \d+\) is already editing/);
@@ -214,8 +214,8 @@ test("import link:true hard-links a local file; the default is still a copy", as
 });
 
 test("faststart on a hard-linked recording writes a new file: the user's original is never changed", { skip: bundledH264() ? false : "needs an H.264 encoder in the bundled ffmpeg" }, async (t) => {
-  const FF = require("../ffmpeg-path");
-  const { maybeFaststart } = require("../import-url");
+  const FF = require("../server/ffmpeg-path");
+  const { maybeFaststart } = require("../server/import-url");
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-fs-"));
   t.after(() => fs.rmSync(work, { recursive: true, force: true }));
   const original = path.join(work, "original.mp4");

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const cp=require('node:child_process'),FF=require('../ffmpeg-path');
+const cp=require('node:child_process'),FF=require('../server/ffmpeg-path');
 test('bounded ProRes REST export, invalid boundary and cancellation', {timeout:60000}, async t=>{
   if(!FF.available('ffmpeg')||!FF.available('ffprobe'))return t.skip('ffmpeg/ffprobe unavailable');
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mc-prores-api-')),token=crypto.randomBytes(32).toString('hex');
@@ -8,7 +8,7 @@ test('bounded ProRes REST export, invalid boundary and cancellation', {timeout:6
   const ff=FF.path('ffmpeg'),probe=FF.path('ffprobe');
   const jpeg=cp.execFileSync(ff,['-v','error','-f','lavfi','-i','color=s=160x90','-frames:v','1','-c:v','mjpeg','-f','image2pipe','-']);
   const wav=path.join(dir,'long.wav');cp.execFileSync(ff,['-v','error','-f','lavfi','-i','sine=duration=5:sample_rate=48000','-c:a','pcm_s16le',wav]);
-  const child=cp.spawn(process.execPath,[path.resolve(__dirname,'../server.js')],{windowsHide:true,env:{...process.env,FABLECUT_DATA_DIR:dir,HOST:'127.0.0.1',PORT:'0',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','ignore','ignore','ipc']});
+  const child=cp.spawn(process.execPath,[path.resolve(__dirname,'../server/server.js')],{windowsHide:true,env:{...process.env,FABLECUT_DATA_DIR:dir,HOST:'127.0.0.1',PORT:'0',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','ignore','ignore','ipc']});
   const exited=new Promise(resolve=>child.once('exit',resolve));
   t.after(async()=>{if(child.exitCode===null){child.kill();await exited;}fs.rmSync(dir,{recursive:true,force:true});});
   const origin=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('owned IPC ready timeout')),15000);child.once('exit',code=>{clearTimeout(timer);reject(Error('owned server exited before ready: '+code));});child.once('error',e=>{clearTimeout(timer);reject(e);});child.on('message',m=>{if(m.type==='montclip-ready'){clearTimeout(timer);resolve(m.origin);}});});
@@ -32,8 +32,8 @@ test('bounded ProRes REST export, invalid boundary and cancellation', {timeout:6
   const rejectedDir=path.join(dir,'rejected');fs.mkdirSync(rejectedDir);
   fs.writeFileSync(path.join(rejectedDir,'project.json'),JSON.stringify(require('./helpers').seedProject()));
   const hook=path.join(dir,'invalid-profile.cjs');
-  fs.writeFileSync(hook,`const e=require(${JSON.stringify(path.resolve(__dirname,'../encode-profiles.js'))});const original=e.resolveProfile;e.resolveProfile=id=>{const p=original(id);return id==='prores422'?{...p,args:[...p.args,'-map','[unknown]']}:p;};`);
-  const bad=cp.spawn(process.execPath,['--require',hook,path.resolve(__dirname,'../server.js')],{windowsHide:true,env:{...process.env,FABLECUT_DATA_DIR:rejectedDir,HOST:'127.0.0.1',PORT:'0',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','ignore','ignore','ipc']});
+  fs.writeFileSync(hook,`const e=require(${JSON.stringify(path.resolve(__dirname,'../server/encode-profiles.js'))});const original=e.resolveProfile;e.resolveProfile=id=>{const p=original(id);return id==='prores422'?{...p,args:[...p.args,'-map','[unknown]']}:p;};`);
+  const bad=cp.spawn(process.execPath,['--require',hook,path.resolve(__dirname,'../server/server.js')],{windowsHide:true,env:{...process.env,FABLECUT_DATA_DIR:rejectedDir,HOST:'127.0.0.1',PORT:'0',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','ignore','ignore','ipc']});
   const stopped=new Promise(resolve=>bad.once('exit',resolve));
   try {
     const badOrigin=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('owned rejection server timeout')),15000);bad.once('error',e=>{clearTimeout(timer);reject(e);});bad.once('exit',code=>{clearTimeout(timer);reject(Error('owned rejection server exited '+code));});bad.on('message',m=>{if(m.type==='montclip-ready'){clearTimeout(timer);resolve(m.origin);}});});

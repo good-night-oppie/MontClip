@@ -19,10 +19,10 @@
   "keywords": ["video-editor", "nle", "timeline", "canvas", "mcp", "ai-agent", "ffmpeg"],
   "server": {
     "type": "node",
-    "entry_point": "mcp-server.js",
+    "entry_point": "server/mcp-server.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/mcp-server.js"]
+      "args": ["${__dirname}/server/mcp-server.js"]
     }
   },
   "tools": [

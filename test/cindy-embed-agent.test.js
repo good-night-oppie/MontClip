@@ -19,7 +19,7 @@ const Host = require("../host-embed");
 const View = require("../ui-preferences");
 const { withPage } = require("./browser-contrast");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
-const browser = (() => { try { return require("../export-jobs").findBrowser(); } catch { return null; } })();
+const browser = (() => { try { return require("../server/export-jobs").findBrowser(); } catch { return null; } })();
 const skip = !browser ? "no Chrome / Edge to run the page in" : typeof WebSocket !== "function" ? "needs Node's WebSocket (Node 22)" : false;
 
 const decision = (o = {}) => ({ ticket: "t1", choices: ["once", "session", "deny"], label: "保留所选范围", risk: "undoable", ...o });

@@ -5,9 +5,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const SeqLib = require("../sequences");
-const ProjectOps = require("../project-ops");
+const ProjectOps = require("../server/project-ops");
 const MediaLib = require("../media-lib");
-const { diffDocs } = require("../history");
+const { diffDocs } = require("../server/history");
 const { makeDataDir, readProject, seedProject, startServer, startMcp } = require("./helpers");
 
 const patch = (doc, ops) => ProjectOps.applyPatch(doc, ops, {});

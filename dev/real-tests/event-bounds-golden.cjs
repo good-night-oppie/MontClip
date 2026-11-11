@@ -48,7 +48,7 @@ function csv(text) {
 const versionKey = (file) => { const st = fs.statSync(file); return crypto.createHash("sha256").update(path.basename(file) + "\0" + st.size + "\0" + Math.round(st.mtimeMs)).digest("hex").slice(0, 32); };
 
 async function loudness(file) {
-  const { createSignals } = require("../../signals");
+  const { createSignals } = require("../../server/signals");
   return createSignals({ dir: path.join(WORK, "signals"), ffmpeg: FFMPEG }).loudness(file);
 }
 let asr = null;
@@ -56,7 +56,7 @@ async function transcript(file) {
   const out = path.join(WORK, "transcripts", versionKey(file) + ".json");
   try { return JSON.parse(fs.readFileSync(out, "utf8")); } catch { /* not made yet */ }
   if (!ASR) return null;
-  if (!asr) asr = require("../../asr-local").createAsr({ asrDir: ASR, ffmpeg: FFMPEG, threads: 4 });
+  if (!asr) asr = require("../../server/asr-local").createAsr({ asrDir: ASR, ffmpeg: FFMPEG, threads: 4 });
   const t0 = Date.now();
   let r, skipped = 0;
   try { r = await asr.transcribe(file); }
@@ -73,7 +73,7 @@ async function transcript(file) {
   return doc;
 }
 async function bySegment(file) {
-  const { spawn } = require("child_process"), W = require("../../asr-words"), { VAD } = require("../../asr-local");
+  const { spawn } = require("child_process"), W = require("../../server/asr-words"), { VAD } = require("../../server/asr-local");
   const S = require(path.resolve(ASR, "engine", "node_modules", "sherpa-onnx-node")), RATE = 16000;
   const md = path.resolve(ASR, "models", "asr"), pd = path.resolve(ASR, "models", "punct");
   const rec = await S.OfflineRecognizer.createAsync({ featConfig: { sampleRate: RATE, featureDim: 80 },
