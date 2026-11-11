@@ -21,6 +21,74 @@ function fixture(replace = "none", linked = true) {
   return JSON.parse(JSON.stringify(doc)); // save + reopen, including the link metadata
 }
 const byId = (doc, id) => doc.clips.find(c => c.id === id);
+// Review regression: use the editor's real split rounding, not pre-rounded cuts.
+function splitFixture(fps, speed, replace) {
+  const doc = fixture(); doc.fps = fps;
+  for (const m of doc.media) m.duration = 200;
+  doc.clips = doc.clips.filter(c => c.start === 0);
+  for (const c of doc.clips) { c.duration = 60; c.props.speed = speed; }
+  Project.applyPatch(doc, [{ op: "split", at: 30 + 1 / fps }]);
+  if (replace) Project.applyPatch(doc, [{ op: "updateClip", id: "before-V1", set: { mediaId: "B" } }]);
+  return JSON.parse(JSON.stringify(doc));
+}
+function geometry(doc, kind) {
+  return doc.clips.filter(c => !kind || c.kind === kind)
+    .sort((a, b) => a.track.localeCompare(b.track) || a.start - b.start)
+    .map(c => ({ track: c.track, start: c.start, in: c.in, duration: c.duration }));
+}
+for (const fps of [25, 30, 60, 29.97, 30000 / 1001]) for (const speed of [1, 1.5])
+  for (const side of ["out", "in"]) for (const sign of [-1, 1])
+    test(`quantized split ${fps}fps speed ${speed} ${side} ${sign}: repeated rolls match control`, () => {
+      const doc = splitFixture(fps, speed, true), control = splitFixture(fps, speed, false);
+      for (const delta of [0, sign / fps, sign / fps, -sign / fps, sign * .1]) {
+        for (const d of [doc, control]) {
+          const e = Edit.forDoc(d); e.relinkClips();
+          const v = d.clips.filter(c => c.kind === "video").sort((a, b) => a.start - b.start)[side === "out" ? 0 : 1];
+          assert.equal(e.rollEdit(v, side, delta), delta);
+        }
+        assert.deepEqual(geometry(doc), geometry(control));
+      }
+    });
+function offsetFixture() {
+  const doc = fixture();
+  doc.media.find(m => m.id === "A").duration = 120;
+  doc.media.find(m => m.id === "B").duration = 35;
+  for (const c of doc.clips) c.in += 30;
+  Project.applyPatch(doc, [{ op: "updateClip", id: "before-V1", set: { mediaId: "B", in: 0 } }]);
+  return JSON.parse(JSON.stringify(doc));
+}
+test("same-source picture/audio In mismatch still refuses without relinking", () => {
+  const doc = offsetFixture(); byId(doc, "after-V1").in += 1;
+  const before = JSON.stringify(doc);
+  assert.equal(typeof Edit.forDoc(doc).rollEdit(byId(doc, "before-V1"), "out", .1), "string");
+  assert.equal(JSON.stringify(doc), before);
+});
+for (const delta of [-.1, 0, .1, 5]) test(`different source In survives reload and roll ${delta}`, () => {
+  const doc = offsetFixture(), control = fixture();
+  control.media.find(m => m.id === "A").duration = 120;
+  for (const c of control.clips) c.in += 30;
+  for (const d of [doc, control]) {
+    const e = Edit.forDoc(d); e.relinkClips();
+    assert.equal(e.withLinked([byId(d, "before-V1")]).length, 3);
+    assert.equal(e.rollEdit(byId(d, "before-V1"), "out", delta), delta);
+  }
+  assert.deepEqual(geometry(doc, "audio"), geometry(control, "audio"));
+  assert.equal(byId(doc, "before-V1").in, 0);
+  assert.equal(byId(doc, "before-A1").in, 30);
+});
+for (const [name, change, delta] of [
+  ["short replacement exhausted", () => {}, 5.0001],
+  ["left channel In mismatch", d => { byId(d, "before-A2").in += .001; }, .1],
+  ["right source discontinuity", d => { byId(d, "after-A2").in += .0003; }, .1],
+  ["misaligned start", d => { byId(d, "before-A2").start += .0003; }, .1],
+  ["misaligned duration", d => { byId(d, "before-A2").duration += .0003; }, .1],
+]) test(`offset mixed group refuses atomically: ${name}`, () => {
+  const doc = offsetFixture(); change(doc);
+  const e = Edit.forDoc(doc); e.relinkClips();
+  const before = JSON.stringify(doc);
+  assert.equal(typeof e.rollEdit(byId(doc, "before-V1"), "out", delta), "string");
+  assert.equal(JSON.stringify(doc), before);
+});
 const near = (actual, expected, label) => assert.ok(Math.abs(actual - expected) <= 1e-6,
   `${label}: ${actual} != ${expected}`);
 function check(doc, delta) {
