@@ -2,7 +2,7 @@
 // Opt-in, offline audit of an already authorized/extracted npm package. Never executes its code.
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const { webcrypto } = require('node:crypto');
-const A = require('../bgremove-assets');
+const A = require('../../bgremove-assets');
 async function main() {
   const directory = process.argv[2];
   if (!directory) throw new Error('Supply the previously authorized extracted package directory');

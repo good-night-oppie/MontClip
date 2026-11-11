@@ -37,7 +37,7 @@ for(const secret of [0,1]) {
   fs.copyFileSync(path.join(data,'media',`source-${secret}.mp4`),path.join(out,`source-${secret}.mp4`));
 }
 fs.writeFileSync(path.join(data,'project.json'),JSON.stringify({width:W,height:H,fps:FPS,media:[],clips:[]}));
-const browser=require('../export-jobs').findBrowser();
+const browser=require('../../export-jobs').findBrowser();
 if(!browser)throw Error('Chrome/Edge required');
 let pipe,srv,chrome;
 async function pageRun({mode,scenario,secret}) {

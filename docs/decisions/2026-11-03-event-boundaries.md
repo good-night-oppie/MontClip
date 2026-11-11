@@ -51,7 +51,7 @@
 
 ## 3. 还不知道的
 
-- 真实录像上，吸附之后误差能降多少。仓库里没有标好头尾的直播切片集（`real-tests/songs-golden.cjs` 只标了歌）；本机黄金集上的「现在」基线见第 9 节，吸附后的数字要等 v3.1 和逐字稿。
+- 真实录像上，吸附之后误差能降多少。仓库里没有标好头尾的直播切片集（`dev/real-tests/songs-golden.cjs` 只标了歌）；本机黄金集上的「现在」基线见第 9 节，吸附后的数字要等 v3.1 和逐字稿。
 - 主播平均手动调整几次。产品里有「你调过」状态（`edgeLevel`），但没有统计埋点，现在也不应该加联网统计。
 - 句间停顿 ≥ 1.2 秒作为「换话题」的准确率：杂谈语速快，停顿可能很少；游戏直播可能停顿很多。
 - 弹幕延迟的分布：要用录播姬的实时弹幕测，回放补发的弹幕不算（真值表 v3.1 的回放没有弹幕，这次没法测）。
@@ -119,7 +119,7 @@
 
 ## 5. 怎么证明边界变准了
 
-- **黄金集**：仿照 `real-tests/songs-golden.cjs`，人工给 ≥ 20 个非唱歌的热闹片段标「事件从哪句开始、到哪句结束」。
+- **黄金集**：仿照 `dev/real-tests/songs-golden.cjs`，人工给 ≥ 20 个非唱歌的热闹片段标「事件从哪句开始、到哪句结束」。
   - 至少 5 位主播；
   - 杂谈和游戏都要有；
   - 录像只放在测试机临时目录，标注文件只记秒数和 sha256。
@@ -148,7 +148,7 @@
   - 没人说话时只用画面，吸附后不短于 5 秒；
   - 逐字稿分句、误差统计；
   - VV 的拖动吸附 3 个（吸到句末 + 0.4 秒、句首 − 0.3 秒、没把握只出刻度）。
-- 新增 `real-tests/event-bounds-golden.cjs`：在 Linux 测试服务器上读真值表 v3.1 和回放跑评测，只打印数字（第 10 节）。
+- 新增 `dev/real-tests/event-bounds-golden.cjs`：在 Linux 测试服务器上读真值表 v3.1 和回放跑评测，只打印数字（第 10 节）。
 - 复现：`node --test test/event-bounds.test.js`。
 - 没有改 `app.js`、`CLAUDE.md` 和 `README.md`：没有改变任何接口或行为。接入时要按 AGENTS.md 同步更新文档。
 
@@ -176,7 +176,7 @@
 | 5 | 「去掉中间聊天」：点之前先列出要去掉的段落，可撤销 | **部分** | `songs.js` 会把 ≤ 8 秒的中断桥接起来，标成 `marks: inside / merged`，这就是候选的「中间聊天」。长于 8 秒的聊天，会让歌被拆成两首。还可以加一路信号：逐字稿在这段里语速像说话，而不是唱歌。准不准没测。删除走现有的 `extract`（一步撤销）。「先列出再点」跟本 ADR「每个结论都有理由」一致 |
 
 **真值表在哪、怎么用**
-- **仓库里：未找到。**`real-tests/` 只有 `songs-golden.cjs`（歌）。`test/fixtures/m0/time-truth.json` 是导出帧对帧的测试数据，跟高光无关。
+- **仓库里：未找到。**`dev/real-tests/` 只有 `songs-golden.cjs`（歌）。`test/fixtures/m0/time-truth.json` 是导出帧对帧的测试数据，跟高光无关。
 - **仓库外（本机，只读）**：JJ 那里有：
   - v0、v1 两版 36 行表：切片和回放配对，列有创作者、类型、把握程度、切片时长、回放 BV、分P；**start_sec 和 end_sec 是空的**；
   - JJ 对 v2 对齐稿的复核意见（7 处修改）。
@@ -249,7 +249,7 @@ VV 的参数都写成可以调的默认值，等实测以后再改。
 
 **真值表 v3.1 在哪**
 - **仓库里：未找到。**`origin` 的 111 个分支里也只有：
-  - `real-tests/songs-golden.cjs`（歌）；
+  - `dev/real-tests/songs-golden.cjs`（歌）；
   - `exp/weco-highlights` 分支上的 `experiments/highlight-tuning/eval.cjs`，读的也是找歌黄金集目录。
 - 本机：只有 JJ 那里 v0 和 v1 两版 36 行表，**起止时间是空的**；还有 v2 复核意见。
 - v3.1 按 JJ 推进看板 11-03 的记录，在 Linux 测试服务器上（sha256 `f37adb7d…`，进调参 37 行）。我没有去取。
@@ -300,7 +300,7 @@ VV 的参数都写成可以调的默认值，等实测以后再改。
 - 真值表 sha256：`f37adb7d0b809bbfd845872c15257011268930d7cbce434f286bb215dbf9b874`，跑之前核过。
 - 命令：
   ```
-  node real-tests/event-bounds-golden.cjs --table <v3.1 csv> --replays <replays dir> --work <work dir> --asr vendor/asr --ffmpeg /usr/bin/ffmpeg --json <out>
+  node dev/real-tests/event-bounds-golden.cjs --table <v3.1 csv> --replays <replays dir> --work <work dir> --asr vendor/asr --ffmpeg /usr/bin/ffmpeg --json <out>
   ```
 - 怎么算：
   - 每个非唱歌行，取那场回放里引擎前 12 张卡中跟它重叠最多的那张，作为预测；
@@ -335,7 +335,7 @@ VV 的参数都写成可以调的默认值，等实测以后再改。
 | 5 VV 拖动吸附：±1 秒命中 | ≥ 80%，否则默认关 | — | — | — | 只算触发了吸附的那几次：**62/64 = 97%**（从真值 ±2 秒开始拖，248 次里只有 64 次触发了吸附） | **拖动吸附精度过门槛（n=64，错 2）；默认开还是关，等接入排期时再定**（样本只有 64 次，真值的对齐精度没有验证到 ±0.6 秒，所以 97% 只是初步证据；回听已做，见下） |
 
 - **找歌两套数据的差别（为什么不能把 0.38 和 0.67/0.65 直接比）**：
-  - 本表第 4 条的 `recall@10 = 0.38`、`precision@15 = 0.04`，来自**本机找歌黄金集**（`real-tests/songs-golden.cjs`）的 **4 场留出集**（GC04、GC11、GC13、GC15，4 位主播，共 13 首标注歌）；同一套数据的 **10 场训练集**是 `recall@10 = 0.69`（75 首歌），**全量 15 场**（13 位主播，88 首歌，每场都有 `audio-features.json`、`loudness.json` 和 `danmaku.json`）是 `recall@10 = 0.65`、`precision@15 = 0.12`。
+  - 本表第 4 条的 `recall@10 = 0.38`、`precision@15 = 0.04`，来自**本机找歌黄金集**（`dev/real-tests/songs-golden.cjs`）的 **4 场留出集**（GC04、GC11、GC13、GC15，4 位主播，共 13 首标注歌）；同一套数据的 **10 场训练集**是 `recall@10 = 0.69`（75 首歌），**全量 15 场**（13 位主播，88 首歌，每场都有 `audio-features.json`、`loudness.json` 和 `danmaku.json`）是 `recall@10 = 0.65`、`precision@15 = 0.12`。
   - **Linux 测试服务器上的高光真值表 v3.1 是另一套数据**：进调参 37 行来自 P01–P05 五位创作者的 7 个纯音频回放（`audio.m4s`，无弹幕、无画面），其中整首歌只有 **P04 一位创作者的 6 行**（单场 `songs.find` 在这 6 行上 recall@10 为 3/6 = 0.50，3 首命中的开头误差为 1.5s、1.9s、5.9s）。
   - 因此：0.38 是找歌黄金集 4 场留出集的数字，0.65/0.69 是同集全量/训练集的数字，v3.1 只有 P04 的 6 首歌（0.50）——两套数据的主播构成、场次数、是否有弹幕、标注用途都不同，不能直接混比。
 

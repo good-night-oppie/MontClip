@@ -146,11 +146,11 @@ repair*.js、faststart*.js 在本次main根目录没有实存文件，不加入�
 - `docs/validation/2026-11-03-server-memory/mem-repro.cjs`
 - `docs/validation/2026-11-03-server-memory/mem-upload.cjs`
 - `mcp-server.js`
-- `real-tests/bgremove-assets-byte-audit.cjs`
-- `real-tests/bgremove-consent-browser-smoke.cjs`
-- `real-tests/font-consent-browser-smoke.cjs`
-- `real-tests/openrouter.integration.cjs`
-- `real-tests/run-deepseek-e2e.cjs`
+- `dev/real-tests/bgremove-assets-byte-audit.cjs`
+- `dev/real-tests/bgremove-consent-browser-smoke.cjs`
+- `dev/real-tests/font-consent-browser-smoke.cjs`
+- `dev/real-tests/openrouter.integration.cjs`
+- `dev/real-tests/run-deepseek-e2e.cjs`
 - `test/agent-meta-provider.test.js`
 - `test/asr-offline.test.js`
 - `test/asr-unavailable.test.js`

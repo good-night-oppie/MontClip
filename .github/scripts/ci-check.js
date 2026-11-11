@@ -19,9 +19,9 @@ const ROOT = path.resolve(__dirname, "..", "..");
 
 /* AP.3: the number of tracked .js files at the prep commit. The old `for f in
    *.js` saw only the 99 files flat at the root; `git ls-files '*.js'` sees all
-   494 across the repo (a superset that keeps working as code moves into
+   of them across the repo (a superset that keeps working as code moves into
    subdirectories). This floor fails the check if a file is later dropped. */
-const BASELINE_JS = 494;
+const BASELINE_JS = 496;
 
 const run = (cmd, args, opts) => {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", ...opts });
@@ -137,14 +137,18 @@ function releaseCheck() {
 
 function npmPackCheck() {
   const out = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-pack-"));
-  const app = path.join(out, "app");
-  fs.mkdirSync(app);
-  run("npm", ["pack", "--pack-destination", out], { shell: NPM_SHELL, stdio: "inherit" });
-  const tgz = fs.readdirSync(out).find((f) => f.endsWith(".tgz"));
-  if (!tgz) throw new Error("npm pack produced no tarball");
-  run("npm", ["init", "-y"], { cwd: app, shell: NPM_SHELL, stdio: "ignore" });
-  run("npm", ["install", "--no-audit", "--no-fund", path.join(out, tgz)], { cwd: app, shell: NPM_SHELL, stdio: "inherit" });
-  run(process.execPath, [path.join(ROOT, ".github", "scripts", "release-check.js"), "--installed", path.join(app, "node_modules", "montclip")], { stdio: "inherit" });
+  try {
+    const app = path.join(out, "app");
+    fs.mkdirSync(app);
+    run("npm", ["pack", "--pack-destination", out], { shell: NPM_SHELL, stdio: "inherit" });
+    const tgz = fs.readdirSync(out).find((f) => f.endsWith(".tgz"));
+    if (!tgz) throw new Error("npm pack produced no tarball");
+    run("npm", ["init", "-y"], { cwd: app, shell: NPM_SHELL, stdio: "ignore" });
+    run("npm", ["install", "--no-audit", "--no-fund", path.join(out, tgz)], { cwd: app, shell: NPM_SHELL, stdio: "inherit" });
+    run(process.execPath, [path.join(ROOT, ".github", "scripts", "release-check.js"), "--installed", path.join(app, "node_modules", "montclip")], { stdio: "inherit" });
+  } finally {
+    fs.rmSync(out, { recursive: true, force: true });
+  }
 }
 
 function main() {

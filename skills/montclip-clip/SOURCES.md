@@ -79,7 +79,7 @@
 
 - 多音轨选择（#177，合并提交 `982b1312`）：`mcp-tools.js` 第 206–216 行是 `fablecut_audio_track` 的原文参数与约束；`mcp-server.js` 的 `audioTrackTool` 实现列表、`listen` 每轨 6 秒、0 起编号、一次撤销和重跑分析，`audioWindow` 的分析 / 导出分轨保证导出仍读 track 0。`media-lib.js` 的 `audioTrackOf` 默认 0；`app.js` 第 3414、3518–3600 行是右键〔选音轨…〕、逐条〔试听〕和换轨，`ui-preferences.js` 第 428–448 行是「主播的声音在哪条轨」「第 {n} 轨」「试听」等界面原文。多音轨 MP4 保留全部轨道；技能里只写主播确认后才换轨。
 - 找歌没达标的说法（0.12 / 0.38，门槛 0.6）出自 `mcp-tools.js` 里 `fablecut_songs` 的描述，以及 `auto-slices.js` 的 `SONG_GATE` / `SONG_MEASURED`。
-- 隐私覆盖做法（#202，合并提交 `ecb2afde`）：`CLAUDE.md` Masks 的不透明覆盖块说明，以及 `reference/privacy-cover.md` 的本仓合成逐帧验证。旧版调节层模糊、模糊副本与追踪配方已撤回作为隐私推荐；模糊滑块上限不代表安全阈值。本轮保留 main 的撤回结论，没有恢复 #163 / #186 的未合并做法。
+- 隐私覆盖做法（#202，合并提交 `ecb2afde`）：`CLAUDE.md` Masks 的不透明覆盖块说明，以及 `dev/reference/privacy-cover.md` 的本仓合成逐帧验证。旧版调节层模糊、模糊副本与追踪配方已撤回作为隐私推荐；模糊滑块上限不代表安全阈值。本轮保留 main 的撤回结论，没有恢复 #163 / #186 的未合并做法。
 - 长录像听写与不可用文案（#165，合并提交 `29ae0939`）：`mcp-server.js` 第 667 行 `LONG_FILE_S = 600`（>10 分钟且片段窗口 < 全片一半时只读片段窗口，`pad` 默认 1.5 秒，`transcribe.js` 第 144 行）；`/api/asr/transcribe` 与 `/api/transcribe/request` 接受 `ranges`（1–500 段，`server.js` 第 1968、1176 行）；听写缺失的三种 code 与定稿文案在 `asr-status.js`（「还没装听写模型（约 240 MB）」「这台电脑上的 MontClip 还没有听写程序…剪辑、导出照常能用」，模型大小按 1,000,000 字节/MB 取整到 10），离开本机的错误一律脱路径（`hidePaths`）；server 顶层不再被听写异常打崩（`server.js` 第 810 行附近）。
 - AI 抠像（#154，合并提交 `aba1d4c8`）：同意流程与文案在 `app.js` 第 13580–13621 行与 `ui-preferences.js` 第 266–279 行（「要联网下载 AI 抠像吗？」「只下载，不上传…录像、字幕和项目都不会发出去」「边播边录这种导出方式不支持 AI 抠像…」）；MediaPipe 资产钉死与字节校验在 `bgremove-assets.js`（9 个文件精确字节数 + SHA-256）；导出/合成完整性拒绝在 `noteExportBgRemove`。Whisper 已不在听写路径（听写只走本机 Paraformer）。
 - 窄窗口素材面板（#162，合并提交 `59ba9890`）：≤560 px 时素材面板占满宽度，顶栏「素材」按钮变「返回播放器」，双击载入 Source 素材自动收起面板（`app.js` 第 43–58 行、`ui-preferences.js` 第 359–362 行、`style.css` 第 4768 行起）。

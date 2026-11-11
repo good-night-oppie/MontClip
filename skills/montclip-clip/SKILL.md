@@ -280,7 +280,7 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 也可能因模糊后的半透明边缘透出底图；模糊更强不一定更安全。调节层、叠第二层、
 马赛克和给底层挖洞都不能未经验证就当作安全替代。艺术模糊仍可使用，但不能承诺隐私。
 
-打码完一律做 §5.1 的逐帧检查。合成验证及适用范围见 `reference/privacy-cover.md`；
+打码完一律做 §5.1 的逐帧检查。合成验证及适用范围见 `dev/reference/privacy-cover.md`；
 这不等于真实素材已验收。
 
 ---

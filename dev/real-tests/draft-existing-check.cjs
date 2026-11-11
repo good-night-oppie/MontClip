@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 const dir=path.resolve(process.argv[2]);
-const ff=require('../ffmpeg-path').path('ffmpeg'),probe=require('../ffmpeg-path').path('ffprobe');
+const ff=require('../../ffmpeg-path').path('ffmpeg'),probe=require('../../ffmpeg-path').path('ffprobe');
 const receipt=JSON.parse(fs.readFileSync(path.join(dir,'receipt.json')));
 if(!receipt.completed)throw Error('Incomplete runner receipt');
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');

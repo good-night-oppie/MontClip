@@ -98,7 +98,7 @@ test('the golden-set evaluation prints numbers only: no titles, no labels, no fi
   const c=path.join(d,'cases','CASE-秘密');fs.mkdirSync(c,{recursive:true});
   fs.writeFileSync(path.join(c,'audio-features.json'),JSON.stringify({v:1,step:0.5,keys:['t','rms','flat','cent','ent','zcr'],rows:rms.map((v,i)=>[i*0.5,v,0,0,0,0])}));
   fs.writeFileSync(path.join(c,'labels.json'),JSON.stringify({labels:SONGS.map(([s])=>({start_sec:s,end_sec:null,label:'《秘密歌名》secret-title',category:'演唱'}))}));
-  const r=spawnSync(process.execPath,[path.join(__dirname,'..','real-tests','songs-golden.cjs'),d],{encoding:'utf8'});
+  const r=spawnSync(process.execPath,[path.join(__dirname,'..','dev/real-tests','songs-golden.cjs'),d],{encoding:'utf8'});
   a.equal(r.status,0,r.stderr);
   a.match(r.stdout,/recall@10 1\.00/);
   a.ok(!/秘密|secret|CASE|演唱|labels|\.json/.test(r.stdout+r.stderr),r.stdout);

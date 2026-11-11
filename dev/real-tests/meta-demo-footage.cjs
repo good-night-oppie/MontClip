@@ -4,10 +4,10 @@
 //   A — quote two subtitles, "Keep only these two." → keep_sentences → approve → the cut plays → Undo
 //   B — "Delete 3 to 5 seconds." → keep_ranges → approve → the cut plays → Undo
 // plus a still of the settings with Meta chosen (before any key is typed) and shotlist.md with each shot's time in its take.
-// Synthetic material only. The key comes only from ~/.meta-montclip, mode 600 (real-tests/meta-key-file.cjs); nothing is
+// Synthetic material only. The key comes only from ~/.meta-montclip, mode 600 (dev/real-tests/meta-key-file.cjs); nothing is
 // recorded while the settings are open, and no output may contain the key (checked at the end).
 //   MONTCLIP_REAL_MODELS=1 MONTCLIP_FOOTAGE_OUT=<folder> xvfb-run -a desktop/node_modules/electron/dist/electron \
-//     real-tests/meta-demo-footage.cjs --montclip-smoke --user-data-dir=<fresh> --no-sandbox     (europa: with the session DBUS)
+//     dev/real-tests/meta-demo-footage.cjs --montclip-smoke --user-data-dir=<fresh> --no-sandbox     (europa: with the session DBUS)
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 if(!process.argv.includes('--montclip-smoke')||process.env.MONTCLIP_REAL_MODELS!=='1')throw Error('Explicit run with MONTCLIP_REAL_MODELS=1 required');
 // POSIX mode checks do not establish Windows ACL privacy. Refuse before even consulting the key reader.
@@ -18,7 +18,7 @@ const requestedProfile=profileArg.slice('--user-data-dir='.length).trim();
 const requestedOut=process.env.MONTCLIP_FOOTAGE_OUT;if(!requestedOut)throw Error('MONTCLIP_FOOTAGE_OUT required');
 const managed=require('./footage-profile.cjs').prepare(requestedProfile,requestedOut);
 const {profile,out}=managed;
-managed.bind(app,require('../desktop/agent-service'));
+managed.bind(app,require('../../desktop/agent-service'));
 // Also covers orderly exits outside the recording handler. SIGKILL/power loss cannot run cleanup.
 app.on('will-quit',()=>{if(!managed.cleanup().ok){process.stdout.write('FOOTAGE_FAILED: CREDENTIAL_CLEANUP_FAILED\n');app.exit(1);}});
 const found=require('./meta-key-file.cjs').readKey();if(!found.key){process.stdout.write('FOOTAGE SKIPPED: KEY_UNAVAILABLE; check the key file owner and permissions on Linux.\n');process.exit(2);}
@@ -124,4 +124,4 @@ BrowserWindow.prototype.loadURL=async function(...args){const win=this,read=s=>w
   finally{setTimeout(()=>app.exit(result.passed?0:1),300);}}
 };
 {const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
-require('../desktop/main');
+require('../../desktop/main');

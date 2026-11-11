@@ -1,6 +1,6 @@
 'use strict';
 // Test-only process boundaries. Never discover or adopt an existing service.
-const { resolveTool } = require('../ffmpeg-path');
+const { resolveTool } = require('../../ffmpeg-path');
 function lifetime(child) {
   let failure;
   const listeners=new Set();

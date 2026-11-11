@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {prepare}=require('../real-tests/footage-profile.cjs'),Agent=require('../desktop/agent-service');
+const {prepare}=require('../dev/real-tests/footage-profile.cjs'),Agent=require('../desktop/agent-service');
 function fixture(t){const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'footage-private-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return {root,profile:path.join(root,'profile'),out:path.join(root,'out')};}
 function bind(g,disk=fs){const agent={...Agent};let userData;g.bind({setPath:(_,p)=>userData=p,getPath:()=>userData},agent);return agent.createDiskService(g.profile,{isEncryptionAvailable:()=>true,encryptString:s=>Buffer.from(s),decryptString:b=>b.toString()},disk);}
 test('native POSIX new and Electron-created empty profile are owner-only',{skip:process.platform==='win32'},t=>{
