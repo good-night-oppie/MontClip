@@ -1,7 +1,7 @@
 'use strict';
 // Acceptance for a privacy recipe: changing only the synthetic secret must not
 // change ANY output pixel, in ANY frame, in preview or the decoded real export.
-// Usage: node real-tests/privacy-cover-check.cjs results.json blur|cover
+// Usage: node dev/real-tests/privacy-cover-check.cjs results.json blur|cover
 const fs=require('node:fs'),assert=require('node:assert/strict');
 const result=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),mode=process.argv[3];
 assert.equal(result.completed,true,'runner must finish all scenarios');

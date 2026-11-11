@@ -1180,7 +1180,7 @@ every sensitive frame. Reposition/animate the cover after crop, movement,
 scaling or reframing. Inspect every frame in preview and in the decoded final
 export, including cuts and edges. Tracking confidence is not privacy evidence.
 Neither a blur strength nor an unverified mosaic setting guarantees unreadable
-text. See `reference/privacy-cover.md` for the synthetic test and its limits.
+text. See `dev/reference/privacy-cover.md` for the synthetic test and its limits.
 This is an agent recipe, not an accepted end-to-end button workflow. The ordinary
 shape button is not a privacy preset: set square corners (`radius:0`), and do
 not assume its default track, duration or geometry covers the sensitive content.
@@ -3231,7 +3231,7 @@ window is not a quiet room; joins runs across breaks of up to 8 s, splits a run 
 or more) at a quiet gap at least 150 s in and 90 s before its end, and drops runs under 90 s. A song's start backs
 up to where its sound begins, its end runs on to where the sound stops (each at most 12 s). Spectral entropy is not
 used. These parameters come from the prototype's grid search over a local golden set, which is not in the repo
-(`node real-tests/songs-golden.cjs <dir>` evaluates against one and prints numbers only). **Not accurate enough to
+(`node dev/real-tests/songs-golden.cjs <dir>` evaluates against one and prints numbers only). **Not accurate enough to
 trust yet**: on that set (15 recordings from 13 streamers) precision@15 is 0.12, and on its 4 held-out recordings
 (4 streamers) recall@10 is 0.38. Treat every song as a guess to check; the editor shows them all as 「估的」.
 

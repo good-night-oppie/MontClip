@@ -12,13 +12,13 @@ europa 审查机上的 `montclip-review/raw/pr189/` 目录
 |---|---:|---|---|
 | `2026-11-05-draft-existing-loop/` | 56 | run06：缺口卡加入、替换、撤销/重做、保存重开、删除、版本恢复的 simulated 闭环（程序生成素材） | runner 14/14 检查通过，cleanup 两进程均退出；4 份 ProRes 导出各 360 帧；卡/替换只改帧 240–299（[8,10)）；版本恢复 360/360 帧与基线一致；解码检查 12/13（唯一失败为尾音：源 576000 样本/声道，导出 573440，短 53.333ms） |
 | `2026-11-05-draft-existing-loop-v2/` | 65 | v2-03：在 run06 基础上加卡重开、重开后删除/撤销、新页面上下文、持久化插入撤销 | runner 21/21 检查通过，cleanup 双 true，runner sha256 `7242ef7e…f44fc`；解码检查同为 12/13，失败项同上 |
-| `2026-11-05-audio-tail-diagnostic/` | 12 | ProRes 结尾丢声音的诊断原始记录（ffmpeg 参数、输入帧、PTS、两份 stderr 调试日志、带/不带 `-shortest` 的探测） | **已由 #190 修复**，本分支已删除对应诊断脚本（`real-tests/audio-tail-*.cjs`）、runner 的 `--audio-tail-diagnostic` 模式和诊断文档 |
+| `2026-11-05-audio-tail-diagnostic/` | 12 | ProRes 结尾丢声音的诊断原始记录（ffmpeg 参数、输入帧、PTS、两份 stderr 调试日志、带/不带 `-shortest` 的探测） | **已由 #190 修复**，本分支已删除对应诊断脚本（`dev/real-tests/audio-tail-*.cjs`）、runner 的 `--audio-tail-diagnostic` 模式和诊断文档 |
 | `2026-11-05-cut-frame-regression.txt` | 1 | 切点定向回归完整日志 | 58/58 通过 |
 | `2026-11-05-draft-interaction-tests.txt` | 1 | 草稿交互现状测试日志 | 59/59 通过 |
 
 ## #190 合并后的复跑（2026-11-07，Windows 本机）
 
-在合并 `origin/main` 后的本分支上重跑留下的验收脚本：`node real-tests/draft-existing-loop.cjs <新目录>` 后 `node real-tests/draft-existing-check.cjs <同目录>`。Node 22.15.1，HeadlessChrome 156.0.8078.80，系统 FFmpeg 9.0.1 gyan.dev full（经 MONTCLIP_FFMPEG / MONTCLIP_FFPROBE 指定，非 bundled）。
+在合并 `origin/main` 后的本分支上重跑留下的验收脚本：`node dev/real-tests/draft-existing-loop.cjs <新目录>` 后 `node dev/real-tests/draft-existing-check.cjs <同目录>`。Node 22.15.1，HeadlessChrome 156.0.8078.80，系统 FFmpeg 9.0.1 gyan.dev full（经 MONTCLIP_FFMPEG / MONTCLIP_FFPROBE 指定，非 bundled）。
 
 - runner：completed=true，21/21 检查通过，cleanup 两进程均退出。
 - 解码检查：13/13 通过。源与导出均为 576000 样本/声道，缺失 0ms；零偏移相关 0.99999997，增益比 0.99978。原来唯一的尾音失败项不再失败。

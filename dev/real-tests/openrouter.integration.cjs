@@ -2,17 +2,17 @@
 // Integration tests against a real model: an OpenRouter free vision model (id ends in
 // ":free"), through the product's own request path (desktop/agent-service.js with the
 // fixed OpenRouter endpoint). Off unless MONTCLIP_REAL_MODELS=1; never run in CI.
-//   MONTCLIP_REAL_MODELS=1 node --test real-tests/openrouter.integration.cjs
+//   MONTCLIP_REAL_MODELS=1 node --test dev/real-tests/openrouter.integration.cjs
 // Key: only ~/.openrouter-montclip (mode 600, on europa) or the file MONTCLIP_OPENROUTER_KEY_FILE names; a file with wider
-// permissions is refused and the tests are skipped (real-tests/key-file.cjs). It is never printed, logged or written anywhere.
+// permissions is refused and the tests are skipped (dev/real-tests/key-file.cjs). It is never printed, logged or written anywhere.
 // Rate limits (429) and upstream failures are reported as SKIPPED (with the reason), not passed.
 const {test}=require('node:test'),a=require('node:assert/strict'),path=require('node:path');
-const S=require('../desktop/agent-service'),C=require('../agent-conversation'),K=require('./key-file.cjs');
+const S=require('../../desktop/agent-service'),C=require('../../agent-conversation'),K=require('./key-file.cjs');
 const ON=process.env.MONTCLIP_REAL_MODELS==='1';
 const found=ON?K.readKey():{},KEY=found.key||null;
 const off=!ON?'real-model tests are off (set MONTCLIP_REAL_MODELS=1)':!KEY?found.skip:false;
 const report=[];const scrub=K.scrubber(KEY);
-const out=process.env.MONTCLIP_REAL_REPORT||path.join(__dirname,'..','docs','validation','real-model-integration.json');
+const out=process.env.MONTCLIP_REAL_REPORT||path.join(__dirname,'..','..','docs','validation','real-model-integration.json');
 
 async function pickModel(){
  if(process.env.MONTCLIP_OPENROUTER_MODEL)return process.env.MONTCLIP_OPENROUTER_MODEL;

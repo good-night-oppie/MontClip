@@ -3,7 +3,7 @@
 // never the old ~/.openrouter-token; a file anyone else can read is refused; the key never reaches a reason or the report.
 // Synthetic keys only.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-const K = require('../real-tests/key-file.cjs');
+const K = require('../dev/real-tests/key-file.cjs');
 const FAKE = 'sk-or-v1-synthetic-test-key-0000';
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'mc-key-'));
 const posix = process.platform !== 'win32';
@@ -17,7 +17,7 @@ test('the key is looked for in ~/.openrouter-montclip, or where MONTCLIP_OPENROU
   const r = K.readKey({ env: {}, home, platform: 'linux' });
   a.equal(r.key, undefined);
   a.match(r.skip, /no key file at .*\.openrouter-montclip/);
-  const src = fs.readFileSync(path.join(__dirname, '..', 'real-tests', 'openrouter.integration.cjs'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'dev/real-tests', 'openrouter.integration.cjs'), 'utf8');
   a.doesNotMatch(src, /openrouter-token/);
   a.match(src, /K\.readKey\(\)/);
 });

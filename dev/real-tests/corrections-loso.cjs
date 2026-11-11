@@ -2,7 +2,7 @@
 /* Local only: do the streamer's corrections (corrections.js) make the next search closer? Leave one streamer out at a time
    (Deja, 2026-11-03): the held-out streamer's recordings are scored with corrections off, then on — the corrections
    simulated from every OTHER streamer's recordings, never the held-out one's (that would leak the answers).
-     node real-tests/corrections-loso.cjs <golden dir>
+     node dev/real-tests/corrections-loso.cjs <golden dir>
    A streamer is the recordings sharing a video id (labels.json bvid; pages of one stream). The golden set stays outside
    the repo, and this prints numbers only — no titles, labels, case names, video ids or paths.
    Simulated corrections, per recording in time order: a found song with a labelled song start within 15 s → its start
@@ -17,7 +17,7 @@
    few are). */
 "use strict";
 const fs = require("fs"), path = require("path");
-const Songs = require("../songs"), C = require("../corrections"), H = require("../highlight-candidates");
+const Songs = require("../../songs"), C = require("../../corrections"), H = require("../../highlight-candidates");
 const root = process.argv[2];
 if (!root || !fs.existsSync(path.join(root, "cases"))) { console.error("usage: corrections-loso.cjs <golden dir with cases/>"); process.exit(2); }
 const SONG = /演唱|舞蹈/;

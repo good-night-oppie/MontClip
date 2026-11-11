@@ -8,9 +8,9 @@
 // the box names the font and both hosts; "Not now" sends nothing; after "Load", only those two hosts, for that font;
 // the same font isn't asked about twice in a session. Deja (on #151): neither request carries a Referer or a Cookie
 // (a cookie is planted for both hosts first), nor anything naming this computer's address; the headers are printed.
-//   node real-tests/font-consent-browser-smoke.cjs        (FABLECUT_CHROME picks the browser; needs openssl)
+//   node dev/real-tests/font-consent-browser-smoke.cjs        (FABLECUT_CHROME picks the browser; needs openssl)
 const { spawn, spawnSync } = require("child_process"), fs = require("fs"), path = require("path"), os = require("os"), https = require("https");
-const ROOT = path.join(__dirname, ".."), CHROME = require("../export-jobs").findBrowser();
+const ROOT = path.join(__dirname, "../.."), CHROME = require("../../export-jobs").findBrowser();
 if (!CHROME) { console.log("SKIP: no Chrome / Edge (set FABLECUT_CHROME)"); process.exit(0); }
 const PORT = 7791, ORIGIN = `http://127.0.0.1:${PORT}`, CDP = 9333;
 let STAND_IN = 0;   // any free port

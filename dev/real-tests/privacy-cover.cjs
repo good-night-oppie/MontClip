@@ -5,7 +5,7 @@ const fs = require('node:fs'), path = require('node:path'), os = require('node:o
 const { spawn, fork, execFileSync } = require('node:child_process');
 const {serverLease,resolveMediaTools,pipeClient,verifyBrowserArguments}=require('./privacy-runtime.cjs');
 const crypto = require('node:crypto');
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..', '..');
 const out = path.resolve(process.argv[2] || 'privacy-evidence');
 if(fs.existsSync(out))throw Error('Use a new evidence directory; existing results must not be reused: '+out);
 fs.mkdirSync(out, { recursive: true });
@@ -37,7 +37,7 @@ for(const secret of [0,1]) {
   fs.copyFileSync(path.join(data,'media',`source-${secret}.mp4`),path.join(out,`source-${secret}.mp4`));
 }
 fs.writeFileSync(path.join(data,'project.json'),JSON.stringify({width:W,height:H,fps:FPS,media:[],clips:[]}));
-const browser=require('../export-jobs').findBrowser();
+const browser=require('../../export-jobs').findBrowser();
 if(!browser)throw Error('Chrome/Edge required');
 let pipe,srv,chrome;
 async function pageRun({mode,scenario,secret}) {

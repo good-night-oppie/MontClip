@@ -3,7 +3,7 @@
 // 10 s recording and three subtitles, the connection set up through the AI service settings (Meta（Muse Spark）, model
 // filled in); then twice: (1) the two subtitles to keep quoted,「只保留这两句」→ keep_sentences, (2)「把 3 到 5 秒删掉」→
 // keep_ranges. Each: the review (it names api.meta.ai), the real reply, the approval in 手动, the cut on the timeline
-// (one undo step), and Undo. Run only through real-tests/run-meta-e2e.cjs. The key is typed into the password field
+// (one undo step), and Undo. Run only through dev/real-tests/run-meta-e2e.cjs. The key is typed into the password field
 // like a user would; it is never printed, and no screenshot is taken while the settings are open.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 if(!process.argv.includes('--montclip-smoke')||process.env.MONTCLIP_REAL_MODELS!=='1')throw Error('Explicit smoke with MONTCLIP_REAL_MODELS=1 required');
@@ -102,4 +102,4 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
 };
 // Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
 {const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
-require('../desktop/main');
+require('../../desktop/main');

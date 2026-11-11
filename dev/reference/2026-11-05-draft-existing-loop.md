@@ -4,7 +4,7 @@
 
 ## 退出确认与源码对应补核
 
-以下 SHA256 已逐一与 `git show <commit>:real-tests/draft-existing-loop.cjs` 核对，而非用旧成功记录代表当前源码：
+以下 SHA256 已逐一与 `git show <commit>:dev/real-tests/draft-existing-loop.cjs` 核对，而非用旧成功记录代表当前源码：
 
 | 运行 | runner 提交 / SHA256 | 范围与退出结果 |
 |---|---|---|
@@ -38,8 +38,8 @@ run07只留下最终browserExited=false；之后按原PID只读检查未发现�
 Windows Node 22.15.1、Chrome 156.0.8078.80、FFmpeg 9.0.1 gyan.dev full（非 bundled）。零新依赖。设置 MONTCLIP_FFMPEG / MONTCLIP_FFPROBE 为本机明确的工具路径；Chrome 可用 MONTCLIP_TEST_CHROME 指定。输出必须是不存在的新目录。
 
 ```text
-node real-tests/draft-existing-loop.cjs out/draft-loop-new
-node real-tests/draft-existing-check.cjs out/draft-loop-new
+node dev/real-tests/draft-existing-loop.cjs out/draft-loop-new
+node dev/real-tests/draft-existing-check.cjs out/draft-loop-new
 ```
 
 runner 是现有能力的内部验收，不是可发布演示。checker 对比源 WAV，目前尾音项必须返回失败，不能改阈值/去掉长度检查来伪造通过。正常播放导出未改变规则。

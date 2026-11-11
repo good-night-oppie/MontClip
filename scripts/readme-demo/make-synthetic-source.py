@@ -3,6 +3,7 @@
 placeholder viewers (观众A/B/C) and a gift bar that shows a viewer nickname. Nothing here is a real
 person, account or recording. Every frame depends only on its time, so the output is reproducible.
 Usage: make-synthetic-source.py OUT.mp4    Needs: Pillow, ffmpeg, Noto Sans CJK (fonts-noto-cjk).
+Only run on Linux so far (Debian 12): the font path below is the Debian/Ubuntu fonts-noto-cjk location.
 For verify-cover.py only: NO_GIFT_TEXT=1 leaves the gift text out (everything else identical), and
 LOSSLESS=1 writes lossless VP9 (OUT should end in .webm), so two outputs differ only where the text is."""
 import math, os, subprocess, sys
@@ -10,6 +11,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 W, H, FPS, DUR = 1280, 720, 30, 12
 CJK = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"  # index 2 = Simplified Chinese
+if not os.path.isfile(CJK):
+    sys.exit(f"make-synthetic-source.py: font not found: {CJK}\n"
+             "Install Noto Sans CJK first, e.g. on Debian/Ubuntu: sudo apt install fonts-noto-cjk")
 font = lambda size: ImageFont.truetype(CJK, size, index=2)
 F14, F18, F22, F26 = font(14), font(18), font(22), font(26)
 

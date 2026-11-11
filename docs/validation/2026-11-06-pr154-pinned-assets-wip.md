@@ -22,7 +22,7 @@ not a parallel candidate-package implementation.
   27/27 passed. Successful complete-file loading in these unit tests uses a clearly
   labeled synthetic transport/digest oracle. Real WebCrypto checks the pinned empty
   `.data` and rejects changed/shortened synthetic content against real pins.
-- `node real-tests/bgremove-consent-browser-smoke.cjs`: 13/13 passed with local
+- `node dev/real-tests/bgremove-consent-browser-smoke.cjs`: 13/13 passed with local
   `MONTCLIP_FFMPEG`/`MONTCLIP_FFPROBE` overrides. CDP substitutes an explicitly synthetic
   inventory, with actual browser SRI/WebCrypto over synthetic bytes. A corrupted WASM
   response stops before entry JS executes; a subsequent explicit retry succeeds.
@@ -44,7 +44,7 @@ The exact npm package declares Apache-2.0, lacks LICENSE/NOTICE and lacks source
 mapping. The official project LICENSE is retained as a reference, not a claim of exact
 binary build provenance. Tarball SHA-512 and every runtime size/SHA-256 matched.
 
-`node real-tests/bgremove-assets-byte-audit.cjs .cache/pr154-mediapipe`: PASS.
+`node dev/real-tests/bgremove-assets-byte-audit.cjs .cache/pr154-mediapipe`: PASS.
 Actual WebCrypto accepted all nine files; local Blob resolution preserved every byte.
 Corruption of each resource was rejected before any Blob existed (empty data: add one byte).
 This audit is offline and does not execute package JS, WASM or models.

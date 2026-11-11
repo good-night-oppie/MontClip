@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Local evaluation of songs.js against a golden set kept outside the repo (P2, Deja 2026-11-03: the golden set never
    enters the repo, and the evaluation prints numbers only — no titles, labels, case names or paths).
-     node real-tests/songs-golden.cjs <golden dir>
+     node dev/real-tests/songs-golden.cjs <golden dir>
    <golden dir>/cases/<case>/audio-features.json  {step, keys:[t, rms, …], rows}   (ffmpeg astats + aspectralstats)
    <golden dir>/cases/<case>/labels.json          {labels:[{start_sec, category, unaligned?}]}   singing / dancing count
    --corrections <records.json> (optional) applies corrections.js rules from those records; off by default
@@ -11,8 +11,8 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const Songs = require("../songs");
-const Corrections = require("../corrections");
+const Songs = require("../../songs");
+const Corrections = require("../../corrections");
 // The streamer's corrections (corrections.js) are off here unless a file of records is named: they come from the same
 // streamer as the golden recordings, so using them by default would leak the answers into the score. Never what the
 // app kept on this computer; a file given by hand only. The number of records is printed, never the file's name.
