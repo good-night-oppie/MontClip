@@ -6,27 +6,11 @@ This is implementation evidence, not approval, deployment, or Cindy-window accep
 The final GitHub head is recorded by the Issue's append-only `RSI-EVIDENCE v1`
 entry; runtime file hashes in `roll-av.json` identify exactly what the export run loaded.
 
-**Publication blocker:** the installed Cindy App integration sends the whole
-base64 file through a Node channel limited to 256 KB of parameters. `CLAUDE.md`
-needs 347,836 base64 characters. Its upload failed; remote readback confirmed
-the old blob remained. The integration has no supported patch/file-handoff/git
-push operation. No shared-account write or credential workaround was used.
-The exact [pending manual and generated-page patch](pending-manual.patch) is
-included for reviewability and later application through a supported Cindy App
-channel. Those two local changes are not yet applied on the draft branch.
-The draft must not be sent for initial review until this and the real-window
-gate below are resolved. The numeric JSON receipt is compacted without removing
-any measurements so its supported upload fits the channel.
-
-Correction (2026-11-11, BB's installed-byte check): the plugin's own
-`node/runtime.cjs:66` caps a JSON line at **262,144 JavaScript characters**,
-while `node/core.cjs:94` accepts up to 700,000 base64 characters and
-`main.js:17` forwards the whole parameter object. This is not a uniform 256 KB
-byte limit. A 260,876-byte file yields 347,836 base64 characters and a 348,063
-character request; BB's offline test dispatched zero operations. The exact
-mapping to the outer `INTERNAL` error was not independently established.
-Follow-up: [oppie-github #11](https://github.com/good-night-oppie/oppie-github/issues/11).
-Earlier Issue records are retained unchanged.
+**Publication resolved (2026-11-11):** both required manual files were published
+through the supported Cindy App edit_file channel and the full tree was verified
+at `e3e988d67288a3326cacbe118b02fb578802bdfb`. See the
+[publication receipt](https://github.com/good-night-oppie/MontClip/issues/285#issuecomment-6803889303).
+The obsolete pending-manual.patch is removed; historical Issue receipts remain unchanged.
 
 ## Requirement and ownership
 
@@ -43,7 +27,8 @@ Both requirement hashes were read back during implementation.
 
 `updateClip` records the original AV relationship before changing a picture's
 media. Reload/patch relinking retains recorded mixed-source groups only when
-there is exactly one picture, unique tracks, and matching start/In/duration.
+there is exactly one picture, unique tracks, and matching timeline start/duration.
+Each source has its own In; channels from the same audio file must agree.
 It does not infer mixed-source links from overlapping tracks.
 
 A mixed-source roll checks both sides' channels, source continuity, constant
@@ -164,19 +149,10 @@ and no editing overlays. [Inspected synthetic frame](replaced-frame.png).
 | Unit/MCP geometry and atomic refusal | 192/192 passed |
 | Full suite / release check | 2,627 passed, 0 failed, 17 skipped; release readiness passed |
 | Synthetic real compositor export | 64/64 passed; 128 channel checks, 48 exact PCM control comparisons |
-| Win11 Cindy real window | Not run: candidate engine is not installed in an isolated Cindy plugin |
+| Win11 Cindy real window | 7/7 at e3e988d67288a3326cacbe118b02fb578802bdfb; [readbacks and measurements](https://github.com/good-night-oppie/MontClip/issues/285#issuecomment-6805247342). Not rerun on later heads. |
 | europa actual package | Not run in this task; remains a separate platform gate |
 
-No initial/final review is requested before the Cindy real-window gate. A draft
-PR can hold these changes and evidence without claiming that gate is satisfied.
-
-The proposed Cindy test installation must use a separate plugin id, a separate
-`MONTCLIP_CINDY_DATA` directory and a private ephemeral port. Changing the plugin
-id alone is insufficient: the wrapper defaults to `~/MontClip-Cindy`. Its engine
-must be copied from the exact candidate head; its FFmpeg must be an already
-available verified copy. The existing `local/montclip` stays installed and
-unchanged. QQ must review the candidate package/hash and authorize the isolated
-installation through Cindy's plugin installation flow before this test runs.
+The isolated candidate was uninstalled by QQ; [cleanup](https://github.com/good-night-oppie/MontClip/issues/285#issuecomment-6807017662) confirmed no worker or listener, while retaining the orphaned historical lock. Later review fixes require their own tests and QQ current-head incremental validation; the old 7-window/64-export evidence is not relabelled as a new-head run. No reinstallation or desktop use is part of the geometry follow-up.
 
 Public outbound material is limited to code, synthetic fixture commands and
 sanitized numeric evidence on the authorized GitHub repository. The original
