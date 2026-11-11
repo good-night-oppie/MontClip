@@ -18,6 +18,16 @@ The draft must not be sent for initial review until this and the real-window
 gate below are resolved. The numeric JSON receipt is compacted without removing
 any measurements so its supported upload fits the channel.
 
+Correction (2026-11-11, BB's installed-byte check): the plugin's own
+`node/runtime.cjs:66` caps a JSON line at **262,144 JavaScript characters**,
+while `node/core.cjs:94` accepts up to 700,000 base64 characters and
+`main.js:17` forwards the whole parameter object. This is not a uniform 256 KB
+byte limit. A 260,876-byte file yields 347,836 base64 characters and a 348,063
+character request; BB's offline test dispatched zero operations. The exact
+mapping to the outer `INTERNAL` error was not independently established.
+Follow-up: [oppie-github #11](https://github.com/good-night-oppie/oppie-github/issues/11).
+Earlier Issue records are retained unchanged.
+
 ## Requirement and ownership
 
 - [Deja's assignment](https://github.com/good-night-oppie/MontClip/issues/285#issuecomment-6781251214).
@@ -58,9 +68,14 @@ Before product changes, `node --test test/roll-replaced-picture.test.js` ran
   `44c8cebe736dff822329a6e6da62ae73112d129885aa17a752637d59173d24fa`.
 - Raw local TAP SHA-256:
   `d30a5fc0c42af7e6352ec86a722281d3254e26fbacc59a7a7e60716859d5b171`.
-- Public [red.tap](red.tap) replaces only the absolute checkout path with
-  `<worktree>`; SHA-256
+- The complete sanitized red TAP replaced only the absolute checkout path with
+  `<worktree>`; its SHA-256 is
   `b5064bccab3c31cc57451785e4b126d26e7928ee36a5230197678d199ecc592e`.
+  At QQ's request, [red.tap](red.tap) now contains a labeled summary and key
+  failure excerpt, not the complete TAP. The complete sanitized file remains
+  at `.artifacts/issue285/full-public-red.tap` in this task checkout; the original
+  raw file remains at `.artifacts/issue285/red.tap`. Cindy/QQ can retrieve those
+  exact files and verify their hashes without publishing thousands of log lines.
 
 To reproduce the red result, use the baseline commit in a disposable checkout,
 copy `red-source.txt` to `test/roll-replaced-picture.test.js`, then run the command
@@ -87,8 +102,9 @@ The focused result is **192 passed, 0 failed**. It includes MCP disk readback
 after refusal, explicit unlink/lock protection and unrelated-track invariance.
 The final full suite completed with **2,644 tests: 2,627 passed, 0 failed,
 17 skipped**, 3 suites, exit 0. [Test receipt and skip reasons](test-results.json)
-records the raw log hashes; [focused green TAP](green.tap) includes all 192
-focused cases. Release readiness also passed. Earlier failures and reruns are
+records the raw log hashes; [focused green summary](green.tap) reports the 192
+focused cases and the full log's hash/location. It is not the full TAP; that
+remains at `.artifacts/issue285/full-public-green.tap`. Release readiness also passed. Earlier failures and reruns are
 disclosed in the receipt; public README wording stays unchanged as JJ's approved
 copy, with the behavior note in the technical reference instead.
 
