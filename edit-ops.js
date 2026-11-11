@@ -940,18 +940,19 @@
       if (isGroupLocked(c)) return TRIM_LOCKED;
       const sp = clipSpeed(c);
       const group = withLinked([c]);
-      // The shared In may go no later than the tightest member allows: each one
-      // consumes its own span of source (speed can differ across the group).
-      let maxIn = Infinity;
+      // Move by common source seconds, retaining each member's own In. The
+      // tightest head/tail limits the group; speeds affect each source span.
+      let loShift = -Infinity, hiShift = Infinity;
       for (const x of group) {
         if (!hasSourceTime(x)) continue;
+        loShift = Math.max(loShift, -Math.max(0, x.in));
         const len = sourceLen(x);
-        if (len > 0) maxIn = Math.min(maxIn, Math.max(0, len - (timeAt(x, clipEnd(x)) - x.in)));
+        if (len > 0) hiShift = Math.min(hiShift, Math.max(0, len - timeAt(x, clipEnd(x))));
       }
-      const newIn = clampD(c.in - delta * sp, 0, maxIn);
-      const d = (c.in - newIn) / sp;
+      const shift = clampD(-delta * sp, loShift, hiShift);
+      const d = -shift / sp;
       if (Math.abs(d) < 1e-9) return 0;
-      for (const x of group) x.in = +newIn.toFixed(4);
+      for (const x of group) if (hasSourceTime(x)) x.in = +(x.in + shift).toFixed(4);
       return d;
     }
     /** Slide: move c along its track; the clip before it lengthens or
