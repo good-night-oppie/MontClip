@@ -6,7 +6,7 @@
 // Model: MONTCLIP_E2E_MODEL, else the "flash" model listed by api.deepseek.com/models.
 // Exit 0 = passed, 2 = skipped (reason printed), 1 = failed.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process');
-const root=path.resolve(__dirname,'..');
+const root=path.resolve(__dirname,'..','..');
 if(process.env.MONTCLIP_REAL_MODELS!=='1'){console.log('E2E SKIPPED: real-model tests are off (set MONTCLIP_REAL_MODELS=1)');process.exit(2);}
 const keyFile=path.join(os.homedir(),'.deepseek-serena-api-key');
 if(!fs.existsSync(keyFile)){console.log('E2E SKIPPED: no ~/.deepseek-serena-api-key');process.exit(2);}

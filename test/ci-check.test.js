@@ -42,5 +42,5 @@ test("ci-check: fake local addresses are refused", () => {
 });
 
 test("ci-check: ordinary real addresses are not flagged", () => {
-  assert.deepStrictEqual(identityProblems(["yongbing.e.tang@gmail.com", "3278807+EdwardTang@users.noreply.github.com"]), []);
+  assert.deepStrictEqual(identityProblems(["alice@example.com", "123456+alice@users.noreply.github.com"]), []);
 });

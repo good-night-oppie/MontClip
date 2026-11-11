@@ -177,13 +177,27 @@ function identityProblems(emails) {
   return bad;
 }
 
+function gitQuiet(args) {
+  const r = spawnSync("git", args, { cwd: ROOT, encoding: "utf8" });
+  return r.status === 0 ? r.stdout : null;
+}
+
 function commitIdentityEmails() {
   const base = process.env.GITHUB_BASE_REF;
-  const args = base
-    ? ["log", "--format=%ae%n%ce", "origin/" + base + "..HEAD"]
-    : ["log", "-1", "--format=%ae%n%ce", "HEAD"];
-  const r = run("git", args);
-  return r.stdout.split(/\r?\n/).filter(Boolean);
+  if (base && gitQuiet(["rev-parse", "--verify", "--quiet", "origin/" + base]) !== null) {
+    const out = gitQuiet(["log", "--format=%ae%n%ce", "origin/" + base + "..HEAD"]);
+    if (out !== null) return out.split(/\r?\n/).filter(Boolean);
+  }
+  /* GitHub Actions checks out shallow (fetch-depth 1); for pull_request HEAD is
+     a synthetic merge commit whose committer is GitHub itself. HEAD^2 is the PR
+     head when it was fetched, otherwise checking HEAD is all we can do. */
+  const targets = gitQuiet(["rev-parse", "--verify", "--quiet", "HEAD^2"]) ? ["HEAD^2", "HEAD"] : ["HEAD"];
+  const emails = [];
+  for (const t of targets) {
+    const out = gitQuiet(["log", "-1", "--format=%ae%n%ce", t]);
+    if (out) emails.push(...out.split(/\r?\n/).filter(Boolean));
+  }
+  return emails;
 }
 
 function checkCommitIdentity(emails) {
