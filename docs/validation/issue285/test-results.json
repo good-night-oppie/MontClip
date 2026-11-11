@@ -31,7 +31,9 @@
     "passed": 192,
     "failed": 0,
     "rawLogSha256": "267170b0d73f332e59d524b381172f715fc9df947829e3f7a376b3a700e47f9a",
-    "publishedLogSha256": "267170b0d73f332e59d524b381172f715fc9df947829e3f7a376b3a700e47f9a"
+    "publishedLogSha256": "a80e1ef4b644339d8932b47dc344bec65ca180c84d19d2fe09eb461942245003",
+    "fullPublishedLogSha256": "267170b0d73f332e59d524b381172f715fc9df947829e3f7a376b3a700e47f9a",
+    "publishedLogKind": "summary, not full TAP; original preserved under .artifacts/issue285/full-public-green.tap"
   },
   "release": {
     "passed": true,
