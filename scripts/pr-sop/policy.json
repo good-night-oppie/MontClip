@@ -116,7 +116,11 @@
         "desktop/src/*export*",
         "desktop/src/*ffmpeg*",
         "desktop/src/*repair*",
-        "desktop/src/*flv*"
+        "desktop/src/*flv*",
+        "desktop/packaging/*export*",
+        "desktop/packaging/*ffmpeg*",
+        "desktop/packaging/*repair*",
+        "desktop/packaging/*flv*"
       ],
       "outbound": [
         "agent*.js",
@@ -188,7 +192,12 @@
         "desktop/src/*download*.js",
         "desktop/src/*fetch*.cjs",
         "desktop/src/main.js",
-        "desktop/src/*consent*"
+        "desktop/src/*consent*",
+        "desktop/packaging/asr*.js",
+        "desktop/packaging/asr*.json",
+        "desktop/packaging/*download*.js",
+        "desktop/packaging/*fetch*.cjs",
+        "desktop/packaging/*consent*"
       ],
       "exclude": [
         "docs/demo/**"
@@ -203,7 +212,12 @@
         "dev/real-tests/privacy-runtime.cjs",
         "docs/validation/2026-11-05-audio-tracks/browser-tracks.cjs",
         "docs/validation/2026-11-05-audio-tracks/e2e-export.cjs",
-        "docs/validation/2026-11-05-audio-tracks/ui-smoke.cjs"
+        "docs/validation/2026-11-05-audio-tracks/ui-smoke.cjs",
+        "desktop/smoke/*-smoke.cjs",
+        "desktop/smoke/*-perf.cjs",
+        "desktop/smoke/m0-smoke.js",
+        "desktop/smoke/*smoke.js",
+        "desktop/packaging/*-smoke.cjs"
       ]
     },
     "good-night-oppie/MontClip-Cindy": {
