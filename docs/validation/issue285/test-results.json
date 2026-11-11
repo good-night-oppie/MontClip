@@ -1,0 +1,41 @@
+{
+  "command": "node <installed npm-cli.js> test -- --test-concurrency=2",
+  "exitCode": 0,
+  "total": 2644,
+  "passed": 2627,
+  "failed": 0,
+  "skipped": 17,
+  "suites": 3,
+  "rawLogSha256": "6b8488a36691a5e6be808591fba7c735309d9a87e86c7d74304c562416a2af17",
+  "skipReasons": [
+    "ok 322 - the real engine on the model's own public test sentence (only where desktop/fetch-asr.cjs --models asr has run) # SKIP vendor/asr models not fetched here\r",
+    "ok 354 - the real engine: \"@\" in place of 「嗯」 throws on 0.5 s of silence; the safe copy decodes it, without 「＠」 # SKIP no speech model here (vendor/asr/models/asr not fetched; CI has none)\r",
+    "ok 1157 - server: bundled build + a full FFmpeg on PATH → bundled for everything, libx264 from PATH for H.264 # SKIP no FFmpeg with libx264 on PATH here\r",
+    "ok 1159 - server (POSIX): every program started is logged — signals, song-scan and frames start the bundled build; proxies and exports the local one # SKIP a shell script cannot stand in for ffmpeg.exe; the wiring is checked from the source above\r",
+    "ok 1160 - no bundled build: an FFmpeg that fails the gate is not the fallback; one that passes is # SKIP the stand-in programs are shell scripts\r",
+    "ok 1163 - no bundled build (POSIX): below 6.0 is never the fallback even if it runs the options; 6.0+ or a git build must run them # SKIP the stand-in programs are shell scripts\r",
+    "ok 1164 - server (POSIX): no bundled build and only FFmpeg 5.1 → tooOld, with the version for the card # SKIP the stand-in programs are shell scripts\r",
+    "ok 1168 - server (POSIX): MONTCLIP_FFMPEG = a 5.1.9 script → FFMPEG_TOO_OLD with the version, no path and no raw ffmpeg error, songs refused before anything runs # SKIP the stand-in program is a shell script\r",
+    "ok 1174 - an empty PATH still previews and exports with the bundled FFmpeg (packaged layout) # SKIP bundled FFmpeg not fetched for win32-x64 (node desktop/fetch-ffmpeg.cjs)\r",
+    "ok 1205 - with MontClip's ffmpeg present: two runs make the same bytes, in the stated format # SKIP no vendored ffmpeg here (node desktop/fetch-ffmpeg.cjs, or MONTCLIP_FFMPEG)\r",
+    "ok 1207 - MontClip's pinned ffmpeg build makes exactly the recorded fixture # SKIP no vendored ffmpeg here\r",
+    "ok 1290 - native POSIX new and Electron-created empty profile are owner-only # SKIP\r",
+    "ok 1360 - server mode end to end: MONTCLIP_EXTERNAL_FFMPEG makes an H.264 export work where the bundled FFmpeg cannot # SKIP no FFmpeg with libx264 on this machine\r",
+    "ok 1695 - mode 600 is read; 644 / 640 are refused and say how to fix it # SKIP POSIX permissions only\r",
+    "ok 1696 - another user's file is refused # SKIP POSIX owners only\r",
+    "ok 1854 - a 600 key file is read # SKIP Windows files have no owner-only mode\r",
+    "ok 2479 - the real engine: the model's test sentence an hour into a long file, heard through a 10 s window # SKIP vendor/asr models not fetched here\r"
+  ],
+  "focused": {
+    "total": 192,
+    "passed": 192,
+    "failed": 0,
+    "rawLogSha256": "267170b0d73f332e59d524b381172f715fc9df947829e3f7a376b3a700e47f9a",
+    "publishedLogSha256": "267170b0d73f332e59d524b381172f715fc9df947829e3f7a376b3a700e47f9a"
+  },
+  "release": {
+    "passed": true,
+    "rawLogSha256": "8d0f05946ed436d8791ad619a65d531f6997cf365e6adb3063f899683ff176b0"
+  },
+  "earlierRuns": "Missing local FFmpeg, fixed README copy drift, and concurrent timing/media-probe failures were resolved; README is unchanged and 14 focused followups passed. No test thresholds or CI changed."
+}
