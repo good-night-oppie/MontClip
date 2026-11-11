@@ -151,6 +151,46 @@ function npmPackCheck() {
   }
 }
 
+/* Commit identity gate: GitHub links a commit to an account by its author
+   email. A bare "<handle>@users.noreply.github.com" binds to whoever owns
+   that handle (bb@... once bound a real stranger), and a [bot] address whose
+   numeric prefix is not that bot real user id stays unattributed. Only the
+   12 team bot user ids pass; fake local addresses are refused too. */
+const TEAM_BOT_IDS = new Set([
+  "354007710", "354008066", "354008095", "354008109", "354008129", "354008172",
+  "354008194", "354008211", "354008275", "354008299", "354008317", "354633415",
+]);
+
+function identityProblems(emails) {
+  const bad = [];
+  for (const raw of emails) {
+    const email = String(raw || "").trim();
+    if (!email) { bad.push("(empty email)"); continue; }
+    if (/@localhost$/i.test(email) || /\.local$/i.test(email)) { bad.push(email + " (fake local address)"); continue; }
+    const m = /^([^@\s]*)@users\.noreply\.github\.com$/i.exec(email);
+    if (!m) continue;
+    const local = m[1];
+    const id = /^(\d+)\+/.exec(local);
+    if (!id) { bad.push(email + " (bare handle binds a real person)"); continue; }
+    if (/\[bot\]$/.test(local) && !TEAM_BOT_IDS.has(id[1])) bad.push(email + " (unknown bot id " + id[1] + ")");
+  }
+  return bad;
+}
+
+function commitIdentityEmails() {
+  const base = process.env.GITHUB_BASE_REF;
+  const args = base
+    ? ["log", "--format=%ae%n%ce", "origin/" + base + "..HEAD"]
+    : ["log", "-1", "--format=%ae%n%ce", "HEAD"];
+  const r = run("git", args);
+  return r.stdout.split(/\r?\n/).filter(Boolean);
+}
+
+function checkCommitIdentity(emails) {
+  const bad = identityProblems(emails === undefined ? commitIdentityEmails() : emails);
+  if (bad.length) throw new Error("commit author/committer identity is not a team bot: " + bad.join("; "));
+}
+
 function main() {
   try {
     if (process.argv.includes("--release")) {
@@ -158,6 +198,7 @@ function main() {
       npmPackCheck();
       return;
     }
+    checkCommitIdentity();
     const files = listTrackedJs();
     checkSource(files, BASELINE_JS);
     console.log(`syntax-checked ${files.length} tracked .js files (baseline ${BASELINE_JS})`);
@@ -169,6 +210,6 @@ function main() {
   }
 }
 
-module.exports = { listTrackedJs, assertEnoughJs, syntaxCheck, checkSource, BASELINE_JS };
+module.exports = { listTrackedJs, assertEnoughJs, syntaxCheck, checkSource, identityProblems, checkCommitIdentity, TEAM_BOT_IDS, BASELINE_JS };
 
 if (require.main === module) main();
