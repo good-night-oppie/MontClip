@@ -83,7 +83,7 @@ test('a piece whose file takes too long to read is not "unreadable": the file is
   const r2 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: out, plan: bad, resolve, silent: false, mix: null, timeoutMs: 120000 });
   a.deepEqual([r2.ok, r2.lost, r2.unchecked], [false, [{ n: 4, t: 30 }], []]);
   a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED');
-  a.equal((await C.soundRead(FF.path('ffmpeg'), junk, 1, 2)).timedOut, false, 'a read error is not a timeout');
+  a.deepEqual(await C.soundRead(FF.path('ffmpeg'), junk, 1, 2), { db: null, timedOut: false }, 'the fixed junk really cannot be read');
   // #310: a "[mm:ss]" line makes libavformat guess lrc (a text subtitle format) for junk bytes. That guess has no
   // sound stream, but the file could not be read — it is not a container without sound (-Infinity), which would
   // count as "silent in its file too" and let the export pass.
