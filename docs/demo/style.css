@@ -5279,6 +5279,11 @@ html[data-host-theme="light"] .track-headers, html[data-host-theme="light"] .tra
    text at least 4.5:1 — test/cindy-embed-contrast.test.js). Accent-tinted text goes to a deep accent, pale text to the
    text colour, pale red to a deep red, dark chips to the light chip colour. */
 html[data-host-theme="light"] { --dim: #55555c; }
+
+/* MontClip#301: a dialog title wrote #fff for itself (.dialog h2), so on the light theme's white card the title and
+   the export dialog's percentage (that same h2, #exportTitle) were white on white. Titles take the text colour here;
+   the dark theme keeps its own #fff. Every .dialog shares this rule: settings, help, Export setup and the queue. */
+html[data-host-theme="light"] .dialog h2 { color: var(--text); }
 html[data-host-theme="light"] .logo b,
 html[data-host-theme="light"] .style-opt.on,
 html[data-host-theme="light"] .btn.tiny.accent,

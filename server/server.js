@@ -466,6 +466,9 @@ const COLOR_TAGS = [
 ];
 const COLOR_BSF = "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1:video_full_range_flag=0";
 const EXPORT_IDLE_MS = 10 * 60 * 1000; // abandon sessions with no successful activity
+/* #302 follow-up: a host that destroys the whole editor view gives the page no pagehide, but its SSE connection closes.
+   Sessions begun by that editor are cleaned after this grace, unless the same Cindy task reconnects first. */
+const EXPORT_OWNER_GRACE_MS = +process.env.MONTCLIP_OWNER_GRACE_MS > 0 ? +process.env.MONTCLIP_OWNER_GRACE_MS : 15 * 1000;   // tests shorten it
 const EXPORT_SWEEP_MS = 60 * 1000;
 let exportSweepTimer = null;
 function touchExport(sess) {
@@ -878,6 +881,24 @@ function logCleanupLeft(left) {
   console.error(line.trim());
   try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
 }
+const ownerCleanups = new Map();   // closed editor connection → {timer, task, tabId, conn}
+function scheduleOwnerCleanup(conn, task, tabId) {
+  if (!conn) return;
+  const prev = ownerCleanups.get(conn); if (prev) clearTimeout(prev.timer);
+  const record = { timer: null, task, tabId, conn };
+  record.timer = setTimeout(() => {
+    ownerCleanups.delete(conn);
+    // the same Cindy tab reconnected inside the grace (same task + same tab id): its export stays
+    const alive = task && (tabId
+      ? [...sseClients].some((r) => r.montclipTask && r.montclipTask.session === task.session && r.montclipTabId === tabId)
+      : editorsFor(task).length > 0);
+    if (alive) return;
+    for (const [id, s] of [...exportSessions])
+      if (s.ownerConn === conn || (task && s.ownerSession === task.session && s.ownerTabId === tabId)) cleanupExport(id);
+  }, EXPORT_OWNER_GRACE_MS);
+  record.timer.unref?.();
+  ownerCleanups.set(conn, record);
+}
 function sweepIdleExports() {
   const now = Date.now();
   for (const [id, s] of [...exportSessions]) {
@@ -1053,6 +1074,9 @@ async function handleRequest(req, res) {
     const conn = task && [...sseClients].find((r) => typeof a.conn === "string" && sameSecret(a.conn, r.montclipConn));
     if (!task || !conn || conn.montclipTask) { sendJSON(res, 403, { error: "forbidden: wrong, used or expired task ticket", code: "TASK_TICKET_REFUSED" }); return; }
     conn.montclipTask = task;
+    // an export that began before this claim finished: bind it to the same task and tab now
+    for (const s of exportSessions.values())
+      if (s.ownerConn === conn.montclipConn && !s.ownerSession) { s.ownerSession = task.session; s.ownerTabId = conn.montclipTabId; }
     sendJSON(res, 200, { bound: true, channel: embed.channelFor(task) });
     return;
   }
@@ -1801,7 +1825,21 @@ async function handleRequest(req, res) {
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
+      // who began it: the editor may close (or claim) while the precheck awaits
+      const connKey = typeof opts.conn === "string" ? opts.conn : null;
+      const liveOwner = connKey ? [...sseClients].find((r) => sameSecret(connKey, r.montclipConn)) : null;
+      const closedOwner = !liveOwner && connKey ? ownerCleanups.get(connKey) : null;
+      const ownerConn = liveOwner ? liveOwner.montclipConn : closedOwner ? connKey : null;
+      // tests only: hold the precheck so a claim or a close lands between this snapshot and the new session (#302)
+      if (+process.env.MONTCLIP_TEST_BEGIN_DELAY_MS > 0) await new Promise((r) => setTimeout(r, +process.env.MONTCLIP_TEST_BEGIN_DELAY_MS));
       const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      /* Read the owner again after the precheck: the page can claim or close while it runs. The snapshot above has
+         no task when begin came before claim, and the close handler's record carries the task that snapshot lacks --
+         using either older value would leave the tab unmatched, or overwrite that task with null. */
+      const liveNow = connKey ? [...sseClients].find((r) => sameSecret(connKey, r.montclipConn)) : null;
+      const closedNow = !liveNow && connKey ? ownerCleanups.get(connKey) : null;
+      const ownerTask = (liveNow && liveNow.montclipTask) || (closedNow && closedNow.task) || (liveOwner && liveOwner.montclipTask) || (closedOwner && closedOwner.task) || null;
+      const ownerTabId = (liveNow && liveNow.montclipTabId) || (closedNow && closedNow.tabId) || (liveOwner && liveOwner.montclipTabId) || (closedOwner && closedOwner.tabId) || null;
       const sess = exportSessions.get(begun.id);
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
@@ -1809,7 +1847,15 @@ async function handleRequest(req, res) {
       /* #302: an unfinished export can be discarded only by the page that began it: the page keeps this secret and
          sends it with its pagehide beacon, so a bare session id cannot stop another task's export. */
       const endToken = crypto.randomBytes(32).toString("hex");
-      if (sess) { sess.endToken = endToken; begun.endToken = endToken; }
+      if (sess) {
+        sess.endToken = endToken; begun.endToken = endToken;
+        if (ownerConn) {
+          sess.ownerConn = ownerConn;
+          if (ownerTask) { sess.ownerSession = ownerTask.session; sess.ownerTabId = ownerTabId; }
+          // the connection is gone now: use the same grace and same-tab reconnect rule as any close
+          if (!liveNow) scheduleOwnerCleanup(ownerConn, ownerTask, ownerTabId);
+        }
+      }
       sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
@@ -2259,7 +2305,10 @@ async function handleRequest(req, res) {
       res.write(`event: conn\ndata: ${JSON.stringify({ conn: res.montclipConn })}\n\n`);
     }
     sseClients.add(res);
-    req.on("close", () => sseClients.delete(res));
+    req.on("close", () => {
+    sseClients.delete(res);
+    if (res.montclipTask) scheduleOwnerCleanup(res.montclipConn, res.montclipTask, res.montclipTabId);
+  });
     return;
   }
 
@@ -2439,6 +2488,8 @@ async function shutdown() {
   shuttingDown = true;
   setTimeout(() => process.exit(0), 3700).unref?.();
   stopExportSweep();
+  for (const record of ownerCleanups.values()) clearTimeout(record.timer);
+  ownerCleanups.clear();
   const sessions = [...exportSessions.values()];
   exportSessions.clear();
   exportJobs.shutdown();
