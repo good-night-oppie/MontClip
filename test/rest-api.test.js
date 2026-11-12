@@ -222,7 +222,7 @@ test("POST /api/export/begin validates the encoding profile", async (t) => {
   assert.equal(ok.status, 200, body.error);
   assert.equal(body.profile, "prores422");
   assert.ok(body.id, "a valid profile starts a session");
-  const end = await fetch(base + "/api/export/end?id=" + encodeURIComponent(body.id) + "&discard=1",
+  const end = await fetch(base + "/api/export/end?id=" + encodeURIComponent(body.id) + "&discard=1&token=" + encodeURIComponent(body.endToken),
     { method: "POST" });
   assert.equal(end.status, 200);
 });

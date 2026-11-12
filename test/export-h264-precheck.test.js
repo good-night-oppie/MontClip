@@ -81,7 +81,7 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
   }
   const r = await begin({ ...canvas, deliveries: [{ delivery: { preset: 'archive' }, name: 'c' }] });
   const j = await r.json(); a.equal(r.status, 200, JSON.stringify(j)); a.ok(j.id);
-  await fetch(base + '/api/export/end?id=' + j.id + '&discard=1', { method: 'POST' });
+  await fetch(base + '/api/export/end?id=' + j.id + '&discard=1&token=' + j.endToken, { method: 'POST' });
 });
 
 test('server, an H.264 encoder present but no local FFmpeg: a libx264 profile still asks for your own FFmpeg (extNeeded)', async (t) => {

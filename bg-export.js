@@ -53,7 +53,8 @@
       case "ready": return { type: "ready" };
       case "progress": return Number.isFinite(m.f) ? { type: "progress", f: Math.min(1, Math.max(0, m.f)) } : null;
       case "phase": return PHASES.includes(m.phase) ? { type: "phase", phase: m.phase } : null;
-      case "session": return typeof m.sess === "string" && /^[\w-]{1,80}$/.test(m.sess) ? { type: "session", sess: m.sess } : null;
+      case "session": return typeof m.sess === "string" && /^[\w-]{1,80}$/.test(m.sess)
+        ? { type: "session", sess: m.sess, ...(typeof m.token === "string" && /^[a-f0-9]{64}$/.test(m.token) ? { token: m.token } : {}) } : null;
       case "toast": return typeof m.text === "string" ? { type: "toast", text: m.text.slice(0, 500) } : null;
       case "done": return m.result && typeof m.result === "object" ? { type: "done", result: m.result } : null;
       default: return null;
@@ -113,7 +114,7 @@
           post(j, { type: "start", doc: j.doc, opts: j.opts });
         } else if (m.type === "progress") { j.progress = m.f; j.hasProgress = true; }
         else if (m.type === "phase") j.phase = m.phase;
-        else if (m.type === "session") j.sess = m.sess;
+        else if (m.type === "session") { j.sess = m.sess; j.token = m.token || null; }
         else if (m.type === "toast") { if (deps.onToast) deps.onToast(j, m.text); return true; }
         else if (m.type === "done") { finish(j, m.result); return true; }
         if (deps.onChange) deps.onChange(j);
@@ -131,7 +132,7 @@
         if (wasStarting) { finish(j, { error: "cancelled", cancelled: true }); return true; }
         post(j, { type: "cancel" });
         j.cancelTimer = setTimer(() => {
-          if (j.sess && deps.discard) { try { deps.discard(j.sess); } catch { } }
+          if (j.sess && deps.discard) { try { deps.discard(j.sess, j.token); } catch { } }
           finish(j, { error: "cancelled", cancelled: true, forced: true });
         }, cancelMs);
         return true;
@@ -147,7 +148,7 @@
     const hooks = {
       onProgress: (f) => post({ type: "progress", f }),
       onPhase: (phase) => post({ type: "phase", phase }),
-      onSession: (sess) => post({ type: "session", sess }),
+      onSession: (sess, token) => post({ type: "session", sess, ...(token ? { token } : {}) }),
       toast: (text) => post({ type: "toast", text: String(text) }),
     };
     return {
