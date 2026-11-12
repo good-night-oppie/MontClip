@@ -221,6 +221,34 @@ test("a close after a claim during the precheck keeps the task, so a same-tab re
   b.ac.abort();
 });
 
+/* A precheck that outlasts the grace: the page claims, the tab closes and the same tab reconnects while begin still
+   runs. By the time begin returns the grace record is gone, so the task has to come from the live connection object
+   claim wrote it onto -- otherwise the fresh, taskless schedule deletes the reconnected tab's export. */
+test("a precheck longer than the grace keeps the task from the claim: a same-tab reconnect keeps the export", { skip: !FF.available("ffmpeg") && "no ffmpeg here", timeout: 180000 }, async (t) => {
+  const token = crypto.randomBytes(32).toString("hex");
+  const dir = makeDataDir(t);
+  const base = await launch(t, dir, token, { MONTCLIP_TEST_BEGIN_DELAY_MS: "3200", MONTCLIP_OWNER_GRACE_MS: "1500" });
+  const a = await connect(base, token, "tab-slow-precheck");
+  await claim(base, token, a.headers, a.conn, "task-owner-8");
+  const pending = begin(base, a.headers, a.conn, "owner-slow-precheck");
+  await new Promise((r) => setTimeout(r, 400));   // begin is inside its precheck; the claim is already on the connection
+  a.ac.abort();
+  try { await a.reader.cancel(); } catch { }
+  await new Promise((r) => setTimeout(r, 200));
+  const b = await connect(base, token, "tab-slow-precheck");
+  await claim(base, token, b.headers, b.conn, "task-owner-8");
+  const job = await pending;
+  assert.ok(job.id, JSON.stringify(job));
+  await new Promise((r) => setTimeout(r, 3000));   // the fresh 1.5 s grace has run by now
+  assert.equal(await active(base, token), 1, "the reconnected tab keeps an export whose begin outlasted the grace");
+  b.ac.abort();
+  try { await b.reader.cancel(); } catch { }
+  let now = 1;
+  const until = Date.now() + 15000;
+  while (Date.now() < until) { now = await active(base, token); if (now === 0) break; await new Promise((r) => setTimeout(r, 500)); }
+  assert.equal(now, 0, "closing that tab still cleans its export (session " + job.id + ")");
+});
+
 test("the background export page receives conn through the editor's start opts", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   const start = app.indexOf("async function runBgExportHere(");
