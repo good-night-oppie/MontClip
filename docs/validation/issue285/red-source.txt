@@ -1,0 +1,58 @@
+"use strict";
+// #285: synthetic 60 s A/B sources, 25 fps (one frame = exactly .04 s).
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const Edit = require("../edit-ops");
+const Project = require("../project-ops");
+
+function fixture(replace = "none", linked = true) {
+  const doc = { fps: 25, media: ["A", "B"].map(id => ({ id, kind: "video", duration: 60 })),
+    tracks: ["V1", "A1", "A2"].map(id => ({ id, kind: id === "V1" ? "video" : "audio" })), clips: [] };
+  for (const [side, start] of [["before", 0], ["after", 30]]) {
+    for (const [ch, track] of ["V1", "A1", "A2"].entries()) doc.clips.push({
+      id: `${side}-${track}`, kind: ch ? "audio" : "video", track, mediaId: "A",
+      start, in: start, duration: 30, ...(linked ? { linkGroup: side } : {}),
+      props: ch ? { speed: 1, audioChannel: ch - 1, pan: ch === 1 ? -1 : 1 } : { speed: 1, volume: 0 },
+    });
+  }
+  // The supported patch changes only the picture, keeping its original sound.
+  for (const side of ["before", "after"]) if (replace === side || replace === "both")
+    Project.applyPatch(doc, [{ op: "updateClip", id: `${side}-V1`, set: { mediaId: "B" } }]);
+  return JSON.parse(JSON.stringify(doc)); // save + reopen, including the link metadata
+}
+const byId = (doc, id) => doc.clips.find(c => c.id === id);
+const near = (actual, expected, label) => assert.ok(Math.abs(actual - expected) <= 1e-6,
+  `${label}: ${actual} != ${expected}`);
+function check(doc, delta) {
+  for (const track of ["V1", "A1", "A2"]) {
+    const l = byId(doc, `before-${track}`), r = byId(doc, `after-${track}`);
+    near(l.start, 0, `${track} left start`);
+    near(l.duration, 30 + delta, `${track} left duration`);
+    near(r.start, 30 + delta, `${track} right start`);
+    near(r.duration, 30 - delta, `${track} right duration`);
+    near(r.start - l.start - l.duration, 0, `${track} gap/overlap`);
+    near(r.in - l.in - l.duration, 0, `${track} source continuity`);
+    near(r.start + r.duration, 60, `${track} total length`);
+  }
+}
+for (const entry of ["edit", "patch"]) for (const replace of ["none", "before", "after", "both"])
+  for (const side of ["out", "in"]) for (const delta of [-2, -.5, -.1, -.04, .04, .1, .5, 2]) {
+    test(`${entry} ${replace} ${side} ${delta}: L/R geometry and source continuity`, () => {
+      const doc = fixture(replace), id = `${side === "out" ? "before" : "after"}-V1`;
+      if (entry === "edit") {
+        const e = Edit.forDoc(doc); e.relinkClips();
+        near(e.rollEdit(byId(doc, id), side, delta), delta, "applied delta");
+      } else Project.applyPatch(doc, [{ op: "roll", id, side, delta }]);
+      check(doc, delta);
+      const reopened = JSON.parse(JSON.stringify(doc));
+      Edit.forDoc(reopened).relinkClips();
+      check(reopened, delta);
+    });
+  }
+test("picture replacement first captures inferred links in older agent documents", () => {
+  const doc = fixture("both", false);
+  Project.applyPatch(doc, [{ op: "roll", id: "before-V1", side: "out", delta: .1 }]);
+  check(doc, .1);
+});
+
+module.exports = { fixture, check, byId };
