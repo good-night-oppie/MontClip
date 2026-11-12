@@ -867,6 +867,7 @@ const exportedThisRun = new Set();
 function cleanupExport(id) {
   const s = exportSessions.get(id);
   if (!s) return;
+  s.discarded = true;   // a queued frame/audio write must not start ffmpeg after this
   exportSessions.delete(id);
   const job = ExportCleanup.stopSessions([s], { timeoutMs: 5000, log: logCleanupLeft });
   pendingCleanups.add(job); job.finally(() => pendingCleanups.delete(job));
@@ -1805,6 +1806,10 @@ async function handleRequest(req, res) {
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
       if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
+      /* #302: an unfinished export can be discarded only by the page that began it: the page keeps this secret and
+         sends it with its pagehide beacon, so a bare session id cannot stop another task's export. */
+      const endToken = crypto.randomBytes(32).toString("hex");
+      if (sess) { sess.endToken = endToken; begun.endToken = endToken; }
       sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
@@ -1819,6 +1824,7 @@ async function handleRequest(req, res) {
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
       const body = await readBody(req);
+      if (sess.discarded || exportSessions.get(id) !== sess) { sendJSON(res, 410, { error: "export session was discarded" }); return; }
       if (!body || !body.length) throw new Error("empty frame");
       if (sess.hasAudio && !sess.wav) {
         sendJSON(res, 409, { error: "audio mix has not been uploaded yet" });
@@ -1826,6 +1832,7 @@ async function handleRequest(req, res) {
       }
       // queue behind any in-flight write so concurrent POSTs cannot interleave stdin
       const run = async () => {
+        if (sess.discarded || exportSessions.get(id) !== sess) throw Object.assign(new Error("export session was discarded"), { code: "EXPORT_DISCARDED" });
         if (!sess.proc) sess.mode === "annexb" ? startAnnexbEncoder(sess) : startEncoder(sess);
         await (sess.outputs ? writeDeliveryFrame(sess, body) : writeExportFrame(sess, body));
       };
@@ -1835,18 +1842,24 @@ async function handleRequest(req, res) {
       touchExport(sess);
       sendJSON(res, 200, { ok: true });
     } catch (e) {
+      if (e.code === "EXPORT_DISCARDED") { sendJSON(res, 410, { error: e.message }); return; }
       cleanupExport(id);
       sendJSON(res, 500, { error: String(e.message || e) });
     }
     return;
   }
   if (p === "/api/export/audio" && req.method === "POST") {
-    const sess = exportSessions.get(url.searchParams.get("id"));
+    const id = url.searchParams.get("id");
+    const sess = exportSessions.get(id);
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
       const wavPath = path.join(sess.dir, "audio.wav");
       try { fs.rmSync(wavPath, { force: true }); } catch {}
       await bodyToFile(req, wavPath);   // streamed: a long mix is not held in memory
+      if (sess.discarded || exportSessions.get(id) !== sess) {
+        try { fs.rmSync(sess.dir, { recursive: true, force: true }); } catch { }
+        sendJSON(res, 410, { error: "export session was discarded" }); return;
+      }
       // outputs that normalize loudness need the mix measured (loudnorm pass one) before ffmpeg starts
       const byTarget = new Map();
       for (const o of sess.outputs || []) {
@@ -1854,6 +1867,10 @@ async function handleRequest(req, res) {
         const k = `${o.spec.audio.loudness}/${o.spec.audio.truePeak}`;
         if (!byTarget.has(k)) byTarget.set(k, runFfmpeg(Delivery.LOUDNORM_ARGS(wavPath, o.spec), 10 * 60 * 1000).then((r) => Delivery.parseLoudnorm(r.stderr)));
         o.loudnorm = await byTarget.get(k);
+      }
+      if (sess.discarded || exportSessions.get(id) !== sess) {
+        try { fs.rmSync(sess.dir, { recursive: true, force: true }); } catch { }
+        sendJSON(res, 410, { error: "export session was discarded" }); return;
       }
       sess.wav = wavPath;
       touchExport(sess);
@@ -1894,7 +1911,13 @@ async function handleRequest(req, res) {
     const sess = exportSessions.get(id);
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
-      if (url.searchParams.get("discard")) { cleanupExport(id); sendJSON(res, 200, { ok: true }); return; }
+      if (url.searchParams.get("discard")) {
+        if (!sess.endToken || !sameSecret(url.searchParams.get("token") || "", sess.endToken)) {
+          sendJSON(res, 403, { error: "forbidden: this export session's token is required", code: "EXPORT_TOKEN_REFUSED" });
+          return;
+        }
+        cleanupExport(id); sendJSON(res, 200, { ok: true }); return;
+      }
       touchExport(sess); // keep alive through final mux
       if (!sess.proc) throw new Error("no frames were uploaded");
       if (sess.outputs) {

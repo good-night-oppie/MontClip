@@ -17,8 +17,8 @@ test("Fast export waits for the discard request before its worker may be removed
   const discard = fast.match(/if \(sessId\) [^\n]+discard=1[^\n]+/)[0];
   let acknowledge, finished = false;
   const request = new Promise(resolve => { acknowledge = resolve; });
-  const run = new (Object.getPrototypeOf(async function(){}).constructor)('sessId', 'fetch', discard);
-  const done = run('s1', () => request).then(() => { finished = true; });
+  const run = new (Object.getPrototypeOf(async function(){}).constructor)('sessId', 'endToken', 'fetch', discard);
+  const done = run('s1', 't'.repeat(64), () => request).then(() => { finished = true; });
   await Promise.resolve(); await Promise.resolve();
   a.equal(finished, false, 'the page must remain alive until the server receives discard');
   acknowledge({ ok: true }); await done;
