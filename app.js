@@ -21226,7 +21226,7 @@ async function fastExport(opts = {}) {
   const fps = (delivery && delivery.fps) || projectFps();
   let result = null;
   const { start: t0, end: t1, frames } = beginExportWindow(fps);
-  let sessId = null;
+  let sessId = null, endToken = null;
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
@@ -21262,7 +21262,9 @@ async function fastExport(opts = {}) {
     }).then((r) => r.json());
     if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
-    if (opts.onSession) opts.onSession(sessId);   // a background export's editor can discard it if this page stops answering
+    endToken = begin.endToken || "";
+    liveExports.set(sessId, endToken);
+    if (opts.onSession) opts.onSession(sessId, endToken);   // a background export's editor can discard it if this page stops answering
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
     exportFullCanvas = !!delivery;
@@ -21351,6 +21353,7 @@ async function fastExport(opts = {}) {
       try { workers?.terminate(); } catch { }
     }
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
+    liveExports.delete(sessId);
     if (!end.src) throw exportEndError(end, "encode failed");
     // a profile export's warnings (a silent piece, one not checked in time) come as end.report (server.js warningReport)
     const outs = end.outputs || [{ file: decodeURIComponent(end.src.split("/").pop()), ok: true, src: end.src, ...(end.report ? { report: end.report } : {}) }];
@@ -21372,7 +21375,7 @@ async function fastExport(opts = {}) {
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, ...(end.report ? { savedMsg: exportReportLine(end.report) } : {}) });
   } catch (e) {
     // The export worker is removed as soon as this returns; keep it alive until discard reaches the server.
-    if (sessId) await fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
+    if (sessId) await fetch("/api/export/end?id=" + sessId + "&discard=1&token=" + encodeURIComponent(endToken), { method: "POST" }).catch(() => { });
     const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
     // JJ final copy (#190): one full sentence for alert and queue; the
     // technical code stays only in the structured result for logs.
@@ -21401,6 +21404,14 @@ async function fastExport(opts = {}) {
    Renders waiting outputs back to back. Outputs that share a frame rate and a
    range go out in ONE render: the frames are drawn once and every output's
    ffmpeg encodes them (up to 8 at a time). Lives in this tab only. */
+/* #302: a page that goes away mid-export tells the server at once, so its ffmpeg stops and its half-made files go;
+   the server still sweeps sessions whose page could not send this (a crash). */
+const liveExports = new Map();
+addEventListener("pagehide", () => {
+  for (const [id, token] of liveExports) {
+    try { navigator.sendBeacon("/api/export/end?id=" + encodeURIComponent(id) + "&discard=1&token=" + encodeURIComponent(token)); } catch { }
+  }
+});
 const exportQueue = [];
 // Asked by the desktop close prompt (desktop/export-close.js): is an export running here, and how many exported videos in
 // the queue are not saved yet (status done and not saved; the queue lives only in this page, the copies stay in exports/).
@@ -21613,7 +21624,7 @@ const bgExport = !BgExport || EXPORT_WORKER ? null : BgExport.createController({
     };
   },
   // the page did not answer a cancel: its half-made file goes here (server.js cleanupExport)
-  discard: (sess) => fetch("/api/export/end?id=" + encodeURIComponent(sess) + "&discard=1", { method: "POST" }).catch(() => { }),
+  discard: (sess, token) => fetch("/api/export/end?id=" + encodeURIComponent(sess) + "&discard=1&token=" + encodeURIComponent(token || ""), { method: "POST" }).catch(() => { }),
   onChange: (j) => renderBgExport(j),
   onToast: (_j, text) => toast(text),
   onDone: (j, result) => finishBgExport(j, result),
@@ -22279,7 +22290,7 @@ async function webCodecsExport() {
   const { start: t0, end: t1, frames } = beginExportWindow();
   const fps = projectFps();
   const keyEvery = Math.max(1, Math.round(fps * 2));
-  let sessId = null;
+  let sessId = null, endToken = null;
   let encoder = null;
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
@@ -22305,6 +22316,8 @@ async function webCodecsExport() {
     }).then((r) => r.json());
     if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
+    endToken = begin.endToken || "";
+    liveExports.set(sessId, endToken);
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
       if (!r.ok) throw new Error("audio upload failed");
@@ -22386,11 +22399,12 @@ async function webCodecsExport() {
     encoder.close();
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
+    liveExports.delete(sessId);
     if (!end.src) throw exportEndError(end, "mux failed");
     saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     try { encoder?.close(); } catch { }
-    if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
+    if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1&token=" + encodeURIComponent(endToken), { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     if (msg !== "cancelled") sayExportFailure(e);
   } finally {

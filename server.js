@@ -1805,6 +1805,10 @@ async function handleRequest(req, res) {
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
       if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
+      /* #302: an unfinished export can be discarded only by the page that began it: the page keeps this secret and
+         sends it with its pagehide beacon, so a bare session id cannot stop another task's export. */
+      const endToken = crypto.randomBytes(32).toString("hex");
+      if (sess) { sess.endToken = endToken; begun.endToken = endToken; }
       sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
@@ -1894,7 +1898,13 @@ async function handleRequest(req, res) {
     const sess = exportSessions.get(id);
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
-      if (url.searchParams.get("discard")) { cleanupExport(id); sendJSON(res, 200, { ok: true }); return; }
+      if (url.searchParams.get("discard")) {
+        if (!sess.endToken || !sameSecret(url.searchParams.get("token") || "", sess.endToken)) {
+          sendJSON(res, 403, { error: "forbidden: this export session's token is required", code: "EXPORT_TOKEN_REFUSED" });
+          return;
+        }
+        cleanupExport(id); sendJSON(res, 200, { ok: true }); return;
+      }
       touchExport(sess); // keep alive through final mux
       if (!sess.proc) throw new Error("no frames were uploaded");
       if (sess.outputs) {
