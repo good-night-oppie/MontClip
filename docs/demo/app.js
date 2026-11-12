@@ -21759,7 +21759,7 @@ async function runBgExportHere(doc, opts, hooks) {
   if (opts.deliveries) await fetchDeliveryInfo();
   exportRangeForced = opts.range === "in-out" ? "in-out" : "entire";
   try {
-    const run = opts.deliveries ? { deliveries: opts.deliveries } : { profile: opts.profile, name: opts.name };
+    const run = opts.deliveries ? { deliveries: opts.deliveries, conn: opts.conn } : { profile: opts.profile, name: opts.name, conn: opts.conn };
     return await fastExport({ ...run, silent: true, onProgress: hooks.onProgress, onPhase: hooks.onPhase, onSession: hooks.onSession });
   } finally { exportRangeForced = null; }
 }

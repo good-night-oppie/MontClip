@@ -152,3 +152,32 @@ test("webCodecsExport never reads opts: it uses runtime.sseConn only", () => {
   assert.doesNotMatch(body, /opts.conn/, "webCodecsExport has no opts parameter");
   assert.match(body, /conn: \(typeof runtime !== "undefined" && runtime\.sseConn\)/);
 });
+
+test("an export begun while the editor closes is still cleaned", { skip: !FF.available("ffmpeg") && "no ffmpeg here", timeout: 120000 }, async (t) => {
+  const token = crypto.randomBytes(32).toString("hex");
+  const dir = makeDataDir(t);
+  const base = await launch(t, dir, token);
+  const c = await connect(base, token, "tab-inflight");
+  await claim(base, token, c.headers, c.conn, "task-owner-5");
+  const pending = fetch(base + "/api/export/begin", {
+    method: "POST", headers: { ...c.headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ fps: 30, frames: 30, profile: "prores422", name: "owner-inflight", hasAudio: false, conn: c.conn }),
+  }).then((r) => r.json());
+  c.ac.abort();
+  try { await c.reader.cancel(); } catch { }
+  const job = await pending;
+  assert.ok(job.id, JSON.stringify(job));
+  let now = 1;
+  const until = Date.now() + 25000;
+  while (Date.now() < until) { now = await active(base, token); if (now === 0) break; await new Promise((r) => setTimeout(r, 500)); }
+  assert.equal(now, 0, "the session begun during the close is cleaned too");
+});
+
+test("the background export page receives conn through the editor's start opts", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const start = app.indexOf("async function runBgExportHere(");
+  const body = app.slice(start, start + 1200);
+  assert.ok(start >= 0);
+  assert.match(body, /conn: opts\.conn/);
+  assert.match(app, /conn: \(opts && opts\.conn\) \|\|/);
+});

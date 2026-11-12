@@ -881,11 +881,12 @@ function logCleanupLeft(left) {
   console.error(line.trim());
   try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
 }
-const ownerCleanups = new Map();   // closed editor connection → its pending cleanup timer
+const ownerCleanups = new Map();   // closed editor connection → {timer, task, tabId, conn}
 function scheduleOwnerCleanup(conn, task, tabId) {
   if (!conn) return;
-  const prev = ownerCleanups.get(conn); if (prev) clearTimeout(prev);
-  const timer = setTimeout(() => {
+  const prev = ownerCleanups.get(conn); if (prev) clearTimeout(prev.timer);
+  const record = { timer: null, task, tabId, conn };
+  record.timer = setTimeout(() => {
     ownerCleanups.delete(conn);
     if (tabId) {
       // the same Cindy tab reconnected inside the grace (same task + same tab id): its export stays
@@ -897,8 +898,8 @@ function scheduleOwnerCleanup(conn, task, tabId) {
     if (task && editorsFor(task).length) return;   // an older page without a tab id: keep the task-wide rule
     for (const [id, s] of [...exportSessions]) if (s.ownerConn === conn) cleanupExport(id);
   }, EXPORT_OWNER_GRACE_MS);
-  timer.unref?.();
-  ownerCleanups.set(conn, timer);
+  record.timer.unref?.();
+  ownerCleanups.set(conn, record);
 }
 function sweepIdleExports() {
   const now = Date.now();
@@ -1826,6 +1827,13 @@ async function handleRequest(req, res) {
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
+      // capture who began it BEFORE the precheck awaits: the editor may close while beginExport runs
+      const connKey = typeof opts.conn === "string" ? opts.conn : null;
+      const liveOwner = connKey ? [...sseClients].find((r) => sameSecret(connKey, r.montclipConn)) : null;
+      const closedOwner = !liveOwner && connKey ? ownerCleanups.get(connKey) : null;
+      const ownerInfo = liveOwner
+        ? { conn: liveOwner.montclipConn, session: liveOwner.montclipTask && liveOwner.montclipTask.session, tabId: liveOwner.montclipTabId, closed: false }
+        : closedOwner ? { conn: connKey, session: closedOwner.task && closedOwner.task.session, tabId: closedOwner.tabId, closed: true } : null;
       const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
       const sess = exportSessions.get(begun.id);
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
@@ -1836,10 +1844,11 @@ async function handleRequest(req, res) {
       const endToken = crypto.randomBytes(32).toString("hex");
       if (sess) {
         sess.endToken = endToken; begun.endToken = endToken;
-        const owner = typeof opts.conn === "string" ? [...sseClients].find((r) => sameSecret(opts.conn, r.montclipConn)) : null;
-        if (owner) {
-          sess.ownerConn = owner.montclipConn;
-          if (owner.montclipTask) { sess.ownerSession = owner.montclipTask.session; sess.ownerTabId = owner.montclipTabId; }
+        if (ownerInfo) {
+          sess.ownerConn = ownerInfo.conn;
+          if (ownerInfo.session) { sess.ownerSession = ownerInfo.session; sess.ownerTabId = ownerInfo.tabId; }
+          // the page closed while the precheck ran: clean this session shortly, nothing will reconnect for it
+          if (ownerInfo.closed) setTimeout(() => cleanupExport(begun.id), 5000).unref?.();
         }
       }
       sendJSON(res, 200, begun);
@@ -2474,7 +2483,7 @@ async function shutdown() {
   shuttingDown = true;
   setTimeout(() => process.exit(0), 3700).unref?.();
   stopExportSweep();
-  for (const timer of ownerCleanups.values()) clearTimeout(timer);
+  for (const record of ownerCleanups.values()) clearTimeout(record.timer);
   ownerCleanups.clear();
   const sessions = [...exportSessions.values()];
   exportSessions.clear();
