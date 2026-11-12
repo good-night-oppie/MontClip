@@ -1838,8 +1838,8 @@ async function handleRequest(req, res) {
          using either older value would leave the tab unmatched, or overwrite that task with null. */
       const liveNow = connKey ? [...sseClients].find((r) => sameSecret(connKey, r.montclipConn)) : null;
       const closedNow = !liveNow && connKey ? ownerCleanups.get(connKey) : null;
-      const ownerTask = (liveNow && liveNow.montclipTask) || (closedNow && closedNow.task) || (closedOwner && closedOwner.task) || null;
-      const ownerTabId = liveNow ? liveNow.montclipTabId : closedNow ? closedNow.tabId : closedOwner ? closedOwner.tabId : null;
+      const ownerTask = (liveNow && liveNow.montclipTask) || (closedNow && closedNow.task) || (liveOwner && liveOwner.montclipTask) || (closedOwner && closedOwner.task) || null;
+      const ownerTabId = (liveNow && liveNow.montclipTabId) || (closedNow && closedNow.tabId) || (liveOwner && liveOwner.montclipTabId) || (closedOwner && closedOwner.tabId) || null;
       const sess = exportSessions.get(begun.id);
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
