@@ -66,7 +66,7 @@ test("a real frame starts ffmpeg; discard stops it and removes only that session
   const ff = (args) => execFileSync(FF.path("ffmpeg"), ["-v", "error", "-y", ...args], { windowsHide: true });
   const jpeg = ff(["-f", "lavfi", "-i", "color=c=gray:size=64x64", "-frames:v", "1", "-c:v", "mjpeg", "-f", "image2pipe", "-"]);
   const post = (route, body) => fetch(base + route, { method: "POST", body });
-  const begin = async (name) => (await (await fetch(base + "/api/export/begin", { method: "POST", body: JSON.stringify({ fps: 30, frames: 30, profile: "prores422", name, hasAudio: false }) })).json());
+  const begin = async (name, hasAudio = false) => (await (await fetch(base + "/api/export/begin", { method: "POST", body: JSON.stringify({ fps: 30, frames: 30, profile: "prores422", name, hasAudio }) })).json());
   const leftovers = () => fs.readdirSync(exportsDir).filter((n) => n.startsWith("fablecut-") || /\.part\./.test(n));
   const until = async (fn, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };
 
@@ -79,6 +79,12 @@ test("a real frame starts ffmpeg; discard stops it and removes only that session
   assert.equal(r.status, 200);
   assert.ok(await until(() => leftovers().length === 0), "the discarded session's ffmpeg, .part and temp folder go");
   assert.equal((await (await fetch(base + "/api/export/active")).json()).active, 0);
+
+  const wav = ff(["-f", "lavfi", "-i", "sine=f=440:r=48000:d=0.2", "-f", "wav", "-"]);
+  const withAudio = await begin("t302-real-audio", true);
+  assert.ok(withAudio.id, JSON.stringify(withAudio));
+  assert.equal((await post("/api/export/audio?id=" + withAudio.id, wav)).status, 200, "a talking export still uploads its mix");
+  assert.equal((await post("/api/export/end?id=" + encodeURIComponent(withAudio.id) + "&discard=1&token=" + encodeURIComponent(withAudio.endToken))).status, 200);
 
   const b = await begin("t302-real-b");
   assert.ok(b.id);

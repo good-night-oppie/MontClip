@@ -1849,13 +1849,17 @@ async function handleRequest(req, res) {
     return;
   }
   if (p === "/api/export/audio" && req.method === "POST") {
-    const sess = exportSessions.get(url.searchParams.get("id"));
+    const id = url.searchParams.get("id");
+    const sess = exportSessions.get(id);
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
       const wavPath = path.join(sess.dir, "audio.wav");
       try { fs.rmSync(wavPath, { force: true }); } catch {}
       await bodyToFile(req, wavPath);   // streamed: a long mix is not held in memory
-      if (sess.discarded || exportSessions.get(id) !== sess) { sendJSON(res, 410, { error: "export session was discarded" }); return; }
+      if (sess.discarded || exportSessions.get(id) !== sess) {
+        try { fs.rmSync(sess.dir, { recursive: true, force: true }); } catch { }
+        sendJSON(res, 410, { error: "export session was discarded" }); return;
+      }
       // outputs that normalize loudness need the mix measured (loudnorm pass one) before ffmpeg starts
       const byTarget = new Map();
       for (const o of sess.outputs || []) {
@@ -1863,6 +1867,10 @@ async function handleRequest(req, res) {
         const k = `${o.spec.audio.loudness}/${o.spec.audio.truePeak}`;
         if (!byTarget.has(k)) byTarget.set(k, runFfmpeg(Delivery.LOUDNORM_ARGS(wavPath, o.spec), 10 * 60 * 1000).then((r) => Delivery.parseLoudnorm(r.stderr)));
         o.loudnorm = await byTarget.get(k);
+      }
+      if (sess.discarded || exportSessions.get(id) !== sess) {
+        try { fs.rmSync(sess.dir, { recursive: true, force: true }); } catch { }
+        sendJSON(res, 410, { error: "export session was discarded" }); return;
       }
       sess.wav = wavPath;
       touchExport(sess);

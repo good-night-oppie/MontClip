@@ -21263,7 +21263,7 @@ async function fastExport(opts = {}) {
     if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
     endToken = begin.endToken || "";
-    liveExports.set(sessId, endToken);
+    if (typeof liveExports !== "undefined") liveExports.set(sessId, endToken);
     if (opts.onSession) opts.onSession(sessId, endToken);   // a background export's editor can discard it if this page stops answering
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -21353,7 +21353,7 @@ async function fastExport(opts = {}) {
       try { workers?.terminate(); } catch { }
     }
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
-    liveExports.delete(sessId);
+    if (typeof liveExports !== "undefined") liveExports.delete(sessId);
     if (!end.src) throw exportEndError(end, "encode failed");
     // a profile export's warnings (a silent piece, one not checked in time) come as end.report (server.js warningReport)
     const outs = end.outputs || [{ file: decodeURIComponent(end.src.split("/").pop()), ok: true, src: end.src, ...(end.report ? { report: end.report } : {}) }];
@@ -21393,7 +21393,7 @@ async function fastExport(opts = {}) {
     endExportWindow();
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
-    liveExports.delete(sessId);
+    if (typeof liveExports !== "undefined") liveExports.delete(sessId);
     els.exportOverlay.classList.add("hidden");
     els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
@@ -22323,7 +22323,7 @@ async function webCodecsExport() {
     if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
     endToken = begin.endToken || "";
-    liveExports.set(sessId, endToken);
+    if (typeof liveExports !== "undefined") liveExports.set(sessId, endToken);
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
       if (!r.ok) throw new Error("audio upload failed");
@@ -22405,7 +22405,7 @@ async function webCodecsExport() {
     encoder.close();
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
-    liveExports.delete(sessId);
+    if (typeof liveExports !== "undefined") liveExports.delete(sessId);
     if (!end.src) throw exportEndError(end, "mux failed");
     saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
@@ -22420,7 +22420,7 @@ async function webCodecsExport() {
     endExportWindow();
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
-    liveExports.delete(sessId);
+    if (typeof liveExports !== "undefined") liveExports.delete(sessId);
     els.exportOverlay.classList.add("hidden");
     els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
