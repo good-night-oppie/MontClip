@@ -61,8 +61,17 @@ async function soundRead(ffmpeg, file, at = 0, dur = null, timeoutMs = TIMEOUT_M
   const r = await runner(ffmpeg, ["-hide_banner", "-nostdin", "-nostats", ...(at > 0 ? ["-ss", String(at)] : []), "-i", file,
     ...(dur > 0 ? ["-t", String(dur)] : []), "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"], "utf8", timeoutMs);
   const m = /max_volume:\s*(-?[\d.]+|-inf)\s*dB/.exec(r.stderr);
-  // no sound stream at all, in older ffmpeg's words and in 8 / 9's ("Failed to set value '0:a:0' for option 'map'")
-  if (!m) return { db: /Stream map '0:a:0' matches no streams|does not contain any stream|value '0:a:0' for option 'map'/i.test(r.stderr) ? -Infinity : null, timedOut: r.timedOut };
+  if (!m) {
+    // no sound stream at all, in older ffmpeg's words and in 8 / 9's ("Failed to set value '0:a:0' for option 'map'")
+    const noSound = /Stream map '0:a:0' matches no streams|does not contain any stream|value '0:a:0' for option 'map'/i.test(r.stderr);
+    /* #310: junk bytes that happen to hold a "[mm:ss]" line are read as lrc (a text subtitle format) or only guessed
+       at ("detected only with low score ..., misdetection possible"). That is not a container without sound: a real
+       silent video names a Video stream here. -Infinity would say "silent in its file too", which keeps the file and
+       passes the export; null fails it (EXPORT_AUDIO_FAILED). */
+    const guessed = /detected only with low score|misdetection possible/i.test(r.stderr);
+    const textOnly = /Stream #\d+:\d+[^\n]*: Subtitle:/.test(r.stderr) && !/Stream #\d+:\d+[^\n]*: (?:Video|Audio):/.test(r.stderr);
+    return { db: noSound && !guessed && !textOnly ? -Infinity : null, timedOut: r.timedOut };
+  }
   return { db: m[1] === "-inf" ? -Infinity : Number(m[1]), timedOut: r.timedOut };
 }
 async function pool(items, fn) {
