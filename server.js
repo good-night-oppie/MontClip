@@ -468,7 +468,7 @@ const COLOR_BSF = "h264_metadata=colour_primaries=1:transfer_characteristics=1:m
 const EXPORT_IDLE_MS = 10 * 60 * 1000; // abandon sessions with no successful activity
 /* #302 follow-up: a host that destroys the whole editor view gives the page no pagehide, but its SSE connection closes.
    Sessions begun by that editor are cleaned after this grace, unless the same Cindy task reconnects first. */
-const EXPORT_OWNER_GRACE_MS = 15 * 1000;
+const EXPORT_OWNER_GRACE_MS = +process.env.MONTCLIP_OWNER_GRACE_MS > 0 ? +process.env.MONTCLIP_OWNER_GRACE_MS : 15 * 1000;   // tests shorten it
 const EXPORT_SWEEP_MS = 60 * 1000;
 let exportSweepTimer = null;
 function touchExport(sess) {
