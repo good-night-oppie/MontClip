@@ -130,6 +130,11 @@ test('profile export: a silent piece and one not checked in time reach the reply
   const lost = await profileExport(t, { MONTCLIP_EXPORT_CHECK_TIMEOUT_MS: '120000' }, junk);
   a.equal(lost.status, 500); a.equal(lost.out.code, 'EXPORT_AUDIO_FAILED');
   a.deepEqual(lost.exports, [], 'unreadable: no file');
+  // #310: junk guessed as lrc has no sound stream in the guess; the export must still fail, not pass as silent
+  const misread = await profileExport(t, { MONTCLIP_EXPORT_CHECK_TIMEOUT_MS: '120000' }, guessed);
+  a.equal(misread.status, 500, 'a low-score guess is not a container without sound: ' + JSON.stringify(misread.out));
+  a.equal(misread.out.code, 'EXPORT_AUDIO_FAILED');
+  a.deepEqual(misread.exports, [], 'unreadable: no file');
 });
 
 test('the page hands a profile export\'s warnings to the job result, as the delivery path does', () => {
