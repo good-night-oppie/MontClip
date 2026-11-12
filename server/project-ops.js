@@ -347,6 +347,10 @@
             if (op.set && op.set.track && lockedTracks().has(op.set.track))
               refuseLocked("updateClip", `track ${op.set.track} is locked`, op);
           }
+          // Capture the original AV relationship before a picture-only source
+          // swap, including old agent documents with no stored linkGroup.
+          if (c.kind === "video" && op.set?.mediaId && op.set.mediaId !== c.mediaId)
+            EditOps.forDoc(proj).relinkClips();
           mergeInto(c, op.set);
           // a pan set on purpose is no longer the program's default (panAuto), unless the op says so
           const setPan = op.set && ((op.set.props && "pan" in op.set.props && !("panAuto" in op.set.props)) || (op.set.keyframes && "pan" in op.set.keyframes));

@@ -145,6 +145,19 @@ material (only when the user asked). A refused op (nothing under `at`, a
 locked clip, a media window past the file's end) aborts the whole patch unsaved.
 `setProject` also sets `inPoint` / `outPoint` (`null` clears).
 
+A picture-only `updateClip {mediaId}` keeps its recorded audio companions when
+their timeline start and duration still match, including after save/reopen.
+The replacement picture may have a different source In; original-sound channels
+from the same file must still agree on theirs. Roll checks allow the editor's
+four-decimal split/trim rounding (150 microseconds), not a frame-sized gap.
+Mixed-source links are never guessed from overlapping clips; `unlinked:true`
+still opts out. Rolling such a cut moves both original-sound channels with the
+picture, preserving their continuous source window. If the paired channels,
+speeds, source handles or locks prevent that, the whole patch is refused; a
+replacement roll never silently applies a smaller delta. Old projects whose
+mixed-source link metadata was already lost need their relationship restored
+explicitly before using this behavior.
+
 Example — cut the 2 s from 10 s to 12 s out of the edit, then crossfade the new cut:
 `{ops:[{op:"extract", from:10, to:12}, {op:"crossfade", at:10, duration:0.5}]}`
 
