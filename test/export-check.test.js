@@ -84,6 +84,12 @@ test('a piece whose file takes too long to read is not "unreadable": the file is
   a.deepEqual([r2.ok, r2.lost, r2.unchecked], [false, [{ n: 4, t: 30 }], []]);
   a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED');
   a.equal((await C.soundRead(FF.path('ffmpeg'), junk, 1, 2)).timedOut, false, 'a read error is not a timeout');
+  // #310: a "[mm:ss]" line makes libavformat guess lrc (a text subtitle format) for junk bytes. That guess has no
+  // sound stream, but the file could not be read — it is not a container without sound (-Infinity), which would
+  // count as "silent in its file too" and let the export pass.
+  const guessed = path.join(dir, 'guessed.mp4');
+  fs.writeFileSync(guessed, Buffer.concat([Buffer.from('['), Buffer.alloc(64 * 1024)]));   // read as lrc, low score
+  a.deepEqual(await C.soundRead(FF.path('ffmpeg'), guessed, 1, 2), { db: null, timedOut: false }, 'a low-score guess is not a container without sound');
 });
 
 /** One profile export through the real routes (/api/export/begin with a profile, no delivery), its plan naming one silent
