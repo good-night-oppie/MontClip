@@ -115,9 +115,10 @@ async function profileExport(t, env, srcFile) {
 
 test('profile export: a silent piece and one not checked in time reach the reply (and so the job); unreadable still deletes the file', { skip: noFf, timeout: 180_000 }, async (t) => {
   const dir = tmp(t, 'mctp-');
-  const frag = path.join(dir, 'frag.mp4'), junk = path.join(dir, 'junk.mp4');
+  const frag = path.join(dir, 'frag.mp4'), junk = path.join(dir, 'junk.mp4'), guessed = path.join(dir, 'guessed.mp4');
   fragmentedQuiet(frag);
   fs.writeFileSync(junk, require('crypto').randomBytes(64 * 1024));
+  fs.writeFileSync(guessed, Buffer.concat([Buffer.from('['), Buffer.alloc(64 * 1024)]));   // read as lrc, low score
   const quiet = await profileExport(t, { MONTCLIP_EXPORT_CHECK_TIMEOUT_MS: '120000' }, frag);   // read in time, however loaded
   a.equal(quiet.status, 200, JSON.stringify(quiet.out));
   a.deepEqual(quiet.out.report.checks.map((c) => [c.code, c.n, c.t]), [['EXPORT_CLIP_SILENT', 2, 10]], 'the silent piece reaches the profile reply');
