@@ -1825,16 +1825,21 @@ async function handleRequest(req, res) {
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
-      // capture who began it BEFORE the precheck awaits: the editor may close while beginExport runs
+      // who began it: the editor may close (or claim) while the precheck awaits
       const connKey = typeof opts.conn === "string" ? opts.conn : null;
       const liveOwner = connKey ? [...sseClients].find((r) => sameSecret(connKey, r.montclipConn)) : null;
       const closedOwner = !liveOwner && connKey ? ownerCleanups.get(connKey) : null;
-      const ownerInfo = liveOwner
-        ? { conn: liveOwner.montclipConn, project: liveOwner.montclipTask && liveOwner.montclipTask.project, session: liveOwner.montclipTask && liveOwner.montclipTask.session, tabId: liveOwner.montclipTabId, closed: false }
-        : closedOwner ? { conn: connKey, project: closedOwner.task && closedOwner.task.project, session: closedOwner.task && closedOwner.task.session, tabId: closedOwner.tabId, closed: true } : null;
+      const ownerConn = liveOwner ? liveOwner.montclipConn : closedOwner ? connKey : null;
+      // tests only: hold the precheck so a claim or a close lands between this snapshot and the new session (#302)
+      if (+process.env.MONTCLIP_TEST_BEGIN_DELAY_MS > 0) await new Promise((r) => setTimeout(r, +process.env.MONTCLIP_TEST_BEGIN_DELAY_MS));
       const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
-      // the page may have closed while the precheck ran: re-check the connection now, not only before the await
-      const stillLive = connKey ? [...sseClients].some((r) => sameSecret(connKey, r.montclipConn)) : false;
+      /* Read the owner again after the precheck: the page can claim or close while it runs. The snapshot above has
+         no task when begin came before claim, and the close handler's record carries the task that snapshot lacks --
+         using either older value would leave the tab unmatched, or overwrite that task with null. */
+      const liveNow = connKey ? [...sseClients].find((r) => sameSecret(connKey, r.montclipConn)) : null;
+      const closedNow = !liveNow && connKey ? ownerCleanups.get(connKey) : null;
+      const ownerTask = (liveNow && liveNow.montclipTask) || (closedNow && closedNow.task) || (closedOwner && closedOwner.task) || null;
+      const ownerTabId = liveNow ? liveNow.montclipTabId : closedNow ? closedNow.tabId : closedOwner ? closedOwner.tabId : null;
       const sess = exportSessions.get(begun.id);
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
@@ -1844,11 +1849,11 @@ async function handleRequest(req, res) {
       const endToken = crypto.randomBytes(32).toString("hex");
       if (sess) {
         sess.endToken = endToken; begun.endToken = endToken;
-        if (ownerInfo) {
-          sess.ownerConn = ownerInfo.conn;
-          if (ownerInfo.session) { sess.ownerSession = ownerInfo.session; sess.ownerTabId = ownerInfo.tabId; }
+        if (ownerConn) {
+          sess.ownerConn = ownerConn;
+          if (ownerTask) { sess.ownerSession = ownerTask.session; sess.ownerTabId = ownerTabId; }
           // the connection is gone now: use the same grace and same-tab reconnect rule as any close
-          if (!stillLive) scheduleOwnerCleanup(ownerInfo.conn, ownerInfo.session ? { session: ownerInfo.session, project: ownerInfo.project || null } : null, ownerInfo.tabId);
+          if (!liveNow) scheduleOwnerCleanup(ownerConn, ownerTask, ownerTabId);
         }
       }
       sendJSON(res, 200, begun);
