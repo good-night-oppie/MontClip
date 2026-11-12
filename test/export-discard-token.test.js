@@ -53,3 +53,40 @@ test("the page keeps the token and beacons it on pagehide; the server refuses a 
   assert.match(server, /endToken = crypto\.randomBytes\(32\)\.toString\("hex"\)/);
   assert.match(server, /EXPORT_TOKEN_REFUSED/);
 });
+
+test("a real frame starts ffmpeg; discard stops it and removes only that session's files while another export finishes", { timeout: 120000 }, async (t) => {
+  const { execFileSync } = require("node:child_process");
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const FF = require("../ffmpeg-path");
+  if (!FF.available("ffmpeg")) return t.skip("no ffmpeg here; the CI matrix runs this test");
+  const dir = makeDataDir(t);
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  const exportsDir = path.join(dir, "exports");
+  const ff = (args) => execFileSync(FF.path("ffmpeg"), ["-v", "error", "-y", ...args], { windowsHide: true });
+  const jpeg = ff(["-f", "lavfi", "-i", "color=c=gray:size=64x64", "-frames:v", "1", "-c:v", "mjpeg", "-f", "image2pipe", "-"]);
+  const post = (route, body) => fetch(base + route, { method: "POST", body });
+  const begin = async (name) => (await (await fetch(base + "/api/export/begin", { method: "POST", body: JSON.stringify({ fps: 30, frames: 30, profile: "prores422", name, hasAudio: false }) })).json());
+  const leftovers = () => fs.readdirSync(exportsDir).filter((n) => n.startsWith("fablecut-") || /\.part\./.test(n));
+  const until = async (fn, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };
+
+  const a = await begin("t302-real-a");
+  assert.ok(a.id, JSON.stringify(a));
+  assert.equal((await post("/api/export/frame?id=" + a.id, jpeg)).status, 200);
+  assert.ok(await until(() => leftovers().length > 0), "the first frame must have started ffmpeg and its .part file");
+
+  const r = await post("/api/export/end?id=" + encodeURIComponent(a.id) + "&discard=1&token=" + encodeURIComponent(a.endToken));
+  assert.equal(r.status, 200);
+  assert.ok(await until(() => leftovers().length === 0), "the discarded session's ffmpeg, .part and temp folder go");
+  assert.equal((await (await fetch(base + "/api/export/active")).json()).active, 0);
+
+  const b = await begin("t302-real-b");
+  assert.ok(b.id);
+  assert.equal((await post("/api/export/frame?id=" + b.id, Buffer.concat(Array(30).fill(jpeg)))).status, 200);
+  const end = await fetch(base + "/api/export/end?id=" + b.id, { method: "POST" });
+  const out = await end.json();
+  assert.equal(end.status, 200, JSON.stringify(out));
+  assert.ok(out.src, "the other session still finishes normally");
+  assert.equal(leftovers().length, 0, "no .part file or temp folder is left");
+  assert.ok(fs.existsSync(path.join(exportsDir, decodeURIComponent(out.src.split("/").pop()))), "the other session's finished file is there");
+});

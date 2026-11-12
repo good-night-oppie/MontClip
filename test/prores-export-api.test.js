@@ -24,7 +24,7 @@ test('bounded ProRes REST export, invalid boundary and cancellation', {timeout:6
   assert.equal(+streams.find(s=>s.codec_type==='audio').duration_ts,48000,'long source must stop at 1s, not wait for 5s');
   const cancelled=await begin();await post('/api/export/audio?id='+cancelled.id,fs.readFileSync(wav));await post('/api/export/frame?id='+cancelled.id,jpeg);
   assert.equal((await post('/api/export/end?id='+cancelled.id+'&discard=1&token='+cancelled.endToken)).status,200);
-  assert.equal((await post('/api/export/frame?id='+cancelled,jpeg)).status,404);
+  assert.equal((await post('/api/export/frame?id='+cancelled.id,jpeg)).status,404);
   const until=Date.now()+6000;while(Date.now()<until&&fs.readdirSync(path.join(dir,'exports')).some(f=>f.endsWith('.part.mov')||f.startsWith('fablecut-')))await new Promise(r=>setTimeout(r,30));
   assert.deepEqual(fs.readdirSync(path.join(dir,'exports')),[path.basename(file)],'cancelled partial file and temp mix removed');
   // Test-only injection into a second owned process; never edit the shared

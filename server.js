@@ -867,6 +867,7 @@ const exportedThisRun = new Set();
 function cleanupExport(id) {
   const s = exportSessions.get(id);
   if (!s) return;
+  s.discarded = true;   // a queued frame/audio write must not start ffmpeg after this
   exportSessions.delete(id);
   const job = ExportCleanup.stopSessions([s], { timeoutMs: 5000, log: logCleanupLeft });
   pendingCleanups.add(job); job.finally(() => pendingCleanups.delete(job));
@@ -1823,6 +1824,7 @@ async function handleRequest(req, res) {
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
       const body = await readBody(req);
+      if (sess.discarded || exportSessions.get(id) !== sess) { sendJSON(res, 410, { error: "export session was discarded" }); return; }
       if (!body || !body.length) throw new Error("empty frame");
       if (sess.hasAudio && !sess.wav) {
         sendJSON(res, 409, { error: "audio mix has not been uploaded yet" });
@@ -1830,6 +1832,7 @@ async function handleRequest(req, res) {
       }
       // queue behind any in-flight write so concurrent POSTs cannot interleave stdin
       const run = async () => {
+        if (sess.discarded || exportSessions.get(id) !== sess) throw Object.assign(new Error("export session was discarded"), { code: "EXPORT_DISCARDED" });
         if (!sess.proc) sess.mode === "annexb" ? startAnnexbEncoder(sess) : startEncoder(sess);
         await (sess.outputs ? writeDeliveryFrame(sess, body) : writeExportFrame(sess, body));
       };
@@ -1839,6 +1842,7 @@ async function handleRequest(req, res) {
       touchExport(sess);
       sendJSON(res, 200, { ok: true });
     } catch (e) {
+      if (e.code === "EXPORT_DISCARDED") { sendJSON(res, 410, { error: e.message }); return; }
       cleanupExport(id);
       sendJSON(res, 500, { error: String(e.message || e) });
     }
@@ -1851,6 +1855,7 @@ async function handleRequest(req, res) {
       const wavPath = path.join(sess.dir, "audio.wav");
       try { fs.rmSync(wavPath, { force: true }); } catch {}
       await bodyToFile(req, wavPath);   // streamed: a long mix is not held in memory
+      if (sess.discarded || exportSessions.get(id) !== sess) { sendJSON(res, 410, { error: "export session was discarded" }); return; }
       // outputs that normalize loudness need the mix measured (loudnorm pass one) before ffmpeg starts
       const byTarget = new Map();
       for (const o of sess.outputs || []) {

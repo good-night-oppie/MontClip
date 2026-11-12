@@ -21393,6 +21393,7 @@ async function fastExport(opts = {}) {
     endExportWindow();
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
+    liveExports.delete(sessId);
     els.exportOverlay.classList.add("hidden");
     els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
@@ -21411,6 +21412,11 @@ addEventListener("pagehide", () => {
   for (const [id, token] of liveExports) {
     try { navigator.sendBeacon("/api/export/end?id=" + encodeURIComponent(id) + "&discard=1&token=" + encodeURIComponent(token)); } catch { }
   }
+  // QQ's double insurance: the hidden export page's own session too (idempotent with its pagehide beacon).
+  try {
+    const bg = bgExport && typeof bgExport.job === "function" ? bgExport.job() : null;
+    if (bg && bg.sess) navigator.sendBeacon("/api/export/end?id=" + encodeURIComponent(bg.sess) + "&discard=1&token=" + encodeURIComponent(bg.token || ""));
+  } catch { }
 });
 const exportQueue = [];
 // Asked by the desktop close prompt (desktop/export-close.js): is an export running here, and how many exported videos in
@@ -22414,6 +22420,7 @@ async function webCodecsExport() {
     endExportWindow();
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
+    liveExports.delete(sessId);
     els.exportOverlay.classList.add("hidden");
     els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
