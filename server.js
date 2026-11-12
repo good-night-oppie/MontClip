@@ -466,6 +466,9 @@ const COLOR_TAGS = [
 ];
 const COLOR_BSF = "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1:video_full_range_flag=0";
 const EXPORT_IDLE_MS = 10 * 60 * 1000; // abandon sessions with no successful activity
+/* #302 follow-up: a host that destroys the whole editor view gives the page no pagehide, but its SSE connection closes.
+   Sessions begun by that editor are cleaned after this grace, unless the same Cindy task reconnects first. */
+const EXPORT_OWNER_GRACE_MS = 15 * 1000;
 const EXPORT_SWEEP_MS = 60 * 1000;
 let exportSweepTimer = null;
 function touchExport(sess) {
@@ -877,6 +880,18 @@ function logCleanupLeft(left) {
   const line = left.map((p) => `${new Date().toISOString()} not removed: ${X.maskUserPath(p)}`).join("\n") + "\n";   // no user name (QQ)
   console.error(line.trim());
   try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
+}
+const ownerCleanups = new Map();   // closed editor connection → its pending cleanup timer
+function scheduleOwnerCleanup(conn, task) {
+  if (!conn) return;
+  const prev = ownerCleanups.get(conn); if (prev) clearTimeout(prev);
+  const timer = setTimeout(() => {
+    ownerCleanups.delete(conn);
+    if (task && editorsFor(task).length) return;   // the same task reconnected inside the grace
+    for (const [id, s] of [...exportSessions]) if (s.ownerConn === conn) cleanupExport(id);
+  }, EXPORT_OWNER_GRACE_MS);
+  timer.unref?.();
+  ownerCleanups.set(conn, timer);
 }
 function sweepIdleExports() {
   const now = Date.now();
@@ -1809,7 +1824,11 @@ async function handleRequest(req, res) {
       /* #302: an unfinished export can be discarded only by the page that began it: the page keeps this secret and
          sends it with its pagehide beacon, so a bare session id cannot stop another task's export. */
       const endToken = crypto.randomBytes(32).toString("hex");
-      if (sess) { sess.endToken = endToken; begun.endToken = endToken; }
+      if (sess) {
+        sess.endToken = endToken; begun.endToken = endToken;
+        const owner = typeof opts.conn === "string" ? [...sseClients].find((r) => sameSecret(opts.conn, r.montclipConn)) : null;
+        if (owner && owner.montclipTask) { sess.ownerConn = owner.montclipConn; sess.ownerTask = owner.montclipTask; }
+      }
       sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
@@ -2259,7 +2278,10 @@ async function handleRequest(req, res) {
       res.write(`event: conn\ndata: ${JSON.stringify({ conn: res.montclipConn })}\n\n`);
     }
     sseClients.add(res);
-    req.on("close", () => sseClients.delete(res));
+    req.on("close", () => {
+    sseClients.delete(res);
+    if (res.montclipTask) scheduleOwnerCleanup(res.montclipConn, res.montclipTask);
+  });
     return;
   }
 

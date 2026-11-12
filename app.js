@@ -21246,14 +21246,14 @@ async function fastExport(opts = {}) {
     const begin = await fetch("/api/export/begin", {
       method: "POST",
       body: JSON.stringify(delivery ? {
-        fps, duration: frames / fps,
+        fps, duration: frames / fps, conn: opts.conn || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: { ...exportCheckPlan(t0, t1), silent }, panIntent: exportPanIntent(),
       } : {
         fps,
         frames,
         name: opts.name || exportBaseName("export"),
-        profile: profileId,
+        profile: profileId, conn: opts.conn || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         hasAudio: !!wav,
         job,
         check: { ...exportCheckPlan(t0, t1), silent },
@@ -21698,7 +21698,7 @@ function startBgExport(fastOpts) {
   const range = exportRangeMode();
   const delivery = fastOpts.delivery || null;
   const name = delivery ? deliveryFileName(delivery, delivery.fps || projectFps()) : exportBaseName("export");
-  const opts = delivery ? { deliveries: [{ delivery, name }], range } : { profile: fastOpts.profile, name, range };
+  const opts = delivery ? { deliveries: [{ delivery, name }], range, conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined } : { profile: fastOpts.profile, name, range, conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined };
   const q = { id: "q" + Math.random().toString(36).slice(2, 8), bg: true, spec: delivery,
     label: delivery ? queueLabel(delivery) : exportProfileMeta(fastOpts.profile).label, profile: delivery ? null : fastOpts.profile,
     name, range, status: "running", progress: 0 };
@@ -21861,7 +21861,7 @@ function jobProblem(id, reply) {
 const JOB_HEARTBEAT_MS = 5000;
 async function runExportJob(ticket) {
   if (!ticket?.id || state.exporting || bgExportBusy()) return; // a busy tab leaves it for another
-  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden, conn: runtime.sseConn || undefined }) })
+  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden, conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined }) })
     .then((r) => r.ok).catch(() => false);
   if (!claimed) return;
   let running = true;
@@ -22314,7 +22314,7 @@ async function webCodecsExport() {
       body: JSON.stringify({
         fps,
         name: exportBaseName("export"),
-        mode: "annexb",
+        mode: "annexb", conn: opts.conn || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         hasAudio: !!wav,
         check: { ...exportCheckPlan(t0, t1), silent },
       }),
