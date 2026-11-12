@@ -50,7 +50,7 @@ test('a piece whose file takes too long to read is not "unreadable": the file is
   const dir = tmp(t, 'mcto-');
   const frag = path.join(dir, 'frag.mp4'), junk = path.join(dir, 'junk.mp4'), out = path.join(dir, 'out.wav');
   fragmentedQuiet(frag);
-  fs.writeFileSync(junk, require('crypto').randomBytes(64 * 1024));
+  fs.writeFileSync(junk, Buffer.alloc(64 * 1024, 0x5a));   // fixed junk: this ffmpeg cannot read it (#310)
   execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=f=440:r=48000:d=3', out], { windowsHide: true });
   const resolve = (src) => path.join(dir, src.replace('/media/', ''));
   const plan = C.cleanPlan({ video: [], audio: [], silent: [{ n: 2, t: 10, src: '/media/frag.mp4', at: 300, dur: 5 }, { n: null, t: 75, src: '/media/frag.mp4', at: 500, dur: 3 }] });
