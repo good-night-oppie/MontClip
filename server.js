@@ -882,12 +882,19 @@ function logCleanupLeft(left) {
   try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
 }
 const ownerCleanups = new Map();   // closed editor connection → its pending cleanup timer
-function scheduleOwnerCleanup(conn, task) {
+function scheduleOwnerCleanup(conn, task, tabId) {
   if (!conn) return;
   const prev = ownerCleanups.get(conn); if (prev) clearTimeout(prev);
   const timer = setTimeout(() => {
     ownerCleanups.delete(conn);
-    if (task && editorsFor(task).length) return;   // the same task reconnected inside the grace
+    if (tabId) {
+      // the same Cindy tab reconnected inside the grace (same task + same tab id): its export stays
+      const alive = [...sseClients].some((r) => r.montclipTask && task && r.montclipTask.session === task.session && r.montclipTabId === tabId);
+      if (alive) return;
+      for (const [id, s] of [...exportSessions]) if (s.ownerSession === task.session && s.ownerTabId === tabId) cleanupExport(id);
+      return;
+    }
+    if (task && editorsFor(task).length) return;   // an older page without a tab id: keep the task-wide rule
     for (const [id, s] of [...exportSessions]) if (s.ownerConn === conn) cleanupExport(id);
   }, EXPORT_OWNER_GRACE_MS);
   timer.unref?.();
@@ -1068,6 +1075,9 @@ async function handleRequest(req, res) {
     const conn = task && [...sseClients].find((r) => typeof a.conn === "string" && sameSecret(a.conn, r.montclipConn));
     if (!task || !conn || conn.montclipTask) { sendJSON(res, 403, { error: "forbidden: wrong, used or expired task ticket", code: "TASK_TICKET_REFUSED" }); return; }
     conn.montclipTask = task;
+    // an export that began before this claim finished: bind it to the same task and tab now
+    for (const s of exportSessions.values())
+      if (s.ownerConn === conn.montclipConn && !s.ownerSession) { s.ownerSession = task.session; s.ownerTabId = conn.montclipTabId; }
     sendJSON(res, 200, { bound: true, channel: embed.channelFor(task) });
     return;
   }
@@ -1827,7 +1837,10 @@ async function handleRequest(req, res) {
       if (sess) {
         sess.endToken = endToken; begun.endToken = endToken;
         const owner = typeof opts.conn === "string" ? [...sseClients].find((r) => sameSecret(opts.conn, r.montclipConn)) : null;
-        if (owner && owner.montclipTask) { sess.ownerConn = owner.montclipConn; sess.ownerTask = owner.montclipTask; }
+        if (owner) {
+          sess.ownerConn = owner.montclipConn;
+          if (owner.montclipTask) { sess.ownerSession = owner.montclipTask.session; sess.ownerTabId = owner.montclipTabId; }
+        }
       }
       sendJSON(res, 200, begun);
     } catch (e) {
@@ -2280,7 +2293,7 @@ async function handleRequest(req, res) {
     sseClients.add(res);
     req.on("close", () => {
     sseClients.delete(res);
-    if (res.montclipTask) scheduleOwnerCleanup(res.montclipConn, res.montclipTask);
+    if (res.montclipTask) scheduleOwnerCleanup(res.montclipConn, res.montclipTask, res.montclipTabId);
   });
     return;
   }
@@ -2461,6 +2474,8 @@ async function shutdown() {
   shuttingDown = true;
   setTimeout(() => process.exit(0), 3700).unref?.();
   stopExportSweep();
+  for (const timer of ownerCleanups.values()) clearTimeout(timer);
+  ownerCleanups.clear();
   const sessions = [...exportSessions.values()];
   exportSessions.clear();
   exportJobs.shutdown();

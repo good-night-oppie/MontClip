@@ -21246,14 +21246,14 @@ async function fastExport(opts = {}) {
     const begin = await fetch("/api/export/begin", {
       method: "POST",
       body: JSON.stringify(delivery ? {
-        fps, duration: frames / fps, conn: opts.conn || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
+        fps, duration: frames / fps, conn: (opts && opts.conn) || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: { ...exportCheckPlan(t0, t1), silent }, panIntent: exportPanIntent(),
       } : {
         fps,
         frames,
         name: opts.name || exportBaseName("export"),
-        profile: profileId, conn: opts.conn || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
+        profile: profileId, conn: (opts && opts.conn) || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         hasAudio: !!wav,
         job,
         check: { ...exportCheckPlan(t0, t1), silent },
@@ -22314,7 +22314,7 @@ async function webCodecsExport() {
       body: JSON.stringify({
         fps,
         name: exportBaseName("export"),
-        mode: "annexb", conn: opts.conn || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
+        mode: "annexb", conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         hasAudio: !!wav,
         check: { ...exportCheckPlan(t0, t1), silent },
       }),

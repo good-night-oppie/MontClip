@@ -34,13 +34,13 @@ async function launch(t, dir, token) {
   throw new Error("server did not start: " + out.slice(-2000));
 }
 
-async function connect(base, token) {
+async function connect(base, token, tabId) {
   const boot = await fetch(base + "/?token=" + token, { redirect: "manual" });
   const cookie = String(boot.headers.get("set-cookie") || "").split(";")[0];
   assert.ok(cookie, "a cookie session");
   const headers = { Cookie: cookie };
   const ac = new AbortController();
-  const es = await fetch(base + "/api/events", { headers, signal: ac.signal });
+  const es = await fetch(base + "/api/events" + (tabId ? "?tabId=" + encodeURIComponent(tabId) : ""), { headers, signal: ac.signal });
   const reader = es.body.getReader();
   let buf = "", conn = null;
   while (!conn) {
@@ -102,4 +102,53 @@ test("a same-task reconnect inside the grace keeps the running export", { skip: 
   await new Promise((r) => setTimeout(r, 20000));
   assert.equal(await active(base, token), 1, "the export is not killed when its task reconnected");
   b.ac.abort();
+});
+
+test("the same tab reconnects, then closes: its export is cleaned then", { skip: !FF.available("ffmpeg") && "no ffmpeg here", timeout: 120000 }, async (t) => {
+  const token = crypto.randomBytes(32).toString("hex");
+  const dir = makeDataDir(t);
+  const base = await launch(t, dir, token);
+  const a = await connect(base, token, "tab-same");
+  await claim(base, token, a.headers, a.conn, "task-owner-3");
+  await begin(base, a.headers, a.conn, "owner-same-tab");
+  a.ac.abort();
+  try { await a.reader.cancel(); } catch { }
+  const b = await connect(base, token, "tab-same");
+  await claim(base, token, b.headers, b.conn, "task-owner-3");
+  await new Promise((r) => setTimeout(r, 20000));
+  assert.equal(await active(base, token), 1, "the reconnect of the same tab keeps it");
+  b.ac.abort();
+  try { await b.reader.cancel(); } catch { }
+  let now = 1;
+  const until = Date.now() + 25000;
+  while (Date.now() < until) { now = await active(base, token); if (now === 0) break; await new Promise((r) => setTimeout(r, 500)); }
+  assert.equal(now, 0, "closing the reconnected tab still cleans its export");
+});
+
+test("a new tab of the same task does not save the closed tab's export", { skip: !FF.available("ffmpeg") && "no ffmpeg here", timeout: 120000 }, async (t) => {
+  const token = crypto.randomBytes(32).toString("hex");
+  const dir = makeDataDir(t);
+  const base = await launch(t, dir, token);
+  const a = await connect(base, token, "tab-old");
+  await claim(base, token, a.headers, a.conn, "task-owner-4");
+  await begin(base, a.headers, a.conn, "owner-old-tab");
+  a.ac.abort();
+  try { await a.reader.cancel(); } catch { }
+  const b = await connect(base, token, "tab-new");
+  await claim(base, token, b.headers, b.conn, "task-owner-4");
+  let now = 1;
+  const until = Date.now() + 25000;
+  while (Date.now() < until) { now = await active(base, token); if (now === 0) break; await new Promise((r) => setTimeout(r, 500)); }
+  assert.equal(now, 0, "the old tab's export is not kept alive by another tab of the same task");
+  b.ac.abort();
+});
+
+test("webCodecsExport never reads opts: it uses runtime.sseConn only", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const start = app.indexOf("async function webCodecsExport(");
+  const end = app.indexOf("async function fastExport(", start);
+  const body = app.slice(start, end > start ? end : start + 20000);
+  assert.ok(start >= 0 && body.includes('mode: "annexb"'));
+  assert.doesNotMatch(body, /opts.conn/, "webCodecsExport has no opts parameter");
+  assert.match(body, /conn: \(typeof runtime !== "undefined" && runtime\.sseConn\)/);
 });
