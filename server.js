@@ -888,15 +888,13 @@ function scheduleOwnerCleanup(conn, task, tabId) {
   const record = { timer: null, task, tabId, conn };
   record.timer = setTimeout(() => {
     ownerCleanups.delete(conn);
-    if (tabId) {
-      // the same Cindy tab reconnected inside the grace (same task + same tab id): its export stays
-      const alive = [...sseClients].some((r) => r.montclipTask && task && r.montclipTask.session === task.session && r.montclipTabId === tabId);
-      if (alive) return;
-      for (const [id, s] of [...exportSessions]) if (s.ownerSession === task.session && s.ownerTabId === tabId) cleanupExport(id);
-      return;
-    }
-    if (task && editorsFor(task).length) return;   // an older page without a tab id: keep the task-wide rule
-    for (const [id, s] of [...exportSessions]) if (s.ownerConn === conn) cleanupExport(id);
+    // the same Cindy tab reconnected inside the grace (same task + same tab id): its export stays
+    const alive = task && (tabId
+      ? [...sseClients].some((r) => r.montclipTask && r.montclipTask.session === task.session && r.montclipTabId === tabId)
+      : editorsFor(task).length > 0);
+    if (alive) return;
+    for (const [id, s] of [...exportSessions])
+      if (s.ownerConn === conn || (task && s.ownerSession === task.session && s.ownerTabId === tabId)) cleanupExport(id);
   }, EXPORT_OWNER_GRACE_MS);
   record.timer.unref?.();
   ownerCleanups.set(conn, record);
@@ -1832,9 +1830,11 @@ async function handleRequest(req, res) {
       const liveOwner = connKey ? [...sseClients].find((r) => sameSecret(connKey, r.montclipConn)) : null;
       const closedOwner = !liveOwner && connKey ? ownerCleanups.get(connKey) : null;
       const ownerInfo = liveOwner
-        ? { conn: liveOwner.montclipConn, session: liveOwner.montclipTask && liveOwner.montclipTask.session, tabId: liveOwner.montclipTabId, closed: false }
-        : closedOwner ? { conn: connKey, session: closedOwner.task && closedOwner.task.session, tabId: closedOwner.tabId, closed: true } : null;
+        ? { conn: liveOwner.montclipConn, project: liveOwner.montclipTask && liveOwner.montclipTask.project, session: liveOwner.montclipTask && liveOwner.montclipTask.session, tabId: liveOwner.montclipTabId, closed: false }
+        : closedOwner ? { conn: connKey, project: closedOwner.task && closedOwner.task.project, session: closedOwner.task && closedOwner.task.session, tabId: closedOwner.tabId, closed: true } : null;
       const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      // the page may have closed while the precheck ran: re-check the connection now, not only before the await
+      const stillLive = connKey ? [...sseClients].some((r) => sameSecret(connKey, r.montclipConn)) : false;
       const sess = exportSessions.get(begun.id);
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
@@ -1847,8 +1847,8 @@ async function handleRequest(req, res) {
         if (ownerInfo) {
           sess.ownerConn = ownerInfo.conn;
           if (ownerInfo.session) { sess.ownerSession = ownerInfo.session; sess.ownerTabId = ownerInfo.tabId; }
-          // the page closed while the precheck ran: clean this session shortly, nothing will reconnect for it
-          if (ownerInfo.closed) setTimeout(() => cleanupExport(begun.id), 5000).unref?.();
+          // the connection is gone now: use the same grace and same-tab reconnect rule as any close
+          if (!stillLive) scheduleOwnerCleanup(ownerInfo.conn, ownerInfo.session ? { session: ownerInfo.session, project: ownerInfo.project || null } : null, ownerInfo.tabId);
         }
       }
       sendJSON(res, 200, begun);

@@ -93,6 +93,6 @@ test("a real frame starts ffmpeg; discard stops it and removes only that session
   const out = await end.json();
   assert.equal(end.status, 200, JSON.stringify(out));
   assert.ok(out.src, "the other session still finishes normally");
-  assert.equal(leftovers().length, 0, "no .part file or temp folder is left");
+  assert.ok(await until(() => leftovers().length === 0, 10000), "no .part file or temp folder is left");
   assert.ok(fs.existsSync(path.join(exportsDir, decodeURIComponent(out.src.split("/").pop()))), "the other session's finished file is there");
 });
