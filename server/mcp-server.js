@@ -1529,6 +1529,42 @@ async function scopesTool(args) {
   return describeScopes(job);
 }
 
+/* ── Checking a stretch with the video bridge (fablecut_review; #321). The server does the work: /api/review/* ── */
+async function reviewTool(args) {
+  const action = args.action || "check";
+  if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT}`);
+  const call = async (method, p, body) => {
+    const r = await apiJSON(method, p, body);
+    if (r.status !== 200) throw new Error((r.body?.code ? `${r.body.code}: ` : "") + (r.body?.error || `review request failed (${r.status})`));
+    return r.body;
+  };
+  const q = (o) => Object.entries(o).filter(([, v]) => v != null).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  const need = (k) => { if (args[k] == null) throw new Error(`fablecut_review ${action} needs ${k}`); return args[k]; };
+  const out = (o) => JSON.stringify(o, null, 2);
+  switch (action) {
+    case "check": case "prepare": {
+      const first = await call("POST", "/api/review/prepare", { start: need("start"), end: need("end"), lead: args.lead, scope: args.scope, where: args.where, send: action === "check" });
+      if (action === "prepare") return out(first);
+      const limit = Date.now() + (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 300) * 1000;
+      for (;;) {
+        const s = await call("GET", "/api/review/status?" + q({ id: first.reviewId }));
+        if (s.state === "done") return out(s.result);
+        if (s.state === "failed" || s.state === "cancelled") return out({ reviewId: s.reviewId, status: "no_result", reason: s.reason || s.state.toUpperCase() });
+        if (Date.now() > limit) return out({ reviewId: s.reviewId, status: "pending", state: s.state, note: `still running; check again with fablecut_review {action:"status", id:"${s.reviewId}"} or stop it with {action:"cancel", id:"${s.reviewId}"}` });
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    case "status": return out(await call("GET", "/api/review/status?" + q({ id: args.id })));
+    case "cancel": return out(await call("POST", "/api/review/cancel", { id: need("id") }));
+    case "records": return out(await call("GET", "/api/review/records?" + q({ limit: args.limit })));
+    case "record": return out(await call("GET", "/api/review/record?" + q({ id: need("id") })));
+    case "mark": return out(await call("POST", "/api/review/mark", { id: need("id"), finding: args.finding, mark: need("mark"), note: args.note }));
+    case "correct": return out(await call("POST", "/api/review/correct", { id: need("id"), digest: need("digest") }));
+    case "gate": return out(await call("GET", "/api/review/gate?" + q({ start: need("start"), end: need("end") })));
+    default: throw new Error(`fablecut_review: unknown action "${action}"`);
+  }
+}
+
 /* ── Tracking (fablecut_track): runs in the editor, which saves the result ── */
 async function trackTool(args) {
   if (typeof args.clip !== "string") throw new Error("fablecut_track needs clip");
@@ -1652,6 +1688,8 @@ async function runTool(name, args, attempt = 0) {
       return exportTool(args);
     case "fablecut_scopes":
       return scopesTool(args);
+    case "fablecut_review":
+      return reviewTool(args);
     case "fablecut_frame":
       return frameTool(args);
     case "fablecut_silence":

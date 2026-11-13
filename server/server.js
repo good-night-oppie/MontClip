@@ -56,7 +56,7 @@ const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
 const {
-  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
+  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, REVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
   PROJECT_FILE, LIBRARY_SUBDIRS, FRAMES_DIR, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
 /** Uploads arrive here first (same volume as media/; a dot folder, so never served). At start only .part files older than
@@ -981,6 +981,29 @@ const exportJobs = createExportJobs({
   },
 });
 
+/* #321: checking a stretch of the timeline with the video bridge (review-service.js; the records are in reviews/, apart from
+   project.json). Built when first used. */
+let reviewSvc = null, reviewStoreInst = null;
+function reviewStore() { return reviewStoreInst || (reviewStoreInst = require("./review-store").createReviewStore({ dir: REVIEWS_DIR })); }
+const liveProject = () => { try { return JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^﻿/, "")); } catch { return {}; } };
+function reviews() {
+  if (reviewSvc) return reviewSvc;
+  /* prores422 is the one profile every build can encode: the x264 ones ("draft") need the user's own FFmpeg. The sample is heavy but
+     short and is deleted as soon as it was sent or cancelled; what leaves is the compact copy video-bridge.js makes of it. */
+  const sampleProfile = () => "prores422";
+  reviewSvc = require("./review-service").createReviewService({
+    store: reviewStore(), bridge: require("./video-bridge"), readProject: liveProject, activeProject: () => projects.peekActive(),
+    requestSample: ({ project, range, where, revision }) => exportJobs.request({ project, range, preview: true, profile: sampleProfile(), where, revision }),
+    getJob: (id) => exportJobs.get(id), cancelJob: (id) => exportJobs.cancel(id),
+    sampleFile: (src) => { const n = path.basename(decodeURIComponent(String(src).split("?")[0])); const f = path.join(PREVIEWS_DIR, n); try { return fs.statSync(f).isFile() ? f : null; } catch { return null; } },
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"),
+    onChange: (r) => { try { broadcast("review", JSON.stringify({ id: r.id, state: r.state })); } catch { } },
+  });
+  return reviewSvc;
+}
+/* a request from an agent (the plugin worker, MCP) and not from the editor page: the page always sends Origin or Sec-Fetch-Site */
+const isAgentReq = (req) => !!(embed && embed.worker(req)) || (!req.headers.origin && !req.headers["sec-fetch-site"]);
+
 /* Static file with HTTP Range support (required for <video> seeking) */
 function serveFile(req, res, filePath) {
   fs.stat(filePath, (err, st) => {
@@ -1693,6 +1716,55 @@ async function handleRequest(req, res) {
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
       sendJSON(res, code, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
+    }
+    return;
+  }
+  /* API: check a stretch of the timeline with the video bridge (#321). Nothing here changes the project.
+       POST /api/review/prepare {start, end, lead?, scope?: "window"|"full", where?, send?} → {reviewId, state: "rendering", …}
+            renders a small sample (a preview export job). A person's page then gets state "ready" with willSend {what, to} and a one-time
+            sendToken (from /api/review/status); only POST /api/review/send {id, token} sends it. An agent's request may pass send:true
+            (the streamer asked for it in the chat): the sample is sent when it is ready and no token is involved.
+       GET  /api/review/status?id= → the check now (result when done)         POST /api/review/cancel {id}
+       GET  /api/review/records?limit= · /api/review/record?id=                POST /api/review/mark {id, finding?, mark: fixed|recheck_needed|note, note?}
+       POST /api/review/correct {id, digest}                                   GET  /api/review/gate?start=&end= → {passed, recordId, …}
+       "passed" is only ever written by a check that passed; mark refuses it (400). */
+  if (p.startsWith("/api/review/")) {
+    const action = p.slice("/api/review/".length);
+    const agent = isAgentReq(req);
+    try {
+      const svc = reviews(), store = reviewStore(), project = projects.peekActive();
+      const body = req.method === "POST" ? JSON.parse((await readBody(req)).toString("utf8") || "{}") : {};
+      const q = (k) => url.searchParams.get(k);
+      if (action === "prepare" && req.method === "POST") {
+        if (body.send === true && !agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample" }); return; }
+        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, where: body.where, agent, autoSend: body.send === true }));
+      } else if (action === "status" && req.method === "GET") {
+        const v = svc.status(q("id") || undefined);
+        if (!agent && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
+        sendJSON(res, 200, v);
+      } else if (action === "send" && req.method === "POST") {
+        if (agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample; an agent asks with send:true in prepare" }); return; }
+        sendJSON(res, 200, await svc.send(String(body.id || ""), body.token));
+      } else if (action === "cancel" && req.method === "POST") {
+        sendJSON(res, 200, svc.cancel(String(body.id || "")));
+      } else if (action === "records" && req.method === "GET") {
+        sendJSON(res, 200, { records: store.list(project, Number(q("limit")) || 20) });
+      } else if (action === "record" && req.method === "GET") {
+        const rec = store.get(project, String(q("id") || ""));
+        if (!rec) { sendJSON(res, 404, { code: "NO_SUCH_REVIEW", error: "no such check" }); return; }
+        sendJSON(res, 200, rec);
+      } else if (action === "mark" && req.method === "POST") {
+        sendJSON(res, 200, store.mark(project, { id: String(body.id || ""), finding: body.finding ?? null, mark: body.mark, note: body.note }));
+      } else if (action === "correct" && req.method === "POST") {
+        sendJSON(res, 200, store.correct(project, { id: String(body.id || ""), digest: body.digest }));
+      } else if (action === "gate" && req.method === "GET") {
+        const s = Number(q("start")), e = Number(q("end"));
+        if (!Number.isFinite(s) || !Number.isFinite(e) || s < 0 || e <= s) { sendJSON(res, 400, { code: "BAD_RANGE", error: "start and end are seconds with 0 <= start < end" }); return; }
+        sendJSON(res, 200, store.gate(project, { key: store.contentKey(liveProject()), start: s, end: e }));
+      } else { sendJSON(res, 404, { error: "unknown review endpoint" }); }
+    } catch (e) {
+      const code = Number.isInteger(e.status) ? e.status : e instanceof SyntaxError ? 400 : e.code === 409 || e.code === 400 ? e.code : 500;
+      sendJSON(res, code, { code: e.errorCode || (typeof e.code === "string" ? e.code : undefined), error: String(e.message || e), busy: e.busy });
     }
     return;
   }

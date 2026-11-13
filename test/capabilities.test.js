@@ -11,7 +11,7 @@ test('every MCP tool, both proposal shapes, the host’s three sends and the two
  // the sends the host makes itself, each with its caps (Deja, #83): the assistant, the song lookup, cloud transcription;
  // the card edits of 「自动出切片」 (the owner / Deja, 2026-11-03): host capabilities, undoable (test/segment-edits.test.js)
  a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','reframe','assistant_request','song_lookup','cloud_transcribe','set_segment_kind','add_segment'].sort());
- a.equal(TOOLS.length,30);   // 25 in #74, plus #53's fablecut_danmaku, fablecut_repair_media (P3), fablecut_lyrics and fablecut_lyrics_apply (#164), fablecut_audio_track (#177)
+ a.equal(TOOLS.length,31);   // 25 in #74, plus #53's fablecut_danmaku, fablecut_repair_media (P3), fablecut_lyrics and fablecut_lyrics_apply (#164), fablecut_audio_track (#177), fablecut_review (#321)
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
  const src=read('server/mcp-server.js');
@@ -37,7 +37,7 @@ test('risk levels follow the draft: reading is read, edits are undoable, files w
  // Deja on #83: a download from a web address is blocked; a file on this computer is undoable (test/import-media-risk.test.js)
  a.equal(Cap.riskOf('fablecut_import_media',{path:'https://example.com/a.mp4'}),'blocked');
  a.equal(Cap.riskOf('fablecut_import_media',{path:'C:/a.mp4'}),'undoable');
- for(const n of ['assistant_request','song_lookup','cloud_transcribe'])a.equal(r(n),'external',n);
+ for(const n of ['assistant_request','song_lookup','cloud_transcribe','fablecut_review'])a.equal(r(n),'external',n);   // fablecut_review: #321, a clip leaves this computer
 });
 test('unknown names are blocked; the table cannot be changed from outside',()=>{
  a.equal(Cap.riskOf('rm_rf'),'blocked');a.equal(Cap.riskOf('__proto__'),'blocked');a.equal(Cap.riskOf(''),'blocked');
