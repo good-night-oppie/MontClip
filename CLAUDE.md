@@ -2944,6 +2944,14 @@ agent last wrote, so an export right after a patch includes that patch.
   Add `preview:true` for a quick sample: the file goes to `previews/` (not `exports/`),
   is named `preview_*`, one file only (not with `outputs`); the newest 20 are kept and none
   stays longer than a day. Look at a 10 s sample before exporting the whole timeline.
+- `fablecut_review {start, end}` has a video-understanding model (Google Gemini, through the
+  local `agy` tool) look at that stretch, picture and sound, and list problems (swapped name
+  plates, cut jumps, subtitle mismatches, sound jumps). **It sends a short compressed clip out
+  of this computer** — use it only when the streamer asked, and say so. Nothing changes in the
+  project (revision, IN/OUT, undo); results are kept in `reviews/`. `passed` only comes from a
+  real pass (a mark can never set it) and stops counting when the project's content changes;
+  `no_result` is never a pass. Other actions: `prepare`, `status`, `cancel`, `records`, `record`,
+  `mark`, `correct`, `gate`. See `docs/decisions/2026-11-14-video-bridge-outbound.md`.
 - `preset:"instagram-reels"` picks a delivery preset; `delivery:{…}` changes any of its
   settings (`{preset:"youtube", delivery:{fps:60, video:{rate:"vbr", bitrate:16000}}}`).
   `profile:"hq"` picks a raw encoding profile instead. With neither, `project.delivery`

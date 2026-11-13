@@ -11,7 +11,7 @@ const path = require("node:path");
 const httpError = (code, message, extra = {}) => Object.assign(new Error(message), { status: code, ...extra });
 const num = (v) => (typeof v === "number" || (typeof v === "string" && v.trim() !== "")) && Number.isFinite(Number(v)) ? Number(v) : null;
 
-const MAX_SPAN_S = 40;      // one check looks at most this much (the compact copy has to stay small)
+const MAX_SPAN_S = 30;     // one check looks at most this much (the compact copy has to stay small)
 const MAX_LEAD_S = 10;
 const DEFAULT_LEAD_S = 3;
 const TOKEN_TTL_MS = 10 * 60 * 1000;

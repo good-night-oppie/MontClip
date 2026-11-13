@@ -170,7 +170,7 @@ test("a failed render is a failed check, not a pass", { skip }, async (t) => {
 
 test("bad ranges, a too long stretch and a bad scope are refused before anything is rendered", { skip }, (t) => {
   const S = setup(t, "pass");
-  for (const a of [{ start: -1, end: 5 }, { start: 5, end: 5 }, { start: "x", end: 9 }, { start: 5 }, { start: 0, end: 41 }]) assert.throws(() => S.svc.prepare(a), (e) => e.status === 400, JSON.stringify(a));
+  for (const a of [{ start: -1, end: 5 }, { start: 5, end: 5 }, { start: "x", end: 9 }, { start: 5 }, { start: 0, end: 31 }]) assert.throws(() => S.svc.prepare(a), (e) => e.status === 400, JSON.stringify(a));
   assert.throws(() => S.svc.prepare({ start: 0, end: 5, lead: 11 }), (e) => e.status === 400);
   assert.throws(() => S.svc.prepare({ start: 0, end: 5, scope: "all" }), (e) => e.status === 400);
   assert.equal(S.jobsMade(), 0);

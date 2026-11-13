@@ -131,7 +131,7 @@ test("an agent's check sends when ready (send:true); a page cannot ask that; mar
 test("refusals before anything is rendered: bad range, too long, no tool", { skip, timeout: 60_000 }, async (t) => {
   const dir = makeDataDir(t);
   const a = await startServer(t, dir, agyEnv("pass"));
-  for (const b of [{}, { start: 5, end: 5 }, { start: 0, end: 41 }, { start: 0, end: 5, scope: "x" }]) assert.equal((await call(a.base, "POST", "/api/review/prepare", b)).status, 400, JSON.stringify(b));
+  for (const b of [{}, { start: 5, end: 5 }, { start: 0, end: 31 }, { start: 0, end: 5, scope: "x" }]) assert.equal((await call(a.base, "POST", "/api/review/prepare", b)).status, 400, JSON.stringify(b));
   assert.equal((await call(a.base, "GET", "/api/review/gate?start=2&end=1")).status, 400);
   assert.equal((await call(a.base, "GET", "/api/review/status?id=nope")).status, 404);
   assert.equal((await call(a.base, "POST", "/api/review/nothing", {})).status, 404);
