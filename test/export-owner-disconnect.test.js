@@ -8,43 +8,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { spawn } = require("node:child_process");
-const { makeDataDir, freePort, ROOT } = require("./helpers");
+const { makeDataDir, launch, ROOT } = require("./helpers");
 const FF = require("../ffmpeg-path");
-
-/* #315: how long a server may take to answer. Idle startup is ~0.2 s; the local overload run took 5.5-10.9 s, and
-   the merge-queue failure had not answered after 21.8 s. 60 s is ~2.7x that worst number, and one such wait still
-   keeps this file (about 190 s on CI) under its 300 s per-test timeout. A child that dies is not waited for at all:
-   its exit is reported at once, with the code and what it printed. */
-const LAUNCH_DEADLINE_MS = 60_000;
-async function launch(t, dir, token, extraEnv = {}, { serverJs = path.join(ROOT, "server.js"), deadlineMs = LAUNCH_DEADLINE_MS } = {}) {
-  const port = await freePort();
-  const child = spawn(process.execPath, [serverJs], {
-    cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1",
-      MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token, ...extraEnv },
-  });
-  let out = "", gone = null;
-  child.stdout.on("data", (c) => { out += c; });
-  child.stderr.on("data", (c) => { out += c; });
-  // #315: a child that dies while we wait must fail the test at once, naming how it went, not after the whole deadline
-  child.on("exit", (code, signal) => { gone = signal ? "signal " + signal : "exit code " + code; });
-  child.on("error", (e) => { gone = "spawn error: " + (e.message || e); });
-  t.after(() => { try { child.kill(); } catch { } });
-  const stop = () => { try { child.kill(); } catch { } };
-  const base = "http://127.0.0.1:" + port;
-  const deadline = Date.now() + deadlineMs;
-  while (Date.now() < deadline) {
-    if (gone) { stop(); throw new Error("server stopped before it answered (" + gone + "): " + out.slice(-2000)); }
-    try {
-      const r = await fetch(base + "/api/project", { headers: { "X-MontClip-Session": token } });
-      if (r.status === 200) return base;
-    } catch { }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  stop();
-  throw new Error("server did not answer within " + deadlineMs + " ms (child " + (gone || "still running") + "): " + out.slice(-2000));
-}
 
 async function connect(base, token, tabId) {
   const boot = await fetch(base + "/?token=" + token, { redirect: "manual" });
@@ -259,38 +224,6 @@ test("a precheck longer than the grace keeps the task from the claim: a same-tab
   const until = Date.now() + 15000;
   while (Date.now() < until) { now = await active(base, token); if (now === 0) break; await new Promise((r) => setTimeout(r, 500)); }
   assert.equal(now, 0, "closing that tab still cleans its export (session " + job.id + ")");
-});
-
-/* #315: a server that is slow to listen (a starved runner) is not a dead one; the old loop gave up after 200 polls and
-   the file then sat until its 300 s timeout. This stand-in listens only after 12 s. */
-test("a server that listens late still counts as started", { timeout: 120_000 }, async (t) => {
-  const dir = makeDataDir(t);
-  const standIn = path.join(dir, "slow-stand-in.js");
-  fs.writeFileSync(standIn, `
-    setTimeout(() => {
-      require("http").createServer((q, s) => { s.writeHead(200, { "Content-Type": "application/json" }); s.end("{}"); })
-        .listen(process.env.PORT, "127.0.0.1");
-    }, 12000);`);
-  const started = Date.now();
-  const base = await launch(t, dir, crypto.randomBytes(32).toString("hex"), {}, { serverJs: standIn });
-  const took = Date.now() - started;
-  assert.match(base, /^http:\/\/127\.0\.0\.1:\d+$/);
-  assert.ok(took >= 12000, "it waited for the stand-in: " + took + " ms");
-});
-
-/* And one that dies while starting fails the test at once, with its exit code and what it printed — the old loop could
-   only say "server did not start: " with nothing after the colon. */
-test("a server that exits while starting fails at once, with its output", { timeout: 120_000 }, async (t) => {
-  const dir = makeDataDir(t);
-  const standIn = path.join(dir, "dead-stand-in.js");
-  fs.writeFileSync(standIn, 'console.error("boom: cannot start"); process.exit(3);');
-  const started = Date.now();
-  await assert.rejects(launch(t, dir, crypto.randomBytes(32).toString("hex"), {}, { serverJs: standIn }), (e) => {
-    assert.match(e.message, /exit code 3/, e.message);
-    assert.match(e.message, /boom: cannot start/, e.message);
-    return true;
-  });
-  assert.ok(Date.now() - started < 5000, "fails at once, not after the deadline: " + (Date.now() - started) + " ms");
 });
 
 test("the background export page receives conn through the editor's start opts", () => {

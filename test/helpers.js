@@ -145,6 +145,42 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
    fetch() cannot express these tests: it refuses to set a Host header, and the
    WHATWG URL parser collapses `%2e%2e` before the request leaves the client, so
    a traversal attempt would never reach the server at all. */
+/* #315: start server.js in cindy embed mode (it answers 200 on /api/project only with the session header) and wait for it.
+   Idle startup is ~0.2 s; a starved CI runner or a loaded laptop took 5.5-10.9 s, and the failing merge-queue run had
+   not answered after 21.8 s. The deadline is 45 s (~2x the worst reading): node --test's --test-timeout (300 s on CI)
+   covers the WHOLE FILE, not each test, and the file that uses this runs ~180 s, so two slow starts (2 x 45 s) must still
+   fit in what is left. A child that dies is not waited for: its exit is reported at once with the code and its output.
+   Stopped with endTree so what the server started (ffmpeg) goes with it. */
+const LAUNCH_DEADLINE_MS = 45_000;
+async function launch(t, dir, token, extraEnv = {}, { serverJs = path.join(ROOT, "server.js"), deadlineMs = LAUNCH_DEADLINE_MS } = {}) {
+  const port = await freePort();
+  const child = spawn(process.execPath, [serverJs], {
+    cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
+    detached: process.platform !== "win32",
+    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1",
+      MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token, ...extraEnv },
+  });
+  let out = "", gone = null;
+  child.stdout.on("data", (c) => { out += c; });
+  child.stderr.on("data", (c) => { out += c; });
+  // "close", not "exit": by then the output pipes have drained, so the failure message carries everything it printed
+  child.on("close", (code, signal) => { gone = signal ? "signal " + signal : "exit code " + code; });
+  child.on("error", (e) => { gone = "spawn error: " + (e.message || e); });
+  t.after(() => { try { endTree(child); } catch { } });
+  const base = "http://127.0.0.1:" + port;
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    if (gone) throw new Error("server stopped before it answered (" + gone + "): " + out.slice(-2000));
+    try {
+      const r = await fetch(base + "/api/project", { headers: { "X-MontClip-Session": token } });
+      if (r.status === 200) return base;
+    } catch { }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  endTree(child);
+  throw new Error("server did not answer within " + deadlineMs + " ms (child " + (gone || "still running") + "): " + out.slice(-2000));
+}
+
 function rawGet(port, rawPath, headers = {}) {
   const http = require("node:http");
   return new Promise((resolve, reject) => {
@@ -260,4 +296,4 @@ function bundledH264() {
   return h264;
 }
 
-module.exports = { ROOT, seedProject, makeDataDir, tmpDir, endTree, readProject, writeProject, startServer, startMcp, rawGet, bundledH264, freePort };
+module.exports = { ROOT, seedProject, makeDataDir, tmpDir, endTree, readProject, writeProject, startServer, launch, startMcp, rawGet, bundledH264, freePort };
