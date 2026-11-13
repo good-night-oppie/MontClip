@@ -9,8 +9,8 @@
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {spawnSync}=require('node:child_process');
 const {makeDataDir,seedProject,startServer,startMcp,readProject}=require('./helpers');
-const {manifest}=require('../asr-models');
-const FF=require('../ffmpeg-path'),MediaLib=require('../media-lib'),AW=require('../audio-window');
+const {manifest}=require('../server/asr-models');
+const FF=require('../server/ffmpeg-path'),MediaLib=require('../media-lib'),AW=require('../server/audio-window');
 const skip=!FF.resolveTool('ffmpeg').ok&&"MontClip's ffmpeg is not in vendor/ (node desktop/fetch-ffmpeg.cjs)";
 const ffmpeg=()=>FF.path('ffmpeg');
 const LEN=240,SING=[60,180];
@@ -55,13 +55,13 @@ test('audioTrackOf: the picked track when the file has it, else 0 (a relinked fi
 test('track 1 picked: songs find 60–180 s, and loudness, the export window and the transcript all read track 1',{skip},async(t)=>{
  const d=tmp(t),file=synth(path.join(d,'分轨 录像.mkv'));
  // songs: track 1 is the microphone singing 60–180 s; track 0 is the game, one tone the whole time
- const scan=require('../song-scan').createSongScan({dir:path.join(d,'songs')}),Songs=require('../songs');
+ const scan=require('../server/song-scan').createSongScan({dir:path.join(d,'songs')}),Songs=require('../songs');
  const s1=Songs.find((await scan.scan(file,{track:1})).rows.map(x=>x[0]),{complete:true});
  a.equal(s1.length,1,JSON.stringify(s1));a.ok(Math.abs(s1[0].from-SING[0])<=2&&Math.abs(s1[0].to-SING[1])<=2,JSON.stringify(s1));
  const s0=Songs.find((await scan.scan(file)).rows.map(x=>x[0]),{complete:true});
  a.ok(!(s0.length===1&&Math.abs(s0[0].from-SING[0])<=2),'track 0 is not the microphone: '+JSON.stringify(s0));
  // loudness
- const sig=require('../signals').createSignals({dir:path.join(d,'signals')});
+ const sig=require('../server/signals').createSignals({dir:path.join(d,'signals')});
  a.ok(isMic((await sig.loudness(file,{track:1})).values),'loudness of track 1');
  a.ok(!isMic((await sig.loudness(file)).values),'track 0 by default, as before');
  // the export window
@@ -80,7 +80,7 @@ async function asrSamples(d,file,opts){
  const vad=path.join(dir,manifest.engine.vad.file);fs.mkdirSync(path.dirname(vad),{recursive:true});fs.writeFileSync(vad,'');fs.truncateSync(vad,manifest.engine.vad.size);
  fs.mkdirSync(path.join(dir,'model'));
  const store={dir:(k)=>(k==='asr'?path.join(dir,'model'):null),status:()=>({asr:{ready:true,missing:[],bad:[]},punct:{ready:false,missing:[],bad:[]}})};
- const asr=require('../asr-local').createAsr({asrDir:dir,store,ffmpeg:ffmpeg(),sherpa:{Vad,OfflineRecognizer:{createAsync:async()=>({})},OfflinePunctuation:class{}}});
+ const asr=require('../server/asr-local').createAsr({asrDir:dir,store,ffmpeg:ffmpeg(),sherpa:{Vad,OfflineRecognizer:{createAsync:async()=>({})},OfflinePunctuation:class{}}});
  await asr.transcribe(file,opts).catch(()=>{});   // no words from a stand-in: only the samples matter
  return stats(Float32Array.from(got),16000);
 }
@@ -93,20 +93,20 @@ test('the transcript no longer lets ffmpeg pick: with the default flag on track 
 });
 test('caches are per track: track 0 keeps its old key (nothing read before is lost); track 1 is read on its own',{skip},async(t)=>{
  const d=tmp(t),file=synth(path.join(d,'c.mkv'));
- const S=require('../song-scan').createSongScan({dir:path.join(d,'songs')});
+ const S=require('../server/song-scan').createSongScan({dir:path.join(d,'songs')});
  const st=fs.statSync(file),old=crypto.createHash('sha256').update(path.basename(file)+'\0'+st.size+'\0'+Math.round(st.mtimeMs)).digest('hex').slice(0,32);
  a.equal(S.keyOf(file),old,'track 0: the key it always had');a.equal(S.keyOf(file,0),old);a.notEqual(S.keyOf(file,1),old);
  await S.scan(file);
  a.equal(S.cached(file).complete,true);a.deepEqual(S.cached(file,1),{done:0,complete:false,scanned:0},'track 1 not read yet');
  const seen=[];await S.scan(file,{track:1,onSegment:(i)=>seen.push(i)});a.deepEqual(seen,[0],'track 1 read from the start');
- const sig=require('../signals').createSignals({dir:path.join(d,'sig')});
+ const sig=require('../server/signals').createSignals({dir:path.join(d,'sig')});
  await sig.loudness(file);await sig.loudness(file,{track:1});
  a.equal(fs.readdirSync(path.join(d,'sig')).filter(f=>f.endsWith('.loudness.json')).length,2,'one loudness file per track');
 });
 test('transcripts are kept per track: another track has none until it is transcribed; going back finds the first one',()=>{
  const d=fs.mkdtempSync(path.join(os.tmpdir(),'montclip-atr-'));try{
  const media=path.join(d,'rec.mkv');fs.writeFileSync(media,'x');
- const T=require('../transcripts').createTranscripts({dir:path.join(d,'tr'),resolveSrc:(s)=>s==='/media/rec.mkv'?media:null});
+ const T=require('../server/transcripts').createTranscripts({dir:path.join(d,'tr'),resolveSrc:(s)=>s==='/media/rec.mkv'?media:null});
  const doc=(w)=>({model:'base',language:'zh',duration:10,created:'2026-11-05T00:00:00Z',words:[[w,1,2]]});
  T.put('/media/rec.mkv',doc('游戏'));
  a.equal(T.get('/media/rec.mkv',1),false,'track 1: none yet');
@@ -117,7 +117,7 @@ test('transcripts are kept per track: another track has none until it is transcr
  }finally{fs.rmSync(d,{recursive:true,force:true});}
 });
 test('setAudioTrack: one track at a time, only tracks the file has, and the songs found from the old track are dropped',()=>{
- const Ops=require('../project-ops');
+ const Ops=require('../server/project-ops');
  const doc=seedProject({media:[{id:'m_r',name:'r.mkv',kind:'video',src:'/media/r.mkv',duration:240,audioChannels:2,audioTracks:[{channels:2},{channels:1,title:'Mic'}]},
   {id:'m_one',name:'one.mp4',kind:'video',src:'/media/one.mp4',duration:10,audioChannels:2}]});
  Ops.applyPatch(doc,[{op:'setSongs',mediaId:'m_r',songs:{key:'k',complete:true,scanned:240,songs:[{from:0,to:240,confidence:'estimated',marks:[]}]}}]);
@@ -166,9 +166,9 @@ test('MCP fablecut_audio_track: lists the tracks, cuts a few seconds of each to 
 });
 test('one audio track: nothing to choose, and every reader reads it as before',{skip},async(t)=>{
  const d=tmp(t),file=synth(path.join(d,'one.mp4'),{tracks:1});
- const info=await require('../media-probe').probeFile(file);a.equal(info.audioTracks,undefined);a.equal(info.audioChannels,1);
- const sig=require('../signals').createSignals({dir:path.join(d,'sig')});a.ok(isMic((await sig.loudness(file)).values));
- const Songs=require('../songs'),scan=require('../song-scan').createSongScan({dir:path.join(d,'songs')});
+ const info=await require('../server/media-probe').probeFile(file);a.equal(info.audioTracks,undefined);a.equal(info.audioChannels,1);
+ const sig=require('../server/signals').createSignals({dir:path.join(d,'sig')});a.ok(isMic((await sig.loudness(file)).values));
+ const Songs=require('../songs'),scan=require('../server/song-scan').createSongScan({dir:path.join(d,'songs')});
  const s=Songs.find((await scan.scan(file)).rows.map(x=>x[0]),{complete:true});a.equal(s.length,1);a.ok(Math.abs(s[0].from-SING[0])<=2);
 });
 test('the editor: the media info lists the tracks with 试听, picking one is an undo step, analysis follows it and the exported sound does not',()=>{
@@ -233,7 +233,7 @@ test('captions say which text they were made with, so an edited one is told apar
  const srt={...c,props:{...c.props}};delete srt.props.wordTimes;a.equal(captionsEdited([srt]),true,'imported (no word times): counted as edited');
 });
 test('MCP: silences, beats and highlights listen to the picked track; normalize and auto-duck work on the exported sound (track 0)',()=>{
- const src=fs.readFileSync(path.join(__dirname,'..','mcp-server.js'),'utf8');
+ const src=fs.readFileSync(path.join(__dirname,'..','server/mcp-server.js'),'utf8');
  a.match(src,/function streamClipAudio\(proj, c0, onStart, onChunk, \{ analysis = false \} = \{\}\)/);
  a.match(src,/const track = analysis \? MediaLib\.audioTrackOf\(media\) : 0;/);
  a.match(src,/voiceRegions\(doc, live\.flat\(\), opts\.threshold, S\.MIN_SOUND, heard, \{ analysis: true \}\)/,'silences');
@@ -268,9 +268,9 @@ test('the faststart tidy leaves out data streams the MP4 muxer cannot write (a M
  const d=tmp(t),file=synthMp4(path.join(d,'cam.mov'),['-timecode','01:00:00:00']);
  const kinds=String(spawnSync(FF.path('ffprobe'),['-v','error','-show_entries','stream=codec_type','-of','csv=p=0',file]).stdout);
  a.match(kinds,/data/,'the MOV has a timecode data stream');
- const r=await require('../import-url').maybeFaststart(file);
+ const r=await require('../server/import-url').maybeFaststart(file);
  a.equal(r.optimized,true,JSON.stringify(r));a.equal(audioCount(file),3);
- const src=fs.readFileSync(path.join(__dirname,'..','import-url.js'),'utf8');
+ const src=fs.readFileSync(path.join(__dirname,'..','server/import-url.js'),'utf8');
  a.match(src,/"-map", "0", "-map", "-0:d", "-map", "-0:t", "-c", "copy", "-movflags", "\+faststart"/);
 });
 test('VV on #177: a badge, a notice that stays with 〔去选〕, 「选音轨…」 in the menu, 试听 that stops, the redo by 〔听写所选〕, undo said',()=>{
@@ -299,11 +299,11 @@ test('fablecut_audio_track {listen}: a media id with ../, an absolute path or a 
  a.equal(path.basename(AW.listenPath(dir,'m_ok-1',0,0)),'m_ok-1-track0-0s.wav');
  a.throws(()=>AW.listenPath(dir,'../..',0,0),/can't name a file/);
  a.throws(()=>AW.listenPath(dir,'m_a',-1,0));
- const src=fs.readFileSync(path.join(__dirname,'..','mcp-server.js'),'utf8');
+ const src=fs.readFileSync(path.join(__dirname,'..','server/mcp-server.js'),'utf8');
  a.match(src,/require\("\.\/audio-window"\)\.listenPath\(path\.join\(ANALYSIS_DIR, "listen"\), m\.id, i, at\)/,'the tool uses it');
  a.doesNotMatch(src,/`\$\{m\.id\}-track/,'no path built from the raw id');
  // the editor's 试听 goes through /api/audio-window, which writes to a fresh temp folder with a fixed name
- a.match(fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8'),/fs\.mkdtempSync\(path\.join\(os\.tmpdir\(\), "montclip-aw-"\)\), out = path\.join\(tmpDir, "window\.wav"\)/);
+ a.match(fs.readFileSync(path.join(__dirname,'..','server/server.js'),'utf8'),/fs\.mkdtempSync\(path\.join\(os\.tmpdir\(\), "montclip-aw-"\)\), out = path\.join\(tmpDir, "window\.wav"\)/);
 });
 test('MCP fablecut_audio_track {listen} with a hostile media id writes inside analysis/listen only',{skip},async(t)=>{
  const id='..\\..\\..\\pwn';
@@ -319,17 +319,17 @@ test('MCP fablecut_audio_track {listen} with a hostile media id writes inside an
  a.ok(!fs.existsSync(path.join(dir,'..','pwn-track0-90s.wav'))&&!fs.readdirSync(dir).some(f=>/pwn/.test(f)));
 });
 test('merged with #165 (listening to parts only): every read of the transcript names the picked track, whole or in windows; readArgs alone stays as #149 left it',()=>{
- const {readArgs}=require('../asr-local');
+ const {readArgs}=require('../server/asr-local');
  for(const r of [readArgs({file:'f',track:1}),readArgs({file:'f',from:0.4,to:2.7,track:1}),readArgs({file:'f',from:5,to:9.5,track:2})]){
   const i=r.args.indexOf('-map');a.ok(i>r.args.indexOf('-i'),'-map after -i');a.match(r.args[i+1],/^0:a:[12]$/);
   a.deepEqual(r.args.slice(-9),['-ac','1','-ar','16000','-f','s16le','-acodec','pcm_s16le','-']);}
  a.equal(readArgs({file:'f',from:5,to:9.5,track:2}).args[readArgs({file:'f',from:5,to:9.5,track:2}).args.indexOf('-map')+1],'0:a:2');
  a.ok(!readArgs({file:'f'}).args.includes('-map'),'no track named: no -map (callers other than transcribe)');
- const src=fs.readFileSync(path.join(__dirname,'..','asr-local.js'),'utf8');
+ const src=fs.readFileSync(path.join(__dirname,'..','server/asr-local.js'),'utf8');
  a.match(src,/track = 0 \} = \{\}\) \{/,'transcribe defaults to track 0, never ffmpeg\'s pick');
  a.match(src,/listen\(S, r, p, file, part, \{ signal, track,/,'each part is read from the picked track');
  a.match(src,/readArgs\(\{ file, from: part \? part\[0\] : null, to: part \? part\[1\] : null, track \}\)/);
- const srv=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
+ const srv=fs.readFileSync(path.join(__dirname,'..','server/server.js'),'utf8');
  a.match(srv,/transcripts\.get\(src, track\) \|\| null : null/,'the refill plan reads this track\'s transcript');
  a.match(srv,/ranges: plan \? plan\.read : null, track,/);
  a.match(srv,/TR\.mergeDocs\(transcripts\.get\(src, track\) \|\| null, add\) : add, track\)/,'and saves into it');

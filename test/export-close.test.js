@@ -8,9 +8,9 @@ const fs = require("node:fs"), os = require("node:os"), path = require("node:pat
 const { spawn, fork } = require("node:child_process");
 const crypto = require("node:crypto");
 const Close = require("../desktop/export-close");
-const Cleanup = require("../export-cleanup");
+const Cleanup = require("../server/export-cleanup");
 const { makeDataDir } = require("./helpers");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 test("the prompt: JJ's final copy, 「继续导出」 the default and what Enter / Esc mean", () => {
@@ -120,7 +120,7 @@ test("past the time limit it gives up, says which paths are left, and does not h
 // The desktop server, as main.js runs it (token, IPC "shutdown"), during a real export.
 async function desktopServer(t, dir) {
   const token = crypto.randomBytes(32).toString("hex");
-  const child = fork(path.join(__dirname, "..", "server.js"), [], { env: { ...process.env, PORT: "0", HOST: "127.0.0.1",
+  const child = fork(path.join(__dirname, "..", "server/server.js"), [], { env: { ...process.env, PORT: "0", HOST: "127.0.0.1",
     MONTCLIP_DESKTOP: "1", MONTCLIP_SESSION_TOKEN: token, FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1" }, stdio: ["ignore", "ignore", "pipe", "ipc"] });
   let exited = false; child.on("exit", () => { exited = true; });
   t.after(() => { if (!exited) child.kill(); });
@@ -333,7 +333,7 @@ test("a file the server refuses to delete counts as not deleted: it is named, th
   a.equal(k.asked[2].detail.split("\n")[0], U.files[1], "still named while it is refused");
 });
 test("the cleanup log and stderr show no user name: paths are masked", () => {
-  const server = read("server.js"), i = server.indexOf("function logCleanupLeft("), fn = server.slice(i, server.indexOf("\n}", i) + 2);
+  const server = read("server/server.js"), i = server.indexOf("function logCleanupLeft("), fn = server.slice(i, server.indexOf("\n}", i) + 2);
   a.match(fn, /X\.maskUserPath\(p\)/, "each path is masked before it is written or printed");
   a.ok(!/not removed: \$\{p\}/.test(fn));
 });

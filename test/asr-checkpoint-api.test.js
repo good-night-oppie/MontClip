@@ -9,7 +9,7 @@ for (const partial of [false, true]) test('ASR cancellation keeps relative paths
   const bootstrap = path.join(dir, 'server-fixture.cjs');
   fs.writeFileSync(bootstrap, `
     const path = require('node:path'), root = ${JSON.stringify(root)};
-    const asr = require.resolve(path.join(root, 'asr-local'));
+    const asr = require.resolve(path.join(root, 'server', 'asr-local'));
     require.cache[asr] = { exports: { createAsr: () => ({
       status: () => ({ engine:{ready:true}, vad:{ready:true}, asr:{ready:true} }),
       transcribe: async (file, opts) => {
@@ -19,8 +19,8 @@ for (const partial of [false, true]) test('ASR cancellation keeps relative paths
         throw Object.assign(new Error('cancelled while reading C:/Users/synthetic-private/other/model.bin'), {code:'ASR_CANCELLED'});
       }
     }) } };
-    const probe = require(path.join(root, 'media-probe')); probe.probeFile = async () => ({duration:10});
-    require(path.join(root, 'server.js'));
+    const probe = require(path.join(root, 'server', 'media-probe')); probe.probeFile = async () => ({duration:10});
+    require(path.join(root, 'server/server.js'));
   `);
   const server = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' }, { serverJs: bootstrap });
   const request = new AbortController();

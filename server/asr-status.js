@@ -24,7 +24,7 @@ function code(st) {
 }
 
 function manifest() {
-  try { return JSON.parse(fs.readFileSync(path.join(__dirname, "desktop", "asr-manifest.json"), "utf8")); } catch { return null; }
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, "..", "desktop", "asr-manifest.json"), "utf8")); } catch { return null; }
 }
 /** A size as MontClip says it (JJ, 2026-11-05): MB of 1,000,000 bytes, rounded to 10 (243,371,218 → 240). The one
  *  function for it: these sentences, and the Cindy plugin's status card (its worker requires this file). */

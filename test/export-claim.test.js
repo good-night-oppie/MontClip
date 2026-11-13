@@ -32,7 +32,7 @@ test("a file this session exported is fresh exactly once", async (t) => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fc-claim-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const jpg = path.join(tmp, "f.jpg");
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=160x90", "-frames:v", "1", "-q:v", "2", jpg]);
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=160x90", "-frames:v", "1", "-q:v", "2", jpg]);
   const begin = await post(base, "/api/export/begin", { fps: 30, name: "claimed", hasAudio: false, duration: 0.2,
     delivery: { preset: "custom", width: 160, height: 90 }, canvasW: 160, canvasH: 90 });
   const sess = await begin.json();
@@ -45,6 +45,6 @@ test("a file this session exported is fresh exactly once", async (t) => {
 });
 
 test("both ways /api/export/end finishes register the file", () => {
-  const server = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
+  const server = fs.readFileSync(path.join(__dirname, "..", "server/server.js"), "utf8");
   assert.equal((server.match(/freshExports\.add\(/g) || []).length, 2);
 });

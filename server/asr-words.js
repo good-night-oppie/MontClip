@@ -5,7 +5,7 @@
    characters (or next to Chinese punctuation), a space between English words (transcribe.js join, which the
    Transcript tab uses too). Pure; the server uses it. */
 "use strict";
-const { join } = require("./transcribe");
+const { join } = require("../transcribe");
 
 const r3 = (x) => Math.round(x * 1000) / 1000 || 0;
 /** The marks the punctuation model writes. */

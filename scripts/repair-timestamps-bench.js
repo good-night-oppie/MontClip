@@ -3,8 +3,8 @@
  * Compares the actual repair pipeline, changing only the remux input flags. */
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process"), vm = require("node:vm");
-const FF = require("../ffmpeg-path"), MP = require("../media-probe");
-const file = require.resolve("../make-editable"), localRequire = require("node:module").createRequire(file);
+const FF = require("../server/ffmpeg-path"), MP = require("../server/media-probe");
+const file = require.resolve("../server/make-editable"), localRequire = require("node:module").createRequire(file);
 function exec(bin, args) {
   return cp.execFileSync(bin, args, { windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
 }

@@ -359,7 +359,7 @@ test("setTrack sets an audio lane's fader / pan; setProject master sets the mast
 
 test("fablecut_normalize_audio measures with ffmpeg and sets one gain per linked group", async (t) => {
   const { spawnSync } = require("node:child_process");
-  const has = (b) => require("../ffmpeg-path").available(b);
+  const has = (b) => require("../server/ffmpeg-path").available(b);
   if (!has("ffmpeg") || !has("ffprobe")) { t.skip("ffmpeg / ffprobe not installed"); return; }
   const project = seedProject({
     media: [{ id: "m_t", name: "tone.wav", kind: "audio", src: "/media/tone.wav", duration: 4 }],
@@ -376,7 +376,7 @@ test("fablecut_normalize_audio measures with ffmpeg and sets one gain per linked
   // 1 kHz at −23 dBFS on both channels = −23 LUFS (EBU Tech 3341)
   // (lavfi "sine" is fixed at 1/8 amplitude, so build the tone with aevalsrc)
   const wave = "0.0707946*sin(2*PI*1000*t)"; // −23 dBFS
-  const gen = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc=${wave}|${wave}:s=48000:d=4`,
+  const gen = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc=${wave}|${wave}:s=48000:d=4`,
     "-c:a", "pcm_f32le", path.join(dir, "media", "tone.wav")]);
   assert.equal(gen.status, 0, String(gen.stderr));
 
@@ -402,7 +402,7 @@ test("fablecut_normalize_audio measures with ffmpeg and sets one gain per linked
 
 test("fablecut_auto_duck writes duck keys on the music where the voice speaks, and clears them", async (t) => {
   const { spawnSync } = require("node:child_process");
-  const has = (b) => require("../ffmpeg-path").available(b);
+  const has = (b) => require("../server/ffmpeg-path").available(b);
   if (!has("ffmpeg") || !has("ffprobe")) { t.skip("ffmpeg / ffprobe not installed"); return; }
   const project = seedProject({
     media: [
@@ -420,7 +420,7 @@ test("fablecut_auto_duck writes duck keys on the music where the voice speaks, a
   const voice = "if(between(t,1,3),0.2*sin(2*PI*300*t),0)";
   const music = "0.1*sin(2*PI*220*t)";
   for (const [name, expr, d] of [["voice.wav", voice, 6], ["music.wav", music, 10]]) {
-    const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc='${expr}':s=48000:d=${d}`,
+    const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc='${expr}':s=48000:d=${d}`,
       "-c:a", "pcm_f32le", path.join(dir, "media", name)]);
     assert.equal(r.status, 0, String(r.stderr));
   }
@@ -449,7 +449,7 @@ test("fablecut_auto_duck writes duck keys on the music where the voice speaks, a
 
 test("fablecut_silence reports the pauses in speech, then cuts them with the stems in step", async (t) => {
   const { spawnSync } = require("node:child_process");
-  const has = (b) => require("../ffmpeg-path").available(b);
+  const has = (b) => require("../server/ffmpeg-path").available(b);
   if (!has("ffmpeg") || !has("ffprobe")) { t.skip("ffmpeg / ffprobe not installed"); return; }
   const project = seedProject({
     fps: 30,
@@ -469,7 +469,7 @@ test("fablecut_silence reports the pauses in speech, then cuts them with the ste
   // speech 1–3 s and 5–6 s, silence around it; a steady bed on A3 that must not count
   const talk = "if(between(t,1,3)+between(t,5,6),0.2*sin(2*PI*300*t),0)";
   for (const [name, expr] of [["talk.wav", talk], ["bed.wav", "0.1*sin(2*PI*220*t)"]]) {
-    const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc='${expr}':s=48000:d=10`,
+    const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc='${expr}':s=48000:d=10`,
       "-c:a", "pcm_f32le", path.join(dir, "media", name)]);
     assert.equal(r.status, 0, String(r.stderr));
   }
@@ -484,7 +484,7 @@ test("fablecut_silence reports the pauses in speech, then cuts them with the ste
   assert.equal(readProject(dir).revision, project.revision, "only cut:true cuts");
 
   // a picture with no audio stream beside it is not 'silent': its time is left alone
-  const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=160x90:r=30:d=10", "-c:v", "mpeg4", "-q:v", "3",
+  const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=160x90:r=30:d=10", "-c:v", "mpeg4", "-q:v", "3",
     "-pix_fmt", "yuv420p", path.join(dir, "media", "mute.mp4")]);
   assert.equal(r.status, 0, String(r.stderr));
   const withMute = readProject(dir);
@@ -525,7 +525,7 @@ test("fablecut_silence reports the pauses in speech, then cuts them with the ste
 
 test("fablecut_beats finds the tempo and the beat, marks it, snaps cuts to it and re-cuts a track on it", async (t) => {
   const { spawnSync } = require("node:child_process");
-  const has = (b) => require("../ffmpeg-path").available(b);
+  const has = (b) => require("../server/ffmpeg-path").available(b);
   if (!has("ffmpeg") || !has("ffprobe")) { t.skip("ffmpeg / ffprobe not installed"); return; }
   const v = (id, start, duration) => ({ id, mediaId: "m_v", kind: "video", track: "V1", start, in: 2, duration, props: {} });
   const project = seedProject({
@@ -545,9 +545,9 @@ test("fablecut_beats finds the tempo and the beat, marks it, snaps cuts to it an
   const { dir, mcp } = await boot(t, project);
   fs.mkdirSync(path.join(dir, "media"), { recursive: true });
   const kick = "gte(t,0.25)*0.9*sin(2*PI*60*mod(t-0.25,0.5))*exp(-mod(t-0.25,0.5)/0.1)";
-  let r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc='${kick}':s=48000:d=16`, "-c:a", "pcm_f32le", path.join(dir, "media", "kicks.wav")]);
+  let r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", `aevalsrc='${kick}':s=48000:d=16`, "-c:a", "pcm_f32le", path.join(dir, "media", "kicks.wav")]);
   assert.equal(r.status, 0, String(r.stderr));
-  r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=160x90:r=30:d=20", "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p", path.join(dir, "media", "gray.mp4")]);
+  r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=160x90:r=30:d=20", "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p", path.join(dir, "media", "gray.mp4")]);
   assert.equal(r.status, 0, String(r.stderr));
   const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a} vs ${b}`);
 
@@ -633,7 +633,7 @@ test("fablecut_beats finds the tempo and the beat, marks it, snaps cuts to it an
 
 test("fablecut_reframe makes a 9:16 copy whose shots follow the subject", async (t) => {
   const { spawnSync } = require("node:child_process");
-  const has = (b) => require("../ffmpeg-path").available(b);
+  const has = (b) => require("../server/ffmpeg-path").available(b);
   if (!has("ffmpeg") || !has("ffprobe")) { t.skip("ffmpeg / ffprobe not installed"); return; }
   const project = seedProject({
     width: 1920, height: 1080, fps: 30,
@@ -647,7 +647,7 @@ test("fablecut_reframe makes a 9:16 copy whose shots follow the subject", async 
   const { dir, mcp } = await boot(t, project);
   fs.mkdirSync(path.join(dir, "media"), { recursive: true });
   // an orange square sliding left to right across a dark frame
-  const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=0x111111:s=1280x720:r=30:d=4", "-f", "lavfi", "-i", "color=c=orange:s=150x150:r=30:d=4",
+  const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=0x111111:s=1280x720:r=30:d=4", "-f", "lavfi", "-i", "color=c=orange:s=150x150:r=30:d=4",
     "-filter_complex", "[0][1]overlay=x='60+t*260':y=285", "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p", path.join(dir, "media", "slide.mp4")]);
   assert.equal(r.status, 0, String(r.stderr));
 
@@ -728,7 +728,7 @@ test("setFx puts validated chains or presets on clips (with their stems), tracks
 
 test("fablecut_highlights picks the busy and the loud moments into a new sequence", async (t) => {
   const { spawnSync } = require("node:child_process");
-  const has = (b) => require("../ffmpeg-path").available(b);
+  const has = (b) => require("../server/ffmpeg-path").available(b);
   if (!has("ffmpeg") || !has("ffprobe")) { t.skip("ffmpeg / ffprobe not installed"); return; }
   const project = seedProject({
     width: 1920, height: 1080, fps: 30,
@@ -738,7 +738,7 @@ test("fablecut_highlights picks the busy and the loud moments into a new sequenc
   const { dir, mcp } = await boot(t, project);
   fs.mkdirSync(path.join(dir, "media"), { recursive: true });
   // a still gridded frame; an orange square racing about 10–14 s; a cut to a blue scene at 20 s; a loud tone 24–26 s
-  const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=320x180:r=30:d=30", "-f", "lavfi", "-i", "color=c=orange:s=40x40:r=30:d=30",
+  const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=320x180:r=30:d=30", "-f", "lavfi", "-i", "color=c=orange:s=40x40:r=30:d=30",
     "-f", "lavfi", "-i", "color=c=0x203070:s=320x180:r=30:d=30", "-f", "lavfi", "-i", "aevalsrc='if(between(t,24,26),0.6,0.01)*sin(2*PI*220*t)':s=48000:d=30",
     "-filter_complex", "[0][1]overlay=x='if(between(t,10,14),mod(t*900,280),20)':y=70[a];[a][2]overlay=enable='gte(t,20)',drawgrid=w=16:h=16:t=1:c=white@0.4[v]",
     "-map", "[v]", "-map", "3", "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path.join(dir, "media", "day.mp4")]);

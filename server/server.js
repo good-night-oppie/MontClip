@@ -30,7 +30,7 @@ const X = require("./external-ffmpeg");
    web / server mode and the Cindy plugin keep a choice across restarts too (JJ P1). */
 if (!process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS)
   process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(require("./paths").DATA_DIR, "external-ffmpeg.json");
-const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
+const Redact = require("../problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
 const ProblemFiles = require("./problem-files");   // 〔复制问题信息〕: a named file's size, by its name only (#161)
 /* A local FFmpeg with libx264 for H.264 export (external-ffmpeg.js): the user's choice, the server's variable, or PATH. */
 const externalFfmpeg = X.createExternal();
@@ -70,14 +70,14 @@ try {
     try { if (fs.statSync(file).mtimeMs < stale) fs.rmSync(file, { force: true }); } catch {}
   }
 } catch {}
-const Templates = require("./templates");
+const Templates = require("../templates");
 const { probeFile, infoForEntry } = require("./media-probe");
 const MakeEditable = require("./make-editable");
 const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
-const MediaLib = require("./media-lib");
+const MediaLib = require("../media-lib");
 const { createProxies, PROXY_H264 } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
-const Delivery = require("./delivery");
+const Delivery = require("../delivery");
 const ExportCleanup = require("./export-cleanup");
 const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
@@ -268,7 +268,7 @@ const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcript
 // P2 highlight signals: each file's loudness, read once by ffmpeg as a stream and cached per file version
 const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: () => FF.path("ffmpeg") });
 // P2 songs: each file read in segments, each kept as it is read (analysis/songs/), so a stopped scan carries on
-const Songs = require("./songs");
+const Songs = require("../songs");
 const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: () => FF.path("ffmpeg") });
 const songJobs = new Map();   // src (+ "|a<track>" for another audio stream) → {state, done, total, ctrl, error, code}
 /* Which audio stream of a file is analysed — songs, loudness, the transcript: `given` (a request's
@@ -1406,7 +1406,7 @@ async function handleRequest(req, res) {
       }
       const missing = t.srcs.find((x) => !resolveSrc(x));
       if (missing) { sendJSON(res, 404, { error: "no such file: " + missing }); return; }
-      const TR = require("./transcribe.js");
+      const TR = require("../transcribe.js");
       let spec;
       try {
         spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true };
@@ -1939,7 +1939,7 @@ async function handleRequest(req, res) {
     const sizeOf = (name) => ProblemFiles.sizeOf(name, where, fs.statSync);
     const files = Redact.fileMentions(String(body.log || "").slice(0, 8000)).map((f) => ({ ext: f.ext, size: sizeOf(f.name) }));
     // the version line (JJ / QQ, #161): package.json's version and the system's family only (problem-redact.js versionLine)
-    const version = (() => { try { return require("./package.json").version; } catch { return ""; } })();
+    const version = (() => { try { return require("../package.json").version; } catch { return ""; } })();
     const app = { version, platform: process.platform, release: os.release() };
     const p = { text: String(body.text || "").slice(0, 2000), code: body.code, files, app };
     sendJSON(res, 200, { text: Redact.problemDetails(p, { home: os.homedir(), platform: process.platform, user: userName(), language: body.language }) });
@@ -2381,7 +2381,7 @@ async function handleRequest(req, res) {
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
     let last = 0;
     try {
-      const TR = require("./transcribe.js");
+      const TR = require("../transcribe.js");
       // the parts of the ranges this file's transcript (of this audio track, #177) has not listened to yet (all of them with again:true), read with a
       // pad either side; only each part's core is kept (Rea on #165: no lead-in doubled a word cut at the border)
       const had = ranges ? transcripts.get(src, track) || null : null;

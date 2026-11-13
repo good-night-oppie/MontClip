@@ -10,11 +10,11 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { makeDataDir, freePort, ROOT } = require("./helpers");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 
 async function launch(t, dir, token, extraEnv = {}) {
   const port = await freePort();
-  const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+  const child = spawn(process.execPath, [path.join(ROOT, "server", "server.js")], {
     cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1",
       MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token, ...extraEnv },

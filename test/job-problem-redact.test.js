@@ -11,7 +11,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const V = require("../ui-preferences");
 const R = require("../problem-redact");
-const J = require("../export-jobs");
+const J = require("../server/export-jobs");
 const { makeDataDir, startServer } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");

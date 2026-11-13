@@ -50,7 +50,7 @@ test('the page: every undo step carries its event id, saves carry the log, undo 
  a.match(app,/action:'before_agent'/);
 });
 test('the version store keeps an agent version before an AI run',()=>{
- const h=require('node:fs').readFileSync(require('node:path').join(__dirname,'../history.js'),'utf8');
+ const h=require('node:fs').readFileSync(require('node:path').join(__dirname,'../server/history.js'),'utf8');
  a.match(h,/case "before_agent": return \{ version: beforeAgent\(/);
 });
 test('undo steps carry their event id: object steps at the start, a gesture\'s clips-only step wrapped (and restored as clips)',()=>{

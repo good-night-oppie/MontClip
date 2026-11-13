@@ -7,7 +7,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { createProjects } = require("../projects");
+const { createProjects } = require("../server/projects");
 const { makeDataDir } = require("./helpers");
 
 test("the project summary carries width, height and fps as numbers, or null", (t) => {

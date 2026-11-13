@@ -26,7 +26,7 @@ function readWav(buf) {
 }
 
 test('server: /api/audio-window decodes only the asked part, sample-accurately, keeping the channels', async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
@@ -128,7 +128,7 @@ test('auto-slice default: libx264 only → veryfast, same CRF; a graphics card o
    has it — 5.080 s — for a window from 0 as well as from inside the file, in FLV and MKV. (The whole-file
    decodeAudioData put it at 5.021 / 5.000 s, so every local file now goes through the window.) */
 test('server: audio starting 80 ms late lands on the container clock, from 0 and mid-file, FLV and MKV (±1 ms)', async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
@@ -148,11 +148,11 @@ test('server: audio starting 80 ms late lands on the container clock, from 0 and
 
 /* QQ 2026-11-05: the server never holds a whole window in memory; the WAV header is read chunk by chunk. */
 test('server: the window is written to disk and streamed, its WAV header walked chunk by chunk', () => {
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
   const route = server.slice(server.indexOf('if (p === "/api/audio-window"'), server.indexOf('if (p === "/api/frame"'));
   a.ok(!/Buffer\.concat\(chunks\)|indexOf\("data"/.test(route), 'no buffering, no indexOf("data")');
   a.match(route, /fs\.createReadStream\(/); a.match(route, /wavChunks\(/);
-  const { wavChunks } = require('../audio-window');
+  const { wavChunks } = require('../server/audio-window');
   const fmt = Buffer.alloc(16); fmt.writeUInt16LE(3, 0); fmt.writeUInt16LE(2, 2); fmt.writeUInt32LE(48000, 4); fmt.writeUInt16LE(32, 14);
   const chunk = (id, b) => { const h = Buffer.alloc(8); h.write(id, 0, 'ascii'); h.writeUInt32LE(b.length, 4); return Buffer.concat([h, b, b.length & 1 ? Buffer.alloc(1) : Buffer.alloc(0)]); };
   // a LIST chunk whose text contains "data" sits before the real data chunk
@@ -168,7 +168,7 @@ test('server: the window is written to disk and streamed, its WAV header walked 
    same answer. Both FLV (aac), audio starting 80 ms after the video, a beep at 5.000 s of the audio (5.080 s on the
    container clock); the long one, 10 minutes, has a second beep near its end (595.080 s) so drift would show. */
 test('server: a short and a long FLV with audio 80 ms late put the beep at the same place, to ±1 ms, and the long one does not drift', { timeout: 180000 }, async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
@@ -192,7 +192,7 @@ test('server: a short and a long FLV with audio 80 ms late put the beep at the s
 
 /* QQ 2026-11-05 (b), the audio-window side: the window is decoded by the bundled build, never a local FFmpeg. */
 test('the audio window is decoded by the bundled FFmpeg', () => {
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
   const route = server.slice(server.indexOf('if (p === "/api/audio-window"'), server.indexOf('if (p === "/api/frame"'));
   a.match(route, /spawn\(FF\.path\("ffmpeg"\), AudioWindow\.windowArgs\(/);
   a.ok(!/externalFfmpeg|exportBinary/.test(route));
@@ -204,7 +204,7 @@ test('the audio window is decoded by the bundled FFmpeg', () => {
    Clips from 0 s, 0.3 s and the middle, with the page's own rule for `from`; ±1 ms. Plus the 录播姬 direction (picture
    late, sound from 0), which must stay at 0 ms. */
 test('server: audio 59 / 80 ms late, clip from 0 s, 0.3 s or mid-file — the window starts on the container clock (±1 ms)', { timeout: 120000 }, async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg') || !FF.available('ffprobe')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 })), media = path.join(dir, 'media');
   fs.mkdirSync(media, { recursive: true });
@@ -249,7 +249,7 @@ test('server: audio 59 / 80 ms late, clip from 0 s, 0.3 s or mid-file — the wi
    the sound after the gap early by the gap. The window's n-th sample must be the file at from + n/48000: silence in the
    gap, the WAV exactly to − from long. Gaps of 0.05, 0.1 and 0.5 s at 6 s; beeps at 3 s and after the gap. */
 test('server: a timestamp gap in the audio leaves the sound after it on time (±1 ms), and the window keeps its length', { timeout: 120000 }, async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 })), media = path.join(dir, 'media');
   fs.mkdirSync(media, { recursive: true });
@@ -280,7 +280,7 @@ test('server: a timestamp gap in the audio leaves the sound after it on time (±
    put a sound at the same place however it is read: from 0, from 0.3, from 2.9 or the whole file. Samples as Rea's:
    MP3 from 0 with the picture 92 ms late (MKV, FLV), MP3 55 ms late (FLV), AAC 0.5 s late (MKV, MP4), AAC from 0. */
 test('server: a window from 0, from 0.3, from 2.9 or the whole file puts the same beep at the same place (±1 ms), FLV and MP3 too', { timeout: 180000 }, async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 })), media = path.join(dir, 'media');
   fs.mkdirSync(media, { recursive: true });
@@ -314,7 +314,7 @@ test('server: a window from 0, from 0.3, from 2.9 or the whole file puts the sam
 });
 
 test('the container-clock filter is one exported string, and the window uses it', () => {
-  const W = require('../audio-window');
+  const W = require('../server/audio-window');
   a.equal(W.CLOCK_FILTER, 'aresample=async=1:min_hard_comp=0.01:first_pts=0');
   const args = W.windowArgs('x.flv', 0, 5, 'o.wav');
   a.equal(args[args.indexOf('-af') + 1], W.CLOCK_FILTER);

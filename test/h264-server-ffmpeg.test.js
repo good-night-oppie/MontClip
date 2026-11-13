@@ -6,7 +6,7 @@
 //   2. the bundled one has none, the named one has x264 → libx264 from the named FFmpeg;
 //   3. neither                                          → refused, and the reason names what exists in this mode.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const Delivery=require('../delivery'),X=require('../external-ffmpeg'),V=require('../ui-preferences');
+const Delivery=require('../delivery'),X=require('../server/external-ffmpeg'),V=require('../ui-preferences');
 
 function tmp(t){const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-srvx264-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
 const withX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V....D libx264              libx264 H.264 / AVC\n'}:{code:0,stdout:'ffmpeg version 5.1.8-0+deb12u1\n'};
@@ -84,7 +84,7 @@ function systemX264() {
 }
 
 test('server mode end to end: MONTCLIP_EXTERNAL_FFMPEG makes an H.264 export work where the bundled FFmpeg cannot', async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const x264 = systemX264();
   if (!x264) return t.skip('no FFmpeg with libx264 on this machine');
@@ -106,7 +106,7 @@ test('server mode end to end: MONTCLIP_EXTERNAL_FFMPEG makes an H.264 export wor
 
 test('server mode end to end: neither encoder — refused at begin with setup:"server", worded without Settings', async (t) => {
   const { makeDataDir, seedProject, startServer } = require('./helpers');
-  if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  if (!require('../server/ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   // nothing on PATH either (JJ P1 looks there)
   const nowhere = path.join(dir, 'no-such-folder');

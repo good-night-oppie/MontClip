@@ -24,7 +24,7 @@ const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const checks = [];
 const check = (name, ok, detail) => { checks.push({ name, ok: !!ok, ...(detail === undefined ? {} : { detail }) }); out(ok ? 'BG_CHECK_OK' : 'BG_CHECK_FAIL', { name, detail }); };
 const leftovers = () => fs.existsSync(exportsDir) ? fs.readdirSync(exportsDir).filter((f) => f.includes('.part') || f.startsWith('fablecut-')) : [];
-const ffPath = require('../ffmpeg-path');
+const ffPath = require('../server/ffmpeg-path');
 const ENCODER = process.env.MONTCLIP_BG_ENCODER || 'h264_mf';
 
 function recording() {

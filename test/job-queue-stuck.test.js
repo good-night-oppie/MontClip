@@ -11,7 +11,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
-const J = require("../export-jobs");
+const J = require("../server/export-jobs");
 const V = require("../ui-preferences");
 const { makeDataDir, seedProject, startServer, startMcp } = require("./helpers");
 
@@ -227,7 +227,7 @@ for (const [tool, args] of [["fablecut_scopes", { time: 1 }], ["fablecut_frame",
 test("a host giving up on callTool (its AbortSignal) cancels the job, and a later export is accepted", async (t) => {
   const { dir, base, port, tab } = await boot(t);
   Object.assign(process.env, { FABLECUT_PORT: String(port), FABLECUT_DATA_DIR: dir, FABLECUT_NO_AUTOSTART: "1" });
-  const { callTool } = require("../mcp-server.js");
+  const { callTool } = require("../server/mcp-server.js");
   const ac = new AbortController();
   const call = callTool("fablecut_frame", { time: 1 }, { signal: ac.signal }).then(() => null, (e) => e);
   const ticket = await tab.next();

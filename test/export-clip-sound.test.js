@@ -137,7 +137,7 @@ test('the export mix never decodes a whole file in the page with a server: a fai
 });
 
 test('server check: each silent clip is measured at its source — silent there too: a warning; sound there: the export fails, no file', async (t) => {
-  const FF = require('../ffmpeg-path'), C = require('../export-check');
+  const FF = require('../server/ffmpeg-path'), C = require('../server/export-check');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'mc14-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -173,12 +173,12 @@ test('server check: each silent clip is measured at its source — silent there 
   const e = endErr({ error: C.failText(r2), code: 'EXPORT_AUDIO_FAILED', params: C.failParams(r2) }, 'x');
   a.equal(V.errorText('zh-CN', e).text, '第 3、5 段（时间线 1:12、1:30 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
   // the server deletes that file instead of handing it over
-  const server = read('server.js');
+  const server = read('server/server.js');
   a.match(server, /blank\.code === "EXPORT_AUDIO_FAILED"[\s\S]{0,200}fs\.unlinkSync\(o\.outPath\)/);
 });
 
 test('reading only the used span: 16 s of a 2-hour file decodes about 16 s (bytes and length), not the file', async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
@@ -195,13 +195,13 @@ test('reading only the used span: 16 s of a 2-hour file decodes about 16 s (byte
 });
 
 test('MC-11: captions for 16 s of a 2-hour file read that part only (ffmpeg -ss / -t, about 16 s out)', (t) => {
-  const T = require('../transcribe.js'), FF = require('../ffmpeg-path');
+  const T = require('../transcribe.js'), FF = require('../server/ffmpeg-path');
   const rs = T.clipRanges([{ in: 3600, duration: 16, props: {} }], { duration: null });
   a.deepEqual(rs, [[3598.5, 3617.5]]);
   // a file whose length the project doesn't know yet is read in its clips' windows too, never whole
-  const mcp = read('mcp-server.js'), plan = mcp.slice(mcp.indexOf('const rangesOf = new Map();'), mcp.indexOf('const ask = {};'));
+  const mcp = read('server/mcp-server.js'), plan = mcp.slice(mcp.indexOf('const rangesOf = new Map();'), mcp.indexOf('const ask = {};'));
   a.match(plan, /dur != null && !\(dur > LONG_FILE_S\)/); a.match(plan, /dur == null \|\| T\.rangeSeconds\(rs\) < dur \/ 2/);
-  const { readArgs } = require('../asr-local').__test || require('../asr-local');
+  const { readArgs } = require('../server/asr-local').__test || require('../server/asr-local');
   const { args } = readArgs({ file: 'x', from: rs[0][0], to: rs[0][1] });
   a.equal(args[args.indexOf('-ss') + 1], '3598.5'); a.equal(args[args.indexOf('-t') + 1], '19');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
@@ -215,7 +215,7 @@ test('MC-11: captions for 16 s of a 2-hour file read that part only (ffmpeg -ss 
 });
 
 test('MC-15: an export page that crashes ends its own job with a reason; the engine stays, the queue takes the next one', async (t) => {
-  const { createExportJobs } = require('../export-jobs');
+  const { createExportJobs } = require('../server/export-jobs');
   const saved = process.env.FABLECUT_CHROME;
   process.env.FABLECUT_CHROME = process.execPath;   // "a browser" that exits at once: node refuses Chrome's flags
   t.after(() => { if (saved == null) delete process.env.FABLECUT_CHROME; else process.env.FABLECUT_CHROME = saved; });
@@ -230,14 +230,14 @@ test('MC-15: an export page that crashes ends its own job with a reason; the eng
   a.ok(next.id && next.id !== j.id, 'the queue took the next job');
   jobs.cancel?.(next.id);
   // a stalled headless page (its renderer gone, the browser still up) says the same code
-  a.match(read('export-jobs.js'), /EXPORT_PAGE_CRASHED[\s\S]{0,300}\(tab closed or browser crashed\)/);
+  a.match(read('server/export-jobs.js'), /EXPORT_PAGE_CRASHED[\s\S]{0,300}\(tab closed or browser crashed\)/);
 });
 
 /* JJ asked (#231): when the headless page crashes, is the half-written file cleaned up? A crash ends the job
    (export-jobs.js: the browser's exit → end(j, "failed") → opts.onEnd); the server's onEnd stops that job's export
    sessions (server.js cleanupExport → export-cleanup.js stopSessions), which kills ffmpeg and deletes the .part. */
 test('MC-15: a crashed export page\'s half-written file is deleted (onEnd → cleanupExport → stopSessions removes the .part)', async (t) => {
-  const { createExportJobs } = require('../export-jobs'), { stopSessions } = require('../export-cleanup');
+  const { createExportJobs } = require('../server/export-jobs'), { stopSessions } = require('../server/export-cleanup');
   const saved = process.env.FABLECUT_CHROME;
   process.env.FABLECUT_CHROME = process.execPath;
   t.after(() => { if (saved == null) delete process.env.FABLECUT_CHROME; else process.env.FABLECUT_CHROME = saved; });
@@ -254,7 +254,7 @@ test('MC-15: a crashed export page\'s half-written file is deleted (onEnd → cl
   a.equal(jobs.get(j.id).code, 'EXPORT_PAGE_CRASHED');
   await Promise.all(stopped);
   a.equal(stopped.length, 1, 'the crashed job\'s session was stopped'); a.equal(fs.existsSync(part), false, 'the .part is gone');
-  const server = read('server.js');
+  const server = read('server/server.js');
   a.match(server, /onEnd: \(j\) => \{ for \(const \[id, s\] of \[\.\.\.exportSessions\]\) if \(s\.job === j\.id\) cleanupExport\(id\); \}/);
   a.match(server, /exportSessions\.get\(begun\.id\)\.job = opts\.job/, 'a session knows its job from /api/export/begin');
 });
@@ -264,8 +264,8 @@ test('MC-15: a crashed export page\'s half-written file is deleted (onEnd → cl
    removed. MontClip claims nothing about which process the kernel kills first; what it does claim is tested above: a page
    that dies ends its own job (EXPORT_PAGE_CRASHED). */
 test('MC-15: the headless browser is started as itself — no oom_score_adj line that Chrome overrides, and no claim that it works', () => {
-  const jobs = read('export-jobs.js');
-  a.equal(require('../export-jobs').browserCommand, undefined);
+  const jobs = read('server/export-jobs.js');
+  a.equal(require('../server/export-jobs').browserCommand, undefined);
   a.doesNotMatch(jobs.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, ''), /oom_score_adj|\/bin\/sh/, 'no wrapper in the code');
   a.ok(jobs.includes('const proc = spawn(exe, args, { stdio: "ignore", windowsHide: true });'));
   // the comment says what is true: Chrome's own values, not ours
@@ -279,7 +279,7 @@ test('MC-15: the headless browser is started as itself — no oom_score_adj line
    was skipped by `peaks.some((db) => db != null && db > QUIET_DB)`. A source the check can't read must never count as
    silent. Synthetic media only. */
 test('the self-check never counts a source it couldn\'t read as silent: the export fails instead of passing', async (t) => {
-  const FF = require('../ffmpeg-path'), C = require('../export-check');
+  const FF = require('../server/ffmpeg-path'), C = require('../server/export-check');
   if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'mc14u-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

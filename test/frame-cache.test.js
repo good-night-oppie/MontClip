@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { pruneCache, DEFAULT_MAX_FILES, DEFAULT_MAX_BYTES } = require("../frame-cache");
+const { pruneCache, DEFAULT_MAX_FILES, DEFAULT_MAX_BYTES } = require("../server/frame-cache");
 
 /* A fake cache entry: a .jpg with a .json sidecar, mtime pinned so "oldest"
    is deterministic regardless of how fast the test runs. */

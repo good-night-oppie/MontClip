@@ -11,7 +11,7 @@
 //     lets the cdn.jsdelivr.net requests through to the real MediaPipe, runs a cut-out on a frame, and records every
 //     request the page makes (host, method, body) — what is actually sent, not what the code says.
 const { spawn, spawnSync } = require("child_process"), fs = require("fs"), path = require("path"), os = require("os");
-const ROOT = path.join(__dirname, "../.."), CHROME = require("../../export-jobs").findBrowser();
+const ROOT = path.join(__dirname, "../.."), CHROME = require("../../server/export-jobs").findBrowser();
 if (!CHROME) { console.log("SKIP: no Chrome / Edge (set FABLECUT_CHROME)"); process.exit(0); }
 const REAL = process.env.MONTCLIP_SMOKE_REAL_NET === "1";
 const PORT = +process.env.SMOKE_PORT || 7843, DBG = PORT + 1600, ORIGIN = `http://127.0.0.1:${PORT}`;
@@ -43,7 +43,7 @@ const fixtureModule = fs.readFileSync(path.join(ROOT,'bgremove-assets.js'),'utf8
   /const FILES = [\s\S]*?\n  const error =/, 'const FILES = Object.freeze('+JSON.stringify(fixtureFiles)+');\n  const error =');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
-  const srv = spawn(process.execPath, [path.join(ROOT, "server.js")], { env: { ...process.env, PORT, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: "ignore", windowsHide: true });
+  const srv = spawn(process.execPath, [path.join(ROOT, "server", "server.js")], { env: { ...process.env, PORT, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: "ignore", windowsHide: true });
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), "fc-prof-"));
   const ch = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${DBG}`, "--user-data-dir=" + prof, "--no-first-run", "about:blank"], { stdio: "ignore", windowsHide: true });
   let ws;

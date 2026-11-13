@@ -21,7 +21,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const APP_DIR = __dirname;
+const APP_DIR = path.resolve(__dirname, "..");
 const FROM_NPM = APP_DIR.split(path.sep).includes("node_modules");
 const DATA_DIR = process.env.FABLECUT_DATA_DIR
   ? path.resolve(process.env.FABLECUT_DATA_DIR)

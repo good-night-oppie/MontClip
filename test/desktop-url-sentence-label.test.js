@@ -17,7 +17,7 @@ test("the sentence button has its own key, one language at a time", () => {
 });
 
 test("the desktop app hides + URL; the page decides by the desktop preload, the service still refuses", () => {
-  const app = read("app.js"), server = read("server.js"), css = read("style.css");
+  const app = read("app.js"), server = read("server/server.js"), css = read("style.css");
   assert.match(app, /if \(window\.montclipViewSettings\) \{ const urlButton = \$\("btnImportUrl"\); if \(urlButton\) urlButton\.hidden = true; \}/);
   assert.match(css, /#btnImportUrl\[hidden\] \{ ?display: ?none;? ?\}/, ".btn would otherwise win over [hidden]");
   assert.match(server, /if \(DESKTOP\) \{\s*sendJSON\(res, 403, \{ code: "NETWORK_DISABLED"/, "the desktop service refuses URL imports as before");
