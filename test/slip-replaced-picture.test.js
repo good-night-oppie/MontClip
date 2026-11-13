@@ -1,6 +1,6 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
-const Edit = require("../edit-ops"), Project = require("../project-ops");
+const Edit = require("../edit-ops"), Project = require("../server/project-ops");
 function fixture({ pictureIn = 0, audioIn = 30, pictureLength = 35, audioLength = 120 } = {}) {
   const doc = { fps: 25, media: [{ id: "A", kind: "video", duration: audioLength },
     { id: "B", kind: "video", duration: pictureLength }],

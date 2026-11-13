@@ -124,7 +124,7 @@ test('main.js: the page names its export before the download, the server is aske
 test('the server lets go of a file when its download stops half way (pipeline, not .pipe)', () => {
   // With .pipe(res) a cancelled download left the read stream open, so on Windows the export could not be removed
   // (desktop/export-download-smoke.cjs: EPERM, the file stayed). pipeline() closes the file when the response closes.
-  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server/server.js'), 'utf8');
   const serveFile = server.slice(server.indexOf('function serveFile('), server.indexOf('\n}\n', server.indexOf('function serveFile(')));
   a.doesNotMatch(serveFile, /createReadStream\([^)]*\)\.pipe\(res\)/);
   a.equal((serveFile.match(/pipeline\(fs\.createReadStream\(filePath(, \{ start, end \})?\), res, /g) || []).length, 2);

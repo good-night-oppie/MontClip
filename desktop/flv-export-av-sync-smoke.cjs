@@ -25,7 +25,7 @@ const ENCODER = process.env.MONTCLIP_AV_ENCODER || 'h264_mf', LIMIT = 0.04, LENG
 // decodeAudioData (exportAudioSource), the reading QQ's review is about; also what the waveform and the analyses read.
 const WHOLE = process.env.MONTCLIP_AV_WHOLE === '1';
 const Measure = require('./av-sync-measure.cjs');
-const FF = require('../ffmpeg-path'), ffmpeg = FF.path('ffmpeg');
+const FF = require('../server/ffmpeg-path'), ffmpeg = FF.path('ffmpeg');
 const { make, CLEAN, LIVE, withSound } = require('../test/flv-fixtures');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const CASES = [

@@ -5,10 +5,10 @@
    they differ. The file is made here, with MontClip's own ffmpeg: a test picture, no people. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const MediaLib = require("../media-lib");
-const MediaProbe = require("../media-probe");
-const ProjectOps = require("../project-ops");
+const MediaProbe = require("../server/media-probe");
+const ProjectOps = require("../server/project-ops");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
 const skip = !have && "no ffmpeg / ffprobe here";

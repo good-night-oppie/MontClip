@@ -9,7 +9,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const D = require("../delivery");
-const ProjectOps = require("../project-ops");
+const ProjectOps = require("../server/project-ops");
 const { makeDataDir, seedProject, startServer } = require("./helpers");
 
 const argAfter = (args, flag) => args[args.indexOf(flag) + 1];
@@ -277,7 +277,7 @@ test("export/begin with a delivery spec: crops, scales and encodes the frames it
 
   // 6 JPEG frames of a 320×180 canvas, left half red and right half blue
   const jpg = path.join(tmp, "f.jpg");
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=160x180,pad=320:180:0:0:blue", "-frames:v", "1", "-q:v", "2", jpg]);
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=160x180,pad=320:180:0:0:blue", "-frames:v", "1", "-q:v", "2", jpg]);
   const frame = fs.readFileSync(jpg);
 
   const begin = await post(base, "/api/export/begin", {
@@ -294,11 +294,11 @@ test("export/begin with a delivery spec: crops, scales and encodes the frames it
   const end = await (await fetch(base + "/api/export/end?id=" + sess.id, { method: "POST" })).json();
   assert.match(end.src || "", /^\/exports\/vertical\.mp4$/, end.error);
   const file = path.join(dir, "exports", "vertical.mp4");
-  const probe = JSON.parse(execFileSync(require("../ffmpeg-path").path("ffprobe"), ["-v", "error", "-show_entries", "stream=width,height,nb_frames,color_space", "-of", "json", file], { encoding: "utf8" }));
+  const probe = JSON.parse(execFileSync(require("../server/ffmpeg-path").path("ffprobe"), ["-v", "error", "-show_entries", "stream=width,height,nb_frames,color_space", "-of", "json", file], { encoding: "utf8" }));
   assert.deepEqual([probe.streams[0].width, probe.streams[0].height, +probe.streams[0].nb_frames], [90, 160, 6]);
   assert.equal(probe.streams[0].color_space, "bt709");
   // the crop came from the region (red half): the middle pixel is red, not blue
-  const px = execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-i", file, "-frames:v", "1", "-vf", "crop=2:2:44:79", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+  const px = execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-i", file, "-frames:v", "1", "-vf", "crop=2:2:44:79", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
   assert.ok(px[0] > 200 && px[2] < 60, `expected red, got rgb(${px[0]},${px[1]},${px[2]})`);
 });
 
@@ -356,7 +356,7 @@ test("export/begin with several deliveries: one stream of frames, one file per o
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fc-dlv-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const raw = path.join(tmp, "f.rgba");
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=green:s=320x180", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", raw]);
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=green:s=320x180", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", raw]);
   const frame = fs.readFileSync(raw);
 
   const begin = await post(base, "/api/export/begin", {
@@ -378,7 +378,7 @@ test("export/begin with several deliveries: one stream of frames, one file per o
   assert.equal(end.outputs.length, 3, end.error);
   assert.ok(end.outputs.every((o) => o.ok), JSON.stringify(end.outputs));
   for (const [file, w, h] of [["wide.mp4", 320, 180], ["tall.mp4", 90, 160], ["master.mov", 320, 180]]) {
-    const pr = JSON.parse(execFileSync(require("../ffmpeg-path").path("ffprobe"), ["-v", "error", "-show_entries", "stream=width,height,nb_frames", "-of", "json", path.join(dir, "exports", file)], { encoding: "utf8" }));
+    const pr = JSON.parse(execFileSync(require("../server/ffmpeg-path").path("ffprobe"), ["-v", "error", "-show_entries", "stream=width,height,nb_frames", "-of", "json", path.join(dir, "exports", file)], { encoding: "utf8" }));
     assert.deepEqual([pr.streams[0].width, pr.streams[0].height, +pr.streams[0].nb_frames], [w, h, 5], file);
   }
   const mixed = await post(base, "/api/export/begin", { fps: 25, hasAudio: false, canvasW: 64, canvasH: 64,
@@ -459,10 +459,10 @@ test("export with a loudness target: the mix is measured, turned to the target, 
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   // a quiet mix whose peaks sit near full scale: +14 dB of gain would clip them without the limiter
   const wav = path.join(tmp, "mix.wav");
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "sine=f=220:d=4:r=48000,volume=0.05,aformat=channel_layouts=stereo",
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "sine=f=220:d=4:r=48000,volume=0.05,aformat=channel_layouts=stereo",
     "-f", "lavfi", "-i", "aevalsrc='if(lt(mod(t,1),0.001),0.6,0)':d=4:s=48000:c=stereo", "-filter_complex", "amix=inputs=2:normalize=0", "-c:a", "pcm_s16le", wav]);
   const jpg = path.join(tmp, "f.jpg");
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=64x64", "-frames:v", "1", jpg]);
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=64x64", "-frames:v", "1", jpg]);
   const begin = await post(base, "/api/export/begin", {
     fps: 25, hasAudio: true, duration: 4, canvasW: 64, canvasH: 64,
     deliveries: [{ delivery: { preset: "custom", audio: { loudness: -14, truePeak: -1 } }, name: "loud" }],
@@ -484,7 +484,7 @@ test("export with a loudness target: the mix is measured, turned to the target, 
 });
 
 test("a silent mix through the real ffmpeg measures as silence", (t) => {
-  const r = require("node:child_process").spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-hide_banner", "-nostats", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo:d=4",
+  const r = require("node:child_process").spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-hide_banner", "-nostats", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo:d=4",
     "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"], { encoding: "utf8" });
   if (r.error) return t.skip("no ffmpeg");
   assert.deepEqual(D.parseEbur128(r.stderr), { lufs: null, truePeak: null, silent: true });

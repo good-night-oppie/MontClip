@@ -11,7 +11,7 @@
 const { spawn } = require('child_process'), fs = require('fs'), path = require('path');
 const calls = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const src = process.env.MONTCLIP_SRC || path.resolve(__dirname, '../..');
-const p = spawn(process.execPath, [path.resolve(src, 'mcp-server.js')], { env: { ...process.env }, stdio: ['pipe', 'pipe', 'inherit'] });
+const p = spawn(process.execPath, [path.resolve(src, 'server', 'mcp-server.js')], { env: { ...process.env }, stdio: ['pipe', 'pipe', 'inherit'] });
 let buf = '', id = 0;
 const pend = {};
 const die = (code, msg) => { console.log('## STOP', msg); try { p.kill(); } catch {} process.exit(code); };

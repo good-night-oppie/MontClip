@@ -83,7 +83,7 @@ function freePort() {
 
 /* Start server.js on its own port + data dir and wait until it actually
    answers. Rejects fast if the child dies instead of hanging until timeout. */
-async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROOT, "server.js") } = {}) {
+async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROOT, "server/server.js") } = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const port = await freePort();
     const child = spawn(process.execPath, [serverJs], {
@@ -152,7 +152,7 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
    fit in what is left. A child that dies is not waited for: its exit is reported at once with the code and its output.
    Stopped with endTree so what the server started (ffmpeg) goes with it. */
 const LAUNCH_DEADLINE_MS = 45_000;
-async function launch(t, dir, token, extraEnv = {}, { serverJs = path.join(ROOT, "server.js"), deadlineMs = LAUNCH_DEADLINE_MS } = {}) {
+async function launch(t, dir, token, extraEnv = {}, { serverJs = path.join(ROOT, "server", "server.js"), deadlineMs = LAUNCH_DEADLINE_MS } = {}) {
   const port = await freePort();
   const child = spawn(process.execPath, [serverJs], {
     cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
@@ -200,7 +200,7 @@ function rawGet(port, rawPath, headers = {}) {
 /* Line-delimited JSON-RPC client for mcp-server.js over stdio. Responses are
    matched by id, so out-of-order or interleaved replies cannot cross wires. */
 function startMcp(t, dataDir, env = {}) {
-  const child = spawn(process.execPath, [path.join(ROOT, "mcp-server.js")], {
+  const child = spawn(process.execPath, [path.join(ROOT, "server/mcp-server.js")], {
     cwd: ROOT,
     // Standalone MCP tests must not reach an editor someone happens to have open on port 7777.
     // Server-backed tests explicitly supply their own temporary server's port.
@@ -285,7 +285,7 @@ function startMcp(t, dataDir, env = {}) {
 let h264 = undefined;
 function bundledH264() {
   if (h264 !== undefined) return h264;
-  const FF = require("../ffmpeg-path");
+  const FF = require("../server/ffmpeg-path");
   h264 = null;
   if (!FF.available("ffmpeg")) return h264;
   for (const [enc, pix] of [["h264_mf", "nv12"], ["h264_nvenc", "yuv420p"], ["h264_qsv", "nv12"], ["h264_amf", "nv12"], ["h264_videotoolbox", "nv12"]]) {

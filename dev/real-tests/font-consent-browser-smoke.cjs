@@ -10,7 +10,7 @@
 // (a cookie is planted for both hosts first), nor anything naming this computer's address; the headers are printed.
 //   node dev/real-tests/font-consent-browser-smoke.cjs        (FABLECUT_CHROME picks the browser; needs openssl)
 const { spawn, spawnSync } = require("child_process"), fs = require("fs"), path = require("path"), os = require("os"), https = require("https");
-const ROOT = path.join(__dirname, "../.."), CHROME = require("../../export-jobs").findBrowser();
+const ROOT = path.join(__dirname, "../.."), CHROME = require("../../server/export-jobs").findBrowser();
 if (!CHROME) { console.log("SKIP: no Chrome / Edge (set FABLECUT_CHROME)"); process.exit(0); }
 const PORT = 7791, ORIGIN = `http://127.0.0.1:${PORT}`, CDP = 9333;
 let STAND_IN = 0;   // any free port
@@ -45,7 +45,7 @@ const standIn = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
 (async () => {
   await new Promise((r) => standIn.listen(0, "127.0.0.1", r));
   STAND_IN = standIn.address().port;
-  const srv = spawn(process.execPath, [path.join(ROOT, "server.js")], { env: { ...process.env, PORT, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: "ignore" });
+  const srv = spawn(process.execPath, [path.join(ROOT, "server", "server.js")], { env: { ...process.env, PORT, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: "ignore" });
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), "fc-prof-"));
   const ch = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${CDP}`, "--user-data-dir=" + prof, "--no-first-run",
     `--host-resolver-rules=${HOSTS.map((h) => `MAP ${h} 127.0.0.1:${STAND_IN}`).join(", ")}`, "--ignore-certificate-errors", "about:blank"], { stdio: "ignore" });

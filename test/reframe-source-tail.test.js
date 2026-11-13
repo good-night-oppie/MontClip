@@ -1,9 +1,9 @@
 'use strict';
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),vm=require('node:vm'),{spawnSync}=require('node:child_process');
-const FF=require('../ffmpeg-path');
+const FF=require('../server/ffmpeg-path');
 function sample(file,c){
- const src=fs.readFileSync(require.resolve('../mcp-server'),'utf8');
- const ctx={require:require('node:module').createRequire(require.resolve('../mcp-server')),FF,REFRAME_MAX_SECS:900};
+ const src=fs.readFileSync(require.resolve('../server/mcp-server'),'utf8');
+ const ctx={require:require('node:module').createRequire(require.resolve('../server/mcp-server')),FF,REFRAME_MAX_SECS:900};
  vm.runInNewContext(src.slice(src.indexOf('function sampleFrames('),src.indexOf('async function reframeTool(')),ctx);
  return ctx.sampleFrames(file,c,16,16,30);
 }

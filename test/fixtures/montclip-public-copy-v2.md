@@ -60,10 +60,10 @@
 ```bash
 git clone https://github.com/good-night-oppie/MontClip.git
 cd MontClip
-node server.js
+node server/server.js
 ```
 
-用浏览器打开 <http://localhost:7777>。用的时候别关掉那个终端窗口。一开始是一个空项目。要导入视频，把它拖进窗口，或者点 **+ 导入**；看不到这个按钮的话，先点开 **素材** 面板。如果终端报 `EADDRINUSE`，说明 7777 端口已经被占用，常见原因是之前开的 MontClip 还在运行。先把它关掉，不然打开的会是旧的那个。项目和导出的文件默认存在 `server.js` 旁边；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
+用浏览器打开 <http://localhost:7777>。用的时候别关掉那个终端窗口。一开始是一个空项目。要导入视频，把它拖进窗口，或者点 **+ 导入**；看不到这个按钮的话，先点开 **素材** 面板。如果终端报 `EADDRINUSE`，说明 7777 端口已经被占用，常见原因是之前开的 MontClip 还在运行。先把它关掉，不然打开的会是旧的那个。项目和导出的文件默认存在 MontClip 文件夹里（就是你下载下来的那个文件夹）；想存到别处，见 [DEVELOPMENT.md](../../DEVELOPMENT.md)。
 
 ## 计划中
 
@@ -131,10 +131,10 @@ Then, in a terminal:
 ```bash
 git clone https://github.com/good-night-oppie/MontClip.git
 cd MontClip
-node server.js
+node server/server.js
 ```
 
-Open <http://localhost:7777> in your browser. Keep the terminal window open while you edit. You start with an empty project. To bring in a video, drag it into the window, or click **+ 导入** (the Import button; most of the interface is in Chinese for now). If you don't see that button, open the **素材** (Media) panel first. If the terminal says `EADDRINUSE`, port 7777 is already in use, often by a MontClip you started earlier. Close that one first; otherwise the page you open is the old one. Your projects and exports are saved next to `server.js`; to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
+Open <http://localhost:7777> in your browser. Keep the terminal window open while you edit. You start with an empty project. To bring in a video, drag it into the window, or click **+ 导入** (the Import button; most of the interface is in Chinese for now). If you don't see that button, open the **素材** (Media) panel first. If the terminal says `EADDRINUSE`, port 7777 is already in use, often by a MontClip you started earlier. Close that one first; otherwise the page you open is the old one. Your projects and exports are saved inside the MontClip folder (the folder you downloaded); to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Planned
 

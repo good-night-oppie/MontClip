@@ -26,10 +26,10 @@
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
   const dep = (file, name) => (node ? require(file) : root[name]);
-  const api = factory(dep("./audio-fx", "MontClipFx"), dep("./edit-ops", "MontClipEdit"), dep("./color", "MontClipColor"),
-    dep("./mask", "MontClipMask"), dep("./tracker", "MontClipTracker"), dep("./motion", "MontClipMotion"),
-    dep("./comp", "MontClipComp"), dep("./templates", "MontClipTemplates"), dep("./media-lib", "MontClipMedia"),
-    dep("./delivery", "MontClipDelivery"), dep("./sequences", "MontClipSeq"), dep("./songs", "MontClipSongs"));
+  const api = factory(dep("../audio-fx", "MontClipFx"), dep("../edit-ops", "MontClipEdit"), dep("../color", "MontClipColor"),
+    dep("../mask", "MontClipMask"), dep("../tracker", "MontClipTracker"), dep("../motion", "MontClipMotion"),
+    dep("../comp", "MontClipComp"), dep("../templates", "MontClipTemplates"), dep("../media-lib", "MontClipMedia"),
+    dep("../delivery", "MontClipDelivery"), dep("../sequences", "MontClipSeq"), dep("../songs", "MontClipSongs"));
   if (node) module.exports = api;
   else root.MontClipProjectOps = api;
 })(typeof self !== "undefined" ? self : this, function (FX, EditOps, Color, Mask, Tracker, Motion, CompLib, Templates, MediaLib, Delivery, SeqLib, Songs) {

@@ -11,9 +11,9 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn, execFileSync } = require("node:child_process");
-const FF = require("../ffmpeg-path");
-const Cleanup = require("../export-cleanup");
-const { createExportJobs } = require("../export-jobs");
+const FF = require("../server/ffmpeg-path");
+const Cleanup = require("../server/export-cleanup");
+const { createExportJobs } = require("../server/export-jobs");
 const { makeDataDir, seedProject, startServer } = require("./helpers");
 
 const HAS_FFMPEG = FF.available("ffmpeg");
@@ -70,7 +70,7 @@ test("an export job is done only when its file is in place: not while it is stil
 });
 
 test("the end of an export renames the .part file first, then checks the file (the self-check never reads a .part)", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "server/server.js"), "utf8");
   const end = src.slice(src.indexOf('if (p === "/api/export/end"'), src.indexOf("/* API: reference analysis"));
   const rename = end.indexOf("fs.renameSync(o.partPath, o.outPath)"), check = end.indexOf("verifyDeliveryOutput(");
   assert.ok(rename > 0 && check > 0 && rename < check, "renameSync before verifyDeliveryOutput");

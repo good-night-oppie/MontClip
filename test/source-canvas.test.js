@@ -51,7 +51,7 @@ test('a project made from another template, or with its own rate or size, is the
   try {
     const projectFile = path.join(dir, 'project.json');
     fs.writeFileSync(projectFile, JSON.stringify({ name: 'x', width: 1280, height: 720, fps: 30, revision: 0, media: [], clips: [] }));
-    const P = require('../projects').createProjects({ dataDir: dir, projectFile, libraryDir: path.join(dir, 'library') });
+    const P = require('../server/projects').createProjects({ dataDir: dir, projectFile, libraryDir: path.join(dir, 'library') });
     const doc = (o) => JSON.parse(fs.readFileSync(path.join(dir, 'projects', P.create({ name: 'n', open: false, ...o }).id, 'project.json'), 'utf8'));
     a.equal(doc({}).canvasUser, undefined, 'the default template');
     a.equal(doc({ template: 'landscape-1080' }).canvasUser, undefined, 'the default, named');
@@ -62,7 +62,7 @@ test('a project made from another template, or with its own rate or size, is the
 });
 
 test('an agent setting the canvas or the rate is a choice too', () => {
-  const Ops = require('../project-ops');
+  const Ops = require('../server/project-ops');
   const run = (set) => { const doc = { width: 1920, height: 1080, fps: 30, revision: 1, media: [], clips: [] }; Ops.applyPatch(doc, [{ op: 'setProject', set }]); return doc; };
   a.equal(run({ fps: 60 }).canvasUser, true);
   a.equal(run({ width: 1080, height: 1920 }).canvasUser, true);

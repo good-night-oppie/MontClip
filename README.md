@@ -36,10 +36,10 @@ Then, in a terminal:
 ```bash
 git clone https://github.com/good-night-oppie/MontClip.git
 cd MontClip
-node server.js
+node server/server.js
 ```
 
-Open <http://localhost:7777> in your browser. Keep the terminal window open while you edit. You start with an empty project. To bring in a video, drag it into the window, or click **+ 导入** (the Import button; most of the interface is in Chinese for now). If you don't see that button, open the **素材** (Media) panel first. If the terminal says `EADDRINUSE`, port 7777 is already in use, often by a MontClip you started earlier. Close that one first; otherwise the page you open is the old one. Your projects and exports are saved next to `server.js`; to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
+Open <http://localhost:7777> in your browser. Keep the terminal window open while you edit. You start with an empty project. To bring in a video, drag it into the window, or click **+ 导入** (the Import button; most of the interface is in Chinese for now). If you don't see that button, open the **素材** (Media) panel first. If the terminal says `EADDRINUSE`, port 7777 is already in use, often by a MontClip you started earlier. Close that one first; otherwise the page you open is the old one. Your projects and exports are saved inside the MontClip folder (the folder you downloaded); to keep them somewhere else, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Planned
 

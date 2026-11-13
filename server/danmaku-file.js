@@ -3,7 +3,7 @@
  * and the file is never held in memory at once. A leading byte-order mark is dropped by the decoder. */
 "use strict";
 const fs = require("fs");
-const Danmaku = require("./danmaku.js");
+const Danmaku = require("../danmaku.js");
 
 function readDanmakuFile(file, { highWaterMark = 1 << 20 } = {}) {
   return new Promise((resolve, reject) => {

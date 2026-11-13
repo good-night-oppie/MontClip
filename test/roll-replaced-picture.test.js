@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Edit = require("../edit-ops");
-const Project = require("../project-ops");
+const Project = require("../server/project-ops");
 
 function fixture(replace = "none", linked = true) {
   const doc = { fps: 25, media: ["A", "B"].map(id => ({ id, kind: "video", duration: 60 })),

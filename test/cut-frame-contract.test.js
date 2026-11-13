@@ -11,7 +11,7 @@ const Events=require('../agent-events');
 const {SRC}=require('./timeline-sandbox');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {execFileSync}=require('node:child_process');
-const ffPath=require('../ffmpeg-path');
+const ffPath=require('../server/ffmpeg-path');
 
 function world() {
   const shot=(id,start,inn)=>['V1','A1'].map(track=>({id:id+track,track,

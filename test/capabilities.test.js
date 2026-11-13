@@ -3,7 +3,7 @@
 // the AI and MCP. Each capability has a schema, a risk level fixed in the program (the page and the AI cannot change it)
 // and one plain sentence in Chinese and English. Unknown names are refused, never treated as harmless.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const Cap=require('../capabilities'),TOOLS=require('../mcp-tools');
+const Cap=require('../capabilities'),TOOLS=require('../server/mcp-tools');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
 test('every MCP tool, both proposal shapes, the host’s three sends and the two card edits are in the table, nothing else',()=>{
@@ -14,7 +14,7 @@ test('every MCP tool, both proposal shapes, the host’s three sends and the two
  a.equal(TOOLS.length,30);   // 25 in #74, plus #53's fablecut_danmaku, fablecut_repair_media (P3), fablecut_lyrics and fablecut_lyrics_apply (#164), fablecut_audio_track (#177)
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
- const src=read('mcp-server.js');
+ const src=read('server/mcp-server.js');
  a.match(src,/const TOOLS = require\("\.\/mcp-tools"\);/);
  a.ok(!/name: "fablecut_status"/.test(src),'no second copy left in mcp-server.js');
  for(const t of TOOLS){a.equal(typeof t.description,'string');a.equal(t.inputSchema.type,'object');}

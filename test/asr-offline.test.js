@@ -9,7 +9,7 @@ const { startServer, makeDataDir } = require('./helpers');
 test('Whisper, transformers.js and the browser worker are gone; the editor asks the local server to transcribe', () => {
   a.ok(!fs.existsSync(path.join(ROOT, 'transcribe-worker.js')), 'no browser worker');
   a.ok(!fs.existsSync(path.join(ROOT, 'desktop', 'transcribe-manifest.json')) && !fs.existsSync(path.join(ROOT, 'desktop', 'fetch-transcribe.cjs')));
-  for (const f of ['app.js', 'transcribe.js', 'index.html', 'server.js']) {
+  for (const f of ['app.js', 'transcribe.js', 'index.html', 'server/server.js']) {
     const s = read(f);
     a.ok(!/whisper|transformers\.min|onnxruntime-web|transcribe-worker|transcribe-assets|jsdelivr\.net\/npm\/@huggingface/i.test(s), f + ' still mentions the old browser path');
   }
@@ -37,7 +37,7 @@ test('the server: model status, one transcription at a time, cancel; it reads mo
   const asrDir = path.join(dataDir, 'asr'); fs.mkdirSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node'), { recursive: true });
   fs.writeFileSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node', 'package.json'), '{}');
   // and its native part for this computer (P8: without it the engine is not ready)
-  const native = path.join(asrDir, 'engine', 'node_modules', require('../asr-local').nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, 'package.json'), '{}');
+  const native = path.join(asrDir, 'engine', 'node_modules', require('../server/asr-local').nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, 'package.json'), '{}');
   fs.writeFileSync(path.join(asrDir, 'silero_vad.onnx'), Buffer.alloc(643854));
   const s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: asrDir, MONTCLIP_ASR_MODELS_DIR: path.join(dataDir, 'no-models') });
   const st = await (await fetch(s.base + '/api/asr/status')).json();
@@ -97,8 +97,8 @@ test('licences: sherpa-onnx, onnxruntime, Paraformer, CT-Transformer, silero VAD
   a.match(read('desktop/package-win.cjs'), /licenses', 'asr'/);
 });
 test('the real engine on the model\'s own public test sentence (only where desktop/fetch-asr.cjs --models asr has run)', { skip: !fs.existsSync(path.join(ROOT, 'vendor', 'asr', 'models', 'asr', 'model.int8.onnx')) && 'vendor/asr models not fetched here' }, async () => {
-  const { createAsr } = require('../asr-local');
-  const asr = createAsr({ asrDir: path.join(ROOT, 'vendor', 'asr'), modelsDir: path.join(ROOT, 'vendor', 'asr', 'models'), ffmpeg: require('../ffmpeg-path').path('ffmpeg') });
+  const { createAsr } = require('../server/asr-local');
+  const asr = createAsr({ asrDir: path.join(ROOT, 'vendor', 'asr'), modelsDir: path.join(ROOT, 'vendor', 'asr', 'models'), ffmpeg: require('../server/ffmpeg-path').path('ffmpeg') });
   a.equal(asr.status().asr.ready, true);
   const wav = path.join(ROOT, 'vendor', 'asr', 'test_wavs', '0.wav');
   const r = await asr.transcribe(wav, {});

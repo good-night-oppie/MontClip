@@ -53,7 +53,7 @@ test('bounded: the newest are kept',()=>{
 });
 
 test('not in the project, not in MCP: the server, MCP and project code never read them',()=>{
- for(const f of ['server.js','mcp-server.js','mcp-tools.js','project-ops.js','projects.js'])a.ok(!/corrections/i.test(read(f)),f);
+ for(const f of ['server/server.js','server/mcp-server.js','server/mcp-tools.js','server/project-ops.js','server/projects.js'])a.ok(!/corrections/i.test(read(f)),f);
  // the main process reaches them through fixed channels only, behind the same guard as the other settings; no path from the page
  const main=read('desktop/main.js');
  for(const op of ['status','append','setEnabled','clear','records','undo'])a.match(main,new RegExp(`"montclip:corrections:${op}"`),op);

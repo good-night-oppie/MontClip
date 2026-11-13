@@ -12,7 +12,7 @@
    Synthetic media only: a sine with digital silence after it, a truncated MP4, a fragmented MP4 with a tone. */
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const FF = require('../ffmpeg-path');
+const FF = require('../server/ffmpeg-path');
 const noFf = !FF.available('ffmpeg') && 'bundled ffmpeg not installed';
 const ff = (args, opts) => execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', ...args], { windowsHide: true, ...opts });
 

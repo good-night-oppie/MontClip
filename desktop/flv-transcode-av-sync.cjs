@@ -15,8 +15,8 @@
    Prints MONTCLIP_FLV_AV_SYNC {…}; exit code 0 only if every check passes. The temporary folder is deleted. */
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
-const FF = require('../ffmpeg-path');
-const { prepareMedia, usableH264 } = require('../prepare-media');
+const FF = require('../server/ffmpeg-path');
+const { prepareMedia, usableH264 } = require('../server/prepare-media');
 const { measure } = require('./av-sync-measure.cjs');
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const seconds = Number(arg('--seconds', 90)), LIMIT = 0.04;

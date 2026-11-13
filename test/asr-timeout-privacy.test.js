@@ -7,7 +7,7 @@ for(const partial of [false,true]) test('MCP timeout privacy and direct/bounded 
  const project=seedProject({media:[{id:'m',src:'/media/a.wav',kind:'audio',duration:60}],clips:[]});
  fs.writeFileSync(path.join(dir,'project.json'),JSON.stringify(project));
  fs.writeFileSync(path.join(dir,'media','a.wav'),'synthetic');
- const cache=require('../transcripts').createTranscripts({dir:path.join(dir,'analysis','transcripts'),resolveSrc:()=>path.join(dir,'media','a.wav')});
+ const cache=require('../server/transcripts').createTranscripts({dir:path.join(dir,'analysis','transcripts'),resolveSrc:()=>path.join(dir,'media','a.wav')});
  if(partial) cache.put('/media/a.wav',{duration:60,words:[['kept',0,1]],gaps:[],spans:[[0,1]]});
  let injectedError=null;
  const server=http.createServer((req,res)=>{

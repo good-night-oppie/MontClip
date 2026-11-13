@@ -15,8 +15,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 const { makeDataDir, seedProject, startServer, startMcp, readProject } = require("./helpers");
-const FF = require("../ffmpeg-path");
-const { findBrowser } = require("../export-jobs");
+const FF = require("../server/ffmpeg-path");
+const { findBrowser } = require("../server/export-jobs");
 
 const skip = !FF.available("ffmpeg") ? "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)"
   : !findBrowser() ? "no Chromium-family browser for the headless export (set FABLECUT_CHROME)" : false;

@@ -10,7 +10,7 @@ const {spawnSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const P=require('../chat-proposal'),V=require('../agent-conversation'),Cap=require('../capabilities'),Policy=require('../agent-policy');
 const Plan=require('../agent-plan'),F=require('../agent-format'),L=require('../agent-limits'),View=require('../ui-preferences'),R=require('../reframe');
-const FF=require('../ffmpeg-path');
+const FF=require('../server/ffmpeg-path');
 
 const ctx={projectId:'p',sequenceId:'main',generation:0,revision:1};
 const doc=(w=1920,h=1080)=>({fps:30,width:w,height:h,media:[{id:'m',kind:'video',duration:60,width:1920,height:1080}],clips:[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:30,props:{}}]});
@@ -136,7 +136,7 @@ test('the editor and fablecut_reframe both read the clip\'s last frame (reframe.
  // the tracker takes each frame's own time; without one, the next at SAMPLE_FPS as before
  const t=R.tracker(8,8),f=new Uint8Array(8*8*3);t.push(f);t.push(f);t.push(f,0.75);
  a.deepEqual(t.samples.map(s=>s[0]),[0,0.2,0.75]);
- const app=read('app.js'),mcp=read('mcp-server.js');
+ const app=read('app.js'),mcp=read('server/mcp-server.js');
  a.match(app,/\(f, t\) => tr\.push\(f, t\),\n\s*\{ times: Reframe\.sampleTimes\(c\.duration \* clipSpeed\(c\), \{ frame: clipSpeed\(c\) \/ fps \}\) \}\);/,'the editor\'s Reframe');
  a.match(app,/\(f,t\)=>tr\.push\(f,t\),\{times:Reframe\.sampleTimes\(c\.duration\*clipSpeed\(c\),\{frame:clipSpeed\(c\)\/fps\}\),cancelled:/,'the assistant\'s reframe');
  a.match(app,/if \(onRgb\) onRgb\(rgb\(\), at\[i\]\); else frames\.push\(rgb\(\)\);/);

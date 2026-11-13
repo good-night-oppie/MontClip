@@ -29,11 +29,11 @@ test('that is where the packaged app keeps its exports', () => {
   a.match(fs.readFileSync(path.join(ROOT, 'desktop', 'package-win.cjs'), 'utf8'), /productName: 'MontClip'/);
   // the server's data folder is userData\workspace, and its exports are DATA_DIR\exports
   a.match(main, /FABLECUT_DATA_DIR: path\.join\(app\.getPath\("userData"\), "workspace"\)/);
-  a.match(fs.readFileSync(path.join(ROOT, 'paths.js'), 'utf8'), /const EXPORTS_DIR = path\.join\(DATA_DIR, "exports"\);/);
+  a.match(fs.readFileSync(path.join(ROOT, 'server/paths.js'), 'utf8'), /const EXPORTS_DIR = path\.join\(DATA_DIR, "exports"\);/);
 });
 
 test('nothing refers to a file in exports: media and analysis only read /media/ and /library/', () => {
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
   const resolve = server.slice(server.indexOf('function resolveSrc('), server.indexOf('\n}\n', server.indexOf('function resolveSrc(')));
   a.match(resolve, /"\/media\/"/); a.match(resolve, /"\/library\/"/); a.doesNotMatch(resolve, /exports/);
   // the export queue is the tab's own, not saved

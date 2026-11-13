@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { makeDataDir, launch, ROOT } = require("./helpers");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 
 async function connect(base, token, tabId) {
   const boot = await fetch(base + "/?token=" + token, { redirect: "manual" });
