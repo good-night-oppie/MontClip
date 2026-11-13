@@ -286,6 +286,10 @@ test("a closed connection whose page keeps pushing frames keeps its export; it i
   const until = Date.now() + 15000;
   while (Date.now() < until) { now = await active(base, token); if (now === 0) break; await new Promise((r) => setTimeout(r, 300)); }
   assert.equal(now, 0, "once frames stop, the closed connection's export is cleaned");
-  const leftovers = fs.readdirSync(path.join(dir, "exports")).filter((n) => n.startsWith("fablecut-") || /.part./.test(n));
+  // active is 0 the moment the session is dropped, but ffmpeg may still hold its files: they go once it has exited (up to 5 s)
+  const left = () => fs.readdirSync(path.join(dir, "exports")).filter((n) => n.startsWith("fablecut-") || /\.part\./.test(n));
+  const gone = Date.now() + 8000;
+  let leftovers = left();
+  while (leftovers.length && Date.now() < gone) { await new Promise((r) => setTimeout(r, 200)); leftovers = left(); }
   assert.deepEqual(leftovers, [], "its half-made files and folder go too");
 });
