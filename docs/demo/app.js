@@ -25236,3 +25236,10 @@ if(!EXPORT_WORKER)setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
     void show();
   } }
 if(window.montclipAgentPolicy&&!agentEmbedded)void loadAgentMode();
+/* ── 「检查这 10 秒」 (#321 step 2; review-check.js): the button in the Program transport, the box before anything is
+   sent, the result list (a click goes to that second), and the clip made ahead of time once the playhead rests.
+   Everything it shows and sends is in review-check.js; this only hands it the editor's playhead and timeline. ── */
+if(!EXPORT_WORKER&&window.MontClipReviewCheck&&$("btnReviewCheck"))MontClipReviewCheck.mount({doc:document,button:$("btnReviewCheck"),
+ lang:()=>mcView.get().language,time:()=>state.time,playing:()=>!!state.playing,duration:()=>projDur(),
+ inOut:()=>({inPoint:project.inPoint,outPoint:project.outPoint}),blocked:()=>!!state.exporting||isSourceMode(),
+ seek:t=>{if(state.playing)pause();if(isSourceMode())setMonitorMode("program");setTime(t);revealTime(t);}});
