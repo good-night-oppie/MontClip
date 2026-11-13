@@ -79,7 +79,7 @@ function createExportJobs(opts) {
   let timer = null;
   const isEnded = (j) => j.status === "done" || j.status === "failed" || j.status === "cancelled";
   const view = (j) => ({
-    id: j.id, project: j.project, session: j.session, kind: j.kind, status: j.status, via: j.via, range: j.range, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
+    id: j.id, project: j.project, session: j.session, kind: j.kind, status: j.status, via: j.via, range: j.range, preview: !!j.preview, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
     time: j.time ?? null, progress: j.progress, src: j.src || null, result: j.result || null, error: j.error || null,
     code: j.errorCode || null, created: j.created, updated: j.updated,
   });
@@ -165,13 +165,19 @@ function createExportJobs(opts) {
      *  when she agrees (fablecut_lyrics_apply) — always in an open tab: a headless page has no one to ask.
      *  A scopes job's `image` flag also returns that still as a JPEG data URL,
      *  which is how fablecut_frame shows an agent the composed program picture. */
-    request({ project = null, session = null, kind = "export", range, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
+    request({ project = null, session = null, kind = "export", range, preview = false, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
       if (!["auto", "tab", "headless"].includes(where)) throw Object.assign(new Error("where must be auto, tab or headless"), { code: 400 });
       assertWhere(where);
       if (!["export", "scopes", "track", "transcribe", "lyrics"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track, transcribe or lyrics"), { code: 400 });
       if (kind === "lyrics" && where === "headless") throw Object.assign(new Error("the lyrics card needs an open editor window: someone has to answer it"), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (time != null && !(Number.isFinite(time) && time >= 0)) throw Object.assign(new Error("time must be seconds ≥ 0"), { code: 400 });
-      if (range != null && range !== "entire" && range !== "in-out") throw Object.assign(new Error("range must be \"entire\" or \"in-out\""), { code: 400 });
+      /* #321: a quick sample takes its own seconds, {start, end} on the timeline, without touching the project's IN / OUT
+         (which would make a revision and, forgotten, a cut-off export later). */
+      const spanRange = range != null && typeof range === "object" && !Array.isArray(range);
+      if (range != null && range !== "entire" && range !== "in-out" &&
+        !(spanRange && Number.isFinite(range.start) && Number.isFinite(range.end) && range.start >= 0 && range.end > range.start))
+        throw Object.assign(new Error("range must be \"entire\", \"in-out\" or {start, end} in seconds with 0 <= start < end"), { code: 400 });
+      if (preview && kind !== "export") throw Object.assign(new Error("preview applies to an export only"), { code: 400 });
       sweep();   // a job that has just run out of time must not refuse this one until the next tick
       const busy = [...jobs.values()].find((j) => !isEnded(j));
       // English for agents and logs, with the exact call that frees the queue; the page says JOB_BUSY in its own words
@@ -186,7 +192,8 @@ function createExportJobs(opts) {
       const now = clock();
       const j = {
         id: "x_" + Math.random().toString(36).slice(2, 10), project: project || null, session: session || null, kind, status: "pending", progress: 0,
-        range: range || null, profile: profile || null, delivery: kind === "export" && delivery ? delivery : null,
+        range: spanRange ? { start: +range.start, end: +range.end } : range || null, preview: kind === "export" && preview === true,
+        profile: profile || null, delivery: kind === "export" && delivery ? delivery : null,
         deliveries: kind === "export" && Array.isArray(deliveries) && deliveries.length ? deliveries : null, time: time ?? null, revision: Number.isFinite(revision) ? revision : null,
         matte: kind === "scopes" && matte ? { clip: String(matte.clip), layer: matte.layer } : null,
         mask: kind === "scopes" && mask ? { clip: String(mask.clip) } : null,

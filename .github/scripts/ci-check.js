@@ -106,7 +106,7 @@ const want = path.resolve(process.env.FABLECUT_DATA_DIR);
 if (!p.SPLIT) { console.error('expected SPLIT=true'); process.exit(1); }
 for (const [k, v] of Object.entries({
   PROJECT_FILE: 'project.json', MEDIA_DIR: 'media',
-  EXPORTS_DIR: 'exports', ANALYSIS_DIR: 'analysis', LIBRARY_DIR: 'library',
+  EXPORTS_DIR: 'exports', PREVIEWS_DIR: 'previews', ANALYSIS_DIR: 'analysis', LIBRARY_DIR: 'library',
 })) {
   if (p[k] !== path.join(want, v)) {
     console.error(k, 'did not move:', p[k]); process.exit(1);

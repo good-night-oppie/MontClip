@@ -2939,6 +2939,11 @@ agent last wrote, so an export right after a patch includes that patch.
 - `fablecut_export {}` — waits, then returns the file path under `exports/`.
   Range: `inPoint`→`outPoint` when either is set, else the whole timeline;
   `range:"entire"|"in-out"` overrides.
+- `start` and `end` (seconds on the timeline, `0 <= start < end`, passed together, not with
+  `range`) export just that part, without touching the project's IN / OUT or its revision.
+  Add `preview:true` for a quick sample: the file goes to `previews/` (not `exports/`),
+  is named `preview_*`, one file only (not with `outputs`); the newest 20 are kept and none
+  stays longer than a day. Look at a 10 s sample before exporting the whole timeline.
 - `preset:"instagram-reels"` picks a delivery preset; `delivery:{…}` changes any of its
   settings (`{preset:"youtube", delivery:{fps:60, video:{rate:"vbr", bitrate:16000}}}`).
   `profile:"hq"` picks a raw encoding profile instead. With neither, `project.delivery`
