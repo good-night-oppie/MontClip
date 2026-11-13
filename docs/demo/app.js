@@ -23518,11 +23518,14 @@ function setTimelineHeight(px) {
   return h;
 }
 /* Tall enough for the toolbar + ruler + every track row (no vertical overflow). */
+const TL_DEFAULT_SHARE = 0.32;   // of the window's height: what style.css capped every height at until MontClip#270
 function defaultTimelineHeight() {
   const tracksH = TRACKS.reduce((s, t) => s + t.h, 0);
   const toolbar = document.querySelector(".timeline-toolbar");
   const toolbarH = toolbar ? toolbar.getBoundingClientRect().height : 40;
-  return tracksH + RULER_H + toolbarH + 8;
+  // the default is what it was (at most 32% of the window); from there she can drag the edge up as far as
+  // setTimelineHeight lets her
+  return Math.min(tracksH + RULER_H + toolbarH + 8, Math.round(window.innerHeight * TL_DEFAULT_SHARE));
 }
 function resetTimelineHeight() {
   const h = setTimelineHeight(defaultTimelineHeight());
@@ -23567,6 +23570,7 @@ function setTrackSize(size, { persist = true, fitPane = true } = {}) {
 function restoreDefaultLayout() {
   setTrackSize("l", { persist: true, fitPane: false });
   resetTimelineHeight();
+  resetAllSideWidths();
 }
 function clampTimelineHeight() {
   const cur = $("timelinePanel")?.getBoundingClientRect().height;
@@ -23588,28 +23592,145 @@ function initPanelSplit() {
   handle.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    handle.setPointerCapture(e.pointerId);
-    handle.classList.add("dragging");
-    document.body.classList.add("resizing-panels");
     const y0 = e.clientY;
     const h0 = tl.getBoundingClientRect().height;
-    const onMove = (ev) => setTimelineHeight(h0 - (ev.clientY - y0));
-    const onUp = () => {
-      handle.releasePointerCapture(e.pointerId);
-      handle.classList.remove("dragging");
-      document.body.classList.remove("resizing-panels");
-      handle.removeEventListener("pointermove", onMove);
-      handle.removeEventListener("pointerup", onUp);
-      localStorage.setItem(TL_H_KEY, String(Math.round(tl.getBoundingClientRect().height)));
-      state.dirtyTimeline = true;
-    };
-    handle.addEventListener("pointermove", onMove);
-    handle.addEventListener("pointerup", onUp);
+    // every way the drag can end, as for the side edges (#270: only pointerup was handled, so a cancelled pointer left
+    // the page in its resizing state)
+    trackEdgeDrag(handle, e, "resizing-panels", {
+      onMove: (ev) => setTimelineHeight(h0 - (ev.clientY - y0)),
+      onKeep: () => { localStorage.setItem(TL_H_KEY, String(Math.round(tl.getBoundingClientRect().height))); state.dirtyTimeline = true; },
+      onCancel: () => { setTimelineHeight(h0); state.dirtyTimeline = true; },
+    });
   });
   handle.addEventListener("dblclick", (e) => {
     e.preventDefault();
     resetTimelineHeight();
   });
+}
+
+/* ── The side edges: media panel | preview | inspector (MontClip#270) ──
+   Each edge sets the width of the panel on its own side (--bin-w, --inspector-w on .app, read by the columns in
+   style.css) and nothing else; the preview takes what is left. A width is kept on this computer. Least widths:
+   MontClipNarrow.sideMins / sideWidth — the preview never drops under its own, the other side is never pushed.
+   Only resizing happens here: the press is taken by the edge (pointer capture), so nothing under it is selected,
+   dragged or clicked, and every way a drag can end (release, cancel, lost capture) puts the page back. */
+/* Which value an edge sets. The left edge: the media panel. The right edge: the inspector — or, with the assistant
+   open, the assistant's own width (--agent-pane-width): one value for that panel, whichever way she sets it. */
+const SIDE_SLOTS = {
+  bin: { cssVar: "--bin-w", key: "montclip-bin-w" },
+  inspector: { cssVar: "--inspector-w", key: "montclip-inspector-w" },
+  agent: { cssVar: "--agent-pane-width", key: "montclip-agent-pane-w" },
+};
+const agentPaneOpen = () => $("app").classList.contains("agent-open");
+const sideSlot = (side) => SIDE_SLOTS[side === "left" ? "bin" : agentPaneOpen() ? "agent" : "inspector"];
+const sidePanel = (side) => document.querySelector(side === "left" ? ".upper > .bin" : ".upper > .inspector");
+function sideRoom(side) {
+  const upper = document.querySelector(".upper"), other = sidePanel(side === "left" ? "right" : "left");
+  const agent = agentPaneOpen(), mins = MontClipNarrow.sideMins(agent);
+  return { min: mins[side], centerMin: mins.center, total: upper.getBoundingClientRect().width,
+    gap: parseFloat(getComputedStyle(upper).columnGap) || 0, other: other ? other.getBoundingClientRect().width : 0,
+    windowWidth: window.innerWidth, maxShare: side === "right" && agent ? MontClipNarrow.SIDE_AGENT_SHARE : MontClipNarrow.SIDE_MAX_SHARE };
+}
+function setSideWidth(side, want) {
+  const w = MontClipNarrow.sideWidth({ want, ...sideRoom(side) });
+  $("app").style.setProperty(sideSlot(side).cssVar, w + "px");
+  return w;
+}
+function keepSideWidth(side) {
+  try { localStorage.setItem(sideSlot(side).key, String(Math.round(sidePanel(side).getBoundingClientRect().width))); } catch { }
+  syncSideSplits();
+}
+/** One edge back to its default (double-click). */
+function resetSideWidth(side) {
+  const slot = sideSlot(side);
+  $("app").style.removeProperty(slot.cssVar);
+  try { localStorage.removeItem(slot.key); } catch { }
+  syncSideSplits();
+}
+/** 「Layout」: every side width back to its default, the assistant's too. */
+function resetAllSideWidths() {
+  for (const slot of Object.values(SIDE_SLOTS)) { $("app").style.removeProperty(slot.cssVar); try { localStorage.removeItem(slot.key); } catch { } }
+  syncSideSplits();
+}
+/* A smaller window: a width she set earlier is brought back into what now fits (the columns already hold the panels
+   to it; this keeps the stored value and the next drag honest). */
+function reclampSideWidths() {
+  for (const side of ["left", "right"]) {
+    const slot = sideSlot(side), set = parseFloat($("app").style.getPropertyValue(slot.cssVar));
+    const handle = document.querySelector(`.h-split[data-side="${side}"]`);
+    if (!(set > 0) || !handle || !handle.offsetParent) continue;
+    if (setSideWidth(side, set) !== Math.round(set)) { try { localStorage.setItem(slot.key, String(parseFloat($("app").style.getPropertyValue(slot.cssVar)))); } catch { } }
+  }
+  syncSideSplits();
+}
+function syncSideSplits() {
+  for (const handle of document.querySelectorAll(".h-split")) {
+    const panel = sidePanel(handle.dataset.side);
+    if (!panel || !handle.offsetParent) continue;
+    const room = sideRoom(handle.dataset.side);
+    handle.setAttribute("aria-valuemin", String(room.min));
+    handle.setAttribute("aria-valuemax", String(MontClipNarrow.sideWidth({ want: Infinity, ...room })));
+    handle.setAttribute("aria-valuenow", String(Math.round(panel.getBoundingClientRect().width)));
+  }
+}
+/* Every way a drag of an edge can end (spec v3, item 7): the release, a cancelled pointer, lost capture, the window
+   losing focus — the size she reached is kept — and Esc, which puts back the size from before the drag. Used by the
+   two side edges and by the edge above the timeline. → the function that ends it. */
+function trackEdgeDrag(handle, e, bodyClass, { onMove, onKeep, onCancel }) {
+  let over = false;
+  const finish = (cancelled) => {
+    if (over) return;
+    over = true;
+    handle.classList.remove("dragging");
+    document.body.classList.remove(bodyClass);
+    handle.removeEventListener("pointermove", onMove);
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) handle.removeEventListener(type, end);
+    window.removeEventListener("blur", end);
+    window.removeEventListener("keydown", onKey, true);
+    try { handle.releasePointerCapture(e.pointerId); } catch { }
+    if (cancelled) onCancel(); else onKeep();
+  };
+  const end = () => finish(false);
+  const onKey = (ev) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); finish(true); } };
+  try { handle.setPointerCapture(e.pointerId); } catch { }
+  handle.classList.add("dragging");
+  document.body.classList.add(bodyClass);
+  handle.addEventListener("pointermove", onMove);
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) handle.addEventListener(type, end);
+  window.addEventListener("blur", end);
+  window.addEventListener("keydown", onKey, true);
+  return finish;
+}
+function initSideSplits() {
+  for (const slot of Object.values(SIDE_SLOTS)) {
+    let saved = NaN;
+    try { saved = parseFloat(localStorage.getItem(slot.key)); } catch { }
+    if (saved > 0) $("app").style.setProperty(slot.cssVar, Math.round(saved) + "px");   // the columns hold it to what fits
+  }
+  for (const handle of document.querySelectorAll(".h-split")) {
+    const side = handle.dataset.side, dir = side === "left" ? 1 : -1;
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      const x0 = e.clientX, w0 = sidePanel(side).getBoundingClientRect().width, slot = sideSlot(side), before = $("app").style.getPropertyValue(slot.cssVar);
+      trackEdgeDrag(handle, e, "resizing-columns", {
+        onMove: (ev) => setSideWidth(side, w0 + dir * (ev.clientX - x0)),
+        onKeep: () => keepSideWidth(side),
+        onCancel: () => { if (before) $("app").style.setProperty(slot.cssVar, before); else $("app").style.removeProperty(slot.cssVar); syncSideSplits(); },
+      });
+    });
+    handle.addEventListener("click", (e) => e.stopPropagation());
+    handle.addEventListener("dblclick", (e) => { e.preventDefault(); e.stopPropagation(); resetSideWidth(side); });
+    // with the keyboard: the arrows move the edge 16 px; the keys are kept from the editor's own shortcuts
+    handle.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault(); e.stopPropagation();
+      setSideWidth(side, sidePanel(side).getBoundingClientRect().width + dir * (e.key === "ArrowRight" ? 16 : -16));
+      keepSideWidth(side);
+    });
+  }
+  syncSideSplits();
+  window.addEventListener("resize", reclampSideWidths);
 }
 
 /* ── Boot ── */
@@ -24769,6 +24890,7 @@ for (const b of document.querySelectorAll("#wsSwitch [data-ws]"))
   b.addEventListener("click", () => setWorkspace(b.dataset.ws));
 
 initPanelSplit();
+initSideSplits();
 // Tools that do not fit go into the bar's More menu instead of being cut off (Snap last).
 MontClipNarrow.attach(document.querySelector(".timeline-toolbar"), $("btnTlMore"), $("tlMoreMenu"));
 MontClipNarrow.attach(document.querySelector("#monitorPanel .panel-head-actions"), $("btnMonMore"), $("monMoreMenu"), { floating: true });
