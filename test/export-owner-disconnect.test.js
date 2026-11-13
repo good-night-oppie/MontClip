@@ -234,3 +234,39 @@ test("the background export page receives conn through the editor's start opts",
   assert.match(body, /conn: opts\.conn/);
   assert.match(app, /conn: \(opts && opts\.conn\) \|\|/);
 });
+
+/* MontClip-Cindy#79 matrix, "switch"/"dropNoRe": the editor's SSE connection is gone for longer than the grace, but the
+   page still pushes frames for this export. Its export must survive; once the frames stop it is cleaned as before. */
+const { execFileSync } = require("node:child_process");
+function jpegFrame() {
+  return execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "color=c=gray:size=320x180", "-frames:v", "1", "-c:v", "mjpeg", "-f", "image2pipe", "-"], { windowsHide: true });
+}
+const pushFrame = (base, token, id, jpeg) => fetch(base + "/api/export/frame?id=" + id, { method: "POST", headers: { "X-MontClip-Session": token }, body: jpeg }).then((r) => r.status);
+
+test("a closed connection whose page keeps pushing frames keeps its export; it is cleaned once the frames stop", { skip: !FF.available("ffmpeg") && "no ffmpeg here", timeout: 120000 }, async (t) => {
+  const token = crypto.randomBytes(32).toString("hex");
+  const dir = makeDataDir(t);
+  const base = await launch(t, dir, token, { MONTCLIP_OWNER_GRACE_MS: "1500" });
+  const jpeg = jpegFrame();
+  const c = await connect(base, token, "tab-pushing");
+  await claim(base, token, c.headers, c.conn, "task-owner-push");
+  const job = await begin(base, c.headers, c.conn, "owner-pushing");
+  c.ac.abort();
+  try { await c.reader.cancel(); } catch { }
+  // 6 s of frames, four times the grace: every one of them must be accepted
+  const statuses = [];
+  for (let i = 0; i < 15; i++) { statuses.push(await pushFrame(base, token, job.id, jpeg)); await new Promise((r) => setTimeout(r, 400)); }
+  assert.deepEqual([...new Set(statuses)], [200], "frames keep being accepted after the grace: " + statuses.join(","));
+  assert.equal(await active(base, token), 1, "the export is still there while the page pushes (session " + job.id + ")");
+  // the page goes away: the export is cleaned within a few graces
+  let now = 1;
+  const until = Date.now() + 15000;
+  while (Date.now() < until) { now = await active(base, token); if (now === 0) break; await new Promise((r) => setTimeout(r, 300)); }
+  assert.equal(now, 0, "once frames stop, the closed connection's export is cleaned");
+  // active is 0 the moment the session is dropped, but ffmpeg may still hold its files: they go once it has exited (up to 5 s)
+  const left = () => fs.readdirSync(path.join(dir, "exports")).filter((n) => n.startsWith("fablecut-") || /\.part\./.test(n));
+  const gone = Date.now() + 8000;
+  let leftovers = left();
+  while (leftovers.length && Date.now() < gone) { await new Promise((r) => setTimeout(r, 200)); leftovers = left(); }
+  assert.deepEqual(leftovers, [], "its half-made files and folder go too");
+});
