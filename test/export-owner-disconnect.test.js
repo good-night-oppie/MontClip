@@ -8,31 +8,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { spawn } = require("node:child_process");
-const { makeDataDir, freePort, ROOT } = require("./helpers");
+const { makeDataDir, launch, ROOT } = require("./helpers");
 const FF = require("../server/ffmpeg-path");
-
-async function launch(t, dir, token, extraEnv = {}) {
-  const port = await freePort();
-  const child = spawn(process.execPath, [path.join(ROOT, "server", "server.js")], {
-    cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1",
-      MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token, ...extraEnv },
-  });
-  let out = "";
-  child.stdout.on("data", (c) => { out += c; });
-  child.stderr.on("data", (c) => { out += c; });
-  t.after(() => { try { child.kill(); } catch { } });
-  const base = "http://127.0.0.1:" + port;
-  for (let i = 0; i < 200; i++) {
-    try {
-      const r = await fetch(base + "/api/project", { headers: { "X-MontClip-Session": token } });
-      if (r.status === 200) return base;
-    } catch { }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  throw new Error("server did not start: " + out.slice(-2000));
-}
 
 async function connect(base, token, tabId) {
   const boot = await fetch(base + "/?token=" + token, { redirect: "manual" });
