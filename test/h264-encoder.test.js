@@ -4,8 +4,8 @@
 // from an FFmpeg the user picked in Settings and that passed a check. That program is
 // never found on PATH and never used for preview, decoding or any other export.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const Delivery=require('../delivery'),X=require('../external-ffmpeg');
-const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server.js'),'utf8');
+const Delivery=require('../delivery'),X=require('../server/external-ffmpeg');
+const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server/server.js'),'utf8');
 const pick=(avail,extra={})=>Delivery.normalize({preset:'youtube',...extra},{available:new Set(avail)}).spec.video.encoder;
 
 test('encoder order: your libx264, then hardware, then Windows h264_mf',()=>{
@@ -35,7 +35,7 @@ test('h264_mf gets rate control it understands',()=>{
 // JJ P1 (2026-11-04): PATH is now looked at too — by ffmpeg-path.js, folder by folder, to an absolute path; never a bare name
 test('the local FFmpeg is a full path that checks out: no bare names, no shell lookup',async()=>{
  for(const bad of ['ffmpeg','./ffmpeg','x264/ffmpeg.exe',''])a.equal((await X.check(bad,{run:async()=>({code:0,stdout:' V..... libx264 '})})).ok,false,bad);
- const src=fs.readFileSync(path.join(ROOT,'external-ffmpeg.js'),'utf8');
+ const src=fs.readFileSync(path.join(ROOT,'server/external-ffmpeg.js'),'utf8');
  a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|\$PATH/.test(src),'no shell lookup: PATH goes through ffmpeg-path.js findOnPath');
  const ext=X.createExternal({settingsFile:null,run:async()=>{throw new Error('must not run');}});
  a.deepEqual(await ext.current(),{ok:false,code:'none',reason:'none'});
@@ -78,7 +78,7 @@ test('the local FFmpeg only ever encodes an H.264 export; preview, decoding and 
  for(const f of uses)a.ok(['deliveryEncoders','exportBinary','h264Status','beginDeliveryExport','beginExport','noH264Where','logH264AtStart','proxyEncoder'].includes(f),'external FFmpeg used in '+f);
  a.ok(uses.includes('proxyEncoder'),'proxies: the local FFmpeg when the bundled build has no H.264');
  for(const fn of ['frameAt','framesSheet','ffprobeJSON','measureLoudness'])if(server.includes('function '+fn)){const body=server.slice(server.indexOf('function '+fn),server.indexOf('\n}',server.indexOf('function '+fn)));a.ok(!/externalFfmpeg|exportBinary/.test(body),fn);}
- for(const f of ['proxy.js','denoise.js','analyze.js','media-probe.js','import-url.js','mcp-server.js'])a.ok(!/external-ffmpeg|externalFfmpeg/.test(fs.readFileSync(path.join(ROOT,f),'utf8')),f);
+ for(const f of ['server/proxy.js','server/denoise.js','server/analyze.js','server/media-probe.js','server/import-url.js','server/mcp-server.js'])a.ok(!/external-ffmpeg|externalFfmpeg/.test(fs.readFileSync(path.join(ROOT,f),'utf8')),f);
 });
 
 // The Windows "N" / Media Feature Pack line was a guess; JJ (2026-11-04, #129) took it out until it is checked.
@@ -90,7 +90,7 @@ test('no H.264 encoder at all: a plain reason, and no unchecked Media Feature Pa
 
 test('server: without a local FFmpeg, libx264 profiles are refused in plain words and the H.264 status says what is used',async t=>{
  const {makeDataDir,seedProject,startServer}=require('./helpers');
- if(!require('../ffmpeg-path').available('ffmpeg'))return t.skip('bundled ffmpeg not installed');
+ if(!require('../server/ffmpeg-path').available('ffmpeg'))return t.skip('bundled ffmpeg not installed');
  const dir=makeDataDir(t,seedProject({revision:1}));
  // "no local FFmpeg": nothing chosen and nothing on PATH (JJ P1 looks there too)
  const nowhere=path.join(dir,'no-such-folder');

@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const M = require("../media-lib");
-const ProjectOps = require("../project-ops");
+const ProjectOps = require("../server/project-ops");
 
 const PROBE = {
   streams: [
@@ -247,7 +247,7 @@ test("usage: a denoised stem in a video's link group counts for its own file, an
 });
 
 test("media-probe answers asynchronously (ffprobe never blocks the server)", async () => {
-  const { probeFile } = require("../media-probe");
+  const { probeFile } = require("../server/media-probe");
   const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
   const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "fc-probe-")), "x.bin");
   fs.writeFileSync(f, "12345");

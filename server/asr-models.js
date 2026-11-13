@@ -19,7 +19,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { execFile } = require("node:child_process");
 
-const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "desktop", "asr-manifest.json"), "utf8"));
+const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "desktop", "asr-manifest.json"), "utf8"));
 
 function allowedUrl(url, hosts = manifest.hosts) {
   let u;

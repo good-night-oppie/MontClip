@@ -13,8 +13,8 @@ if(fs.existsSync(OUT))throw Error('Output must be a new directory');
 fs.mkdirSync(OUT,{recursive:true});
 const DATA=path.join(OUT,'data'),MEDIA=path.join(DATA,'media'),PROFILE=path.join(OUT,'chrome-profile');
 fs.mkdirSync(MEDIA,{recursive:true});
-const FF=require('../../ffmpeg-path').path('ffmpeg');
-const PROBE=require('../../ffmpeg-path').path('ffprobe');
+const FF=require('../../server/ffmpeg-path').path('ffmpeg');
+const PROBE=require('../../server/ffmpeg-path').path('ffprobe');
 const chrome=process.env.MONTCLIP_TEST_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const sha=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const json=(name,x)=>fs.writeFileSync(path.join(OUT,name),JSON.stringify(x,null,2)+'\n');
@@ -25,7 +25,7 @@ const receipt={completed:false,simulated:true,runnerSha256:sha(__filename),opera
     'Synthetic export boundary test; not human experience or full service restart acceptance']};
 let server,browser,cdp,session,origin;
 const token=crypto.randomBytes(32).toString('hex');
-receipt.codeHashes=Object.fromEntries(['app.js','server.js','encode-profiles.js'].map(f=>[f,sha(path.join(ROOT,f))]));
+receipt.codeHashes=Object.fromEntries(['app.js','server/server.js','server/encode-profiles.js'].map(f=>[f,sha(path.join(ROOT,f))]));
 receipt.tools={ffmpegSha256:sha(FF),ffprobeSha256:sha(PROBE),ffmpegVersion:execFileSync(FF,['-version'],{encoding:'utf8'}).split(/\r?\n/)[0]};
 function check(name,ok){receipt.checks.push({name,ok:!!ok});assert.ok(ok,name);}
 function encode(args){execFileSync(FF,['-v','error',...args],{stdio:'pipe'});}
@@ -74,7 +74,7 @@ async function stopOwned(child){if(!child)return true;if(!child.pid||child.exitC
   const pts=JSON.parse(execFileSync(PROBE,['-v','error','-select_streams','v:0','-show_frames','-show_streams','-of','json',video],{maxBuffer:8e6}));json('source-pts.json',pts);
   if(vfr)check('source has variable decoded PTS intervals',new Set(pts.frames.slice(1).map((f,i)=>Math.round((+f.pts_time- +pts.frames[i].pts_time)*1e6))).size>1);
   fs.writeFileSync(path.join(DATA,'project.json'),JSON.stringify({name:'synthetic-tail',width:320,height:180,fps,revision:1,panSchema:1,media:[{id:'v',kind:'video',name:'source.mp4',src:'/media/source.mp4',duration:13,width:320,height:180,fps:vfr?0:30,audioChannels:0},{id:'a',kind:'audio',name:'tone.wav',src:'/media/tone.wav',duration:samples/48000,audioChannels:2,sampleRate:48000}],clips:[{id:'v',kind:'video',mediaId:'v',track:'V1',start:0,in:0,duration,unlinked:true,props:{}},{id:'a',kind:'audio',mediaId:'a',track:'A1',start:0,in:0,duration:samples/48000,unlinked:true,props:{volume:1,pan:0}}]}));
-  server=cp.spawn(process.execPath,[path.join(ROOT,'server.js')],{cwd:ROOT,windowsHide:true,
+  server=cp.spawn(process.execPath,[path.join(ROOT,'server','server.js')],{cwd:ROOT,windowsHide:true,
     env:{...process.env,HOST:'127.0.0.1',PORT:'0',FABLECUT_DATA_DIR:DATA,MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','pipe','pipe','ipc']});
   receipt.pids.server=server.pid;server.stdout.resume();server.stderr.resume();
   origin=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('owned server IPC timeout')),30000);

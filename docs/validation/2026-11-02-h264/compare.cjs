@@ -6,7 +6,7 @@
 // millisecond timestamps, so pairing by time would compare neighbouring frames);
 // wall-clock time per encode. Writes results.json.
 const fs=require('fs'),os=require('os'),path=require('path'),{spawnSync}=require('child_process');
-const FF=require('../../../ffmpeg-path'),bundled=FF.path('ffmpeg');
+const FF=require('../../../server/ffmpeg-path'),bundled=FF.path('ffmpeg');
 const local=process.argv[2]||null;
 const work=fs.mkdtempSync(path.join(os.tmpdir(),'mc-h264-'));
 const src=path.join(work,'src.mkv');

@@ -5,7 +5,7 @@
      · fablecut_beats finds the tempo and the first beat (the trial's song: 112.3 BPM, first beat 0.343 s). */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const { makeDataDir, seedProject, startMcp, readProject } = require("./helpers");
 const { wav: songWav } = require("./songs-synth");
 
@@ -57,7 +57,7 @@ test("fablecut_songs on made-up singing between talk: finds them, and says no mo
   a.ok(near(e.songs[0].from, 60) && near(e.songs[0].to, 200), JSON.stringify(e.songs[0]));
   a.ok(near(e.songs[1].from, 280) && near(e.songs[1].to, 430), JSON.stringify(e.songs[1]));
   // what the agent is told the tool does: possibly singing
-  const tool = require("../mcp-tools").find((x) => x.name === "fablecut_songs");
+  const tool = require("../server/mcp-tools").find((x) => x.name === "fablecut_songs");
   a.match(tool.description, /possibly|may be|likely/i);
   a.match(require("../capabilities").get("fablecut_songs").summary["zh-CN"], /可能在唱歌/);
 });

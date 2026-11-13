@@ -12,12 +12,12 @@
      3. what the probe reads (start, audioOffset) and what the self-check makes of black / silent files, without a browser. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const MediaLib = require("../media-lib");
-const MediaProbe = require("../media-probe");
-const ExportCheck = require("../export-check");
+const MediaProbe = require("../server/media-probe");
+const ExportCheck = require("../server/export-check");
 const Measure = require("../desktop/av-sync-measure.cjs");
-const { findBrowser } = require("../export-jobs");
+const { findBrowser } = require("../server/export-jobs");
 const { makeDataDir, seedProject, startServer, bundledH264 } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");

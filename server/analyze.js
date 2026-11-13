@@ -16,8 +16,8 @@ const path = require("path");
 const { spawn } = require("child_process");
 const FF = require("./ffmpeg-path");
 const Stats = require("./frame-stats");
-const Beats = require("./beats");
-const Delivery = require("./delivery");
+const Beats = require("../beats");
+const Delivery = require("../delivery");
 const MediaProbe = require("./media-probe");
 
 const SR = 22050;      // analysis sample rate

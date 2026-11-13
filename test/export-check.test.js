@@ -13,7 +13,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const app = read('app.js');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i) + 2); };
-const V = require('../ui-preferences'), FF = require('../ffmpeg-path'), C = require('../export-check');
+const V = require('../ui-preferences'), FF = require('../server/ffmpeg-path'), C = require('../server/export-check');
 const noFf = !FF.available('ffmpeg') && 'bundled ffmpeg not installed';
 
 function fragmentedQuiet(file, seconds = 600) {
@@ -143,9 +143,9 @@ test('the page hands a profile export\'s warnings to the job result, as the deli
   a.ok(fast.includes(': end.report ? { result: { outputs: result.outputs } } : {}) }, true);'), 'and the job result carries it');
   a.ok(fast.includes('{ exportFile: true, ...(end.report ? { savedMsg: exportReportLine(end.report) } : {}) }'), 'an export from the editor says it too');
   // fablecut_export reads outputs[0].report for one file
-  a.match(read('mcp-server.js'), /const rep = outs && outs\[0\] && outs\[0\]\.report;/);
+  a.match(read('server/mcp-server.js'), /const rep = outs && outs\[0\] && outs\[0\]\.report;/);
   // the job keeps the result the page reports
-  const { createExportJobs } = require('../export-jobs');
+  const { createExportJobs } = require('../server/export-jobs');
   const jobs = createExportJobs({ url: () => 'http://127.0.0.1:1/', broadcast() {}, editors: () => 1 });
   const j = jobs.request({ kind: 'export', where: 'tab' });
   jobs.claim(j.id, {});
@@ -156,7 +156,7 @@ test('the page hands a profile export\'s warnings to the job result, as the deli
 });
 
 test('a failed export job keeps its reason code (EXPORT_AUDIO_FAILED …) in the record and its view, not only the English', () => {
-  const { createExportJobs } = require('../export-jobs');
+  const { createExportJobs } = require('../server/export-jobs');
   const jobs = createExportJobs({ url: () => 'http://127.0.0.1:1/', broadcast() {}, editors: () => 1 });
   const j = jobs.request({ kind: 'export', where: 'tab' });
   a.ok(jobs.claim(j.id, {}));

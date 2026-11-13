@@ -1,7 +1,7 @@
 'use strict';
 
 const test=require('node:test'), a=require('node:assert/strict');
-const {hidePaths}=require('../asr-status');
+const {hidePaths}=require('../server/asr-status');
 const paths=require('./fixtures/private-paths.cjs');
 test('directory apostrophes do not consume closing quotes or following prose',()=>{
  const samples=[

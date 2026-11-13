@@ -9,7 +9,7 @@ const { spawn } = require("node:child_process");
 const crypto = require("node:crypto");
 const path = require("node:path");
 const { makeDataDir, freePort, rawGet, startServer } = require("./helpers");
-const Embed = require("../embed");
+const Embed = require("../server/embed");
 
 const ROOT = path.join(__dirname, "..");
 const hex = () => crypto.randomBytes(32).toString("hex");
@@ -17,7 +17,7 @@ const hex = () => crypto.randomBytes(32).toString("hex");
 /** server.js with extra env; resolves {base, port, out(), stop} once it answers `ready(base, port)`, or {exit, out()} */
 async function launch(t, env, ready) {
   const port = await freePort();
-  const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+  const child = spawn(process.execPath, [path.join(ROOT, "server/server.js")], {
     cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: makeDataDir(t),
       FABLECUT_NO_FS_WATCH: "1", NODE_DEBUG: "", MONTCLIP_DESKTOP: "", MONTCLIP_HOST: "", MONTCLIP_EMBED_TOKEN: "", ...env },
@@ -211,7 +211,7 @@ test("embed helpers: constant-time comparison never throws, cookie parsing takes
   assert.equal(Embed.cookieValue(`xmontclip_embed=${token}`), null);
   assert.equal(Embed.cookieValue(undefined), null);
   // server.js builds the headless export URL from a ticket; the long-lived token is never put in it
-  const src = require("node:fs").readFileSync(path.join(ROOT, "server.js"), "utf8");
+  const src = require("node:fs").readFileSync(path.join(ROOT, "server/server.js"), "utf8");
   const urlLine = src.split("\n").find((l) => /url: \(id\) =>/.test(l));
   assert.match(urlLine, /launchTicket\(\)/);
   assert.ok(!/EMBED_TOKEN/.test(urlLine));
@@ -236,7 +236,7 @@ test("mcp-server.js sends X-MontClip-Session to an embedded engine", async (t) =
   const s = await embedded(t);
   const r = await new Promise((resolve) => {
     const child = spawn(process.execPath, ["-e", `
-      const m = require(${JSON.stringify(path.join(ROOT, "mcp-server.js"))});
+      const m = require(${JSON.stringify(path.join(ROOT, "server/mcp-server.js"))});
       (async () => {
         const up = await m.ensureUIServer();
         const v = await m.callTool("fablecut_versions", {});
@@ -268,10 +268,11 @@ test("the refusal check reads 403 as a word, not inside a project id", () => {
 test("the cookie's attributes are written in one place: COOKIE_ATTRS in embed.js", () => {
   const fs = require("fs"), path = require("path");
   const root = path.join(__dirname, "..");
-  const files = fs.readdirSync(root).filter((f) => /\.(c|m)?js$/.test(f));
+  const files = [...fs.readdirSync(root).filter((f) => /\.(c|m)?js$/.test(f)).map((f) => f),
+    ...fs.readdirSync(path.join(root, "server")).filter((f) => /\.(c|m)?js$/.test(f)).map((f) => "server/" + f)];
   const writers = files.filter((f) => /SameSite\s*=|Partitioned/i.test(fs.readFileSync(path.join(root, f), "utf8")));
-  assert.deepEqual(writers, ["embed.js"], "only embed.js names the cookie's attributes");
-  const src = fs.readFileSync(path.join(root, "embed.js"), "utf8");
+  assert.deepEqual(writers, ["server/embed.js"], "only embed.js names the cookie's attributes");
+  const src = fs.readFileSync(path.join(root, "server/embed.js"), "utf8");
   assert.equal(src.match(/SameSite=None; Secure; Partitioned/g).length, 1, "embed.js writes them once, in COOKIE_ATTRS");
   assert.match(src, /"Set-Cookie": `\$\{COOKIE\}=\$\{id\}; \$\{COOKIE_ATTRS\}`/);
 });

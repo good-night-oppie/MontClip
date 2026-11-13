@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const C = require("../captions");
-const Ops = require("../project-ops");
+const Ops = require("../server/project-ops");
 function project() {
   return { revision: 1, fps: 30, width: 1280, height: 720,
     media: [{ id: "m", kind: "video", src: "/media/合成 source.mp4", duration: 10 }],

@@ -22,7 +22,7 @@ test("dragging such a file onto the timeline says own.media-cannot-cut, with its
 });
 
 test("the agent's import notes never reach the interface", () => {
-  const src = read("mcp-server.js");
+  const src = read("server/mcp-server.js");
   const at = src.indexOf("function importNote"), body = src.slice(at, src.indexOf("\n}\n", at));
   // every sentence importNote can say
   const said = [...body.matchAll(/(?:"|`)(Note: [^"`$]{12,60})/g)].map((m) => m[1]);
@@ -38,5 +38,5 @@ test("the agent's import notes never reach the interface", () => {
   a.equal(uses, 2, "its definition and the import tool's reply");
   a.match(src, /return `Imported → \$\{JSON\.stringify\(entry\)\}\\n` \+\s*importNote\(entry, probed\)( \+ audioTracksNote\(entry\))?;/);   // + the audio tracks (#177)
   // and the editor never shows a tool's text to the user: the server has no route that passes it on
-  a.doesNotMatch(read("server.js"), /importNote/);
+  a.doesNotMatch(read("server/server.js"), /importNote/);
 });

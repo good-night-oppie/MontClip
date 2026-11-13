@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),a=require('node:assert/strict');
-const {toolError}=require('../tool-error');
+const {toolError}=require('../server/tool-error');
 test('error metadata keeps codes and data-relative saved paths, not outside locations',()=>{
  const root='C:/Users/Some One/data';
  const raw=Object.assign(new Error("open 'C:/Users/Some One/data/model.bin' failed"),{code:'ASR_FAILED',saved:[root+'/analysis/transcripts/a.json'],path:'C:/Users/other/private.bin'});

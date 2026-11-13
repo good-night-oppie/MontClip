@@ -75,7 +75,7 @@ test('the export-copy line is in the notes exactly once per language, and JJ rep
 test('the switches follow the app: + URL hidden (app.js); the registered-export fix is really there (main.js wires export-downloads.js and takes the page\'s expectation, that module removes the copy, the server registers each export)', () => {
   const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), main = fs.readFileSync(path.join(ROOT, 'desktop', 'main.js'), 'utf8');
   const opt = (f) => { try { return fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch { return ''; } };
-  const dl = opt('desktop/export-downloads.js'), server = opt('server.js');
+  const dl = opt('desktop/export-downloads.js'), server = opt('server/server.js');
   a.equal(R.hidesUrl(app), app.includes('if (window.montclipViewSettings) { const urlButton = $("btnImportUrl"); if (urlButton) urlButton.hidden = true; }'));
   a.equal(R.hidesUrl('x\n' + R.ALT.marker + '\ny'), true);
   a.equal(R.hidesUrl('$("btnImportUrl")?.addEventListener("click", openImportUrl);'), false);
@@ -92,7 +92,7 @@ test('the switches follow the app: + URL hidden (app.js); the registered-export 
 test('the package records which of the four it used, and its smoke checks both lines against the app', () => {
   const win = fs.readFileSync(path.join(ROOT, 'desktop', 'package-win.cjs'), 'utf8');
   a.match(win, /copyGone = Readme\.dropsExportCopy\(/);
-  a.match(win, /readOr\(path\.join\(src, 'server\.js'\)\)/);
+   a.match(win, /readOr\(path\.join\(src, 'server', 'server\.js'\)\)/);
   a.match(win, /'export-downloads\.js'/);
   a.match(win, /exportCopyGone: copyGone/);
   const smoke = fs.readFileSync(path.join(ROOT, 'desktop', 'package-smoke.cjs'), 'utf8');

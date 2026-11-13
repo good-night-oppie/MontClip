@@ -10,7 +10,7 @@
    4. a sound file nothing can read the length of is not called a video, and gets no 〔帮我修好〕 (it repairs videos). */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), crypto = require("node:crypto"), cp = require("node:child_process");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const MediaLib = require("../media-lib");
 const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
@@ -27,7 +27,7 @@ test("the fixture is the one recorded in SHA256SUMS.txt", () => {
 });
 
 test("a truncated H.264 MKV (OBS after a crash): marked 'seeking may be slow', and 〔帮我修好〕 remuxes it — nothing re-encoded", { skip }, async () => {
-  const MediaProbe = require("../media-probe");
+  const MediaProbe = require("../server/media-probe");
   const raw = JSON.parse(cp.execFileSync(FF.path("ffprobe"), ["-v", "error", "-show_format", "-show_streams", "-of", "json", OBS], { encoding: "utf8", windowsHide: true }));
   a.equal(raw.format.duration, undefined, "ffprobe: no length in the header");
   a.deepEqual(raw.streams.map((s) => s.codec_name).sort(), ["aac", "h264"]);
@@ -41,7 +41,7 @@ test("a truncated H.264 MKV (OBS after a crash): marked 'seeking may be slow', a
     const src = path.join(dir, "obs.mkv");
     fs.copyFileSync(OBS, src);
     const before = sha(src);
-    const r = await require("../make-editable").makeEditable(src, { outDir: dir, encoders: async () => [] });   // no encoder needed
+    const r = await require("../server/make-editable").makeEditable(src, { outDir: dir, encoders: async () => [] });   // no encoder needed
     a.equal(r.preparation, "remux");
     a.ok(Math.abs(r.duration - info.duration) <= 1, r.duration + " s vs " + info.duration + " s");
     const out = JSON.parse(cp.execFileSync(FF.path("ffprobe"), ["-v", "error", "-show_format", "-show_streams", "-of", "json", r.file], { encoding: "utf8", windowsHide: true }));
@@ -52,8 +52,8 @@ test("a truncated H.264 MKV (OBS after a crash): marked 'seeking may be slow', a
 });
 
 test("fablecut_frame on a truncated file reads its packets once, not on every call (cached per file version)", { skip }, async () => {
-  const MediaProbe = require("../media-probe");
-  const Analyze = require("../analyze");
+  const MediaProbe = require("../server/media-probe");
+  const Analyze = require("../server/analyze");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-probe-"));
   const real = MediaProbe.packetDuration;
   let scans = 0;

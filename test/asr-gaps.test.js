@@ -8,7 +8,7 @@
 // The engine here is a stand-in that throws on chosen segments: no real stream, no real model.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const ROOT=path.join(__dirname,'..');
-const {manifest}=require('../asr-models');
+const {manifest}=require('../server/asr-models');
 const {wav}=require('./songs-synth');
 const T=require('../transcribe'),C=require('../captions');
 
@@ -44,14 +44,14 @@ function setup(){
  const file=path.join(dir,'rec.wav');fs.writeFileSync(file,wav([['talk',30]]));
  return {dir,store,file,done:()=>fs.rmSync(dir,{recursive:true,force:true})};
 }
-const ffmpeg=()=>require('../ffmpeg-path').path('ffmpeg');
+const ffmpeg=()=>require('../server/ffmpeg-path').path('ffmpeg');
 const L=3*RATE,POISON=3*RATE+1601;   // ten segments of 3 s, the fifth a little longer (and odd, so its halves differ)
 const plan=()=>[L,L,L,L,POISON,L,L,L,L];   // 4×3 + 3.1 + 4×3 = 27.1 s, the rest flushed as one more segment
 
 test('one segment that throws: its halves are tried once; they read, so nothing is missing',async()=>{
  const S=setup();try{
   const {sherpa,calls}=fakeSherpa({lengths:plan(),poison:new Set([POISON])});
-  const asr=require('../asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
+  const asr=require('../server/asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
   const r=await asr.transcribe(S.file,{});
   a.equal(r.status,'complete');a.deepEqual(r.gaps,[]);a.equal(r.skippedSegments,0);
   a.ok(calls.includes(Math.floor(POISON/2))&&calls.includes(POISON-Math.floor(POISON/2)),'both halves tried');
@@ -63,7 +63,7 @@ test('a segment that still fails as halves is a gap; the segments after it are t
  const S=setup();try{
   const half=Math.floor(POISON/2);
   const {sherpa}=fakeSherpa({lengths:plan(),poison:new Set([POISON,half])});
-  const asr=require('../asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
+  const asr=require('../server/asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
   const r=await asr.transcribe(S.file,{});
   a.equal(r.status,'partial');
   a.equal(r.gaps.length,1);const [g]=r.gaps;
@@ -80,7 +80,7 @@ test('a segment that still fails as halves is a gap; the segments after it are t
 test('nothing could be read at all: failed (ASR_FAILED), never a transcript',async()=>{
  const S=setup();try{
   const {sherpa}=fakeSherpa({lengths:[L,L],poison:new Set([L,L/2,L*10])});
-  const asr=require('../asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
+  const asr=require('../server/asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
   // every segment (3 s, its halves of 1.5 s) throws; the rest of the 30 s flushes as one long segment that throws too
   sherpa.OfflineRecognizer.createAsync=async()=>({createStream:()=>({acceptWaveform(){}}),async decodeAsync(){throw new Error('basic_string::_S_create');}});
   await a.rejects(asr.transcribe(S.file,{}),(e)=>e.code==='ASR_FAILED'&&Array.isArray(e.gaps)&&e.gaps.length>0);
@@ -109,7 +109,7 @@ test('the page: partial is never told as done; the gaps are listed and can be ju
  for(const k of ['tr-gaps-toast','tr-gaps-note','tr-gaps-more'])for(const l of ['zh-CN','en'])a.ok(V.t(l,'own.'+k,{n:2,dur:'31 秒',more:3}),k+' '+l);
  const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
  a.match(app,/data-tr-gaps/);a.match(app,/own\.tr-gaps-toast/);
- const srv=fs.readFileSync(path.join(ROOT,'server.js'),'utf8');a.match(srv,/gaps: r\.gaps/);a.match(srv,/skippedSegments: r\.skippedSegments/);
+ const srv=fs.readFileSync(path.join(ROOT,'server/server.js'),'utf8');a.match(srv,/gaps: r\.gaps/);a.match(srv,/skippedSegments: r\.skippedSegments/);
 });
 
 // Rea (2026-11-03): the segment that failed is at 3603.7 s and 4.74 s long, the only one of 1485 — not a long segment.
@@ -126,7 +126,7 @@ test('after a segment fails, the next one is decoded on a new stream, never the 
     if(s.broken)throw new Error('stream used again after it failed');
     if(s.n===POISON||s.n===Math.floor(POISON/2)){s.broken=true;throw new Error('basic_string::_S_create');}
     const tokens=[],timestamps=[];for(let t=0;t+0.5<=s.n/RATE;t+=0.5){tokens.push('字');timestamps.push(t);}return{tokens,timestamps};}});
-  const asr=require('../asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
+  const asr=require('../server/asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
   const r=await asr.transcribe(S.file,{});
   a.equal(new Set(log.map(x=>x.id)).size,log.length,'every decode on its own stream');
   // the decodes after the one that threw: none on a stream that threw before it

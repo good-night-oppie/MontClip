@@ -12,14 +12,14 @@ test("ci-check: an empty .js list is refused (0 files must fail)", () => {
 });
 
 test("ci-check: a list below the baseline is refused (shrink must fail)", () => {
-  const reduced = ["server.js", "app.js", "cli.js"];
+  const reduced = ["server/server.js", "app.js", "server/cli.js"];
   assert.throws(() => checkSource(reduced, BASELINE_JS), /below the baseline/);
 });
 
 test("ci-check: a list at or above the baseline is accepted", () => {
   // A single real file, with a baseline of 1, exercises the happy path
   // (node --check actually runs) without spawning the whole 494-file walk.
-  assert.strictEqual(checkSource(["cli.js"], 1), 1);
+  assert.strictEqual(checkSource(["server/cli.js"], 1), 1);
 });
 
 test("ci-check: a bare handle@users.noreply.github.com is refused (binds a real person)", () => {
