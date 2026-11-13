@@ -8,7 +8,7 @@
 //     Windows: 「选择 ffmpeg.exe」, the existing flow. No automatic download.
 //  5. 「重新检测」 works without a restart; a chosen path is saved and survives one.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-const FF = require('../server/ffmpeg-path'), X = require('../server/external-ffmpeg'), Card = require('../ffmpeg-card');
+const FF = require('../server/ffmpeg-path'), X = require('../server/external-ffmpeg'), Card = require('../app/ffmpeg-card');
 // removed after the test's servers (and the ffmpeg.exe copies they run from these folders) are stopped: helpers.tmpDir
 function tmp(t) { return require('./helpers').tmpDir(t, 'mc-detect-'); }
 
@@ -107,8 +107,8 @@ test('Windows keeps 「选择 ffmpeg.exe」; Linux has the copyable command; not
 });
 
 test('the page builds the card from the model, gates export, and re-detects without a reload', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8'), html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  a.match(html, /<script src="ffmpeg-card\.js"><\/script>/); a.match(html, /id="ffmpegCard"/);
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8'), html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  a.match(html, /<script src="app\/ffmpeg-card\.js"><\/script>/); a.match(html, /id="ffmpegCard"/);
   const body = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}', i)); };
   const render = body('function renderFfmpegCard(');
   a.match(render, /MontClipFfmpegCard\.model\(/);
@@ -199,7 +199,7 @@ test('JJ final 2026-11-05: English no-H.264 card, Windows card, path box, Export
     a.ok(!/我/.test(JSON.stringify(c) + Card.results('zh-CN', 'win32').stillMissing), st);
   }
   // the only DRAFT left in zh-CN is the too-old card (new, 2026-11-05)
-  const zhSrc = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'ffmpeg-card.js'), 'utf8').split('const text')[1].split('en: {')[0];
+  const zhSrc = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app/ffmpeg-card.js'), 'utf8').split('const text')[1].split('en: {')[0];
   for (const line of zhSrc.split('\n').filter((l) => /DRAFT/.test(l))) a.match(line, /too old/, 'DRAFT only on the too-old card: ' + line);
 });
 
@@ -214,7 +214,7 @@ test('every 〔X〕 a card names is exactly a button on that card (macOS, Window
 });
 
 test('the page draws the command box with 〔复制〕 when the howto line has no inline command (macOS)', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
   a.match(app, /if \(m\.command && !\(m\.howto \|\| ""\)\.includes\("`"\)\) \{/);
 });
 
@@ -455,7 +455,7 @@ test('no H.264: simple mode greys Export; advanced mode disables only the MP4 ch
   a.equal(Card.text['zh-CN'].h264Option, '这台电脑上的 FFmpeg 做不了 MP4（缺 H.264 编码）。');
   a.equal(Card.text.en.h264Option, "The FFmpeg on this computer can't make MP4 (missing H.264 encoding).");
   // the page follows a mode switch, and the export dialog asks per option
-  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
   const body = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}', i)); };
   a.match(body('function applyFfmpegState('), /MontClipFfmpegCard\.exportButton\(st, mcView\.get\(\)\.mode, mcView\.get\(\)\.language\)/);
   a.match(body('function updateMontClipView('), /try \{ applyFfmpegState\(\); \}/);
@@ -527,7 +527,7 @@ test('the too-old card says why: the version found and 6.0, or the missing optio
 });
 
 test('the card\'s 6.0 is ffmpeg-path.js\'s', () => {
-  a.match(fs.readFileSync(path.join(__dirname, '..', 'ffmpeg-card.js'), 'utf8'), new RegExp(`const MIN_VERSION = "${FF.MIN_VERSION.replace('.', '\.')}"`));
+  a.match(fs.readFileSync(path.join(__dirname, '..', 'app/ffmpeg-card.js'), 'utf8'), new RegExp(`const MIN_VERSION = "${FF.MIN_VERSION.replace('.', '\.')}"`));
 });
 
 /* P10 (Deja 2026-11-05): MONTCLIP_FFMPEG naming Debian's 5.1.9 as THE FFmpeg made song finding fail with ffmpeg's raw

@@ -7,14 +7,14 @@
 // went with the assistant's reframe). Substitute transport, no network.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const P=require('../chat-proposal'),L=require('../agent-limits'),F=require('../agent-format'),V=require('../agent-conversation');
+const P=require('../app/chat-proposal'),L=require('../app/agent-limits'),F=require('../agent-format'),V=require('../app/agent-conversation');
 const S=require('../desktop/agent-service'),View=require('../ui-preferences'),Cap=require('../capabilities');
 
 const ctx={projectId:'p',sequenceId:'main',generation:0,revision:1};
 const doc=(clips)=>({fps:30,media:[{id:'m',kind:'video',duration:600}],clips:clips||[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:100,duration:50,props:{}}]});
 /** The export-frame drop-down as app.js renders it in a language: its own code, on a stand-in <select>. */
 function dropdown(lang){
- const app=read('app.js');
+ const app=read('app/app.js');
  const slice=(from,to)=>{const i=app.indexOf(from);a.ok(i>=0,from);return app.slice(i,app.indexOf(to,i));};
  const src=slice('const EXPORT_FRAME_ASPECTS = [','const WAVE_PEAKS_PER_SEC')+slice('function syncExportFrameSel()','function applyProject(');
  const attrs={},sel={title:'',innerHTML:'',setAttribute:(k,v)=>{attrs[k]=String(v);},getAttribute:(k)=>attrs[k]??null,
@@ -58,10 +58,10 @@ test('keep_sentences that keep every sentence of a fully captioned edit are unch
 });
 
 test('the pane shows no 〔查看剪辑建议〕 for an unchanged proposal and says so; the host never applies one',()=>{
- const pane=read('agent-ui/pane.tsx'),app=read('app.js');
+ const pane=read('agent-ui/pane.tsx'),app=read('app/app.js');
  a.match(pane,/const unchanged=usable\?options\.noChange\?\.\(result\)\|\|null:null;/);
  a.match(pane,/\{usable&&unchanged&&<p data-no-change>\{t\.noChange\.replace\('\{duration\}',MontClipConversation\.durationText\(unchanged\.duration\)\)\}<\/p>\}\{usable&&!unchanged&&<button data-review-proposal /);
- a.match(read('cindy-official.js'),/data-no-change/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-no-change/,'the bundle was rebuilt');
  a.match(app,/ noChange:agentProposalUnchanged,/);
  a.match(app,/return p\.unchanged\?\{duration:p\.duration\}:null;/);
  // in every mode (Auto, Yolo too): checked before the host is even asked
@@ -86,7 +86,7 @@ test('the assistant makes 9:16, 1:1 and 4:5 itself: those are not reported; a me
  // the vertical sentence of #172 stays gone; the manual way for another shape is #172's JJ定稿 (2026-11-06), unchanged
  for(const l of ['zh-CN','en']){a.equal(View.text[l].officialPane_limitReframe,undefined,l);
   for(const k of ['limitReframeAspect','limitReframeAny'])a.ok(/\{dropdown\}/.test(View.text[l]['officialPane_'+k]),l+' '+k);}
- a.match(read('app.js'),/limitNames:\(\)=>exportFrameNames\(\),/,'app.js gives the pane the drop-down names');
+ a.match(read('app/app.js'),/limitNames:\(\)=>exportFrameNames\(\),/,'app.js gives the pane the drop-down names');
 });
 
 test('a mixed message, with a substitute transport: the format note sent carries the rules; no host sentence is added',async()=>{
@@ -115,8 +115,8 @@ test('a mixed message, with a substitute transport: the format note sent carries
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t,options\.limitNames\?\.\(\)\|\|\{\}\):'';/);
  a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
- a.match(read('cindy-official.js'),/data-host-limit/);
- a.match(read('index.html'),/<script src="agent-limits\.js"><\/script>/);
+ a.match(read('app/cindy-official.js'),/data-host-limit/);
+ a.match(read('index.html'),/<script src="app\/agent-limits\.js"><\/script>/);
 });
 
 test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set with the options',()=>{
@@ -126,7 +126,7 @@ test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set wit
  }
  a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
  a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
- const app=read('app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
+ const app=read('app/app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
  a.match(refresh,/syncExportFrameSel\(\);/,'a language switch rebuilds it');
  // the format note names no option words (no Reel / IG, JJ 2026-11-05)
  a.ok(!/Reel|“Full canvas”/.test(F.FORMAT_NOTE));

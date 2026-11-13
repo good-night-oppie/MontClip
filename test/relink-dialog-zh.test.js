@@ -7,7 +7,7 @@
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences');
 const MediaLib = require('../media-lib');
-const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 const t = (l, k, v) => V.t(l, 'own.' + k, v);
 const KEYS = ['rl-title', 'rl-intro-many', 'rl-intro-one', 'rl-folder', 'rl-folder-title', 'rl-pre', 'rl-folder-none', 'rl-copying-k',
   'rl-matched', 'rl-copying', 'rl-copy-failed', 'rl-was', 'rl-new-loc', 'rl-leave', 'rl-not-found', 'rl-chosen', 'rl-from-folder',

@@ -13,7 +13,7 @@ agent-ui/cindy-43001ea/** linguist-vendored
 
 # True generated files: build outputs (build.cjs, styles.cjs, npm install) and machine-written records
 # (vendor-cindy.cjs, licenses.cjs)
-cindy-official.js linguist-generated
+app/cindy-official.js linguist-generated
 cindy-parts.css linguist-generated
 package-lock.json linguist-generated
 agent-ui/package-lock.json linguist-generated

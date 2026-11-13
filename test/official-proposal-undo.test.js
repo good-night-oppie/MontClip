@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync(require.resolve('../app.js'),'utf8');
+const source=fs.readFileSync(require.resolve('../app/app.js'),'utf8');
 function fn(name){const start=source.indexOf('function '+name+'(');a.ok(start>=0,name);return source.slice(start,source.indexOf('\n}',start)+2);}
 test('card undo identifies only its own top shared history record, including redo',()=>{
  const result={},applications=new WeakMap(),ctx={project:{clips:[],markers:[],comps:[]},runtime:{undo:[],redo:[]},officialProposalApplications:applications,agentProjectContext:()=>({projectId:'p',sequenceId:'s',gen:1}),pruneSelection(){},scheduleSave(){},renderInspector(){},toast(){},isOutsideStep:()=>false};

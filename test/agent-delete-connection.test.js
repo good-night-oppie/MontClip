@@ -136,6 +136,6 @@ test('the pane asks first: the button only opens the confirmation, and only its 
 });
 
 test('the shipped bundle is rebuilt from the pane source with the remove button',()=>{
- const bundle=read('cindy-official.js');
+ const bundle=read('app/cindy-official.js');
  for(const s of ['data-remove-connection','data-remove-confirm','data-remove-cancel','deleteConnection()'])assert.ok(bundle.includes(s),s);
 });

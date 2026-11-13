@@ -14,7 +14,7 @@ const split = (s) => s.split(/,(?![^(]*\))/).map((x) => x.trim());
 // every selector of a rule, outside @keyframes (from / to / n%)
 const selectors = () => rules(css).flatMap(([s]) => split(s)).filter((s) => !/^(from|to|[\d.]+%)$/.test(s));
 // the variable names MontClip's own page uses or sets
-const OWN = ['style.css', 'app.js', 'index.html', 'agent-ui/pane.tsx'].map(read).join('\n');
+const OWN = ['style.css', 'app/app.js', 'index.html', 'agent-ui/pane.tsx'].map(read).join('\n');
 const mine = new Set([...OWN.matchAll(/var\(\s*--([\w-]+)|(?:^|[{;\s'"])--([\w-]+)\s*:|setProperty\(\s*['"]--([\w-]+)/g)].map((m) => m[1] || m[2] || m[3]));
 const esc = (n) => n.replace(/[-]/g, '\\-');
 

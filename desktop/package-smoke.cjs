@@ -102,7 +102,7 @@ async function main() {
       return { name: n, bom: b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf, crlf: !/[^\r]\n/.test(s), placeholders: (s.match(/\{[a-z0-9]+\}/g) || []).length, internal: /落地前|实施侧/.test(s), exeNamed: s.includes('MontClip.exe') }; });
     for (const r of out.readme) assert.ok(r.bom && r.crlf && !r.placeholders && !r.internal && r.exeNamed, 'notes: ' + JSON.stringify(r));
     // the URL line in the notes matches the packaged app: JJ's alternative when it hides + URL (#58), v3's otherwise
-    const ALT = require('./package-readme/url-hidden.json'), hides = fs.readFileSync(path.join(appDir, 'resources', 'app', 'app.js'), 'utf8').includes(ALT.marker);
+    const ALT = require('./package-readme/url-hidden.json'), hides = fs.readFileSync(path.join(appDir, 'resources', 'app', 'app/app.js'), 'utf8').includes(ALT.marker);
     out.readmeUrlLine = hides ? "JJ's alternative (app hides + URL)" : 'v3 (app shows + URL)';
     for (const [n, lang] of [['先看我-使用说明.txt', 'zh-CN'], ['README-first.txt', 'en']]) {
       const t = fs.readFileSync(path.join(appDir, n), 'utf8');

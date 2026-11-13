@@ -18,7 +18,7 @@ test('the new words, in both languages',()=>{
 });
 
 test('the dialog has 〔+ 导入录像〕, running the same import as the main 〔+ 导入〕, and draws itself again after it',()=>{
- const app=read('app.js'),start=fnBody(app,'autoStartHtml');
+ const app=read('app/app.js'),start=fnBody(app,'autoStartHtml');
  a.match(start,/data-as-act="import"/);a.match(start,/autoSay\("as-import"\)/);
  const click=fnBody(app,'autoClick');
  a.match(click,/act === "import"\) \{ openFileImport\(\); return; \}/,'the shared #fileInput, so it is the same import');
@@ -29,7 +29,7 @@ test('the dialog has 〔+ 导入录像〕, running the same import as the main �
 });
 
 test('one recording in the project: it is ticked, once (unticking it again sticks)',()=>{
- const app=read('app.js'),start=fnBody(app,'autoStartHtml');
+ const app=read('app/app.js'),start=fnBody(app,'autoStartHtml');
  a.match(start,/recs\.length === 1 && st\.soloTicked !== recs\[0\]\.id/);
  // run the rule itself on a state that was made before any recording existed (VV: dialog opened first, then imported)
  const rule=start.slice(start.indexOf('if (recs.length === 1'),start.indexOf('\n',start.indexOf('if (recs.length === 1')));
@@ -51,7 +51,7 @@ test('how far an import is: the copy, then the faststart tidy for MP4 / MOV / M4
 });
 
 test('the bin shows a placeholder per file being imported, updated in place, gone when it is in or failed',()=>{
- const app=read('app.js'),bin=fnBody(app,'renderBin');
+ const app=read('app/app.js'),bin=fnBody(app,'renderBin');
  a.match(bin,/\.bin-importing/,'redrawn with the bin');a.match(bin,/IMPORTING\.size/,'an import in progress is not 「把视频拖到这里」');
  a.match(fnBody(app,'importingHtml'),/uiText\("own\.bin-importing", \{ pct/);
  const imp=fnBody(app,'importFiles');

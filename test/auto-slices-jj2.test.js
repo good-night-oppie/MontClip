@@ -43,7 +43,7 @@ test("JJ's re-review: the Chinese word for word, an English for each", () => {
 });
 
 test('before the song gate nothing says 每首歌 / 一首歌 / 整首 / 第 n 首: each such key has a -maybe form and goes through autoSongKey', () => {
-  const app = read('app.js'), gate = fnBody(app, 'function autoSongKey(');
+  const app = read('app/app.js'), gate = fnBody(app, 'function autoSongKey(');
   const gated = [...gate.match(/new Set\(\[([^\]]*)\]\)/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
   const songish = Object.keys(V.text['zh-CN']).filter((k) => k.startsWith('own.as-') && !k.endsWith('-maybe')).map((k) => k.slice(4))
     .filter((k) => /首歌|整首|第 ?\{no\} ?首/.test(zh(k)) && k !== 'as-song-name');   // as-song-name: MontClipAutoSlices.title, gated there
@@ -58,7 +58,7 @@ test('before the song gate nothing says 每首歌 / 一首歌 / 整首 / 第 n �
 });
 
 test('a failed search says it in plain words; the raw error only goes to the log, masked', () => {
-  const app = read('app.js'), run = fnBody(app, 'async function autoRun(');
+  const app = read('app/app.js'), run = fnBody(app, 'async function autoRun(');
   a.ok(!/error: g\.error/.test(run), 'g.error is not shown');
   a.match(run, /"own\.as-run-nospace"/);
   a.match(run, /"ENOSPC"/);
@@ -77,14 +77,14 @@ test('a failed search says it in plain words; the raw error only goes to the log
 
 // as-fail gave way to JJ's error table v2 (2026-11-04): each one that failed with its reason and 〔重试这条〕
 test('an export that fails: the count, a reason in plain words, the next step; no raw error on the card', () => {
-  const done = fnBody(read('app.js'), 'function autoDoneHtml(');
+  const done = fnBody(read('app/app.js'), 'function autoDoneHtml(');
   a.ok(!/\.error\)|\.log\b|\.line\b/.test(done), 'no raw error');
   a.match(done, /MontClipView\.batchReason\(lang, q\)/);
   a.match(done, /data-as-act="retry-one"/);
 });
 
 test('nothing found says what to try next', () => {
-  const review = fnBody(read('app.js'), 'function autoReviewHtml(');
+  const review = fnBody(read('app/app.js'), 'function autoReviewHtml(');
   a.match(review, /"as-found-none-next"/);
 });
 
@@ -92,7 +92,7 @@ test('nothing found says what to try next', () => {
 // a timer queue we run by hand, and an "opened" flag where the dialog would be built.
 function busyHarness(state) {
   const toasts = [], timers = [], opened = [];
-  const src = fnBody(read('app.js'), 'function openAutoSlices(');
+  const src = fnBody(read('app/app.js'), 'function openAutoSlices(');
   const env = { state, toasts, timers, opened };
   const open = new Function('env', `const { state } = env;
     const toast = (t) => env.toasts.push(t), uiText = (k) => k, setTimeout = (fn) => env.timers.push(fn);
@@ -125,7 +125,7 @@ test('busy, mid-drag: no message; the click is answered once the drag ends', () 
 });
 
 test('the kind hints never mention danmaku when the chosen recordings have none', () => {
-  const app = read('app.js'), start = fnBody(app, 'function autoStartHtml(');
+  const app = read('app/app.js'), start = fnBody(app, 'function autoStartHtml(');
   a.match(start, /autoKindHintKey\(/);
   const key = new Function('autoSongKey', 'return ' + fnBody(app, 'function autoKindHintKey('))((k) => k);
   for (const kind of ['chat', 'game', 'watch']) {

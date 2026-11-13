@@ -395,7 +395,7 @@ test("the outside-edit toast: JJ's final words, in both languages", () => {
   const UI = require("../ui-preferences");
   assert.equal(UI.t("zh-CN", "own.undo-outside"), "撤销的这一步是 AI 或另一个窗口改的，不是你在这里改的。撤错了，点「重做」就能改回来。");
   assert.equal(UI.t("en", "own.undo-outside"), "Undid a change made by the AI or in another window, not here. If that was a mistake, click Redo to bring it back.");
-  assert.doesNotMatch(require("node:fs").readFileSync(require("node:path").join(ROOT, "app.js"), "utf8"), /Undid a change made outside this tab/);
+  assert.doesNotMatch(require("node:fs").readFileSync(require("node:path").join(ROOT, "app/app.js"), "utf8"), /Undid a change made outside this tab/);
 });
 
 /* QQ on 8875b1d: disable (or lock) a linked clip, save, reload. relinkClips deletes linkGroup and adds it back, so on

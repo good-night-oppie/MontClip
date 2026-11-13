@@ -73,7 +73,7 @@ test('the export-copy line is in the notes exactly once per language, and JJ rep
 });
 
 test('the switches follow the app: + URL hidden (app.js); the registered-export fix is really there (main.js wires export-downloads.js and takes the page\'s expectation, that module removes the copy, the server registers each export)', () => {
-  const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), main = fs.readFileSync(path.join(ROOT, 'desktop', 'main.js'), 'utf8');
+  const app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8'), main = fs.readFileSync(path.join(ROOT, 'desktop', 'main.js'), 'utf8');
   const opt = (f) => { try { return fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch { return ''; } };
   const dl = opt('desktop/export-downloads.js'), server = opt('server/server.js');
   a.equal(R.hidesUrl(app), app.includes('if (window.montclipViewSettings) { const urlButton = $("btnImportUrl"); if (urlButton) urlButton.hidden = true; }'));

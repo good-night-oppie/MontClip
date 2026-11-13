@@ -18,7 +18,7 @@ function fakeRegisterProcessor(name, cls) {
   RegisteredProcessor = cls;
 }
 
-const workletPath = path.join(ROOT, "meter-worklet.js");
+const workletPath = path.join(ROOT, "app/meter-worklet.js");
 const workletCode = fs.readFileSync(workletPath, "utf8");
 vm.runInNewContext(workletCode, {
   AudioWorkletProcessor: FakeAudioWorkletProcessor,

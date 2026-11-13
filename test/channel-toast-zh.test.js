@@ -8,7 +8,7 @@
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..');
-const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+const app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8');
 const View = require('../ui-preferences.js');
 const MontClipEdit = require('../edit-ops.js');
 
@@ -43,7 +43,7 @@ test('the four channel sentences are JJ\'s final wording in both languages, Engl
 test('no hardcoded English channel toast is left in app.js, and the demo copy matches', () => {
   for (const s of ['has fewer channels — removed ${', 'tracks supported — extra channel', 'audio track${newTracks', 'Linked ${wantCh}'])
     a.ok(!app.includes(s), 'gone: ' + s);
-  a.equal(fs.readFileSync(path.join(ROOT, 'docs/demo/app.js'), 'utf8'), app, 'docs/demo/app.js is the synced copy');
+  a.equal(fs.readFileSync(path.join(ROOT, 'docs/demo/app/app.js'), 'utf8'), app, 'docs/demo/app.js is the synced copy');
 });
 
 /* ── the real function on a synthetic project ── */

@@ -17,7 +17,7 @@ test("JJ's three sentences, word for word", () => {
 });
 
 test("dragging such a file onto the timeline says own.media-cannot-cut, with its name", () => {
-  const app = read("app.js"), at = app.indexOf("function addClipFromMedia"), body = app.slice(at, at + 700);
+  const app = read("app/app.js"), at = app.indexOf("function addClipFromMedia"), body = app.slice(at, at + 700);
   a.match(body, /if \(MediaLib\.cannotCut\(m\)\) \{ toast\(uiText\("own\.media-cannot-cut", \{ name: m\.name \}\)\); return null; \}/);
 });
 
@@ -28,7 +28,7 @@ test("the agent's import notes never reach the interface", () => {
   const said = [...body.matchAll(/(?:"|`)(Note: [^"`$]{12,60})/g)].map((m) => m[1]);
   a.ok(said.length >= 4, "found the notes: " + said.length);
   // where the interface's words live: none of them holds one of these
-  for (const f of ["app.js", "index.html", "ui-preferences.js", "ui-terms.js", "capabilities.js", "capabilities-page.js"]) {
+  for (const f of ["app/app.js", "index.html", "ui-preferences.js", "ui-terms.js", "capabilities.js", "app/capabilities-page.js"]) {
     if (!fs.existsSync(path.join(__dirname, "..", f))) continue;
     const text = read(f);
     for (const s of said) a.ok(!text.includes(s.slice(0, 40)), `${f} shows an agent note: ${s}`);

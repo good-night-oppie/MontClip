@@ -2440,10 +2440,14 @@ async function handleRequest(req, res) {
     return;
   }
 
-  /* Static app files */
+  /* Static app files. The local service's own code (server/, #281) is never a page file: refused here so the page
+     cannot read it (#281 AS.2); the editor page's files are in app/ and at the root. */
   let file = p === "/" ? "/index.html" : p;
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
+  // the first folder as the file system reads it (Windows: any case, trailing dots and spaces dropped)
+  const top = path.relative(ROOT, file).split(path.sep)[0].toLowerCase().replace(/[. ]+$/, "");
+  if (top === "server") { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
 }
 

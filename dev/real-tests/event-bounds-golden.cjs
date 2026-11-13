@@ -21,7 +21,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const H = require("../../highlight-candidates");
+const H = require("../../app/highlight-candidates");
 const B = require("../../event-bounds");
 
 const arg = (n, d) => { const i = process.argv.indexOf("--" + n); return i > 0 ? process.argv[i + 1] : d; };

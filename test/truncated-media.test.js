@@ -150,7 +150,7 @@ test("media-lib: a length arriving clears the mark, an unknown one sets it; the 
   a.equal(MediaLib.cannotCut({ kind: "video" }), false, "not probed yet is not the same as unknown");
   a.equal(MediaLib.cannotCut({ kind: "image", durationUnknown: true }), false);
 
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const at = app.indexOf("function addClipFromMedia"), body = app.slice(at, at + 600);
   a.match(body, /MediaLib\.cannotCut\(m\)/, "the editor refuses to place it");
   a.match(body, /own.media-cannot-cut/, "and says why, in JJ's words");
@@ -195,6 +195,6 @@ test("the mark on a file that can't be cut: JJ's sentence, shown on it in the bi
   const V = require("../ui-preferences");
   a.equal(V.t("zh-CN", "own.media-incomplete"), "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
   a.doesNotMatch(V.t("en", "own.media-incomplete"), /[一-鿿]/);
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.match(app, /MediaLib\.cannotCut\(m\)[^\n]*own\.media-incomplete|own\.media-incomplete[^\n]*MediaLib\.cannotCut\(m\)/, "the bin marks it with that sentence");
 });

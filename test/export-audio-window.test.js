@@ -5,7 +5,7 @@
 // GET /api/audio-window?src=&from=&to= → WAV (32-bit float, the file's own channels, 48 kHz), decoded by the bundled FFmpeg.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i)); };
 
 /** WAV (RIFF, fmt, data) → {format, channels, rate, bits, frames, samples(ch)} */

@@ -4,7 +4,7 @@
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..');
 const view=require('../ui-preferences'),terms=require('../ui-terms');
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app/app.js'),'utf8');
 
 test('every term has both languages and the keyed lookup falls back to English, never to a key',()=>{
  for(const [k,[en,zh]] of Object.entries(terms.rows)){a.ok(en&&zh,k);a.equal(view.t('zh-CN','term.'+k),zh);a.equal(view.t('en','term.'+k),en);}

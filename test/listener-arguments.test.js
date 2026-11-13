@@ -5,7 +5,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 // QQ (2026-11-02, 109e941c): the web demo carries its own copy (docs/demo/app.js, made by docs/demo/sync.js) and was
 // left with the old listener; both copies are checked.
-const FILES=['app.js','docs/demo/app.js'],read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
+const FILES=['app/app.js','docs/demo/app/app.js'],read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
 test('「按句选段」 calls showSentenceSelection with no arguments, in the editor and in the web demo',()=>{
  for(const f of FILES)assert.match(read(f),/q\("\[data-tr-sentences\]"\)\.addEventListener\("click", \(\) => showSentenceSelection\(\)\);/,f);

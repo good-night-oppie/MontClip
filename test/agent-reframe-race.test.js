@@ -10,7 +10,7 @@ function harness(){
   projectJSON:()=>JSON.parse(JSON.stringify(project)),projectJSONHere:()=>JSON.parse(JSON.stringify(project)),
   openSequenceName:()=>Seq.find(project,Seq.activeId(project)).name,openSequence:id=>{Seq.open(project,id);return true;},
   pushUndo:s=>{calls.undo++;ctx.runtime.undo.push(s);},uiText:()=>'',agentReframeProgress(){},agentReframeDone(){},scheduleSave(){},renderInspector(){},syncCompCrumb(){},toast(){},shownName:s=>s,DEFAULT_PROPS:{}};
- const src=fs.readFileSync(require.resolve('../app.js'),'utf8');
+ const src=fs.readFileSync(require.resolve('../app/app.js'),'utf8');
  vm.runInNewContext(src.slice(src.indexOf('async function runAgentReframe('),src.indexOf('/** A reframe reply:')),ctx);
  return {ctx,project,calls,waiting,release,run:()=>ctx.runAgentReframe('9:16')};
 }

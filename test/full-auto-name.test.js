@@ -32,7 +32,7 @@ test('every line in #212, word for word, zh-CN and en', () => {
   const label = (l) => own[l].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label;
   a.equal(label('zh-CN'), '全自动');
   a.equal(label('en'), 'Full auto');
-  a.match(read('cindy-official.js'), /bypassPermissions:\{label:"Full auto"/, 'the bundle was rebuilt');
+  a.match(read('app/cindy-official.js'), /bypassPermissions:\{label:"Full auto"/, 'the bundle was rebuilt');
   // the top bar's mark before the page fills in its words, and the playground copy
   for (const f of ['index.html', 'docs/demo/index.html'])
     a.match(read(f), /<span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own\.ap-yolo-on">全自动开着<\/span>/, f);

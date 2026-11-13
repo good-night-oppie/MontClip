@@ -133,7 +133,7 @@ test("the words: JJ's, word for word (the English of the mark and the progress l
     a.doesNotMatch(V.t("en", k, { n: 40, name: "x" }), /[一-鿿]|undefined/, k);
     a.doesNotMatch(V.t("zh-CN", k, { n: 40, name: "x" }), /undefined|NaN/, k);
   }
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
   for (const old of ["修复成可以剪的视频", "帮我转成可以剪的视频", "Repair into a video", "Convert to a video you can cut", "own.convert-menu"])
     a.ok(!app.includes(old) && !ui.includes(old), "the old name is gone: " + old);
   const line = (s) => app.split("\n").filter((l) => l.includes(s));
@@ -153,7 +153,7 @@ test("a file whose length came from its packets: marked 'seeking may be slow' on
   a.equal(MediaLib.slowToSeek({ kind: "video", duration: 2, durationFrom: "packets" }), true);
   a.equal(MediaLib.slowToSeek({ kind: "video", duration: 2 }), false);
   a.equal(MediaLib.slowToSeek({ kind: "video", durationUnknown: true }), false, "that one can't be cut at all: the other mark");
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.ok(app.split("\n").some((l) => l.includes("MediaLib.slowToSeek(m)") && l.includes("own.media-slow-mark")), "the mark and its hint");
   a.ok(app.includes('uiText("own.repair-menu")'), "〔帮我修好…〕 in the file's menu");
 });

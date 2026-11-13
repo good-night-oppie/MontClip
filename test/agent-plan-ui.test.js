@@ -12,7 +12,7 @@ test('the format note tells the model the plan shape: steps of the two edits, at
 });
 
 test('every step goes through the host’s decision and its own check when its turn comes; one run, undone at once',()=>{
- const app=read('app.js'),i=app.indexOf('async function runAgentPlanStep'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
+ const app=read('app/app.js'),i=app.indexOf('async function runAgentPlanStep'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
  a.ok(body.indexOf('montclipAgentPolicy.decide(')<body.indexOf('MontClipProposal.prepare('),'decided first');
  a.match(body,/runId:entry\.runId,step:s\.index\+1/,'each step an event of the plan’s run');
  a.match(body,/MontClipProposal\.current\(proposal,projectJSON\(\),/,'the CAS before applying');
@@ -26,19 +26,19 @@ test('every step goes through the host’s decision and its own check when its t
 });
 
 test('the list shows what each step changes, the plain sentence and the state in words; deleting only before it starts',()=>{
- const app=read('app.js'),pane=read('agent-ui/pane.tsx');
+ const app=read('app/app.js'),pane=read('agent-ui/pane.tsx');
  a.match(app,/label:MontClipPlan\.stepLabel\(s,lang\),detail:MontClipPlan\.stepDetail\(s,lang\),state:s\.state,stateText:MontClipPlan\.stateLabel\(s\.state,lang\)/);
  // what it changes first; the plain sentence under it (or alone, when there is nothing concrete to say)
  a.match(pane,/\{st\.detail\?<span data-step-detail title=\{st\.label\}>\{st\.detail\}<\/span>:<span data-step-label>\{st\.label\}<\/span>\}/);
  a.match(pane,/\{st\.detail&&<span className="cindy-plan-what" data-step-label>\{st\.label\}<\/span>\}/);
  a.match(pane,/\{plan\.status==='ready'&&<button data-step-remove/);
- a.match(read('cindy-official.js'),/data-plan/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-plan/,'the bundle was rebuilt');
 });
 
 test('the page reads the tool list from the main process before capabilities.js, read-only',()=>{
- const html=read('index.html'),page=read('capabilities-page.js');
- a.ok(html.indexOf('capabilities-page.js')<html.indexOf('"capabilities.js"'));
- a.ok(html.indexOf('"capabilities.js"')<html.indexOf('agent-plan.js'));
+ const html=read('index.html'),page=read('app/capabilities-page.js');
+ a.ok(html.indexOf('app/capabilities-page.js')<html.indexOf('"capabilities.js"'));
+ a.ok(html.indexOf('"capabilities.js"')<html.indexOf('app/agent-plan.js'));
  a.match(page,/window\.montclipCapabilities\.get\(\)/);
  a.ok(!/risk/.test(page.replace(/\/\*[\s\S]*?\*\//,'')),'risks are not taken from it');
 });
@@ -53,7 +53,7 @@ test('new words, both languages (for JJ)',()=>{
 
 test('JJ’s final words (5d360cd7); the help’s body has no internal names, the plan JSON is in the small print',()=>{
  const zh=k=>View.text['zh-CN']['officialPane_'+k],en=k=>View.text.en['officialPane_'+k];
- const Plan=require('../agent-plan');
+ const Plan=require('../app/agent-plan');
  a.equal(Plan.stateLabel('failed','zh-CN'),'没做成');a.equal(Plan.stateLabel('failed','en'),'Not done');
  a.equal(View.t('zh-CN','own.pl-refused'),'这一步任何时候都不允许做。');
  a.equal(View.t('zh-CN','own.pl-stopped'),'计划停在了这一步，后面的步骤没有做。可以让助手按现在的项目重新排一次计划。');
@@ -71,9 +71,9 @@ test('JJ’s final words (5d360cd7); the help’s body has no internal names, th
 
 test('v7.2 (说明第 39 行): each step has its mark — ○, a spinner while 进行中, ✓ and the text struck through when 完成, ✕ — in the list',()=>{
  a.match(read('agent-ui/pane.tsx'),/data-step-mark aria-hidden="true">\{st\.mark\}/);
- a.match(read('app.js'),/mark:MontClipPlan\.stateMark\(s\.state\)/);
+ a.match(read('app/app.js'),/mark:MontClipPlan\.stateMark\(s\.state\)/);
  const css=read('style.css');
  a.match(css,/\.cindy-plan li\[data-step-state="done"\] \[data-step-label\] \{[^}]*text-decoration: line-through/);
  a.match(css,/\.cindy-plan li\[data-step-state="doing"\] \[data-step-mark\][^{]*\{[^}]*animation:/);
- a.match(read('cindy-official.js'),/data-step-mark/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-step-mark/,'the bundle was rebuilt');
 });

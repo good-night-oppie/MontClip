@@ -61,7 +61,7 @@ test('the page gets the caps read-only with the table',()=>{
 });
 
 test('the refusal says by how much, in both languages; the page never shortens what it sends',()=>{
- const View=require('../ui-preferences'),src=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','app.js'),'utf8');
+ const View=require('../ui-preferences'),src=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','app/app.js'),'utf8');
  const i=src.indexOf('function byteText'),body=src.slice(i,src.indexOf('/** The plain summary of a proposal',i));
  const run=new Function('uiText',body+'return {byteText,agentRefusalText};')((k,v)=>View.t('zh-CN',k,v));
  a.equal(run.byteText(131072),'128 KB');a.equal(run.byteText(4194304),'4 MB');a.equal(run.byteText(26214400),'25 MB');a.equal(run.byteText(10),'1 KB');

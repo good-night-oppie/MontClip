@@ -6,7 +6,7 @@ const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const D = require('../danmaku');
 const { readDanmakuFile } = require('../server/danmaku-file');
-const H = require('../highlight-candidates');
+const H = require('../app/highlight-candidates');
 
 const START = Date.parse('2026-11-01T20:00:00.000+08:00');
 // the shape of a 录播姬 file: header elements, its own stylesheet (with markup that is not danmaku), danmaku with

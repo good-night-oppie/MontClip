@@ -5,7 +5,7 @@
    refreshMediaInfo runs here as written in app.js, with a fake server answer. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
-const source = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const source = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
 const body = source.slice(source.indexOf("let mediaInfoBusy = false"), source.indexOf("/* N25 (docs/decisions/2026-11-03-canvas-follows-source.md)"));
 
 function world({ media, clips, comps = [], others = [] }) {

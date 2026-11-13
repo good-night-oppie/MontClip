@@ -7,7 +7,7 @@
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences'), R = require('../problem-redact'), X = require('../server/external-ffmpeg');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const app = read('app.js');
+const app = read('app/app.js');
 const CJK = /[　-〿㐀-鿿＀-￯]/;
 const fnBody = (src, head) => { const at = src.indexOf(head); a.ok(at >= 0, head); let d = 0, i = src.indexOf('{', at);
   for (; i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}' && --d === 0) break; } return src.slice(at, i + 1); };

@@ -12,7 +12,7 @@ test("ci-check: an empty .js list is refused (0 files must fail)", () => {
 });
 
 test("ci-check: a list below the baseline is refused (shrink must fail)", () => {
-  const reduced = ["server/server.js", "app.js", "server/cli.js"];
+  const reduced = ["server/server.js", "app/app.js", "server/cli.js"];
   assert.throws(() => checkSource(reduced, BASELINE_JS), /below the baseline/);
 });
 

@@ -10,6 +10,7 @@
   "files": [
     "*.js",
     "server/",
+    "app/",
     "index.html",
     "style.css",
     "cindy-parts.css",

@@ -149,7 +149,7 @@ test("the server looks each file's size up, and says the version", { timeout: 60
   const version = R.versionLine({ version: require("../package.json").version, platform: process.platform, release: require("node:os").release() }, "zh-CN");
   a.equal(text, ["MontClip 问题信息 v1", version, "这次没有做完。", "相关文件：一个 mp4 文件，1.2 MB", "相关文件：一个 mkv 文件，大小不明", "给开发者看（不用管）：FLV_PROBE_FAILED"].join("\n"));
   a.match(version, /^版本：MontClip \d+\.\d+\.\d+ · (Windows 11|Windows 10|Windows|macOS|Linux)$/);
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.match(app, /const p = \{ text: r\.what \|\| r\.text \|\| "", code: r\.code \|\| "", log: r\.log \|\| "" \}/, "the page sends what happened, the code and the raw error (read for its files only)");
   a.match(app, /MontClipRedact\.problemDetails\(\{ \.\.\.p, app: \{ platform: navigator\.platform \|\| "" \} \}, \{ platform: [^}]*, language \}\)/, "the page's own fallback, the same rules");
 });
