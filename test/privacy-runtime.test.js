@@ -59,7 +59,7 @@ test('owned IPC server proof works and exit invalidates its lease',async t=>{
   const data=makeDataDir(t),token=require('node:crypto').randomBytes(32).toString('hex'),proof='random-fixture-'+Date.now();
   fs.mkdirSync(path.join(data,'media'),{recursive:true});
   fs.writeFileSync(path.join(data,'media','proof.txt'),proof);
-  const child=fork(path.join(__dirname,'../server.js'),[],{env:{...process.env,PORT:'0',HOST:'127.0.0.1',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore','ignore','ignore','ipc']});
+  const child=fork(path.join(__dirname,'../server/server.js'),[],{env:{...process.env,PORT:'0',HOST:'127.0.0.1',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore','ignore','ignore','ipc']});
   t.after(()=>{if(child.exitCode===null&&!child.killed)child.kill();});
   const lease=await serverLease(child,{token,proofPath:'/media/proof.txt',proof});
   lease.assertAlive();assert.equal((await fetch(lease.origin+'/api/project',{headers:lease.headers})).status,200);

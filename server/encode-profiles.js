@@ -28,7 +28,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const FF = require("./ffmpeg-path");
 
-const PROFILES_FILE = path.join(__dirname, "encoding-profiles.json");
+const PROFILES_FILE = path.join(__dirname, "..", "encoding-profiles.json");
 
 /* Used when encoding-profiles.json is missing or unparseable, so export still
    works out of the box. Not a merge base: profiles are taken as written. */

@@ -27,12 +27,12 @@ const { execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { makeDataDir, startServer } = require("./helpers");
-const { findBrowser } = require("../export-jobs");
+const { findBrowser } = require("../server/export-jobs");
 
 const W = 960, H = 540, FPS = 10;
 const RED = { x0: 0.6, y0: 0.6, x1: 0.7, y1: 0.7 };   // the red block, fractions of the source
 
-const ffmpegBin = () => require("../ffmpeg-path").path("ffmpeg");
+const ffmpegBin = () => require("../server/ffmpeg-path").path("ffmpeg");
 const hasFfmpeg = () => { try { execFileSync(ffmpegBin(), ["-version"], { stdio: "ignore" }); return true; } catch { return false; } };
 const SKIP = !hasFfmpeg() ? "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)"
   : !findBrowser() ? "no Chrome / Edge for the headless editor (set FABLECUT_CHROME)" : false;

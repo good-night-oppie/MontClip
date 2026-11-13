@@ -37,7 +37,7 @@ for(const secret of [0,1]) {
   fs.copyFileSync(path.join(data,'media',`source-${secret}.mp4`),path.join(out,`source-${secret}.mp4`));
 }
 fs.writeFileSync(path.join(data,'project.json'),JSON.stringify({width:W,height:H,fps:FPS,media:[],clips:[]}));
-const browser=require('../../export-jobs').findBrowser();
+const browser=require('../../server/export-jobs').findBrowser();
 if(!browser)throw Error('Chrome/Edge required');
 let pipe,srv,chrome;
 async function pageRun({mode,scenario,secret}) {
@@ -90,7 +90,7 @@ function compare(a,b) {
     const token=crypto.randomBytes(32).toString('hex'),proof=crypto.randomBytes(32).toString('hex');
     const proofPath='/media/proof-'+crypto.randomBytes(16).toString('hex')+'.txt';
     fs.writeFileSync(path.join(data,proofPath.slice(1)),proof);
-    srv=fork(path.join(root,'server.js'),[],{env:{...process.env,PORT:'0',HOST:'127.0.0.1',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,MONTCLIP_FFMPEG:mediaTools.ffmpeg,MONTCLIP_FFPROBE:mediaTools.ffprobe,FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore',fs.openSync(path.join(out,'server.log'),'w'),'ignore','ipc'],windowsHide:true});
+    srv=fork(path.join(root,'server','server.js'),[],{env:{...process.env,PORT:'0',HOST:'127.0.0.1',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,MONTCLIP_FFMPEG:mediaTools.ffmpeg,MONTCLIP_FFPROBE:mediaTools.ffprobe,FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore',fs.openSync(path.join(out,'server.log'),'w'),'ignore','ipc'],windowsHide:true});
     const lease=await serverLease(srv,{token,proofPath,proof});
     const profile=path.join(data,'chrome');fs.mkdirSync(profile);
     chrome=spawn(browser,['--headless=new','--enable-automation','--remote-debugging-pipe',`--user-data-dir=${profile}`,'--no-first-run','about:blank'],{stdio:['ignore','ignore','ignore','pipe','pipe'],windowsHide:true});

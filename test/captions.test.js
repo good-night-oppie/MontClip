@@ -4,7 +4,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const C = require("../captions.js");
-const ProjectOps = require("../project-ops.js");
+const ProjectOps = require("../server/project-ops.js");
 
 const W = (list) => list.map(([w, s, e]) => ({ w, s, e }));
 

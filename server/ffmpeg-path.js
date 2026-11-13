@@ -172,7 +172,7 @@ function resolveBundled(name, opts = {}) {
   const platform = opts.platform || process.platform;
   const arch = opts.arch || process.arch;
   const exists = opts.exists || isFile;
-  const appDir = opts.appDir || __dirname;
+  const appDir = opts.appDir || path.join(__dirname, "..");
   const exe = exeName(name, platform);
   const packaged = env.MONTCLIP_FFMPEG_PACKAGED === "1";
   const missing = (p, source, why) => ({ ok: false, path: p, source, error: why });

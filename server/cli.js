@@ -17,7 +17,7 @@ if (cmd === "mcp") {
 } else if (!cmd || cmd === "start") {
   require("./server.js");
 } else if (cmd === "-v" || cmd === "--version") {
-  console.log(require("./package.json").version);
+  console.log(require("../package.json").version);
 } else {
   const help = cmd === "-h" || cmd === "--help";
   (help ? console.log : console.error)(
@@ -26,6 +26,6 @@ if (cmd === "mcp") {
     "  fablecut mcp      run the MCP server on stdio\n" +
     "  fablecut -v       print the version\n\n" +
     "Register with Claude Code (from a clone):\n" +
-    "  claude mcp add -s user fablecut -- node \"<path-to>/MontClip/mcp-server.js\"");
+    "  claude mcp add -s user fablecut -- node \"<path-to>/MontClip/server/mcp-server.js\"");
   process.exit(help ? 0 : 1);
 }

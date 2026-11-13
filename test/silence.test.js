@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const S = require("../silence.js");
-const ProjectOps = require("../project-ops.js");
+const ProjectOps = require("../server/project-ops.js");
 
 test("options default, and refuse values out of range", () => {
   assert.deepEqual(S.options(), { threshold: -40, minSilence: 0.5, padding: 0.15 });

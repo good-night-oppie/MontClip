@@ -4,7 +4,7 @@
 // written in desktop/asr-manifest.json; a file that does not match is never used. Downloads go only to the listed
 // hosts (hf-mirror.com first, then the k2-fsa GitHub release), every redirect included.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path'), crypto = require('node:crypto');
-const M = require('../asr-models');
+const M = require('../server/asr-models');
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
 
 // A small stand-in manifest with the real one's shape, so the tests write kilobytes, not 250 MB.
@@ -272,7 +272,7 @@ test('room: the speech model is checked for its biggest source (the GitHub archi
   a.ok(forFiles.need >= (234 + 244) * MB, String(forFiles.need / MB));
 });
 test('unpacking takes only the model\'s own files out of an archive (what the room check counts)', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'asr-models.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server/asr-models.js'), 'utf8');
   a.match(src, /function systemExtract\(archive, into, members = \[\]\)/);
   a.match(src, /\["-xjf", archive, "-C", into, \.\.\.members\]/);
   const calls = src.match(/await extract\([^\n]*\);/g);

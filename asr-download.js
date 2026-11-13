@@ -7,7 +7,7 @@
 "use strict";
 const fs = require("node:fs");
 const https = require("node:https");
-const { manifest, allowedUrl } = require("./asr-models");
+const { manifest, allowedUrl } = require("./server/asr-models");
 
 /** Where a redirect goes, if it may: a relative Location stays on the same host. */
 function nextUrl(from, location, hosts = manifest.hosts) {

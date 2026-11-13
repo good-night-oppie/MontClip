@@ -26,9 +26,9 @@ test("the page uses them: new-project dialog, empty names, export and caption fi
   a.ok(!/\|\| "Untitled [Pp]roject"/.test(app), "no hard-coded English default left in the page");
 });
 test("a project made by the server or the project store without a name is 未命名项目", () => {
-  a.ok(!/"Untitled Project"/.test(read("server.js")), "server.js");
-  a.ok(!/"Untitled Project"/.test(read("projects.js")), "projects.js");
-  const { createProjects } = require("../projects");
+  a.ok(!/"Untitled Project"/.test(read("server/server.js")), "server/server.js");
+  a.ok(!/"Untitled Project"/.test(read("server/projects.js")), "server/projects.js");
+  const { createProjects } = require("../server/projects");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-names-"));
   try {
     fs.writeFileSync(path.join(dir, "project.json"), JSON.stringify({ revision: 1, width: 1280, height: 720, fps: 30, media: [], clips: [] }));

@@ -14,9 +14,9 @@
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path"), crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
-const FF = require("../ffmpeg-path");
-const { accumulator, scanReadableRange } = require("../flv-readable-range");
-const P = require("../prepare-media");
+const FF = require("../server/ffmpeg-path");
+const { accumulator, scanReadableRange } = require("../server/flv-readable-range");
+const P = require("../server/prepare-media");
 const MediaLib = require("../media-lib");
 const { make, probe, samplesAV, withSound } = require("./flv-fixtures");
 const REA = path.join(__dirname, "fixtures", "flv-truth-v2");
@@ -77,7 +77,7 @@ const markText = (gaps) => {
 module.exports = { CASES, worstAV };
 
 test("the scan reads packet headers, never decoded frames", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "flv-readable-range.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "server/flv-readable-range.js"), "utf8");
   assert.ok(!src.includes("-show_frames"), "no frame-by-frame decode");
   assert.match(src, /packet=codec_type,pts_time,dts_time,duration_time,pos/);
 });

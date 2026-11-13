@@ -2,8 +2,8 @@
 // QQ, review of #28 (2026-11-02): libopenh264 is never an encoder MontClip chooses, whatever
 // the build lists; and the path of a local FFmpeg is masked before it reaches the page or a log.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const Delivery=require('../delivery'),X=require('../external-ffmpeg');
-const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server.js'),'utf8');
+const Delivery=require('../delivery'),X=require('../server/external-ffmpeg');
+const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server/server.js'),'utf8');
 
 test('libopenh264 is on the never-use list',()=>{
  a.ok(Array.isArray(Delivery.NEVER_ENCODERS)&&Delivery.NEVER_ENCODERS.includes('libopenh264'));
@@ -77,7 +77,7 @@ test('desktop and server hand the page masked results only',()=>{
 test('ffmpeg refusals forwarded to the page are masked (dry-run output paths sit in the user temp folder)',()=>{
  a.match(server,/rejected these settings \(\$\{Delivery\.describe\(o\.spec\)\}\): \$\{X\.maskUserPath\(why\)/);
  a.match(server,/was rejected by ffmpeg: \$\{X\.maskUserPath\(dry\.error\)\}/);
- a.equal(require('../external-ffmpeg').maskUserPath('Could not open C:\\Users\\ada\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4'),'Could not open %USERPROFILE%\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4');
+ a.equal(require('../server/external-ffmpeg').maskUserPath('Could not open C:\\Users\\ada\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4'),'Could not open %USERPROFILE%\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4');
 });
 
 test('QQ (2026-11-02): no spelling of the codec option gets libopenh264 past the check', () => {

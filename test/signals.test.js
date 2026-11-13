@@ -7,7 +7,7 @@ const test = require('node:test'), a = require('node:assert/strict'), fs = requi
 const { makeDataDir, startServer } = require('./helpers');
 const H = require('../highlight-candidates');
 // MontClip's own ffmpeg (vendor/, via ffmpeg-path.js) — never one found on PATH
-const FF = require('../ffmpeg-path');
+const FF = require('../server/ffmpeg-path');
 const hasFfmpeg = () => FF.resolveTool('ffmpeg').ok;
 
 function wav(seconds, loud = [], rate = 16000) {

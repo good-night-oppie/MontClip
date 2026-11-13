@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const {accumulator}=require('../flv-readable-range');
+const {accumulator}=require('../server/flv-readable-range');
 const createMediaProcess=({processes})=>processes;
 const root=path.join(__dirname,'..');
 function world({gap=true,compatible=false,scanFailure=false,uncertain=false,shortOutput=false}={}){
@@ -10,7 +10,7 @@ function world({gap=true,compatible=false,scanFailure=false,uncertain=false,shor
  const processes={execFile(cmd,args,opts,cb){assert.ok(['ffmpeg','ffprobe'].includes(cmd));assert.ok(Array.isArray(args));assert.notEqual(opts.shell,true);if(cmd==='ffmpeg')calls.encode++;cb(null,JSON.stringify({streams,format:{duration:0.1}}));return{once(){}};}};
  const mediaProcess=createMediaProcess({processes,io:fakeFs});
  const mod={exports:{}};
- vm.runInNewContext(fs.readFileSync(path.join(root,'prepare-media.js'),'utf8'),{module:mod,exports:mod.exports,require:id=>id==='./ffmpeg-path'?{path:n=>n,available:()=>true}:id==='fs'?fakeFs:(id==='node:child_process'||id==='child_process')?mediaProcess:id==='./flv-readable-range'?{async scanReadableRange(file){calls.scan++;if(scanFailure)throw Object.assign(Error('private path'),{code:'FLV_PROBE_FAILED'});const a=accumulator(streams,0.1);const out=String(file).endsWith('.mp4');for(const pts of [0,1/30,out&&shortOutput?2/30:gap?2+2/30:2/30])a.frame(`media_type=video|pts_time=${pts}|duration_time=${1/30}`);return {...a.finish(),needsConsent:uncertain};}}:require(id)});
+ vm.runInNewContext(fs.readFileSync(path.join(root,'server/prepare-media.js'),'utf8'),{module:mod,exports:mod.exports,require:id=>id==='./ffmpeg-path'?{path:n=>n,available:()=>true}:id==='fs'?fakeFs:(id==='node:child_process'||id==='child_process')?mediaProcess:id==='./flv-readable-range'?{async scanReadableRange(file){calls.scan++;if(scanFailure)throw Object.assign(Error('private path'),{code:'FLV_PROBE_FAILED'});const a=accumulator(streams,0.1);const out=String(file).endsWith('.mp4');for(const pts of [0,1/30,out&&shortOutput?2/30:gap?2+2/30:2/30])a.frame(`media_type=video|pts_time=${pts}|duration_time=${1/30}`);return {...a.finish(),needsConsent:uncertain};}}:require(id)});
  const prepareMedia=(file,opts={})=>mod.exports.prepareMedia(file,{chooseEncoder:async()=>['h264_mf'],...opts});
  return{...mod.exports,prepareMedia,calls,files,fakeFs};
 }
@@ -41,7 +41,7 @@ test('continuous timelines retain codec consent and unverified scans fail closed
  const bad=world({scanFailure:true});await assert.rejects(bad.prepareMedia('/media/source.flv',{allowTranscode:true}),{code:'FLV_PROBE_FAILED'});assert.equal(bad.calls.encode,0);
 });
 test('production REST upload and reprepare preserve gap code and original; never report completion',async()=>{
- const source=fs.readFileSync(path.join(root,'server.js'),'utf8');
+ const source=fs.readFileSync(path.join(root,'server/server.js'),'utf8');
  const begin=source.indexOf('  if (p === "/api/upload"'),end=source.indexOf('  /* API: download an HTTPS URL',begin);
  for(const route of ['/api/upload','/api/prepare-media']){
   const w=world(),responses=[],file=path.join('/media','source.flv');w.files.set(file,Buffer.from('original'));
@@ -52,15 +52,15 @@ test('production REST upload and reprepare preserve gap code and original; never
  }
 });
 test('production MCP copied original remains but a big break cannot register media without the yes',async()=>{
- const source=fs.readFileSync(path.join(root,'mcp-server.js'),'utf8'),start=source.indexOf('    case "fablecut_import_media": {'),end=source.indexOf('\n    case ',start+10);
+ const source=fs.readFileSync(path.join(root,'server/mcp-server.js'),'utf8'),start=source.indexOf('    case "fablecut_import_media": {'),end=source.indexOf('\n    case ',start+10);
  const w=world(),original=path.resolve('source.flv');w.files.set(original,Buffer.from('original'));
  const context={...w,MediaLib:require('../media-lib'),args:{path:original},fs:w.fakeFs,path,MEDIA_DIR:path.resolve('media'),KIND_BY_EXT:{'.flv':'video'},Delivery:require('../delivery'),uid:()=> 'id',ffprobeDuration:()=>1,probeFile:async()=>({}),infoForEntry:()=>({}),lastReadRevision:0,readProject:()=>({media:[],revision:0}),writeProject(){w.calls.register++;}};
  vm.createContext(context);await assert.rejects(vm.runInContext('(async()=>{switch("fablecut_import_media"){'+source.slice(start,end)+'}})()',context),{code:'FLV_TIMELINE_GAP'});
  assert.equal(w.calls.copies,1);assert.equal(w.calls.register,0);assert.equal(w.calls.encode,0);assert.equal(w.files.get(original).toString(),'original');assert.equal(w.files.size,2);
 });
 test('production URL receiver rejects a .flv filename before storing the response',async()=>{
- const source=fs.readFileSync(path.join(root,'import-url.js'),'utf8'),mod={exports:{}};
- vm.runInNewContext(source+'\nmodule.exports.saveResponse=saveResponse;',{module:mod,exports:mod.exports,require:id=>id==='./ffmpeg-path'?require('../ffmpeg-path'):id==='./delivery'?require('../delivery'):(id==='node:child_process'||id==='child_process')?createMediaProcess({processes:{spawnSync(){assert.fail('URL rejection must not spawn');},execFile(){assert.fail('URL rejection must not execute');}}}):require(id),URL,Buffer,setTimeout,clearTimeout});
+ const source=fs.readFileSync(path.join(root,'server/import-url.js'),'utf8'),mod={exports:{}};
+ vm.runInNewContext(source+'\nmodule.exports.saveResponse=saveResponse;',{module:mod,exports:mod.exports,require:id=>id==='./ffmpeg-path'?require('../server/ffmpeg-path'):id==='./delivery'?require('../delivery'):(id==='node:child_process'||id==='child_process')?createMediaProcess({processes:{spawnSync(){assert.fail('URL rejection must not spawn');},execFile(){assert.fail('URL rejection must not execute');}}}):require(id),URL,Buffer,setTimeout,clearTimeout});
  let drained=0;const res={statusCode:200,headers:{'content-type':'video/x-flv'},resume(){drained++;}};
  await assert.rejects(mod.exports.saveResponse(res,new URL('https://example.invalid/source.flv'),'/unused',{maxBytes:1024}),/unsupported media type/);
  assert.equal(drained,1);

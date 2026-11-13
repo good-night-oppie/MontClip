@@ -47,7 +47,7 @@ test("the page keeps the token and beacons it on pagehide; the server refuses a 
   const path = require("node:path");
   const root = path.resolve(__dirname, "..");
   const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
-  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server", "server.js"), "utf8");
   assert.match(app, /addEventListener\("pagehide"[\s\S]{0,400}navigator\.sendBeacon/);
   assert.match(app, /discard=1&token=" \+ encodeURIComponent\(token\)/);
   assert.match(server, /endToken = crypto\.randomBytes\(32\)\.toString\("hex"\)/);
@@ -58,7 +58,7 @@ test("a real frame starts ffmpeg; discard stops it and removes only that session
   const { execFileSync } = require("node:child_process");
   const fs = require("node:fs");
   const path = require("node:path");
-  const FF = require("../ffmpeg-path");
+  const FF = require("../server/ffmpeg-path");
   if (!FF.available("ffmpeg")) return t.skip("no ffmpeg here; the CI matrix runs this test");
   const dir = makeDataDir(t);
   const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });

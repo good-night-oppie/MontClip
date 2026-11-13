@@ -89,9 +89,9 @@ function validateJson() {
 }
 
 /* AP.4: the "Check the data-dir split" assertions, word for word. Under
-   `node -e`, `require('./paths')` resolves against process.cwd(), so both run
+   `node -e`, `require('./server/paths')` resolves against process.cwd(), so both run
    with cwd = ROOT. The second carries FABLECUT_DATA_DIR, as in ci.yml. */
-const SPLIT_DEFAULT = `const p = require('./paths');
+const SPLIT_DEFAULT = `const p = require('./server/paths');
 if (p.SPLIT) { console.error('expected SPLIT=false with no env'); process.exit(1); }
 if (p.PROJECT_FILE !== require('path').join(process.cwd(), 'project.json')) {
   console.error('default project path moved:', p.PROJECT_FILE); process.exit(1);
@@ -101,7 +101,7 @@ console.log('default layout OK');
 
 const SPLIT_ENV = `const path = require('path');
 const fs = require('fs');
-const p = require('./paths');
+const p = require('./server/paths');
 const want = path.resolve(process.env.FABLECUT_DATA_DIR);
 if (!p.SPLIT) { console.error('expected SPLIT=true'); process.exit(1); }
 for (const [k, v] of Object.entries({

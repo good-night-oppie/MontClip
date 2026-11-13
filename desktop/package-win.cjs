@@ -87,7 +87,7 @@ function filesHolding(appDir, files, key) {
 // every module it requires
 const ROOT_FILES = (list) => list.filter((f) => !f.includes('/') && /\.(js|html|css|svg|json)$/.test(f)
   && !/^(package(-lock)?\.json|project\.json|glama\.json|manifest\.json)$/.test(f) && !/^github-result-/.test(f));
-const ROOT_DIRS = ['icons/', 'library/elements/', 'library/fonts/', 'library/svg/'];
+const ROOT_DIRS = ['server/', 'icons/', 'library/elements/', 'library/fonts/', 'library/svg/'];
 const ROOT_EXTRA = ['CLAUDE.md', 'LICENSE', 'LICENSES.md', 'encoding-profiles.json', 'library/README.md', 'library/sfx/README.md',
   'agent-ui/upstream/LICENSE', 'agent-ui/upstream/NOTICE', 'agent-ui/SOURCES.json', 'agent-ui/THIRD-PARTY-NOTICES.txt',
   'licenses/mediapipe/LICENSE', 'licenses/mediapipe/README.md'];
@@ -129,7 +129,9 @@ function packagedFiles(src, tracked) {
   const list = [...ROOT_FILES(tracked), ...ROOT_DIRS, ...ROOT_EXTRA, ...desktopFiles(src)];
   const has = (rel) => list.some((f) => rel === f || (f.endsWith('/') && rel.startsWith(f)));
   // a smoke module runs only in development (main.js loads it with --montclip-smoke, never when packaged): its fixtures stay out
-  const js = list.filter((f) => /\.c?js$/.test(f) && !/-smoke\.c?js$/.test(f) && tracked.includes(f));
+  // a directory entry (server/, icons/, …) stands for its tracked files: expand it for the scans below (#281)
+  const expanded = list.flatMap((f) => (f.endsWith("/") ? tracked.filter((t) => t.startsWith(f)) : [f]));
+  const js = expanded.filter((f) => /\.c?js$/.test(f) && !/-smoke\.c?js$/.test(f) && tracked.includes(f));
   for (const r of repoReads(src, js, tracked)) if (!has(r.target)) list.push(r.target);
   return list;
 }
@@ -201,7 +203,7 @@ async function main() {
     const Readme = require(path.join(src, 'desktop', 'package-readme', 'render.js'));
     const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app.js'), 'utf8'));
     const readOr = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
-    const copyGone = Readme.dropsExportCopy(readOr(path.join(src, 'desktop', 'main.js')), readOr(path.join(src, 'desktop', 'export-downloads.js')), readOr(path.join(src, 'server.js')));
+    const copyGone = Readme.dropsExportCopy(readOr(path.join(src, 'desktop', 'main.js')), readOr(path.join(src, 'desktop', 'export-downloads.js')), readOr(path.join(src, 'server', 'server.js')));
     let readmeVariant = null;
     for (const [lang, to] of [['zh-CN', '先看我-使用说明.txt'], ['en', 'README-first.txt']]) {
       let r; try { r = Readme.render(Readme.read(lang), { lang, buildId, urlHidden, copyGone }); } catch (e) { fail(e.message); }

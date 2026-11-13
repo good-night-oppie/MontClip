@@ -12,7 +12,7 @@ const path = require("node:path");
 const {
   parseImportUrl, isBlockedIp, isBlockedHostname, filenameFrom,
   kindFromName, downloadImportUrl,
-} = require("../import-url");
+} = require("../server/import-url");
 
 test("parseImportUrl accepts https and rejects everything else", () => {
   const u = parseImportUrl("https://cdn.example.com/a.mp4");

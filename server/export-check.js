@@ -22,7 +22,7 @@
    the sources are read only when the file looks blank. Zero dependencies. */
 "use strict";
 const { execFile } = require("child_process");
-const { hms } = require("./auto-slices");   // times as the page writes them (1:12:04 past an hour)
+const { hms } = require("../auto-slices");   // times as the page writes them (1:12:04 past an hour)
 
 const BLACK = 40;          // 8-bit luma: limited-range black is 16; a dark but real shot has cells far above 40
 const SOURCE_LIT = 60;

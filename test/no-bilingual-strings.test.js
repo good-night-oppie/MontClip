@@ -4,7 +4,7 @@
 // together ("中文 / English", "中文。English") fails this test.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..');
-const FILES = ['app.js', 'desktop/main.js', 'export-jobs.js', 'server.js', 'index.html', 'ui-preferences.js', 'ui-terms.js'];
+const FILES = ['app.js', 'desktop/main.js', 'server/export-jobs.js', 'server/server.js', 'index.html', 'ui-preferences.js', 'ui-terms.js'];
 const LIT = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
 // Allowed, with the reason:
 // key labels and proper names, not sentences (Windows, its Media Feature Pack and ffmpeg.exe: main's #28 texts)

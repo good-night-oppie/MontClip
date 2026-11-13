@@ -3,8 +3,8 @@
 // with parameters, and the page says them in the interface language. No English sentence in the
 // Chinese interface; the English reasons stay for agents, logs and development only.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const V=require('../ui-preferences'),X=require('../external-ffmpeg'),FF=require('../ffmpeg-path');
-const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+const V=require('../ui-preferences'),X=require('../server/external-ffmpeg'),FF=require('../server/ffmpeg-path');
+const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server/server.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
 const zh=V.text['zh-CN'],en=V.text.en;
 
 // JJ's wording, verbatim
