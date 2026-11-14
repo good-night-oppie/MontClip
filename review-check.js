@@ -29,7 +29,8 @@
   // what is sent is now this stretch's subtitles (not the whole video's), there are no counts, taste notes go with both
   // buttons, an unconfirmed domain says 「未验证」, and the result has four dimensions. JJ's first pass on these
   // (6871754149 on 1678c837) is applied; intro and whatFull wait on what #328 sends besides this stretch's text.
-  // en: Rea's review on #326 (6869597666, 6869664676); lines marked 「draft (#328)」 wait for Rea.
+  // en: Rea's review on #326 (6869597666, 6869664676); for the #328 lines, Rea's provisional pass (6871768896) on 1678c837,
+  // with whatTaste, unverifiedBlock, dimState_* and the two new finding types following JJ's later Chinese (6871754149).
   const text = {
     "zh-CN": {
       button: "检查这 {n} 秒",                                     // v2 §6
@@ -108,16 +109,16 @@
       whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text and cut points in this section.",
       whatFullLead: "With either button, the picture and sound include an extra {leadSec} s before the checked section ({from} to {lead}), to give the AI context about what was being said.",
       whatWindow: "Clicking “Send only these {n} s” will send only picture and sound from {from} to {to} ({sec} s). It will not send subtitle text or cut points.",
-      whatTaste: "Either button also sends your {k} saved taste notes (examples you approved or rejected before).",
-      whatTwice: "This section will be sent in {k} requests.",
+      whatTaste: "Either button also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
+      whatTwice: "The same section will be sent {k} times.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
       to: "Send to: {service} ({host})",
       toUnverified: "Send to: {service} ({host}, not verified)",
-      unverifiedBlock: "Nobody has confirmed this address yet, so nothing will be sent.",
+      unverifiedBlock: "Nobody has confirmed this address yet, so nothing will be sent. Please try again once someone has confirmed it.",
       training: "They may use this content to train models",
       noDestination: "It isn't clear where this would be sent, so nothing will be sent.",
       noPayload: "It isn't clear exactly what this would send, so nothing will be sent.",
-      changedRecheck: "What would be sent has changed since you looked. Please check it again before deciding.",
+      changedRecheck: "What will be sent is different from what was described earlier. Please check it again before deciding.",
       previewBtn: "See what will be sent",
       sendFull: "Send for a check",
       sendWindow: "Send only these {n} s",
@@ -134,17 +135,17 @@
       sendFailed: "The check didn't complete. It's not certain whether the content already reached them. That doesn't mean there's no problem.",
       rangeTooLong: "The range you marked is over 30 seconds, so this checks the {n} seconds around the playhead.",
       windowOnly: "Only these {n} seconds were checked, without the subtitle text.",
-      textGone: "The original wording of this record wasn't kept; only times and kinds remain.",
+      textGone: "The original text of this record wasn't saved; only timestamps and categories remain.",
       dimLine: "{label}: {state}",
       dimReason: ". {text}",
-      dim_fact: "People and facts",
+      dim_fact: "People and events",
       dim_subtitle: "Subtitles",
       dim_pacing: "Pacing",
-      dim_packaging: "Packaging (captions, name plates)",
+      dim_packaging: "On-screen graphics (styled text, name labels)",
       dimState_passed: "no problems found",
-      dimState_issues: "problems",
-      dimState_insufficient_evidence: "couldn't tell",
-      dimState_unknown: "no verdict",
+      dimState_issues: "possible problems",
+      dimState_insufficient_evidence: "couldn't be judged",
+      dimState_unknown: "no conclusion provided",
       inLead: "(in the extra seconds just before)",
       jump: "Go here",
       fixed: "Fixed",
@@ -157,9 +158,9 @@
       type_subtitle_mismatch: "Subtitles may not match what's said",
       type_audio: "The sound may have a problem",
       type_continuity: "The two sections may not connect smoothly",
-      type_over_explained_caption: "The caption may explain too much",
+      type_over_explained_caption: "The added on-screen text here may say too much (the picture and sound already make it clear)",
       type_punchline_spoiled: "The punchline may be given away early",
-      type_protected_region_occluded: "Something that shouldn't be covered may be covered",
+      type_protected_region_occluded: "Something that shouldn't be covered may be covered (such as on-screen chat)",
       type_other: "There may be a problem here",
     },
   };
