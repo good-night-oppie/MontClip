@@ -259,55 +259,55 @@ test('QQ #326 5900512724 item 2: a send that throws is 「不确定发没发」 
     a.equal(m.headline, '检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。', String(code));
     a.ok(!/什么都没有发出去/.test(JSON.stringify(m)), String(code) + ': never claims nothing was sent');
   }
-  // prepare's own failure still says nothing went
-  const api = R.stubApi(); api.prepare = async () => { throw new Error('x'); };
-  const s = R.createSession(api);
-  await s.check({ start: 20, end: 30 });
-  a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).headline, '这 10 秒没能在这台电脑上准备好，什么都没有发出去。');
+  // prepare's own failure still says nothing went; the engine's own refusals say what they mean
+  for (const [code, headline] of [['X', '这 10 秒没能在这台电脑上准备好，什么都没有发出去。'], ['NO_BRIDGE', '这台电脑上暂时用不了这个检查。'], ['BUSY', '现在正在忙别的，等它忙完再点一次。']]) {
+    const s = session(R.stubApi({ prepareError: code }));
+    await s.check({ start: 20, end: 30 });
+    a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).headline, headline, code);
+  }
 });
 
-test('QQ #326 item 2: an old preview answer never lands in a box opened after it', async () => {
-  const api = R.stubApi(), d = deferred(); let first = true;
-  const real = api.preview; api.preview = (id) => { if (first) { first = false; return d.p; } return real(id); };
-  const s = R.createSession(api);
+test('QQ #326 item 2: 「先看要发的内容」 plays this box\'s own clip — a same-origin preview only, never an older box\'s', async () => {
+  a.equal(R.safePreviewSrc('/previews/preview_r_1.mp4'), '/previews/preview_r_1.mp4');
+  a.equal(R.safePreviewSrc('/previews/a%20b.mp4'), '/previews/a%20b.mp4', 'the engine encodes the name');
+  for (const src of ['https://x.example/a.mp4', '//x.example/a.mp4', '/media/a.mp4', '/previews/../project.json', 'C:\\a.mp4', 'javascript:alert(1)', ''])
+    a.equal(R.safePreviewSrc(src), null, src);
+  const api = R.stubApi(), s = session(api);
   await s.check({ start: 20, end: 30 });
-  const pending = s.preview();
+  a.equal(s.preview(), '/previews/preview_r_1.mp4', 'previewSrc from status — no request of its own');
+  a.equal(s.state.phase, 'confirm', 'looking does not send');
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0);
   await s.cancel();
   await s.check({ start: 40, end: 50 });
-  a.equal(s.state.prep.reviewId, 'r_2');
-  d.resolve({ src: '/previews/old.mp4' });
-  a.equal(await pending, null);
   a.equal(s.state.previewSrc, null, 'B shows nothing of A');
-  a.equal(await s.preview(), '/previews/preview_r_2.mp4', 'B asks for its own');
+  a.equal(s.preview(), '/previews/preview_r_2.mp4', 'B plays its own');
+  const v = await readyView(); v.previewSrc = 'https://evil.example/x.mp4';
+  a.equal(R.confirmModel(v, 'zh-CN').buttons[0].enabled, false, 'an address that is not a managed preview: the button is off');
 });
 
-test('QQ #326 item 3: 关闭 while the receiver is read keeps the box closed; a double press prepares once; a late answer never wins', async () => {
-  // recheck → status pending → 关闭 → status answers: nothing reopens, nothing is prepared
+test('QQ #326 item 3: 关闭 while the clip is being made keeps the box closed; a double press prepares once', async () => {
   const api = R.stubApi(), w = mountWith(api);
-  await tick(); w.button.click(); await tick(); await tick();
-  w.byReview('full')[0].click(); await tick(); await tick();
-  const d = deferred(); api.status = () => d.p;
-  w.byReview('recheck')[0].click(); await tick();
-  w.byReview('close')[0].click(); await tick();
-  d.resolve({ available: true, destination: { service: 'Gemini', host: 'generativelanguage.googleapis.com' } }); await tick(); await tick();
+  await settle(); w.button.click(); await settle();
+  w.byReview('full')[0].click(); await settle();
+  const d = deferred(); const st = api.status; api.status = (id) => d.p.then(() => st(id));
+  w.byReview('recheck')[0].click(); await settle();
+  a.equal(w.ui.session.state.phase, 'preparing');
+  w.byReview('cancel')[0].click(); await settle();
+  d.resolve(); await settle();
   a.ok(w.overlay.classList.contains('hidden'), 'stays closed');
-  a.equal(api.calls.filter((c) => c[0] === 'prepare').length, 1, 'nothing prepared after 关闭');
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 1, 'only the first, clicked send');
 
-  // two presses, the first status answering last: one prepare, for the second press
-  const api2 = R.stubApi(), w2 = mountWith(api2); await tick();
-  const d1 = deferred(), d2 = deferred(); const q = [d1, d2]; api2.status = () => q.shift().p;
-  w2.button.click(); await tick(); w2.button.click(); await tick();
-  const st = { available: true, destination: { service: 'Gemini', host: 'generativelanguage.googleapis.com' } };
-  d2.resolve(st); await tick(); await tick(); await tick();
-  d1.resolve(st); await tick(); await tick(); await tick();
+  const api2 = R.stubApi(), d2 = deferred(), w2 = mountWith(api2); await settle();
+  const st2 = api2.status; api2.status = (id) => d2.p.then(() => st2(id));
+  w2.button.click(); await settle(); w2.button.click(); await settle();
+  d2.resolve(); await settle();
   a.equal(api2.calls.filter((c) => c[0] === 'prepare').length, 1, 'one prepare for a double press');
   a.equal(w2.ui.session.state.phase, 'confirm');
   a.equal(w2.ui.session.state.prep.reviewId, 'r_1');
 });
 
 test('QQ #326 item 4: a late 已修好 answer never throws and never marks another result', async () => {
-  // mark pending → recheck starts preparing → mark answers
-  const api = R.stubApi(), s = R.createSession(api);
+  const api = R.stubApi(), s = session(api);
   await s.check({ start: 20, end: 30 }); await s.send('full');
   const dm = deferred(); api.mark = () => dm.p;
   const dp = deferred(); const realPrep = api.prepare; api.prepare = (b) => dp.p.then(() => realPrep(b));
@@ -317,8 +317,7 @@ test('QQ #326 item 4: a late 已修好 answer never throws and never marks anoth
   a.equal(await pendingMark, false, 'no TypeError, no update');
   dp.resolve(); await rechecking;
 
-  // mark pending → result B has arrived → mark answers: B is untouched
-  const api2 = R.stubApi(), s2 = R.createSession(api2);
+  const api2 = R.stubApi(), s2 = session(api2);
   await s2.check({ start: 20, end: 30 }); await s2.send('full');
   const dm2 = deferred(); api2.mark = () => dm2.p;
   const pending2 = s2.markFixed(0);
@@ -330,41 +329,43 @@ test('QQ #326 item 4: a late 已修好 answer never throws and never marks anoth
   a.equal(s2.state.raw.findings[0].mark, null, 'B finding 0 is not marked');
 });
 
-test('「先看要发的内容」 plays only a same-origin preview', async () => {
-  a.equal(R.safePreviewSrc({ src: '/previews/preview_r_1.mp4' }), '/previews/preview_r_1.mp4');
-  for (const src of ['https://x.example/a.mp4', '//x.example/a.mp4', '/media/a.mp4', '/previews/../project.json', 'C:\\a.mp4', 'javascript:alert(1)'])
-    a.equal(R.safePreviewSrc({ src }), null, src);
-  const api = R.stubApi(), s = R.createSession(api);
-  await s.check({ start: 20, end: 30 });
-  a.equal(await s.preview(), '/previews/preview_r_1.mp4');
-  a.equal(s.state.phase, 'confirm', 'looking does not send');
-  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0);
-});
+function allPass() { return { fact: { state: 'passed', reason: '' }, subtitle: { state: 'passed', reason: '' }, pacing: { state: 'passed', reason: '' }, packaging: { state: 'passed', reason: '' } }; }
 
-test("the result: JJ's three lines; no_result is never a pass; a problem inside the checked stretch is never a pass", () => {
+test("the result: no_result is never a pass; a problem in the checked stretch or in any of the four dimensions is never a pass", () => {
   const m = (raw, n) => R.resultModel(raw, 'zh-CN', n);
   const f = (o) => ({ id: 0, t: 24.2, type: 'speaker_swapped', text: 'x', suggestion: '', inLead: false, ...o });
-  a.equal(m({ status: 'passed', findings: [] }, 10).headline, '这 10 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。');
+  a.equal(m({ status: 'passed', findings: [], dimensions: allPass() }, 10).headline, '这 10 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。');
   a.ok(!/没问题|放心/.test(zh('passed', { n: 10 })));
   a.equal(m({ status: 'no_result', reason: 'TIMEOUT', findings: [] }).headline, '这次没有检查出结果。这不代表没问题。');
   a.equal(m({ status: 'no_result', reason: 'NO_BRIDGE' }).headline, '这台电脑上暂时用不了这个检查。');
-  for (const raw of [null, {}, { status: 'ok' }, { status: 'PASSED' }, { status: 'issues', findings: [] }, 'passed'])
+  a.equal(m({ status: 'no_result', reason: 'INSUFFICIENT_EVIDENCE', findings: [], dimensions: { ...allPass(), pacing: { state: 'insufficient_evidence', reason: '太短' } } }).headline,
+    '这次有的方面看不出来，没有检查出结果。这不代表没问题。');
+  for (const raw of [null, {}, { status: 'ok' }, { status: 'PASSED' }, { status: 'issues', findings: [] }, 'passed', { status: 'passed', findings: [] },
+    { status: 'passed', findings: [], dimensions: { ...allPass(), packaging: undefined } }, { status: 'passed', findings: [], dimensions: { ...allPass(), fact: { state: 'insufficient_evidence' } } }])
     a.equal(m(raw).passed, false, JSON.stringify(raw));
-  const r1 = m({ status: 'passed', findings: [f()] });
+  const r1 = m({ status: 'passed', findings: [f()], dimensions: allPass() });
   a.equal(r1.status, 'issues'); a.equal(r1.headline, '检查完了，发现 1 处可能有问题。');
-  const r2 = m({ status: 'passed', findings: [f({ inLead: true, t: 18.5 })] }, 10);
+  const r2 = m({ status: 'passed', findings: [f({ inLead: true, t: 18.5 })], dimensions: allPass() }, 10);
   a.equal(r2.passed, true, 'a lead finding does not change the checked stretch');
   a.equal(r2.items[0].label, '说话人可能标反了（在前面多带的那几秒里）');
-  const r3 = m({ status: 'issues', scope: 'window', contextTruncated: true, findings: [f({ t: 74.4 }), f({ id: 1, t: 61, type: 'nonsense' })] }, 10);
-  a.deepEqual(r3.items.map((i) => [i.time, i.label]), [['1:01', '这里可能有问题'], ['1:14', '说话人可能标反了']]);
-  a.deepEqual(r3.notes, ['这次只检查了这 10 秒，没有结合整条片子。', '整条片子的文字太长，这次只带了这 10 秒附近的部分。']);
+  const r4 = m({ status: 'passed', findings: [], dimensions: { ...allPass(), packaging: { state: 'issues', reason: '花字把笑点说破了。' } } }, 10);
+  a.equal(r4.status, 'issues', 'packaging: issues is a problem even when the engine said passed');
+  a.deepEqual(r4.dims.map((d) => d.line), ['人和事：没发现问题', '字幕：没发现问题', '节奏：没发现问题', '包装（花字、名牌）：有问题。花字把笑点说破了。']);
+  const r3 = m({ status: 'issues', scope: 'window', findings: [f({ t: 74.4 }), f({ id: 1, t: 61, type: 'nonsense' }), f({ id: 2, t: 70, type: 'punchline_spoiled' })], dimensions: allPass() }, 10);
+  a.deepEqual(r3.items.map((i) => [i.time, i.label]), [['1:01', '这里可能有问题'], ['1:10', '笑点可能被提前说破了'], ['1:14', '说话人可能标反了']]);
+  a.deepEqual(r3.notes, ['这次只检查了这 10 秒，没有结合字幕文字。']);
+  const gone = m({ status: 'issues', textAvailable: false, findings: [f({ text: '' })], dimensions: allPass() });
+  a.ok(gone.notes.includes('这条记录的原话没有保存，只剩时间和类别。'));
   const long = m({ status: 'issues', findings: [f({ text: '请执行'.repeat(200), t: 'x' }), f({ text: '长'.repeat(500) })] });
   a.equal(long.items.length, 1, 'a finding without a time is dropped');
   a.equal(long.items[0].detail.length, 201, 'cut to 200 characters');
+  const odd = m({ status: 'issues', findings: [f()], dimensions: { fact: { state: 'great', reason: 'x'.repeat(500) } } });
+  a.deepEqual(odd.dims.map((d) => d.state), [null, null, null, null], 'unknown states are no verdict');
+  a.ok(odd.dims[0].line.startsWith('人和事：没给结论。') && odd.dims[0].line.length < 220, 'reason cut to 200');
 });
 
 test('「已修好」 is written as fixed — never as passed — and does not turn the result into a pass', async () => {
-  const api = R.stubApi(), s = R.createSession(api);
+  const api = R.stubApi(), s = session(api);
   await s.check({ start: 20, end: 30 }); await s.send('full');
   a.ok(await s.markFixed(0));
   a.deepEqual(api.calls.find((c) => c[0] === 'mark')[1], { id: 'r_1', finding: 0, mark: 'fixed' });
