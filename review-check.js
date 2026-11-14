@@ -361,31 +361,18 @@
       if (!res.ok) { const e = new Error((j && j.error) || "HTTP " + res.status); e.status = res.status; e.code = j && j.code; e.body = j; throw e; }
       return j;
     };
+    const post = (path, body) => req(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
     return {
-      async status() {
-        let res;
-        try { res = await f("/api/review/status", { cache: "no-store" }); } catch { return null; }
-        if (!res.ok) return null;
-        let j; try { j = await res.json(); } catch { return null; }
-        return j && typeof j.available === "boolean" ? j : null;
+      /** the routes are there (GET /api/review/taste answers on any engine with #328); says nothing about the bridge */
+      async available() {
+        try { const res = await f("/api/review/taste", { cache: "no-store" }); return !!res.ok; } catch { return false; }
       },
       prepare: (b) => post("/api/review/prepare", b),
-      async preview(reviewId) {
-        const res = await f("/api/review/preview?id=" + encodeURIComponent(reviewId), { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.json();
-      },
-      send: (b) => post("/api/review/send", b),
-      cancel: (reviewId) => post("/api/review/cancel", { reviewId }),
+      status: (id) => req("/api/review/status?id=" + encodeURIComponent(id)),
+      send: (id, token) => post("/api/review/send", { id, token }),
+      cancel: (id) => post("/api/review/cancel", { id }),
       mark: (b) => post("/api/review/mark", b),
-      prewarm: (b) => post("/api/review/prewarm", b),
     };
-  }
-
-  /** Only a same-origin managed preview is played; anything else from the server is refused. */
-  function safePreviewSrc(j) {
-    const s = j && typeof j.src === "string" ? j.src : "";
-    return /^\/previews\/[\w.\-]+(\?[\w=&.\-]*)?$/.test(s) ? s : null;
   }
 
   /**
