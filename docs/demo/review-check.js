@@ -46,11 +46,12 @@
       whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。",   // JJ #326 (PG v4.1 6871970875 with 字幕文字)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
-      noPage: "只能在 MontClip 桌面版的窗口里发送检查，这里只能看会发什么。",   // draft (#328 85d9e8d1: no send token outside the desktop window); JJ to finalize
-      tasteLost: "有 {k} 条好坏例子的文字在重启后没了，这次不会发出去。",   // draft (#328 eb3203ab willSend.tasteLost); JJ to finalize
-      fixedTitle: "每次都会发给模型的固定问题",                       // draft (Deja #326): folded in 「先看要发的内容」; JJ to finalize
-      fixedStandards: "审片标准：",                                  // draft
-      fixedQuestions: "问题：",                                      // draft
+      noPage: "这个页面不能发送检查，要发送请在 MontClip 桌面版的窗口里操作；这里只能先看会发什么。",   // JJ #326 6872379274 (#328 85d9e8d1: no send token outside the desktop window)
+      tasteLost: "有 {k} 条好坏例子的文字在重启后没有保留，这次不会发出去；需要的话请重新填写。",   // JJ #326 6872283674 (#328 willSend.tasteLost)
+      fixedTitle: "会一起发给 AI 的固定标准和问题",                // JJ #326 6872283674: folded in 「先看要发的内容」
+      fixedTwice: "分次发出时，第一次不带，从后面几次起带上。",   // JJ #326 6872283674: only when requests > 1, right under the folded title
+      fixedStandards: "审片标准：",                                  // JJ #326 6872283674
+      fixedQuestions: "要 AI 回答的问题：",                          // JJ #326 6872283674
       tasteMemory: "好坏例子的文字只在本次运行保留，重启后需重新填写。",   // draft (PG #321 6871936322 三: the words are kept in memory only); JJ to finalize
       whatTwice: "会分 {k} 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。",   // JJ #326 6871859408: willSend.requests > 1 (#328: 1 or 2; two_pass looks blind first)
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
@@ -137,11 +138,12 @@
       whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). No subtitle text, cut points or saved examples will be sent separately; subtitles already visible in the picture will still be sent as part of it.",
       whatEdge: "Any subtitle that overlaps this clip in time will be sent in full, so it may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
-      noPage: "A check can only be sent from the MontClip desktop window; here you can only see what would be sent.",
-      tasteLost: "The words of {k} saved examples were lost in a restart, so they won't be sent this time.",
-      fixedTitle: "Fixed questions sent to the model every time",
+      noPage: "Checks can't be sent from this page. To send one, use the MontClip desktop window; here you can only see what would be sent first.",
+      tasteLost: "The text of {k} saved examples wasn't kept after a restart, so it won't be sent this time. Enter it again if you need it.",
+      fixedTitle: "Fixed standards and questions sent to the AI with it",
+      fixedTwice: "When it is sent in parts, the first part doesn't include them; they go with the later parts.",
       fixedStandards: "Review standards:",
-      fixedQuestions: "Questions:",
+      fixedQuestions: "Questions for the AI to answer:",
       tasteMemory: "The text of these examples is kept only for the current run. You'll need to enter it again after a restart.",
       whatTwice: "This will be sent {k} times: the first time with only the picture and sound, and the later times also with the other content described above.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
@@ -292,14 +294,16 @@
     // #328 eb3203ab: how many saved examples lost their words in a restart (they are not sent); absent from older engines = 0
     const lost = ws.tasteLost == null ? 0 : count_(ws.tasteLost);
     if (lost == null) return null;
-    // Deja (#326): the fixed standards and questions that go with every send are shown as the engine sends them — from willSend, never
-    // written into the page. Absent (an engine that does not report them yet): nothing is shown; present but malformed: not a description.
+    // Deja (#326): the fixed standards and questions that go with the send are shown as the engine sends them — #328 a41b6bca willSend.standards
+    // {rules, questions, ask, carriedBy}, the very strings the request is built from; never written into the page. Absent (an older engine):
+    // nothing is shown; present but malformed, or carried by a request that is not there: not a description.
     let fixed = null;
-    if (ws.fixedText != null) {
-      const f = ws.fixedText, list = (a) => (Array.isArray(a) && a.length <= 20 && a.every((x) => typeof x === "string" && x && x.length <= 400) ? a.slice() : null);
-      const standards = list(f && f.standards), questions = list(f && f.questions), ask = f && typeof f.ask === "string" && f.ask.length <= 400 ? f.ask : null;
-      if (!standards || !questions || ask == null) return null;
-      fixed = { standards, questions, ask };
+    if (ws.standards != null) {
+      const f = ws.standards, list = (a) => (Array.isArray(a) && a.length <= 20 && a.every((x) => typeof x === "string" && x && x.length <= 400) ? a.slice() : null);
+      const standards = list(f && f.rules), questions = list(f && f.questions), ask = f && typeof f.ask === "string" && f.ask.length <= 400 ? f.ask : null;
+      const by = f && f.carriedBy;
+      if (!standards || !questions || ask == null || !(by === "only" ? requests === 1 : by === "second" ? requests > 1 : false)) return null;
+      fixed = { standards, questions, ask, laterOnly: by === "second" };
     }
     return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes, lost, fixed };
   }
@@ -584,7 +588,7 @@
     const view = (r) => ({ reviewId: r.id, state: r.state, range: r.range, lead: r.lead, scope: r.scope, mode: "single",
       willSend: r.state === "ready" ? { what: "a short video clip (with its sound) of this stretch", to: dest, requests: 1, tasteNotes: r.notes.length,
         leadIn: r.lead > 0 ? { from: +(r.range.start - r.lead).toFixed(2), to: r.range.start, seconds: r.lead } : null,
-        ...(opts.fixedText ? { fixedText: opts.fixedText } : {}), ...(opts.tasteLost != null ? { tasteLost: r.scope === "full" ? opts.tasteLost : 0 } : {}),
+        ...(opts.standards ? { standards: { ...opts.standards, carriedBy: "only" } } : {}), ...(opts.tasteLost != null ? { tasteLost: r.scope === "full" ? opts.tasteLost : 0 } : {}),
         projectText: r.scope === "full" ? (opts.projectText != null ? opts.projectText : "18.00-21.50s text: 前面那句\n22.00-26.00s text: 这一句") : "", notes: r.notes,
         seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
       previewSrc: r.state === "ready" ? "/previews/preview_" + r.id + ".mp4" : undefined,
@@ -698,8 +702,9 @@
             if (!pay.text) box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoText")));
           } else if (pay && pay.scope === "window") box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoTextWindow")));
           if (pay && pay.fixed) {   // folded: the same words the engine sends every time
-            const d = el(doc, "details", "review-fixed"); d.dataset.review = "fixed";
+            const d = el(doc, "details", "review-fixed"); d.dataset.review = "standards";
             d.appendChild(el(doc, "summary", null, t(lang, "fixedTitle")));
+            if (pay.fixed.laterOnly) { const p = el(doc, "p", "dim review-note", t(lang, "fixedTwice")); p.dataset.review = "fixedTwice"; d.appendChild(p); }
             const part = (title, items, key) => { d.appendChild(el(doc, "p", "dim review-note", title)); const ol = el(doc, "ol", "review-notes");
               for (const x of items) { const li = el(doc, "li", null, x); li.dataset.review = key; ol.appendChild(li); } d.appendChild(ol); };
             part(t(lang, "fixedStandards"), pay.fixed.standards, "standard");
