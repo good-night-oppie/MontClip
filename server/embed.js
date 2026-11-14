@@ -155,4 +155,5 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
   return { authorized, worker, taskTicket, redeemTask, channelFor, redeemChannel, bootstrap, launchTicket, cookieSession, revoke };
 }
 
+/** The review's page cookie (#321): the one place its attributes are written. Only the review's own paths ever receive it. */
 module.exports = { COOKIE, COOKIE_ATTRS, MAX_SESSIONS, TOKEN_RE, TASK_TICKET_MS, TASK_ID_RE, sameSecret, cookieValue, createEmbed };

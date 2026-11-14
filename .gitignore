@@ -37,3 +37,7 @@ pnpm-lock.yaml
 /library/project-templates/
 /vendor/
 /.cache/
+
+# review records and quick samples this server keeps (#321)
+/previews/
+/reviews/
