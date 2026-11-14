@@ -143,8 +143,9 @@ test("every place that names an exported file uses it: export, captions, mapping
   // P7: never a default project name — exportProjectName (test/p7-default-names.test.js)
   a.match(app, /const exportBaseName = \(fallback\) => Delivery\.fileSafeName\(MontClipView\.exportProjectName\(project\.name, \(project\.media \|\| \[\]\)\.map\(\(m\) => m\.name\)\),\s*MontClipView\.exportFallback\(mcView\.get\(\)\.language, fallback\)\);/);
   a.match(server, /function exportName\(name\) \{ return Delivery\.fileSafeName\(String\(name \|\| ""\), "export"\); \}/);
-  a.match(server, /reserveExportPaths\(EXPORTS_DIR, exportName\(o\.name \|\| "export"\), ext\)/);
-  a.match(server, /const safe = exportName\(name \|\| "export"\);/);
+  // a quick sample (#321) has its own name, preview_<id>; every other export still goes through exportName
+  a.match(server, /reserveExportPaths\(outDir, exportName\(extra\.preview \? "preview_" \+ id : o\.name \|\| "export"\), ext\)/);
+  a.match(server, /const safe = exportName\(extra\.preview \? "preview_" \+ id : name \|\| "export"\);/);
 });
 
 test("the server exports 未命名项目 as 未命名项目.mp4 and serves it under its encoded name", async (t) => {
