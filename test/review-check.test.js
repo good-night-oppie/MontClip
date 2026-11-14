@@ -106,11 +106,11 @@ test("the box says what is sent, to whom, and that it may train a model", async 
   a.ok(m.canSend && m.buttons.every((b) => b.enabled));
   a.deepEqual(m.lines.slice(1), [
     '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段里的字幕文字、剪辑时间点。',
-    '点「只发这 10 秒」只发出去：0:17–0:30 的画面和声音（13 秒），不带字幕文字和剪辑时间点。',
+    '点「只发这 10 秒」只发出去：0:17–0:30 的画面和声音（13 秒），不发字幕文字和剪辑时间点。',
     '两个按钮发的画面和声音里，都有前面多带的 3 秒（0:17–0:20），让 AI 知道前面在说什么。',
     '画面里如果有观众昵称、弹幕，会原样发出去。']);
   const taste = R.confirmModel(await readyView({ taste: 4 }), 'zh-CN');
-  a.ok(taste.lines.includes('两个按钮都会带上你记下的 4 条审美笔记（你以前认可或不认可的例子）。'), 'willSend.tasteNotes is always said when there are any');
+  a.ok(taste.lines.includes('两个按钮都会把之前记下的 4 条好坏例子（认可的和不认可的）一起发出去。'), 'willSend.tasteNotes is always said when there are any');
   const twice = await readyView(); twice.willSend = { ...twice.willSend, requests: 2 };
   a.ok(R.confirmModel(twice, 'zh-CN').lines.includes('同一段会分 2 次发出去。'));
 });
@@ -123,7 +123,7 @@ test("Deja #328: a domain nobody confirmed says 「未验证」 beside it and is
   a.equal(s.state.phase, 'unverified');
   const u = R.unverifiedModel(s.state.dest, 'zh-CN', s.state.range);
   a.equal(u.to, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com，未验证）');
-  a.ok(u.lines.includes('这个地址还没有人确认过，所以先不发。'));
+  a.ok(u.lines.includes('这个地址还没有人确认过，所以先不发。请等有人确认后再试。'));
   a.equal(u.training, '对方可能用这段内容训练模型');
   a.deepEqual(u.buttons.map((b) => [b.label, b.enabled]), [['先看要发的内容', false], ['发送检查', false], ['只发这 10 秒', false], ['不发了', true]]);
   a.equal(await s.send('full'), false);
@@ -174,7 +174,7 @@ test('「只发这 10 秒」 (#328: scope is fixed at prepare): a clip without t
   a.equal(api2.calls.filter((c) => c[0] === 'send').length, 0, 'not sent: the box changed');
   const m2 = R.confirmModel(s2.state.prep, 'zh-CN', { changed: true });
   a.ok(m2.lines.includes('要发的内容和刚才说的不一样了，请再看一遍再决定。'));
-  a.ok(m2.lines.includes('两个按钮都会带上你记下的 2 条审美笔记（你以前认可或不认可的例子）。'));
+  a.ok(m2.lines.includes('两个按钮都会把之前记下的 2 条好坏例子（认可的和不认可的）一起发出去。'));
   a.equal(m2.buttons.find((b) => b.id === 'full').enabled, false, 'this clip has no text: 「发送检查」 would need its own');
   a.ok(await s2.send('window'), 'a second click sends what is now shown');
   a.deepEqual(api2.calls.filter((c) => c[0] === 'send').map((c) => c[1]), ['r_2']);
@@ -339,7 +339,7 @@ test("the result: no_result is never a pass; a problem in the checked stretch or
   a.equal(m({ status: 'no_result', reason: 'TIMEOUT', findings: [] }).headline, '这次没有检查出结果。这不代表没问题。');
   a.equal(m({ status: 'no_result', reason: 'NO_BRIDGE' }).headline, '这台电脑上暂时用不了这个检查。');
   a.equal(m({ status: 'no_result', reason: 'INSUFFICIENT_EVIDENCE', findings: [], dimensions: { ...allPass(), pacing: { state: 'insufficient_evidence', reason: '太短' } } }).headline,
-    '这次有的方面看不出来，没有检查出结果。这不代表没问题。');
+    '这次有的方面没法判断，没有检查出结果。这不代表没问题。');
   for (const raw of [null, {}, { status: 'ok' }, { status: 'PASSED' }, { status: 'issues', findings: [] }, 'passed', { status: 'passed', findings: [] },
     { status: 'passed', findings: [], dimensions: { ...allPass(), packaging: undefined } }, { status: 'passed', findings: [], dimensions: { ...allPass(), fact: { state: 'insufficient_evidence' } } }])
     a.equal(m(raw).passed, false, JSON.stringify(raw));
@@ -350,7 +350,7 @@ test("the result: no_result is never a pass; a problem in the checked stretch or
   a.equal(r2.items[0].label, '说话人可能标反了（在前面多带的那几秒里）');
   const r4 = m({ status: 'passed', findings: [], dimensions: { ...allPass(), packaging: { state: 'issues', reason: '花字把笑点说破了。' } } }, 10);
   a.equal(r4.status, 'issues', 'packaging: issues is a problem even when the engine said passed');
-  a.deepEqual(r4.dims.map((d) => d.line), ['人和事：没发现问题', '字幕：没发现问题', '节奏：没发现问题', '包装（花字、名牌）：有问题。花字把笑点说破了。']);
+  a.deepEqual(r4.dims.map((d) => d.line), ['人和事：没发现问题', '字幕：没发现问题', '节奏：没发现问题', '包装（花字、名牌）：可能有问题。花字把笑点说破了。']);
   const r3 = m({ status: 'issues', scope: 'window', findings: [f({ t: 74.4 }), f({ id: 1, t: 61, type: 'nonsense' }), f({ id: 2, t: 70, type: 'punchline_spoiled' })], dimensions: allPass() }, 10);
   a.deepEqual(r3.items.map((i) => [i.time, i.label]), [['1:01', '这里可能有问题'], ['1:10', '笑点可能被提前说破了'], ['1:14', '说话人可能标反了']]);
   a.deepEqual(r3.notes, ['这次只检查了这 10 秒，没有结合字幕文字。']);
@@ -361,7 +361,7 @@ test("the result: no_result is never a pass; a problem in the checked stretch or
   a.equal(long.items[0].detail.length, 201, 'cut to 200 characters');
   const odd = m({ status: 'issues', findings: [f()], dimensions: { fact: { state: 'great', reason: 'x'.repeat(500) } } });
   a.deepEqual(odd.dims.map((d) => d.state), [null, null, null, null], 'unknown states are no verdict');
-  a.ok(odd.dims[0].line.startsWith('人和事：没给结论。') && odd.dims[0].line.length < 220, 'reason cut to 200');
+  a.ok(odd.dims[0].line.startsWith('人和事：没有结论。') && odd.dims[0].line.length < 220, 'reason cut to 200');
 });
 
 test('「已修好」 is written as fixed — never as passed — and does not turn the result into a pass', async () => {
@@ -411,7 +411,7 @@ test('in the page: the box shows the receiver and the training line before eithe
   full.click(); await settle();
   a.equal(api.calls.filter((c) => c[0] === 'send').length, 1);
   a.equal(w.byReview('headline')[0].textContent, '检查完了，发现 1 处可能有问题。');
-  a.deepEqual(w.byReview('dim').map((n) => n.textContent), ['人和事：有问题。名牌和说话的人对不上。', '字幕：没发现问题', '节奏：没发现问题', '包装（花字、名牌）：没发现问题']);
+  a.deepEqual(w.byReview('dim').map((n) => n.textContent), ['人和事：可能有问题。名牌和说话的人对不上。', '字幕：没发现问题', '节奏：没发现问题', '包装（花字、名牌）：没发现问题']);
   w.byReview('jump')[0].click();
   a.deepEqual(w.seeks, [41.2], 'a click on the finding goes to that second');
   w.byReview('fixed')[0].click(); await settle();
