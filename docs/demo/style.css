@@ -5319,3 +5319,33 @@ html[data-host-theme="light"] .monitor-mode .btn.on { background: #6352e6; borde
 html[data-host-theme="light"] .bin-offline { background: #c8363b; }
 /* light: the track separators follow the theme instead of the dark theme's #232328 (VV on #219) */
 html[data-host-theme="light"] .track-head, html[data-host-theme="light"] .track { border-bottom-color: var(--border); }
+
+/* ── 「检查这 10 秒」 (#321 step 2; review-check.js) ── */
+.review-btn { white-space: nowrap; }
+.review-dialog { width: 480px; max-width: calc(100vw - 24px); overflow-y: auto; }
+.review-dialog .review-line { margin-bottom: 8px; }
+.review-dialog .review-to { margin-bottom: 4px; font-weight: 600; }
+.review-dialog .review-training { margin-bottom: 14px; font-weight: 600; }
+.review-dialog .review-warn { color: #ffb04d; }
+html[data-host-theme="light"] .review-dialog .review-warn { color: #8a4b00; }
+.review-dialog .review-preview { width: 100%; max-height: 240px; margin-bottom: 14px; background: #000; border-radius: 6px; }
+.review-dialog .review-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; margin: 0 0 10px; font: inherit; font-size: 12px; }
+.review-dialog .review-notes { margin: 0 0 10px; padding-left: 18px; font-size: 12px; }
+.review-dialog .review-fixed { margin: 0 0 10px; font-size: 12px; }
+.review-dialog .review-fixed summary { cursor: pointer; }
+.review-dialog .review-headline { font-weight: 600; margin-bottom: 8px; }
+.review-dialog .review-list { list-style: none; margin: 0 0 14px; padding: 0; max-height: 280px; overflow-y: auto; }
+.review-dialog .review-dims { list-style: none; margin: 0 0 10px; padding: 0; }
+.review-dialog .review-dim { padding: 2px 0; }
+.review-dialog .review-dim-issues { font-weight: 600; }
+.review-dialog .review-item { padding: 8px 0; border-top: 1px solid var(--border); }
+.review-dialog .review-jump { padding: 0; text-align: left; font-weight: 600; }
+.review-dialog .review-detail { margin-top: 4px; }
+.review-dialog .review-item-actions { display: flex; gap: 8px; margin-top: 6px; }
+.review-dialog .review-actions { flex-wrap: wrap; }
+/* QQ #326 item 6: every text in the box at least 4.5:1 in both themes (test/review-check-contrast.test.js) */
+.review-dialog .review-jump { background: none; border: none; color: #a99fff; cursor: pointer; }
+html[data-host-theme="light"] .review-dialog .review-jump { color: #4b3fd6; }
+.review-dialog .btn.review-send { background: #4b3fd6; border: none; color: #fff; font-weight: 600; }
+.review-dialog .btn.review-send:hover { background: #3f34c0; }
+.review-dialog .review-small { padding: 3px 10px; font-size: 12px; }

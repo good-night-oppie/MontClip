@@ -189,6 +189,8 @@
           <button class="btn icon toggle" id="btnSpeed" title="Preview speed — click to cycle 1×/1.5×/2×/4×. L forward · J reverse (tap again = faster) · K stop. Preview only, not export.">1×</button>
         </div>
         <div class="transport-end">
+          <!-- 「检查这 10 秒」 (#321 step 2): label, box and wiring in review-check.js; hidden until the server has the review routes -->
+          <button type="button" class="btn review-btn hidden" id="btnReviewCheck">检查这 10 秒</button>
           <button type="button" class="btn icon hidden" id="btnInsert" title="Insert Source In→Out at the timeline playhead (,)" aria-label="Insert" data-i18n-aria-label="term.insert">
             <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
               <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" d="M0.75 5H3.5V11H0.75M15.25 5H12.5V11h2.75"/>
@@ -784,6 +786,7 @@
 <script src="narrow-layout.js"></script>
 <script src="ui-preferences.js"></script>
 <script src="ffmpeg-card.js"></script>
+<script src="review-check.js"></script>
 <script src="problem-redact.js"></script>
 <script src="agent-session-schema.js"></script>
 <script src="agent-pane.js"></script>
