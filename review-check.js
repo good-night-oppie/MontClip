@@ -367,11 +367,12 @@
       set({ phase: "closed", previewSrc: null });
     }
     async function markFixed(findingId) {
-      const id = s.raw && s.raw.reviewId;
-      if (!id) return false;
+      const raw = s.raw, gen = s.gen, id = raw && raw.reviewId;   // QQ #326 item 4: only the result it was written for
+      if (!id || s.phase !== "result") return false;
       try { await api.mark({ id, finding: findingId, mark: "fixed" }); } catch { return false; }
-      const findings = (s.raw.findings || []).map((f) => (f && f.id === findingId ? { ...f, mark: "fixed" } : f));
-      set({ raw: { ...s.raw, findings } });
+      if (gen !== s.gen || s.phase !== "result" || s.raw !== raw) return false;
+      const findings = (raw.findings || []).map((f) => (f && f.id === findingId ? { ...f, mark: "fixed" } : f));
+      set({ raw: { ...raw, findings } });
       return true;
     }
     /** No check possible (no bridge on this computer, or one already running): say so, nothing is prepared or sent. */
@@ -486,30 +487,30 @@
       const h = el(doc, "h2", null, t(lang, "title", { n })); h.id = "reviewTitle"; box.setAttribute("aria-labelledby", "reviewTitle");
       box.appendChild(h);
       const actions = el(doc, "div", "dialog-actions review-actions");
-      const add = (id, label, on, cls) => { const b = el(doc, "button", "btn" + (cls ? " " + cls : ""), label); b.dataset.review = id; b.addEventListener("click", on); actions.appendChild(b); return b; };
+      const add = (id, label, on, cls) => { const b = el(doc, "button", "btn review-action" + (cls ? " " + cls : ""), label); b.dataset.review = id; b.addEventListener("click", on); actions.appendChild(b); return b; };
       if (s.phase === "preparing") {
-        box.appendChild(el(doc, "p", "dim", t(lang, "preparing", { n })));
-        add("cancel", t(lang, "cancel"), () => session.cancel());
+        box.appendChild(el(doc, "p", "dim review-note", t(lang, "preparing", { n })));
+        add("cancel", t(lang, "cancelPrep"), () => session.cancel());
       } else if (s.phase === "confirm") {
-        const m = confirmModel(s.prep, lang, s.statusDest);
+        const m = confirmModel(s.prep, lang, s.statusDest, { fellBack: !!(s.range && s.range.fellBack) });
         for (const line of m.lines) box.appendChild(el(doc, "p", "review-line", line));
         const to = el(doc, "p", "review-to" + (m.destination ? "" : " review-warn"), m.to); to.dataset.review = "to"; box.appendChild(to);
         const tr = el(doc, "p", "review-training", m.training); tr.dataset.review = "training"; box.appendChild(tr);
         if (s.previewSrc) {
           const v = el(doc, "video", "review-preview"); v.controls = true; v.preload = "metadata"; v.src = s.previewSrc;
-          box.appendChild(el(doc, "p", "dim", t(lang, "previewNote"))); box.appendChild(v);
+          box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNote"))); box.appendChild(v);
         }
         for (const b of m.buttons) {
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
-          const node = add(b.id, b.label, on, b.id === "full" ? "primary" : "");
+          const node = add(b.id, b.label, on, b.id === "full" ? "review-send" : "");
           node.disabled = !b.enabled;
         }
       } else if (s.phase === "sending") {
-        box.appendChild(el(doc, "p", "dim", t(lang, "sending")));
+        box.appendChild(el(doc, "p", "dim review-note", t(lang, "sending")));
       } else if (s.phase === "result") {
-        const m = resultModel(s.raw, lang, n);
+        const m = resultModel(s.raw, lang, n, { fellBack: !!(s.range && s.range.fellBack) });
         const head = el(doc, "p", "review-headline review-" + m.status, m.headline); head.dataset.review = "headline"; box.appendChild(head);
-        for (const note of m.notes) box.appendChild(el(doc, "p", "dim", note));
+        for (const note of m.notes) box.appendChild(el(doc, "p", "dim review-note", note));
         if (m.items.length) {
           const ul = el(doc, "ul", "review-list");
           for (const it of m.items) {
