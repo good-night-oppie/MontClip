@@ -375,38 +375,74 @@
     };
   }
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const errReason = (e) => {
+    const c = e && e.code;
+    return c === "BUSY" || c === "NO_BRIDGE" || c === "DESTINATION_UNVERIFIED" ? c : "PREPARE_FAILED";
+  };
+
   /**
-   * One check, as a small state machine (no DOM): idle → preparing → confirm → sending → result; any step → closed.
-   * `send` can only run from `confirm` with a token and a destination, i.e. after the box with all three lines was shown.
+   * One check, as a small state machine (no DOM): idle → preparing → confirm → sending → result; any step → closed;
+   * preparing → unverified when the engine refuses because nobody confirmed the receiver (#328 DESTINATION_UNVERIFIED).
+   * `send` can only run from `confirm` with a token and a confirmed destination, i.e. after the box with all lines was shown.
    */
   function createSession(api, opts = {}) {
+    const pollMs = opts.pollMs == null ? 400 : opts.pollMs, wait = opts.wait || sleep;
     const listeners = new Set();
-    const s = { phase: "idle", range: null, prep: null, statusDest: null, result: null, raw: null, error: null, previewSrc: null, scope: null, gen: 0 };
+    const s = { phase: "idle", range: null, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false, gen: 0 };
     const emit = () => { for (const fn of listeners) fn(s); };
     const set = (patch) => { Object.assign(s, patch); emit(); };
-    async function check(range, statusDest) {
-      const gen = ++s.gen;
-      set({ phase: "preparing", range, prep: null, statusDest: statusDest || null, result: null, raw: null, error: null, previewSrc: null, scope: null });
-      let prep;
-      try { prep = await api.prepare({ start: range.start, end: range.end }); }
-      catch (e) {
-        if (gen !== s.gen) return;
-        const reason = e && e.code === "BUSY" ? "BUSY" : e && e.code === "NO_BRIDGE" ? "NO_BRIDGE" : "PREPARE_FAILED";
-        set({ phase: "result", raw: { status: "no_result", reason, findings: [] } });
-        return;
+    /** prepare (renders on this computer, nothing leaves), then read the status until the clip is ready → the view, or why not */
+    async function prepareView(range, scope, gen) {
+      let v;
+      try { v = await api.prepare({ start: range.start, end: range.end, scope }); }
+      catch (e) { return gen !== s.gen ? { stale: true } : { failed: errReason(e), dest: e && e.body && e.body.destination }; }
+      if (gen !== s.gen) { if (v && v.reviewId) api.cancel(v.reviewId).catch(() => {}); return { stale: true }; }
+      if (!v || typeof v.reviewId !== "string") return { failed: "PREPARE_FAILED" };
+      s.prep = v;   // what 「不发了」 cancels while it renders
+      while (v && v.state === "rendering") {
+        await wait(pollMs);
+        if (gen !== s.gen) return { stale: true };
+        try { v = await api.status(v.reviewId); } catch { return { failed: "PREPARE_FAILED" }; }
+        if (gen !== s.gen) return { stale: true };
       }
-      if (gen !== s.gen) { if (prep && prep.reviewId) api.cancel(prep.reviewId).catch(() => {}); return; }
-      if (!prep || !prep.reviewId) { set({ phase: "result", raw: { status: "no_result", reason: "PREPARE_FAILED", findings: [] } }); return; }
-      set({ phase: "confirm", prep });
+      if (!v || v.state !== "ready") return { failed: "PREPARE_FAILED" };
+      return { view: v };
     }
-    async function preview() {
+    function fail(reason, dest) {
+      if (reason === "DESTINATION_UNVERIFIED") set({ phase: "unverified", prep: null, dest: dest || null });
+      else set({ phase: "result", prep: null, raw: { status: "no_result", reason, findings: [] } });
+    }
+    async function check(range) {
+      const gen = ++s.gen;
+      set({ phase: "preparing", range, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false });
+      const got = await prepareView(range, "full", gen);
+      if (got.stale || gen !== s.gen) return;
+      if (got.failed) return fail(got.failed, got.dest);
+      set({ phase: "confirm", prep: got.view });
+    }
+    function preview() {
       if (s.phase !== "confirm" || !s.prep) return null;
-      const gen = s.gen, prep = s.prep, id = prep.reviewId;   // QQ #326 item 2: the answer belongs to this box only
-      let src = null;
-      try { src = safePreviewSrc(await api.preview(id)); } catch { src = null; }
-      if (gen !== s.gen || s.phase !== "confirm" || s.prep !== prep || s.prep.reviewId !== id) return null;
+      const src = safePreviewSrc(s.prep.previewSrc);   // the clip that was made for this box: the one the send buttons send
       set({ previewSrc: src });
       return src;
+    }
+    /** 「只发这 10 秒」 needs the clip without the project's text, which is a check of its own (#328: scope is fixed at prepare). */
+    async function switchToWindow(gen) {
+      const old = s.prep;
+      set({ phase: "preparing", previewSrc: null });
+      api.cancel(old.reviewId).catch(() => {});
+      const got = await prepareView(s.range, "window", gen);
+      if (got.stale || gen !== s.gen) return null;
+      if (got.failed) { fail(got.failed, got.dest); return null; }
+      const a = payloadOf(old), b = payloadOf(got.view);
+      const da = destinationOf(old.willSend && old.willSend.to), db = destinationOf(got.view.willSend && got.view.willSend.to);
+      // what 「只发这 10 秒」 said in the box is what goes: the same seconds, receiver, number of requests and notes — else show the box again
+      const same = !!(a && b && b.scope === "window" && near_(a.video.start, b.video.start) && near_(a.video.end, b.video.end) && a.requests === b.requests
+        && a.taste === b.taste && da && db && da.service === db.service && da.host === db.host && da.verified && db.verified);
+      if (!same) { set({ phase: "confirm", prep: got.view, changed: true }); return null; }
+      s.prep = got.view;
+      return got.view;
     }
     async function send(scope) {
       if (s.phase !== "confirm" || !s.prep) return false;
