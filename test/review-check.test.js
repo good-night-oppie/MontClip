@@ -49,6 +49,11 @@ test('which seconds: 10 s around the playhead, inside the timeline; a marked IN�
   a.equal(R.pickRange({ time: 0, duration: 0 }), null);
   a.equal(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 20.6 }), null, 'JJ #326: under 1 s can not be clicked');
   a.equal(R.pickRange({ time: 0, duration: 0.8 }), null, 'a timeline under 1 s');
+  const w = mountWith(R.stubApi(), { inOut: () => ({ inPoint: 20, outPoint: 20.6 }) });
+  a.equal(w.button.disabled, false, 'not yet labelled');
+  w.timers[0]();
+  a.equal(w.button.disabled, true);
+  a.equal(w.button.title, '这一段不到 1 秒，没法检查', 'JJ #326 recheck: the greyed-out button says why');
   a.deepEqual(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 21 }), { start: 20, end: 21 });
 });
 
@@ -91,6 +96,7 @@ test("JJ #326: whole seconds with no lead, the truncation said before sending, t
   const cut = R.confirmModel({ ...prep, willSend: { ...prep.willSend, text: { ...prep.willSend.text, truncated: true } } }, 'zh-CN');
   const iFull = cut.lines.findIndex((l) => l.startsWith('点「发送检查」')), iTrunc = cut.lines.indexOf('整条片子的字幕文字太长，点「发送检查」时只带这 3 秒附近的部分。');
   a.ok(iTrunc > iFull, 'said in the box, before anything is sent');
+  a.equal(cut.lines[iFull], '点「发送检查」会发出去：0:00–0:03 的画面和声音（3 秒），字幕文字 1824 字（只带这 3 秒附近的部分），和 37 个剪辑时间点。', 'JJ #326 recheck: cut text is not called the whole video text');
   const fb = R.confirmModel(await api.prepare({ start: 37, end: 47 }), 'zh-CN', null, { fellBack: true });
   a.equal(fb.lines[0], '你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。');
   a.deepEqual(R.resultModel({ status: 'passed', findings: [] }, 'zh-CN', 10, { fellBack: true }).notes, ['你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。']);
