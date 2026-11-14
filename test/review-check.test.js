@@ -240,7 +240,7 @@ test('「先看要发的内容」 plays only a same-origin preview', async () =>
 test("the result: JJ's three lines; no_result is never a pass; a problem inside the checked stretch is never a pass", () => {
   const m = (raw, n) => R.resultModel(raw, 'zh-CN', n);
   const f = (o) => ({ id: 0, t: 24.2, type: 'speaker_swapped', text: 'x', suggestion: '', inLead: false, ...o });
-  a.equal(m({ status: 'passed', findings: [] }, 10).headline, '这 10 秒检查没有发现问题。这只是 AI 的判断，请你自己也听看一遍。');
+  a.equal(m({ status: 'passed', findings: [] }, 10).headline, '这 10 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。');
   a.ok(!/没问题|放心/.test(zh('passed', { n: 10 })));
   a.equal(m({ status: 'no_result', reason: 'TIMEOUT', findings: [] }).headline, '这次没有检查出结果。这不代表没问题。');
   a.equal(m({ status: 'no_result', reason: 'NO_BRIDGE' }).headline, '这台电脑上暂时用不了这个检查。');
@@ -250,7 +250,7 @@ test("the result: JJ's three lines; no_result is never a pass; a problem inside 
   a.equal(r1.status, 'issues'); a.equal(r1.headline, '检查完了，发现 1 处可能有问题。');
   const r2 = m({ status: 'passed', findings: [f({ inLead: true, t: 18.5 })] }, 10);
   a.equal(r2.passed, true, 'a lead finding does not change the checked stretch');
-  a.equal(r2.items[0].label, '说话人可能标反了（在前面接过来的那几秒里）');
+  a.equal(r2.items[0].label, '说话人可能标反了（在前面多带的那几秒里）');
   const r3 = m({ status: 'issues', scope: 'window', contextTruncated: true, findings: [f({ t: 74.4 }), f({ id: 1, t: 61, type: 'nonsense' })] }, 10);
   a.deepEqual(r3.items.map((i) => [i.time, i.label]), [['1:01', '这里可能有问题'], ['1:14', '说话人可能标反了']]);
   a.deepEqual(r3.notes, ['这次只检查了这 10 秒，没有结合整条片子。', '整条片子的文字太长，这次只带了这 10 秒附近的部分。']);
