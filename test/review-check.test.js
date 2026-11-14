@@ -77,131 +77,182 @@ test('which seconds: 10 s around the playhead, inside the timeline; a marked IN�
   a.deepEqual(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 21 }), { start: 20, end: 21 });
 });
 
-test("the box says what is sent, to whom, and that it may train a model — JJ's v3.1 sentence word for word", () => {
-  const api = R.stubApi();
-  return api.prepare({ start: 20, end: 30 }).then((prep) => {
-    const m = R.confirmModel(prep, 'zh-CN');
-    a.equal(m.lines[0], '联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 10 秒的画面和声音，还有整条片子的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。');
-    a.equal(m.to, '发给：Gemini（generativelanguage.googleapis.com）');
-    a.equal(m.training, '对方可能用这段内容训练模型');
-    a.deepEqual(m.buttons.map((b) => b.label), ['先看要发的内容', '发送检查', '只发这 10 秒', '不发了']);
-    a.ok(m.canSend && m.buttons.every((b) => b.enabled));
-    // JJ #326, word for word; the lead line comes after both send lines; the danmaku line last
-    a.deepEqual(m.lines.slice(1), [
-      '点「发送检查」会发出去：0:18–0:30 的画面和声音（11.5 秒），整条片子的字幕文字 1824 字，和 37 个剪辑时间点。',
-      '点「只发这 10 秒」只发出去：0:18–0:30 的画面和声音（11.5 秒），不发整条片子的字幕文字和剪辑时间点。',
-      '两个按钮发的画面和声音里，都有前面多带的 1.5 秒（0:18–0:20），让 AI 知道前面在说什么。',
-      '画面里如果有观众昵称、弹幕，会原样发出去。']);
-  });
-});
-
-test('no receiver known, no token: the two send buttons are off, and the box says why', async () => {
-  const prep = await R.stubApi({ destination: null }).prepare({ start: 20, end: 30 });
-  const m = R.confirmModel(prep, 'zh-CN');
-  a.equal(m.canSend, false);
-  a.equal(m.to, '不知道这次会发到哪里，所以先不发。');
-  a.deepEqual(m.buttons.filter((b) => !b.enabled).map((b) => b.id), ['full', 'window']);
-  a.equal(R.confirmModel(prep, 'zh-CN', { service: 'Gemini', host: 'generativelanguage.googleapis.com' }).canSend, true, 'status gave it');
-  a.equal(R.confirmModel({ ...prep, sendToken: '' }, 'zh-CN', { service: 'S', host: 'h.example' }).canSend, false);
-  a.equal(R.destinationOf({ service: 'S', host: 'C:\\Users\\x' }), null, 'a path is not a host');
-});
-
-test("JJ #326: whole seconds with no lead, the truncation said before sending, the fallback said in both boxes", async () => {
-  const api = R.stubApi();
-  const prep = await api.prepare({ start: 0, end: 3.4 });   // no lead at 0
-  const m = R.confirmModel(prep, 'zh-CN');
-  a.equal(m.n, 3);
-  a.ok(m.lines.some((l) => l.includes('（3 秒）')) && !m.lines.some((l) => l.includes('3.4 秒')), 'the box says 3 秒 like the button');
-  a.deepEqual(m.buttons.map((b) => b.label)[2], '只发这 3 秒');
-  const cut = R.confirmModel({ ...prep, willSend: { ...prep.willSend, text: { ...prep.willSend.text, truncated: true } } }, 'zh-CN');
-  const iFull = cut.lines.findIndex((l) => l.startsWith('点「发送检查」')), iTrunc = cut.lines.indexOf('整条片子的字幕文字太长，点「发送检查」时只带这 3 秒附近的部分。');
-  a.ok(iTrunc > iFull, 'said in the box, before anything is sent');
-  a.equal(cut.lines[iFull], '点「发送检查」会发出去：0:00–0:03 的画面和声音（3 秒），字幕文字 1824 字（只带这 3 秒附近的部分），和 37 个剪辑时间点。', 'JJ #326 recheck: cut text is not called the whole video text');
-  const fb = R.confirmModel(await api.prepare({ start: 37, end: 47 }), 'zh-CN', null, { fellBack: true });
-  a.equal(fb.lines[0], '你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。');
-  a.deepEqual(R.resultModel({ status: 'passed', findings: [] }, 'zh-CN', 10, { fellBack: true }).notes, ['你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。']);
-});
-
-test("JJ #326: a failed prepare says nothing was sent; a failed send never says that", async () => {
-  const s1 = R.createSession(R.stubApi({ prepareError: 'X' }));
-  await s1.check({ start: 20, end: 30 });
-  a.equal(R.resultModel(s1.state.raw, 'zh-CN', 10).headline, '这 10 秒没能在这台电脑上准备好，什么都没有发出去。');
-  const api = R.stubApi(); api.send = async () => { throw new Error('socket hang up'); };
-  const s2 = R.createSession(api);
-  await s2.check({ start: 20, end: 30 }); await s2.send('full');
-  const r = R.resultModel(s2.state.raw, 'zh-CN', 10);
-  a.equal(r.headline, '检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。');
-  a.equal(r.passed, false);
-  a.equal(R.resultModel({ status: 'no_result', reason: 'TIMEOUT', findings: [] }, 'zh-CN').headline, '这次没有检查出结果。这不代表没问题。', 'the engine answering no_result is not a failed send');
-});
-
-test('a check: prepare first (nothing sent), send only from the box, with its token; 「不发了」 cancels and sends nothing', async () => {
-  const api = R.stubApi(), s = R.createSession(api);
+test('a check (#328): prepare is local, status is read until the clip is ready, nothing is sent before a click', async () => {
+  const api = R.stubApi({ renderPolls: 3 }), s = session(api);
   a.equal(await s.send('full'), false, 'no box yet');
   await s.check({ start: 20, end: 30 });
   a.equal(s.state.phase, 'confirm');
-  a.deepEqual(api.calls.map((c) => c[0]), ['prepare']);
+  a.deepEqual(api.calls.map((c) => c[0]), ['prepare', 'status', 'status', 'status'], 'polled until ready');
+  a.deepEqual(api.calls[0][1], { start: 20, end: 30, scope: 'full' }, '「发送检查」 is the clip with this stretch\'s text');
+  a.equal(s.state.prep.state, 'ready');
+  a.equal(s.state.prep.sendToken, 'tok_1');
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0);
   a.equal(await s.send('passed'), false, 'only full or window');
-  a.ok(await s.send('window'));
-  const send = api.calls.find((c) => c[0] === 'send')[1];
-  a.deepEqual(send, { reviewId: 'r_1', sendToken: 'tok_1', scope: 'window' });
+  a.ok(await s.send('full'));
+  a.deepEqual(api.calls.find((c) => c[0] === 'send'), ['send', 'r_1', 'tok_1'], 'POST /api/review/send {id, token}');
   a.equal(s.state.phase, 'result');
 
-  const api2 = R.stubApi(), s2 = R.createSession(api2);
+  const failing = R.stubApi({ renderFails: true }), s2 = session(failing);
   await s2.check({ start: 20, end: 30 });
-  await s2.cancel();
-  a.deepEqual(api2.calls.map((c) => c[0]), ['prepare', 'cancel']);
-  a.equal(await s2.send('full'), false, 'gone after 不发了');
-  a.equal(api2.calls.filter((c) => c[0] === 'send').length, 0);
+  a.equal(R.resultModel(s2.state.raw, 'zh-CN', 10).headline, '这 10 秒没能在这台电脑上准备好，什么都没有发出去。', 'a clip that could not be made');
 });
 
-/* ── QQ #326 (CHANGES_REQUESTED on d5872c56), items 1–4 ── */
-const deferred = () => { let resolve, reject; const p = new Promise((a, b) => { resolve = a; reject = b; }); return { p, resolve, reject }; };
+test("the box says what is sent, to whom, and that it may train a model", async () => {
+  const m = R.confirmModel(await readyView(), 'zh-CN');
+  a.equal(m.lines[0], '联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 10 秒的画面和声音，还有这一段里的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。');
+  a.equal(m.to, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com）');
+  a.equal(m.training, '对方可能用这段内容训练模型');
+  a.deepEqual(m.buttons.map((b) => b.label), ['先看要发的内容', '发送检查', '只发这 10 秒', '不发了'], 'the four buttons as before');
+  a.ok(m.canSend && m.buttons.every((b) => b.enabled));
+  a.deepEqual(m.lines.slice(1), [
+    '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段里的字幕文字、剪辑时间点。',
+    '点「只发这 10 秒」只发出去：0:17–0:30 的画面和声音（13 秒），不带字幕文字和剪辑时间点。',
+    '两个按钮发的画面和声音里，都有前面多带的 3 秒（0:17–0:20），让 AI 知道前面在说什么。',
+    '画面里如果有观众昵称、弹幕，会原样发出去。']);
+  const taste = R.confirmModel(await readyView({ taste: 4 }), 'zh-CN');
+  a.ok(taste.lines.includes('两个按钮都会带上你记下的 4 条审美笔记（你以前认可或不认可的例子）。'), 'willSend.tasteNotes is always said when there are any');
+  const twice = await readyView(); twice.willSend = { ...twice.willSend, requests: 2 };
+  a.ok(R.confirmModel(twice, 'zh-CN').lines.includes('同一段会分 2 次发出去。'));
+});
+
+test("Deja #328: a domain nobody confirmed says 「未验证」 beside it and is never shown as confirmed; nothing can be sent to it", async () => {
+  const dest = { service: 'Google Gemini', host: 'daily-cloudcode-pa.googleapis.com', source: 'docs', verified: false };
+  // the engine refuses to prepare (409 DESTINATION_UNVERIFIED): the box still says where it would go, marked 未验证
+  const api = R.stubApi({ destination: dest, prepareError: 'DESTINATION_UNVERIFIED' }), s = session(api);
+  await s.check({ start: 20, end: 30 });
+  a.equal(s.state.phase, 'unverified');
+  const u = R.unverifiedModel(s.state.dest, 'zh-CN', s.state.range);
+  a.equal(u.to, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com，未验证）');
+  a.ok(u.lines.includes('这个地址还没有人确认过，所以先不发。'));
+  a.equal(u.training, '对方可能用这段内容训练模型');
+  a.deepEqual(u.buttons.map((b) => [b.label, b.enabled]), [['先看要发的内容', false], ['发送检查', false], ['只发这 10 秒', false], ['不发了', true]]);
+  a.equal(await s.send('full'), false);
+  a.deepEqual(api.calls.map((c) => c[0]), ['prepare'], 'nothing made, nothing sent');
+  // a ready view whose receiver is not verified (the engine would refuse anyway): 未验证, and both send buttons off
+  const v = await readyView({ destination: dest });
+  const m = R.confirmModel(v, 'zh-CN');
+  a.equal(m.to, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com，未验证）');
+  a.equal(m.canSend, false); a.equal(m.blocked, 'unverified');
+  a.deepEqual(m.buttons.filter((b) => !b.enabled).map((b) => b.id), ['preview', 'full', 'window']);
+  for (const verified of [undefined, 'true', 1, null]) {
+    const d = R.destinationOf({ service: 'S', host: 'h.example', verified });
+    a.equal(d.verified, false, 'only verified:true counts as confirmed: ' + String(verified));
+    a.match(R.confirmModel({ ...v, willSend: { ...v.willSend, to: { service: 'S', host: 'h.example', verified } } }, 'zh-CN').to, /未验证/);
+  }
+  a.equal(R.destinationOf({ service: 'S', host: 'C:\\Users\\x', verified: true }), null, 'a path is not a host');
+  a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, to: null } }, 'zh-CN').to, '不知道这次会发到哪里，所以先不发。');
+});
+
+test("JJ #326: whole seconds with no lead, the fallback said in both boxes", async () => {
+  const v = await readyView({}, { start: 0, end: 3.4 });   // no lead at 0
+  const m = R.confirmModel(v, 'zh-CN');
+  a.equal(m.n, 3);
+  a.ok(m.lines.some((l) => l.includes('（3 秒）')) && !m.lines.some((l) => l.includes('3.4 秒')), 'the box says 3 秒 like the button');
+  a.ok(!m.lines.some((l) => l.includes('多带')), 'no lead line without a lead');
+  a.equal(m.buttons[2].label, '只发这 3 秒');
+  const fb = R.confirmModel(await readyView({}, { start: 37, end: 47 }), 'zh-CN', { fellBack: true });
+  a.equal(fb.lines[0], '你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。');
+  a.deepEqual(R.resultModel({ status: 'passed', findings: [], dimensions: allPass() }, 'zh-CN', 10, { fellBack: true }).notes, ['你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。']);
+});
+
+test('「只发这 10 秒」 (#328: scope is fixed at prepare): a clip without the text is made and sent only if it matches what the box said', async () => {
+  const api = R.stubApi(), s = session(api);
+  await s.check({ start: 20, end: 30 });
+  a.ok(await s.send('window'));
+  a.deepEqual(api.calls.map((c) => c[0] + (c[1] && c[1].scope ? ':' + c[1].scope : '')), ['prepare:full', 'status', 'cancel', 'prepare:window', 'status', 'send']);
+  a.deepEqual(api.calls.find((c) => c[0] === 'cancel'), ['cancel', 'r_1'], 'the clip with text is dropped first');
+  a.deepEqual(api.calls.find((c) => c[0] === 'send'), ['send', 'r_2', 'tok_2'], 'the window clip goes, with its own token');
+  a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).notes[0], '这次只检查了这 10 秒，没有结合字幕文字。');
+
+  // the window clip comes back different (here: taste notes added in between): the box is shown again, nothing is sent
+  let n = 0; const api2 = R.stubApi(); const st = api2.status;
+  api2.status = async (id) => { const v = await st(id); if (v.state === 'ready' && ++n === 2) v.willSend = { ...v.willSend, tasteNotes: 2 }; return v; };
+  const s2 = session(api2);
+  await s2.check({ start: 20, end: 30 });
+  a.equal(await s2.send('window'), false);
+  a.equal(s2.state.phase, 'confirm'); a.equal(s2.state.changed, true);
+  a.equal(api2.calls.filter((c) => c[0] === 'send').length, 0, 'not sent: the box changed');
+  const m2 = R.confirmModel(s2.state.prep, 'zh-CN', { changed: true });
+  a.ok(m2.lines.includes('要发的内容和刚才说的不一样了，请再看一遍再决定。'));
+  a.ok(m2.lines.includes('两个按钮都会带上你记下的 2 条审美笔记（你以前认可或不认可的例子）。'));
+  a.equal(m2.buttons.find((b) => b.id === 'full').enabled, false, 'this clip has no text: 「发送检查」 would need its own');
+  a.ok(await s2.send('window'), 'a second click sends what is now shown');
+  a.deepEqual(api2.calls.filter((c) => c[0] === 'send').map((c) => c[1]), ['r_2']);
+
+  // the window clip's receiver changed (or is no longer confirmed): never sent on the first click
+  let k = 0; const api3 = R.stubApi(); const st3 = api3.status;
+  api3.status = async (id) => { const v = await st3(id); if (v.state === 'ready' && ++k === 2) v.willSend = { ...v.willSend, to: { ...v.willSend.to, host: 'other.example' } }; return v; };
+  const s3 = session(api3);
+  await s3.check({ start: 20, end: 30 });
+  a.equal(await s3.send('window'), false);
+  a.equal(api3.calls.filter((c) => c[0] === 'send').length, 0);
+});
+
+test('「不发了」 and 「取消」 cancel the check and send nothing; a slow answer after them never reopens the box', async () => {
+  const api = R.stubApi(), s = session(api);
+  await s.check({ start: 20, end: 30 });
+  await s.cancel();
+  a.deepEqual(api.calls.map((c) => c[0]), ['prepare', 'status', 'cancel']);
+  a.equal(await s.send('full'), false, 'gone after 不发了');
+
+  // cancelled while the clip is being made: the engine is told, the late status never opens the box
+  const slow = R.stubApi(), d = deferred(); const realStatus = slow.status; slow.status = (id) => d.p.then(() => realStatus(id));
+  const s2 = session(slow);
+  const going = s2.check({ start: 20, end: 30 });
+  await settle();
+  a.equal(s2.state.phase, 'preparing');
+  await s2.cancel();
+  a.deepEqual(slow.calls.filter((c) => c[0] === 'cancel'), [['cancel', 'r_1']], 'the clip being made is dropped');
+  d.resolve(); await going;
+  a.equal(s2.state.phase, 'closed', 'stays closed');
+  a.equal(slow.calls.filter((c) => c[0] === 'send').length, 0);
+});
 
 test('QQ #326 item 1: no full description of what is sent → both send buttons off, the box says why, send refuses', async () => {
-  const base = await R.stubApi().prepare({ start: 20, end: 30 });
+  const base = await readyView();
   const cases = {
     'no willSend': { ...base, willSend: undefined },
-    'no video': { ...base, willSend: { ...base.willSend, video: undefined } },
-    'no text': { ...base, willSend: { ...base.willSend, text: undefined } },
+    'no seconds': { ...base, willSend: { ...base.willSend, seconds: undefined } },
+    'no requests': { ...base, willSend: { ...base.willSend, requests: undefined } },
+    'zero requests': { ...base, willSend: { ...base.willSend, requests: 0 } },
+    'no taste count': { ...base, willSend: { ...base.willSend, tasteNotes: undefined } },
+    'taste count not whole': { ...base, willSend: { ...base.willSend, tasteNotes: 1.5 } },
     'no range': { ...base, range: undefined },
     'range backwards': { ...base, range: { start: 30, end: 20 } },
-    'video not holding the range': { ...base, willSend: { ...base.willSend, video: { start: 22, end: 30 } } },
-    'subtitleChars missing': { ...base, willSend: { ...base.willSend, text: { ...base.willSend.text, subtitleChars: undefined } } },
-    'cutPoints negative': { ...base, willSend: { ...base.willSend, text: { ...base.willSend.text, cutPoints: -1 } } },
-    'truncated unknown': { ...base, willSend: { ...base.willSend, text: { scope: 'full', subtitleChars: 10, cutPoints: 2 } } },
-    'lead not ending at the start': { ...base, lead: { start: 17, end: 19 } },
-    // QQ #326 5900512724 item 1: the picture must be exactly lead + range — nothing unnamed before or after
-    'no lead, picture holds unnamed seconds before': { ...base, lead: null },
-    'picture starts before the lead': { ...base, willSend: { ...base.willSend, video: { start: 17, end: 30 } } },
-    'picture starts after the lead': { ...base, willSend: { ...base.willSend, video: { start: 19, end: 30 } } },
-    'picture runs past the range': { ...base, willSend: { ...base.willSend, video: { start: 18.5, end: 31 } } },
-    'no lead, picture runs past the range': { ...base, lead: null, willSend: { ...base.willSend, video: { start: 20, end: 31 } } },
+    'no lead': { ...base, lead: undefined },
+    'lead before 0': { ...base, lead: 25 },
+    'unknown scope': { ...base, scope: 'all' },
+    // QQ #326 5900512724 item 1: the clip must be exactly lead + range — nothing unnamed before or after
+    'seconds hold more than lead + range': { ...base, willSend: { ...base.willSend, seconds: 14.5 } },
+    'seconds hold less': { ...base, willSend: { ...base.willSend, seconds: 10 } },
+    'lead 0 but seconds include a lead': { ...base, lead: 0 },
   };
-  a.deepEqual([base.range, base.lead, base.willSend.video].map((r) => [r.start, r.end]), [[20, 30], [18.5, 20], [18.5, 30]], 'the stub is the shape the cases bend');
-  for (const [name, prep] of Object.entries(cases)) {
-    const m = R.confirmModel(prep, 'zh-CN');
+  a.deepEqual([base.range.start, base.range.end, base.lead, base.willSend.seconds], [20, 30, 3, 13], 'the stub is the shape the cases bend');
+  for (const [name, view] of Object.entries(cases)) {
+    const m = R.confirmModel(view, 'zh-CN');
     a.equal(m.canSend, false, name);
-    a.deepEqual(m.buttons.filter((b) => !b.enabled).map((b) => b.id), ['full', 'window'], name);
+    a.deepEqual(m.buttons.filter((b) => !b.enabled).map((b) => b.id), ['preview', 'full', 'window'], name);
     a.ok(m.lines.includes('说不清这次具体会发出去什么，所以先不发。'), name + ': says why');
     a.ok(!m.lines.some((l) => /会发出去：|只发出去：/.test(l)), name + ': never a made-up description');
-    const api = R.stubApi(); api.prepare = async () => prep;
-    const s = R.createSession(api);
+    const api = R.stubApi(); const st = api.status; api.status = async (id) => { const v = await st(id); return { ...view, reviewId: v.reviewId, sendToken: v.sendToken }; };
+    const s = session(api);
     await s.check({ start: 20, end: 30 });
     a.equal(await s.send('full'), false, name + ': send refuses');
     a.equal(await s.send('window'), false, name + ': send refuses');
+    a.equal(api.calls.filter((c) => c[0] === 'send').length, 0, name);
   }
-  const ok = R.confirmModel(base, 'zh-CN');
-  a.equal(ok.canSend, true, 'the full description still sends');
-  const noLead = { ...base, lead: null, willSend: { ...base.willSend, video: { start: 20, end: 30 } } };
-  a.equal(R.confirmModel(noLead, 'zh-CN').canSend, true, 'no lead and the picture is exactly the range: sends');
+  a.equal(R.confirmModel(base, 'zh-CN').canSend, true, 'the full description still sends');
+  const noLead = { ...base, lead: 0, willSend: { ...base.willSend, seconds: 10 } };
+  a.equal(R.confirmModel(noLead, 'zh-CN').canSend, true, 'no lead and the clip is exactly the range: sends');
+  a.equal(R.confirmModel({ ...base, sendToken: undefined }, 'zh-CN').canSend, false, 'no token');
+  a.equal(R.confirmModel({ ...base, state: 'rendering' }, 'zh-CN').canSend, false, 'not ready');
 });
 
 test('QQ #326 5900512724 item 2: a send that throws is 「不确定发没发」 whatever its code — never 「什么都没有发出去」', async () => {
-  for (const code of ['PREPARE_FAILED', 'NO_BRIDGE', 'BUSY', undefined]) {
+  for (const code of ['PREPARE_FAILED', 'NO_BRIDGE', 'BUSY', 'NOT_CONFIRMED', 'DESTINATION_CHANGED', undefined]) {
     const api = R.stubApi();
     api.send = async () => { const e = new Error('x'); if (code) e.code = code; throw e; };
-    const s = R.createSession(api);
+    const s = session(api);
     await s.check({ start: 20, end: 30 });
     await s.send('full');
     const m = R.resultModel(s.state.raw, 'zh-CN', 10);
