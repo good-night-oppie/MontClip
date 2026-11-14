@@ -15,7 +15,7 @@ let HAS_FFMPEG = false;
 try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch { }
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 
-const agyEnv = (mode, report, more = {}) => ({ FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
+const agyEnv = (mode, report, more = {}) => ({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com", FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(report ? [`--report=${report}`] : []), "--"]) });
 const PAGE = { "Sec-Fetch-Site": "same-origin" };
 /* node's fetch adds neither Origin nor Sec-Fetch-Site: that is an agent (MCP / the plugin); the page's header is added by hand */
@@ -136,7 +136,7 @@ test("refusals before anything is rendered: bad range, too long, no tool", { ski
   assert.equal((await call(a.base, "GET", "/api/review/status?id=nope")).status, 404);
   assert.equal((await call(a.base, "POST", "/api/review/nothing", {})).status, 404);
   const dir2 = makeDataDir(t);
-  const b = await startServer(t, dir2, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_AGY_BIN: path.join(dir2, "none") });
+  const b = await startServer(t, dir2, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com", MONTCLIP_AGY_BIN: path.join(dir2, "none") });
   const r = await call(b.base, "POST", "/api/review/prepare", { start: 1, end: 3 });
   assert.equal(r.status, 409); assert.equal(r.body.code, "NO_BRIDGE");
 });
@@ -156,4 +156,15 @@ test("an agent's send:true is off unless the switch is on; taste notes by route;
   assert.equal((await call(base, "GET", "/api/review/taste")).body.notes.length, 1);
   assert.equal((await call(base, "POST", "/api/review/taste/remove", { id: "nope" })).status, 404);
   assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, mode: "three" })).body.code, "BAD_MODE");
+});
+
+test("fail closed over HTTP: without the owner's confirmation of the address, prepare is refused (409) and nothing is rendered", { skip, timeout: 60_000 }, async (t) => {
+  const dir = makeDataDir(t);
+  const env = agyEnv("pass"); delete env.MONTCLIP_REVIEW_DEST_CONFIRMED;
+  const { base } = await startServer(t, dir, env);
+  for (const headers of [undefined, PAGE]) {
+    const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3 }, headers);
+    assert.equal(r.status, 409); assert.equal(r.body.code, "DESTINATION_UNVERIFIED");
+  }
+  assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], []);
 });

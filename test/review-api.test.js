@@ -17,7 +17,7 @@ let HAS_FFMPEG = false;
 try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch { }
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 const tmp = (t, p = "mcrv-") => { const d = fs.mkdtempSync(path.join(os.tmpdir(), p)); t.after(() => VB.rmForce(d)); return d; };
-const envFor = (mode, opts = {}) => ({ ...process.env, MONTCLIP_AGY_BIN: process.execPath, SECRET_TOKEN_FOR_TEST: "s3cret-value",
+const envFor = (mode, opts = {}) => ({ ...process.env, MONTCLIP_AGY_BIN: process.execPath, SECRET_TOKEN_FOR_TEST: "s3cret-value", ...(opts.noConfirm ? {} : { MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }),
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.calls ? [`--calls=${opts.calls}`] : []), "--"]) });
 function makeSample(dir, sec = 8) {
   const f = path.join(dir, "sample.mp4");
@@ -182,7 +182,7 @@ test("bad ranges, a too long stretch and a bad scope are refused before anything
 test("without the tool installed: NO_BRIDGE before rendering", { skip }, (t) => {
   const S = setup(t, "pass");
   const svc = createReviewService({ store: S.store, bridge: VB, readProject: S.doc, activeProject: () => "p1", requestSample: () => { throw new Error("must not render"); },
-    getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x", env: { MONTCLIP_AGY_BIN: path.join(S.d, "none") } });
+    getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x", env: { MONTCLIP_AGY_BIN: path.join(S.d, "none"), MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" } });
   assert.throws(() => svc.prepare({ start: 1, end: 5 }), (e) => e.status === 409 && e.code === "NO_BRIDGE");
 });
 
@@ -231,7 +231,7 @@ test("the page sees what is sent: how many requests, how many taste notes, to wh
   const w = S.svc.status(v.reviewId).willSend;
   assert.equal(w.requests, 2); assert.equal(w.tasteNotes, 2);
   assert.match(w.what, /2 requests/); assert.match(w.what, /2 saved taste notes/);
-  assert.deepEqual(w.to, { ...VB.destination() }, "what is shown is the one decision");
+  assert.deepEqual(w.to, { ...VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }) }, "what is shown is the one decision");
   const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
   assert.deepEqual(rec.destination, w.to, "the record says what was shown");
   assert.equal(rec.mode, "two_pass"); assert.equal(rec.requests, 2); assert.equal(rec.tasteNotes, 2);
@@ -244,7 +244,7 @@ test("the page sees what is sent: how many requests, how many taste notes, to wh
 
 test("where it goes is checked again at the moment of sending: a change since it was shown stops the send", { skip }, async (t) => {
   let host = "daily-cloudcode-pa.googleapis.com";
-  const moving = { ...VB, destination: () => Object.freeze({ service: "Google Gemini", host, source: "docs", verified: false }) };
+  const moving = { ...VB, destination: () => Object.freeze({ service: "Google Gemini", host, source: "owner-confirmed", verified: true }) };
   const S = setup(t, "pass", { bridge: moving });
   const v = S.svc.prepare({ start: 24, end: 29 });
   await until(() => S.svc.status(v.reviewId).state === "ready");
@@ -342,4 +342,21 @@ test("gate: a later check of a smaller part that found a problem takes the pass 
   assert.equal(g(0, 30), false, "a person's recheck_needed on it takes it away again");
   assert.equal(g(0, 10), true);
   assert.equal(g(0, 30) === false && s.gate("p", { key: "OTHER", start: 0, end: 10 }).passed, false, "another content has no pass");
+});
+
+test("fail closed: an address nobody confirmed means nothing is rendered or sent, and a wrong confirmation confirms nothing", { skip }, async (t) => {
+  for (const bad of [undefined, "", "somewhere.else.example", "DAILY-CLOUDCODE-PA.GOOGLEAPIS.COM", "daily-cloudcode-pa.googleapis.com "]) {
+    const d = tmp(t), sample = makeSample(d), report = path.join(d, "report.json");
+    const env = { ...envFor("pass", { report, noConfirm: true }), ...(bad === undefined ? {} : { MONTCLIP_REVIEW_DEST_CONFIRMED: bad }) };
+    let jobs = 0;
+    const svc = createReviewService({ store: createReviewStore({ dir: path.join(d, "reviews") }), bridge: VB, readProject: DOC, activeProject: () => "p1", agentSendEnabled: () => true,
+      requestSample: () => { jobs++; return { id: "x" }; }, getJob: () => ({ status: "done", src: "/previews/s.mp4" }), cancelJob() { }, sampleFile: () => sample,
+      ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env });
+    assert.throws(() => svc.prepare({ start: 24, end: 29 }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED" && e.destination.verified === false, String(bad));
+    assert.throws(() => svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.code === "DESTINATION_UNVERIFIED");
+    assert.equal(jobs, 0, "nothing was rendered"); assert.equal(fs.existsSync(report), false, "and nothing was started");
+  }
+  const d = VB.destination({});
+  assert.deepEqual([d.verified, d.source], [false, "docs"]);
+  assert.deepEqual([VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).verified, VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).source], [true, "owner-confirmed"]);
 });

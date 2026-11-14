@@ -27,8 +27,15 @@ const DEFAULT_TIMEOUT_S = 420;
 /* Where what is sent goes. ONE function, used for what the streamer is shown (review.status), for the check made again at the
    moment of sending, and for what the record says. The address is the one the hand-run bridge's notes give: `agy` decides
    where it connects and tells us nothing about it, so it is NOT checked at run time (verified:false) — whoever shows it must say so. */
-function destination() { return Object.freeze({ service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "docs", verified: false }); }
-const DESTINATION = destination();
+const DOC_HOST = "daily-cloudcode-pa.googleapis.com";
+/** Nothing can be sent while verified is false (QQ, #328: an address that cannot be confirmed fails closed, no exception). It becomes true
+ *  only when the owner has confirmed the address herself (a packet capture on a real run) and says so with
+ *  MONTCLIP_REVIEW_DEST_CONFIRMED=<that exact host>; a different value confirms nothing. */
+function destination(env = process.env) {
+  const verified = env.MONTCLIP_REVIEW_DEST_CONFIRMED === DOC_HOST;
+  return Object.freeze({ service: "Google Gemini", host: DOC_HOST, source: verified ? "owner-confirmed" : "docs", verified });
+}
+const DESTINATION = destination({});
 
 const ENV_ALLOWLIST = Object.freeze(["PATH", "HOME", "LANG", "LC_ALL", "TERM", "USER", "LOGNAME", "TMPDIR", "XDG_CONFIG_HOME",
   "XDG_DATA_HOME", "XDG_CACHE_HOME", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "HOMEDRIVE", "HOMEPATH",

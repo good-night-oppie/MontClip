@@ -35,7 +35,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   const reviews = new Map();           // reviewId → in-flight state (finished ones live in the store)
   const busy = (project) => [...reviews.values()].find((r) => r.project === project && (r.state === "rendering" || r.state === "ready" || r.state === "sending"));
   /* ONE decision about where it goes: what is shown, what is checked again at the moment of sending, and what the record says */
-  const destination = () => ({ ...bridge.destination() });
+  const destination = () => ({ ...bridge.destination(env) });
   const sameDestination = (a, b) => a && b && a.service === b.service && a.host === b.host;
   const what = (r) => ["a short video clip (with its sound) of this stretch",
     r.scope === "full" ? "plus the subtitles and cut points inside it" : "and nothing else from the project",
@@ -73,7 +73,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   async function doSend(r) {
     if (r.state !== "ready") throw httpError(409, "that check is not waiting to be sent", { code: "NOT_READY" });
     if (activeProject() !== r.project) { r.state = "failed"; r.reason = "PROJECT_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "another project is open now; prepare again", { code: "PROJECT_CHANGED" }); }
-    if (!sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
+    if (!destination().verified || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
     const from = r.range.start - r.lead;
@@ -114,6 +114,8 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       if (autoSend && !agentSendEnabled()) throw httpError(403, "an agent may not send a sample yet: it is off until the owner's authorisation is verified; use prepare, and the streamer sends with her click", { code: "AGENT_SEND_OFF" });
       const project = activeProject();
       if (busy(project)) throw httpError(409, "another check of this project is still running; cancel it or wait", { code: "BUSY", busy: view(busy(project)) });
+      /* fail closed: an address nobody has confirmed is not one anything is rendered for, let alone sent to */
+      if (!destination().verified) throw httpError(409, "where this would be sent has not been confirmed (the owner's confirmation is missing), so nothing is prepared or sent", { code: "DESTINATION_UNVERIFIED", destination: destination() });
       if (!agyOverride && !bridge.findAgy(env)) throw httpError(409, "the video check tool is not installed on this computer", { code: "NO_BRIDGE" });
       const doc = readProject() || {};
       const from = Math.max(0, s - l);

@@ -233,7 +233,7 @@ test("the four verdicts: right names with a caption that explains the joke is is
 });
 
 test("destination: one function says where it goes, and it says plainly that this is not checked at run time", () => {
-  const a = VB.destination(), b = VB.destination();
+  const a = VB.destination({}), b = VB.destination({});
   assert.deepEqual(a, b); assert.equal(a.verified, false); assert.equal(a.source, "docs");
   assert.ok(Object.isFrozen(a) && Object.isFrozen(VB.DESTINATION));
 });
