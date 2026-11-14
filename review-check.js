@@ -135,7 +135,8 @@
       intro: "Only features you open yourself connect to the internet. You'll see what will be sent first. When you click “Send for a check”, the picture and sound of these {n} seconds, along with the subtitle text overlapping this section and the cut points, will be sent to AI for a check and may be used for training.",
       whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text overlapping this section, plus the cut points.",
       whatFullLead: "With either button, the picture and sound include an extra {leadSec} s before the checked section ({from} to {lead}), to give the AI context about what was being said.",
-      whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). No subtitle text, cut points or saved examples will be sent separately; subtitles already visible in the picture will still be sent as part of it.",
+      // PG #321 6872473697: the English page says what #328's willSend.what says for a window clip, word for word (test-locked on both sides)
+      whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.",
       whatEdge: "Any subtitle that overlaps this clip in time will be sent in full, so it may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
       noPage: "This step has to be done in the MontClip window; here you can only see what would be sent first.",
