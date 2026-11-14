@@ -79,7 +79,7 @@ function createExportJobs(opts) {
   let timer = null;
   const isEnded = (j) => j.status === "done" || j.status === "failed" || j.status === "cancelled";
   const view = (j) => ({
-    id: j.id, project: j.project, session: j.session, kind: j.kind, status: j.status, via: j.via, range: j.range, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
+    id: j.id, project: j.project, session: j.session, kind: j.kind, status: j.status, via: j.via, range: j.range, preview: !!j.preview, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
     time: j.time ?? null, progress: j.progress, src: j.src || null, result: j.result || null, error: j.error || null,
     code: j.errorCode || null, created: j.created, updated: j.updated,
   });
@@ -165,13 +165,19 @@ function createExportJobs(opts) {
      *  when she agrees (fablecut_lyrics_apply) — always in an open tab: a headless page has no one to ask.
      *  A scopes job's `image` flag also returns that still as a JPEG data URL,
      *  which is how fablecut_frame shows an agent the composed program picture. */
-    request({ project = null, session = null, kind = "export", range, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
+    request({ project = null, session = null, kind = "export", range, preview = false, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
       if (!["auto", "tab", "headless"].includes(where)) throw Object.assign(new Error("where must be auto, tab or headless"), { code: 400 });
       assertWhere(where);
       if (!["export", "scopes", "track", "transcribe", "lyrics"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track, transcribe or lyrics"), { code: 400 });
       if (kind === "lyrics" && where === "headless") throw Object.assign(new Error("the lyrics card needs an open editor window: someone has to answer it"), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (time != null && !(Number.isFinite(time) && time >= 0)) throw Object.assign(new Error("time must be seconds ≥ 0"), { code: 400 });
-      if (range != null && range !== "entire" && range !== "in-out") throw Object.assign(new Error("range must be \"entire\" or \"in-out\""), { code: 400 });
+      /* #321: a quick sample takes its own seconds, {start, end} on the timeline, without touching the project's IN / OUT
+         (which would make a revision and, forgotten, a cut-off export later). */
+      const spanRange = range != null && typeof range === "object" && !Array.isArray(range);
+      if (range != null && range !== "entire" && range !== "in-out" &&
+        !(spanRange && Number.isFinite(range.start) && Number.isFinite(range.end) && range.start >= 0 && range.end > range.start))
+        throw Object.assign(new Error("range must be \"entire\", \"in-out\" or {start, end} in seconds with 0 <= start < end"), { code: 400 });
+      if (preview && kind !== "export") throw Object.assign(new Error("preview applies to an export only"), { code: 400 });
       sweep();   // a job that has just run out of time must not refuse this one until the next tick
       const busy = [...jobs.values()].find((j) => !isEnded(j));
       // English for agents and logs, with the exact call that frees the queue; the page says JOB_BUSY in its own words
@@ -186,7 +192,8 @@ function createExportJobs(opts) {
       const now = clock();
       const j = {
         id: "x_" + Math.random().toString(36).slice(2, 10), project: project || null, session: session || null, kind, status: "pending", progress: 0,
-        range: range || null, profile: profile || null, delivery: kind === "export" && delivery ? delivery : null,
+        range: spanRange ? { start: +range.start, end: +range.end } : range || null, preview: kind === "export" && preview === true,
+        profile: profile || null, delivery: kind === "export" && delivery ? delivery : null,
         deliveries: kind === "export" && Array.isArray(deliveries) && deliveries.length ? deliveries : null, time: time ?? null, revision: Number.isFinite(revision) ? revision : null,
         matte: kind === "scopes" && matte ? { clip: String(matte.clip), layer: matte.layer } : null,
         mask: kind === "scopes" && mask ? { clip: String(mask.clip) } : null,
@@ -253,4 +260,49 @@ function createExportJobs(opts) {
   };
 }
 
-module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS };
+/* #325 (QQ, Rea; #321 R1a / R1b / P6): the editor clamps a range to the timeline, so a part past its end used to come
+   back as a shorter file under the seconds that were asked. /api/export/request refuses those up front instead.
+   timelineLength mirrors the editor's projDur(): the last second a clip occupies on one of the project's lanes
+   (project.tracks, else the default V3…V1 + A1…A4). */
+const DEFAULT_LANES = ["V3", "V2", "V1", "A1", "A2", "A3", "A4"];
+function timelineLength(project) {
+  const p = project && typeof project === "object" ? project : {};
+  const lanes = new Set(Array.isArray(p.tracks) && p.tracks.length ? p.tracks.map((t) => t && t.id) : DEFAULT_LANES);
+  let end = 0;
+  for (const c of Array.isArray(p.clips) ? p.clips : []) {
+    if (!c || !lanes.has(c.track)) continue;
+    const e = +c.start + +c.duration;
+    if (Number.isFinite(e) && e > end) end = e;
+  }
+  return end;
+}
+/** The seconds an export request would render: {start, end} as given, else the project's IN / OUT ("in-out", the default
+ *  when either is set) or the whole timeline. */
+function requestedSpan(project, range, length) {
+  if (range && typeof range === "object") return { start: +range.start, end: +range.end };
+  const hasIn = Number.isFinite(project && project.inPoint), hasOut = Number.isFinite(project && project.outPoint);
+  const mode = range || (hasIn || hasOut ? "in-out" : "entire");
+  if (mode === "in-out" && (hasIn || hasOut)) {
+    const start = Math.min(Math.max(0, hasIn ? project.inPoint : 0), length);
+    return { start, end: Math.max(start, Math.min(Math.max(0, hasOut ? project.outPoint : length), length)) };
+  }
+  return { start: 0, end: length };
+}
+/** null when the request is fine, else {errorCode, error} for a 400. Shape errors are export-jobs' request()'s to report. */
+function checkExportSpan({ project, range, preview = false, maxPreviewSec = 30 }) {
+  const isSpan = range != null && typeof range === "object" && !Array.isArray(range) &&
+    Number.isFinite(range.start) && Number.isFinite(range.end) && range.start >= 0 && range.end > range.start;
+  if (range != null && typeof range === "object" && !isSpan) return null;   // request() refuses it with its own message
+  const length = timelineLength(project);
+  const EPS = 1e-6;
+  if (isSpan && range.end > length + EPS)
+    return { errorCode: "RANGE_PAST_END", error: `end ${range.end} s is past the end of the timeline (${+length.toFixed(3)} s): pass an end of at most ${+length.toFixed(3)}` };
+  if (preview) {
+    const s = requestedSpan(project, range, length);
+    if (s.end - s.start > maxPreviewSec + EPS)
+      return { errorCode: "PREVIEW_TOO_LONG", error: `a preview is at most ${maxPreviewSec} s; this one would be ${+(s.end - s.start).toFixed(3)} s — pass a shorter start / end, or export without preview` };
+  }
+  return null;
+}
+
+module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS, timelineLength, checkExportSpan };

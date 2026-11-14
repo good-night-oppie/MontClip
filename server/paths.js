@@ -30,6 +30,8 @@ const SPLIT = DATA_DIR !== APP_DIR;
 
 const MEDIA_DIR = path.join(DATA_DIR, "media");
 const EXPORTS_DIR = path.join(DATA_DIR, "exports");
+/* #321: quick small samples (a few seconds of the timeline, for a look before the whole export) live here, never in exports/ */
+const PREVIEWS_DIR = path.join(DATA_DIR, "previews");
 const ANALYSIS_DIR = path.join(DATA_DIR, "analysis");
 const LIBRARY_DIR = path.join(DATA_DIR, "library");
 /* Grabs of single frames / contact sheets (GET /api/frame). Disposable render
@@ -99,7 +101,7 @@ function superseded(rel, file) {
 /* Create the writable tree. Safe to call from both servers; whoever runs first
    wins and the other no-ops. */
 function ensureDirs() {
-  for (const d of [DATA_DIR, MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, FRAMES_DIR, PROXIES_DIR])
+  for (const d of [DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, ANALYSIS_DIR, FRAMES_DIR, PROXIES_DIR])
     fs.mkdirSync(d, { recursive: true });
   for (const d of LIBRARY_SUBDIRS)
     fs.mkdirSync(path.join(LIBRARY_DIR, d), { recursive: true });
@@ -131,6 +133,6 @@ function writeSaved(kind, id, data) {
 
 module.exports = {
   APP_DIR, DATA_DIR, SPLIT,
-  MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, LIBRARY_DIR, PROJECT_FILE,
+  MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR, PROJECT_FILE,
   LIBRARY_SUBDIRS, FRAMES_DIR, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 };

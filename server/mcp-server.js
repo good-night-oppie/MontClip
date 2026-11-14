@@ -21,7 +21,7 @@ const FF = require("./ffmpeg-path");
 const { loadEncodeProfiles, listProfilesPublic, resolveProfile, profileSummary } = require("./encode-profiles");
 
 const {
-  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, LIBRARY_DIR, PROJECT_FILE, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
+  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR, PROJECT_FILE, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
 const { prepareMedia } = require("./prepare-media");
@@ -1141,7 +1141,7 @@ function savedDeliveryPresets() { return Delivery.savedPresets(readSaved("delive
 function describeExportJob(j) {
   const pct = Math.round((j.progress || 0) * 100);
   if (j.status === "done") {
-    const file = path.join(EXPORTS_DIR, path.basename(decodeURIComponent(j.src || "")));
+    const file = path.join(String(j.src || "").startsWith("/previews/") ? PREVIEWS_DIR : EXPORTS_DIR, path.basename(decodeURIComponent(j.src || "")));
     let size = "";
     try { size = ` (${(fs.statSync(file).size / 1048576).toFixed(1)} MB)`; } catch {}
     const outs = j.result && Array.isArray(j.result.outputs) ? j.result.outputs : null;
@@ -1363,7 +1363,10 @@ async function exportTool(args) {
     if (r.status !== 200) throw new Error(r.body?.error || "no such export job");
     job = r.body;
   } else {
-    const r = await apiJSON("POST", "/api/export/request", { range: args.range, profile: args.profile, preset: args.preset, delivery: args.delivery, outputs: args.outputs, where: args.where || "auto" });
+    if ((args.start != null) !== (args.end != null)) throw new Error("pass start and end together (seconds on the timeline)");
+    if (args.start != null && args.range) throw new Error("pass start and end, or range — not both");
+    const span = args.start != null ? { start: args.start, end: args.end } : args.range;
+    const r = await apiJSON("POST", "/api/export/request", { range: span, preview: args.preview === true, profile: args.profile, preset: args.preset, delivery: args.delivery, outputs: args.outputs, where: args.where || "auto" });
     if (r.status !== 200) throw new Error(r.body?.error || `export request failed (${r.status})`);
     job = r.body;
     if (job.notes && job.notes.length) startNote = `Settings adjusted: ${job.notes.join("; ")}\n`;

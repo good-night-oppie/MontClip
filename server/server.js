@@ -51,12 +51,12 @@ const {
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
 const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
-const { createExportJobs } = require("./export-jobs");
+const { createExportJobs, checkExportSpan } = require("./export-jobs");
 const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
 const {
-  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
+  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
   PROJECT_FILE, LIBRARY_SUBDIRS, FRAMES_DIR, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
 /** Uploads arrive here first (same volume as media/; a dot folder, so never served). At start only .part files older than
@@ -79,6 +79,7 @@ const { createProxies, PROXY_H264 } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
 const Delivery = require("../delivery");
 const ExportCleanup = require("./export-cleanup");
+const { createPreviewStore } = require("./preview-store");
 const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
@@ -139,7 +140,7 @@ function requestAllowed(req) {
 let HAS_FFMPEG = false, FFMPEG_MISSING = "", FFMPEG_MISSING_CODE = "ffmpegDev";
 /* Never start a program from a folder this server writes: an upload named ffmpeg.exe lands in media/ (QQ, 2026-11-05).
    The plugin's download folder (MONTCLIP_FFMPEG_DIR, under the data folder) is the one allowed place. */
-FF.setPlaces({ deny: [MEDIA_DIR, LIBRARY_DIR, UPLOADS_DIR, ANALYSIS_DIR, PROXIES_DIR, FRAMES_DIR, EXPORTS_DIR, path.join(DATA_DIR, "projects")],
+FF.setPlaces({ deny: [MEDIA_DIR, LIBRARY_DIR, UPLOADS_DIR, ANALYSIS_DIR, PROXIES_DIR, FRAMES_DIR, EXPORTS_DIR, PREVIEWS_DIR, path.join(DATA_DIR, "projects")],
   allow: [process.env.MONTCLIP_FFMPEG_DIR] });
 function detectFfmpeg() {
   FF.refresh();
@@ -411,6 +412,41 @@ function reserveExportPaths(dir, baseName, ext) {
     return { outPath, partPath };
   }
 }
+/* #321: a quick sample is written to previews/, under its own name (preview_<id>), and never overwrites a file.
+   #325 (QQ, Rea): only what this exporter registered is ever removed — not files that merely look like a sample.
+   preview-store.js keeps the registry (finished samples with their size and mtime; fablecut-* work folders and .part
+   files while they are written). Pruned before a sample starts and again after it is saved, so at most PREVIEW_KEEP stay
+   and none older than a day; a crash leftover goes after an hour. */
+const PREVIEW_KEEP = 20, PREVIEW_MAX_AGE_MS = 24 * 3600 * 1000, PREVIEW_WORKDIR_MS = 3600 * 1000;
+/* #325 R1b: a sample is a quick look — at most this many seconds (Deja may change it) */
+const PREVIEW_MAX_SEC = 30;
+const previewStore = createPreviewStore(PREVIEWS_DIR, { keep: PREVIEW_KEEP, maxAgeMs: PREVIEW_MAX_AGE_MS, workMs: PREVIEW_WORKDIR_MS });
+/** Work folders and .part files that running sample exports still use: never pruned. */
+function livePreviewNames() {
+  const live = new Set();
+  for (const s of exportSessions.values()) {
+    if (!s.preview) continue;
+    if (s.dir) live.add(path.basename(s.dir));
+    if (s.partPath) live.add(path.basename(s.partPath));
+    for (const o of s.outputs || []) if (o.partPath) live.add(path.basename(o.partPath));
+  }
+  return live;
+}
+function prunePreviews() {
+  try { previewStore.prune({ live: livePreviewNames() }); } catch (e) { console.error("preview cleanup:", X.maskUserPath(String(e.message || e))); }
+}
+/** Registers what a sample export has just created in previews/ (its work folder, its .part files). */
+function registerPreviewWork(dir, parts) {
+  previewStore.addWork(path.basename(dir), "dir");
+  for (const p of parts) if (p) previewStore.addWork(path.basename(p), "file");
+}
+/** A sample has been saved under its own name: record it as ours, then keep the newest PREVIEW_KEEP. */
+function registerPreviewFile(outPath, partPath) {
+  try { previewStore.addFile(path.basename(outPath), { replaces: partPath ? path.basename(partPath) : null }); }
+  catch (e) { console.error("preview registry:", X.maskUserPath(String(e.message || e))); }
+  prunePreviews();
+}
+const exportSrc = (sess, file) => (sess.preview ? "/previews/" : "/exports/") + encodeURIComponent(file);
 function run(cmd, args) {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, { maxBuffer: 1 << 24 }, (err, _out, stderr) =>
@@ -637,16 +673,20 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
     }
   } finally { try { fs.rmSync(dryDir, { recursive: true, force: true }); } catch {} }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const dir = fs.mkdtempSync(path.join(EXPORTS_DIR, "fablecut-"));
+  const outDir = extra.preview ? PREVIEWS_DIR : EXPORTS_DIR;
+  if (extra.preview) prunePreviews();
+  const dir = fs.mkdtempSync(path.join(outDir, "fablecut-"));
+  if (extra.preview) registerPreviewWork(dir, []);
   const duration = Number.isFinite(+extra.duration) && +extra.duration > 0 ? +extra.duration : null;
   for (const o of outs) {
     const ext = Delivery.CONTAINERS[o.spec.container].ext;
-    Object.assign(o, reserveExportPaths(EXPORTS_DIR, exportName(o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
+    Object.assign(o, reserveExportPaths(outDir, exportName(extra.preview ? "preview_" + id : o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
+    if (extra.preview) registerPreviewWork(dir, [o.partPath]);
     o.err = () => o.stderr.trim().split("\n").filter(Boolean).slice(-3).map((l) => l.trim()).join(" · ");
   }
   const sess = {
     mode: "jpeg", proc: null, fps: rate, outputs: outs, input, canvasW, canvasH, duration,
-    hasAudio: !!hasAudio, panIntent: !!extra.panIntent, dir, wav: null, partPath: null, outPath: null,
+    hasAudio: !!hasAudio, panIntent: !!extra.panIntent, preview: !!extra.preview, dir, wav: null, partPath: null, outPath: null,
     stderr: "", done: null, lastTouch: Date.now(), err: () => "",
   };
   sess.writeLock = Promise.resolve();
@@ -748,15 +788,19 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
       proresFilterPlan(rawProfile.args, !!hasAudio);
   }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const safe = exportName(name || "export");
+  const safe = exportName(extra.preview ? "preview_" + id : name || "export");
+  const outDir = extra.preview ? PREVIEWS_DIR : EXPORTS_DIR;
+  if (extra.preview) prunePreviews();
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
-  const dir = fs.mkdtempSync(path.join(EXPORTS_DIR, "fablecut-"));
+  const dir = fs.mkdtempSync(path.join(outDir, "fablecut-"));
+  if (extra.preview) registerPreviewWork(dir, []);
 
   if (m === "annexb") {
-    const { outPath, partPath } = reserveExportPaths(EXPORTS_DIR, safe, ".mp4");
+    const { outPath, partPath } = reserveExportPaths(outDir, safe, ".mp4");
+    if (extra.preview) registerPreviewWork(dir, [partPath]);
     const sess = {
       mode: m, fps: rate, proc: null, dir,
-      name: safe, hasAudio: !!hasAudio,
+      name: safe, hasAudio: !!hasAudio, preview: !!extra.preview,
       wav: null, partPath, outPath,
       stderr: "", done: null, lastTouch: Date.now(),
       err: () => sess.stderr.trim().split("\n").filter(Boolean).slice(-3)
@@ -779,9 +823,10 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   if (!dry.ok) throw new Error(`profile "${profile.id}" was rejected by ffmpeg: ${X.maskUserPath(dry.error)}`);
   // Reserve the output name now (not at first frame) so concurrent exports
   // cannot both see the same free path. The empty .part file is overwritten by ffmpeg (-y).
-  const { outPath, partPath } = reserveExportPaths(EXPORTS_DIR, safe, profile.extension);
+  const { outPath, partPath } = reserveExportPaths(outDir, safe, profile.extension);
+  if (extra.preview) registerPreviewWork(dir, [partPath]);
   const sess = {
-    mode: m, proc: null, fps: rate, profile, name: safe, hasAudio: !!hasAudio, binary,
+    mode: m, proc: null, fps: rate, profile, name: safe, hasAudio: !!hasAudio, preview: !!extra.preview, binary,
     pixelFormat, width, height, frames: extra.frames,
     dir, wav: null, partPath, outPath,
     stderr: "", done: null, lastTouch: Date.now(),
@@ -873,7 +918,7 @@ function cleanupExport(id) {
   s.discarded = true;   // a queued frame/audio write must not start ffmpeg after this
   exportSessions.delete(id);
   const job = ExportCleanup.stopSessions([s], { timeoutMs: 5000, log: logCleanupLeft });
-  pendingCleanups.add(job); job.finally(() => pendingCleanups.delete(job));
+  pendingCleanups.add(job); job.finally(() => { pendingCleanups.delete(job); if (s.preview) prunePreviews(); });   // #325: forget the work removed
 }
 /** Paths an export cleanup could not delete, kept in DATA_DIR/logs/export-cleanup.log (local only). */
 function logCleanupLeft(left) {
@@ -951,9 +996,10 @@ const exportJobs = createExportJobs({
   // an export is done when its file is in exports/ under its own name (the .part is renamed only after ffmpeg exits)
   finished: (src) => {
     let name = "";
-    try { name = decodeURIComponent(String(src).split("?")[0].replace(/^\/exports\//, "")); } catch { return false; }
+    const sample = String(src).startsWith("/previews/");
+    try { name = decodeURIComponent(String(src).split("?")[0].replace(/^\/(?:exports|previews)\//, "")); } catch { return false; }
     if (!name || name !== path.basename(name) || /\.part\.[^.]+$/i.test(name)) return false;
-    try { return fs.statSync(path.join(EXPORTS_DIR, name)).isFile(); } catch { return false; }
+    try { return fs.statSync(path.join(sample ? PREVIEWS_DIR : EXPORTS_DIR, name)).isFile(); } catch { return false; }
   },
 });
 
@@ -1629,6 +1675,15 @@ async function handleRequest(req, res) {
       };
       checkProject();
       exportJobs.assertWhere(opts.where);
+      if (opts.preview === true && opts.outputs) { sendJSON(res, 400, { error: "a preview is one quick file: pass profile or preset, not outputs" }); return; }
+      /* #325: an end past the timeline, or a preview longer than PREVIEW_MAX_SEC, is refused with the reason — not
+         rendered shorter under the seconds that were asked (the editor clamps to the timeline) */
+      {
+        let doc = {};
+        try { doc = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^﻿/, "")); } catch {}
+        const bad = checkExportSpan({ project: doc, range: opts.range, preview: opts.preview === true, maxPreviewSec: PREVIEW_MAX_SEC });
+        if (bad) { sendJSON(res, 400, { code: bad.errorCode, error: bad.error }); return; }
+      }
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
@@ -1662,7 +1717,7 @@ async function handleRequest(req, res) {
       let revision = null;
       try { revision = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).revision ?? null; } catch {}
       checkProject();
-      const job = exportJobs.request({ project: exportProject, session, range: opts.range, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
+      const job = exportJobs.request({ project: exportProject, session, range: opts.range, preview: opts.preview === true, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
       sendJSON(res, 200, deliveries ? { ...job, delivery: `${deliveries.length} outputs from one render`, notes: outNotes }
         : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
     } catch (e) {
@@ -1844,7 +1899,9 @@ async function handleRequest(req, res) {
       const ownerConn = liveOwner ? liveOwner.montclipConn : closedOwner ? connKey : null;
       // tests only: hold the precheck so a claim or a close lands between this snapshot and the new session (#302)
       if (+process.env.MONTCLIP_TEST_BEGIN_DELAY_MS > 0) await new Promise((r) => setTimeout(r, +process.env.MONTCLIP_TEST_BEGIN_DELAY_MS));
-      const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      // a sample is what the job says it is; a page cannot ask for previews/ by itself
+      const jobRec = typeof opts.job === "string" && opts.job ? exportJobs.get(opts.job) : null;
+      const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, { ...opts, preview: !!(jobRec && jobRec.preview) });
       /* Read the owner again after the precheck: the page can claim or close while it runs. The snapshot above has
          no task when begin came before claim, and the close handler's record carries the task that snapshot lacks --
          using either older value would leave the tab unmatched, or overwrite that task with null. */
@@ -1992,9 +2049,9 @@ async function handleRequest(req, res) {
           // a file that cannot be put in place fails alone; the others keep finishing
           try { fs.renameSync(o.partPath, o.outPath); }
           catch (e) { return { file, ok: false, error: "could not save the file: " + (e.message || e) }; }
+          const savedPart = o.partPath;
           o.partPath = null; // renamed — cleanup must not delete the finished file
-          exportedThisRun.add(file);
-          freshExports.add(file);
+          if (!sess.preview) { exportedThisRun.add(file); freshExports.add(file); }
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
           const blank = await blankCheck(sess, o.outPath, o.loud, o.spec.audio.codec === "none");
           // MC-14: a piece whose sound was lost is not handed over — the file goes (「没有生成文件」)
@@ -2003,8 +2060,9 @@ async function handleRequest(req, res) {
             exportedThisRun.delete(file); freshExports.delete(file);
             return { file, ok: false, error: blank.error, code: blank.code, params: blank.params };
           }
-          if (blank) return { file, ok: false, src: "/exports/" + encodeURIComponent(file), error: blank.error, code: blank.code, ...(report ? { report } : {}) };
-          return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report: o.spec.audio.codec === "none" ? report : ExportCheck.withQuiet(report, sess.quiet, sess.unchecked) } : {}),
+          if (sess.preview) registerPreviewFile(o.outPath, savedPart);   // #325: ours from now on; keep the newest 20
+          if (blank) return { file, ok: false, src: exportSrc(sess, file), error: blank.error, code: blank.code, ...(report ? { report } : {}) };
+          return { file, ok: true, src: exportSrc(sess, file), ...(report ? { report: o.spec.audio.codec === "none" ? report : ExportCheck.withQuiet(report, sess.quiet, sess.unchecked) } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
         }));
         cleanupExport(id);
@@ -2018,16 +2076,17 @@ async function handleRequest(req, res) {
       if (code !== 0) throw new Error("ffmpeg encode failed: " + sess.err());
       const out = sess.outPath;
       fs.renameSync(sess.partPath, out);
+      const savedPart = sess.partPath;
       sess.partPath = null; // renamed — cleanup must not delete the finished file
-      exportedThisRun.add(path.basename(out));
-      freshExports.add(path.basename(out));
+      if (!sess.preview) { exportedThisRun.add(path.basename(out)); freshExports.add(path.basename(out)); }
       const blank = await blankCheck(sess, out, null);
       cleanupExport(id);
       if (blank && blank.code === "EXPORT_AUDIO_FAILED") { try { fs.unlinkSync(out); } catch { } exportedThisRun.delete(path.basename(out)); freshExports.delete(path.basename(out)); }
+      else if (sess.preview) registerPreviewFile(out, savedPart);   // #325: ours from now on; keep the newest 20
       if (blank) throw Object.assign(new Error(`${path.basename(out)}: ${blank.error}`), { code: blank.code, params: blank.params });
       // a profile export has no delivery report: its warnings (a silent piece, one not checked in time) come on their own
       const warned = ExportCheck.warningReport(sess.quiet, sess.unchecked);
-      sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)), ...(warned ? { report: warned } : {}) });
+      sendJSON(res, 200, { ok: true, src: exportSrc(sess, path.basename(out)), ...(warned ? { report: warned } : {}) });
     } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e), ...(e && e.code ? { code: e.code } : {}), ...(e && e.params ? { params: e.params } : {}) }); }
     return;
   }
@@ -2344,6 +2403,14 @@ async function handleRequest(req, res) {
   /* Finished exports */
   if (p.startsWith("/exports/")) {
     serveFile(req, res, path.join(EXPORTS_DIR, path.basename(p)));
+    return;
+  }
+  /* #321: quick samples (previews/), served the same way and by name only */
+  if (p.startsWith("/previews/")) {
+    // the registry and work files (dot / fablecut- names) are the server's own, not samples
+    const base = path.basename(p);
+    if (base.startsWith(".")) { res.writeHead(404); res.end(); return; }
+    serveFile(req, res, path.join(PREVIEWS_DIR, base));
     return;
   }
 
