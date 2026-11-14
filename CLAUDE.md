@@ -2956,7 +2956,7 @@ agent last wrote, so an export right after a patch includes that patch.
   `mode:"two_pass"` first looks blind, then checks (the clip is sent in 2 requests). An agent
   sending on the streamer's behalf (`check`) is OFF unless `MONTCLIP_REVIEW_AGENT_SEND=1`
   (403 `AGENT_SEND_OFF`); `prepare` always works and the streamer sends with a click.
-  The model's own words (findings text, summary, observation) are kept in memory only, never on disk (they can quote
+  The model's own words (findings text, summary, observation) and the taste notes' words are kept in memory only, never on disk (they can quote
   viewers' names); a record read after a restart has `textAvailable:false` and only times, kinds and states.
   Nothing is prepared or sent (409 `DESTINATION_UNVERIFIED`) until the owner has confirmed where it goes and set
   `MONTCLIP_REVIEW_DEST_CONFIRMED` to that host.

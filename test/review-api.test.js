@@ -399,3 +399,30 @@ test("a file from before the rule is scrubbed the first time it is read", (t) =>
   assert.ok(!JSON.stringify(r).includes(NICK)); assert.equal(r.findings[0].type, "audio"); assert.equal(r.marks.length, 1);
   assert.ok(!fs.readFileSync(path.join(d, "p1.json"), "utf8").includes(NICK), "the old words are gone from the file");
 });
+
+test("taste notes: the words never reach the disk either (a nickname can be typed into one); a restart leaves kind and aspect, and nothing is sent from a note without words", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  S.store.tasteAdd("p1", { kind: "negative", text: "no captions like the one " + NICK });
+  S.store.tasteAdd("p1", { kind: "positive", aspect: "pacing", text: "the pause, as " + NICK + " said" });
+  for (const x of filesUnder(path.join(S.d, "reviews"))) assert.ok(!fs.readFileSync(x, "utf8").includes(NICK), x + " has no taste words");
+  const disk = JSON.parse(fs.readFileSync(path.join(S.d, "reviews", "p1.json"), "utf8")).taste;
+  assert.deepEqual(disk.map((n) => Object.keys(n).sort()), [["aspect", "at", "id", "kind"], ["aspect", "at", "id", "kind"]]);
+  assert.equal(S.store.tasteSendable("p1").length, 2, "in this process the words are here and a check sends them");
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  assert.equal(S.svc.status(v.reviewId).willSend.tasteNotes, 2);
+  /* after a restart: the notes are there as kinds, without words, and none is sent */
+  const again = createReviewStore({ dir: path.join(S.d, "reviews") });
+  assert.deepEqual(again.tasteList("p1").map((n) => [n.kind, n.aspect, n.textAvailable]), [["negative", null, false], ["positive", "pacing", false]]);
+  assert.ok(!JSON.stringify(again.tasteList("p1")).includes(NICK));
+  assert.equal(again.tasteSendable("p1").length, 0);
+});
+
+test("a taste note written before the rule is scrubbed of its words the first time it is read", (t) => {
+  const d = tmp(t);
+  fs.writeFileSync(path.join(d, "p1.json"), JSON.stringify({ version: 1, records: [], taste: [{ id: "t_old", kind: "negative", aspect: null, text: NICK, at: "x" }] }));
+  const s = createReviewStore({ dir: d });
+  assert.deepEqual(s.tasteList("p1").map((n) => [n.id, n.textAvailable]), [["t_old", false]]);
+  assert.ok(!fs.readFileSync(path.join(d, "p1.json"), "utf8").includes(NICK), "gone from the file");
+  assert.deepEqual(s.tasteRemove("p1", "t_old"), { removed: "t_old" });
+});

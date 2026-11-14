@@ -51,13 +51,17 @@ const hasWords = (r) => "summary" in r || "windowDigest" in r || "observation" i
 function createReviewStore({ dir, now = () => Date.now() }) {
   const fileOf = (projectId) => path.join(dir, (SAFE_ID.test(String(projectId || "")) ? projectId : "default") + ".json");
   const mem = new Map();   // "project\0reviewId" → the words of that check, this process only
+  const tasteWords = new Map();   // "project\0noteId" → the words of a taste note, this process only (QQ: a nickname can be typed into one too)
   const memKey = (p, id) => p + "\u0000" + id;
   const memFor = (p, id) => { const k = memKey(p, id); let m = mem.get(k); if (!m) { m = { findings: {}, dims: {}, notes: [], correction: null }; mem.set(k, m); while (mem.size > MEM_MAX) mem.delete(mem.keys().next().value); } return m; };
   function read(projectId) {
     let d = null;
     try { d = JSON.parse(fs.readFileSync(fileOf(projectId), "utf8")); } catch { }
     if (!d || !Array.isArray(d.records)) return { version: 1, records: [] };
-    if (d.records.some(hasWords)) { d.records = d.records.map(structured); write(projectId, d); }   // scrub a file from before this rule
+    let dirty = false;
+    if (d.records.some(hasWords)) { d.records = d.records.map(structured); dirty = true; }   // scrub a file from before this rule
+    if ((d.taste || []).some((t) => "text" in t)) { d.taste = d.taste.map(({ text: _t, ...rest }) => rest); dirty = true; }   // taste words too
+    if (dirty) write(projectId, d);
     return d;
   }
   function write(projectId, doc) {
@@ -112,7 +116,9 @@ function createReviewStore({ dir, now = () => Date.now() }) {
     },
     /** The project's taste notes (PG #321 v4 B10): what the streamer approved and rejected before, so every check judges by the same
      *  measure. A positive example must say WHAT was approved (pacing, caption, ...), never "this whole clip is fine". */
-    tasteList(projectId) { return (read(projectId).taste || []).map((t) => ({ ...t })); },
+    tasteList(projectId) { return (read(projectId).taste || []).map((t) => { const w = tasteWords.get(memKey(projectId, t.id)); return { ...t, text: w || "", textAvailable: !!w }; }); },
+    /** What a check may send: only the notes whose words are still here (they are not on disk, so a restart empties this). */
+    tasteSendable(projectId) { return this.tasteList(projectId).filter((t) => t.textAvailable); },
     tasteAdd(projectId, { kind, aspect, text }) {
       if (!TASTE_KINDS.includes(kind)) throw httpError(400, "kind is positive or negative", { code: "BAD_TASTE" });
       const t = clip(text, 200);
@@ -120,13 +126,15 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       if (kind === "positive" && !TASTE_ASPECTS.includes(aspect)) throw httpError(400, "a positive example says what was approved: aspect is one of " + TASTE_ASPECTS.join(", "), { code: "BAD_TASTE" });
       const doc = read(projectId); doc.taste = doc.taste || [];
       if (doc.taste.length >= TASTE_MAX) throw httpError(400, "at most " + TASTE_MAX + " notes; remove one first", { code: "TASTE_FULL" });
-      const e = { id: "t_" + crypto.randomBytes(4).toString("hex"), kind, aspect: kind === "positive" ? aspect : null, text: t, at: new Date(now()).toISOString() };
-      doc.taste.push(e); write(projectId, doc);
-      return { ...e };
+      const e = { id: "t_" + crypto.randomBytes(4).toString("hex"), kind, aspect: kind === "positive" ? aspect : null, at: new Date(now()).toISOString() };
+      doc.taste.push(e); write(projectId, doc);   // the file gets the kind and the aspect, never the words
+      tasteWords.set(memKey(projectId, e.id), t);
+      return { ...e, text: t, textAvailable: true };
     },
     tasteRemove(projectId, id) {
       const doc = read(projectId), n = (doc.taste || []).length;
       doc.taste = (doc.taste || []).filter((t) => t.id !== id);
+      tasteWords.delete(memKey(projectId, id));
       if (doc.taste.length === n) throw httpError(404, "no such note", { code: "NO_SUCH_TASTE" });
       write(projectId, doc);
       return { removed: id };

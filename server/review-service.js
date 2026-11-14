@@ -120,7 +120,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       const doc = readProject() || {};
       const from = Math.max(0, s - l);
       const range = { start: s, end: e };
-      const tasteSnap = store.tasteList(project);
+      const tasteSnap = store.tasteSendable(project);
       const id = "r_" + crypto.randomBytes(6).toString("hex");
       const job = requestSample({ project, range: { start: from, end: e }, where, revision: doc.revision ?? null });
       const r = { id, project, range, lead: +(s - from).toFixed(3), scope, mode, tasteSnap: tasteSnap, taste: tasteSnap.length, ctx: scope === "full" ? skeleton(doc, from, e) : "", destination: destination(), revision: doc.revision ?? null, key: store.contentKey(doc), state: "rendering", job: job.id,
