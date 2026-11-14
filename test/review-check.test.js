@@ -161,7 +161,14 @@ test('QQ #326 item 1: no full description of what is sent → both send buttons 
     'cutPoints negative': { ...base, willSend: { ...base.willSend, text: { ...base.willSend.text, cutPoints: -1 } } },
     'truncated unknown': { ...base, willSend: { ...base.willSend, text: { scope: 'full', subtitleChars: 10, cutPoints: 2 } } },
     'lead not ending at the start': { ...base, lead: { start: 17, end: 19 } },
+    // QQ #326 5900512724 item 1: the picture must be exactly lead + range — nothing unnamed before or after
+    'no lead, picture holds unnamed seconds before': { ...base, lead: null },
+    'picture starts before the lead': { ...base, willSend: { ...base.willSend, video: { start: 17, end: 30 } } },
+    'picture starts after the lead': { ...base, willSend: { ...base.willSend, video: { start: 19, end: 30 } } },
+    'picture runs past the range': { ...base, willSend: { ...base.willSend, video: { start: 18.5, end: 31 } } },
+    'no lead, picture runs past the range': { ...base, lead: null, willSend: { ...base.willSend, video: { start: 20, end: 31 } } },
   };
+  a.deepEqual([base.range, base.lead, base.willSend.video].map((r) => [r.start, r.end]), [[20, 30], [18.5, 20], [18.5, 30]], 'the stub is the shape the cases bend');
   for (const [name, prep] of Object.entries(cases)) {
     const m = R.confirmModel(prep, 'zh-CN');
     a.equal(m.canSend, false, name);
@@ -176,6 +183,26 @@ test('QQ #326 item 1: no full description of what is sent → both send buttons 
   }
   const ok = R.confirmModel(base, 'zh-CN');
   a.equal(ok.canSend, true, 'the full description still sends');
+  const noLead = { ...base, lead: null, willSend: { ...base.willSend, video: { start: 20, end: 30 } } };
+  a.equal(R.confirmModel(noLead, 'zh-CN').canSend, true, 'no lead and the picture is exactly the range: sends');
+});
+
+test('QQ #326 5900512724 item 2: a send that throws is 「不确定发没发」 whatever its code — never 「什么都没有发出去」', async () => {
+  for (const code of ['PREPARE_FAILED', 'NO_BRIDGE', 'BUSY', undefined]) {
+    const api = R.stubApi();
+    api.send = async () => { const e = new Error('x'); if (code) e.code = code; throw e; };
+    const s = R.createSession(api);
+    await s.check({ start: 20, end: 30 });
+    await s.send('full');
+    const m = R.resultModel(s.state.raw, 'zh-CN', 10);
+    a.equal(m.headline, '检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。', String(code));
+    a.ok(!/什么都没有发出去/.test(JSON.stringify(m)), String(code) + ': never claims nothing was sent');
+  }
+  // prepare's own failure still says nothing went
+  const api = R.stubApi(); api.prepare = async () => { throw new Error('x'); };
+  const s = R.createSession(api);
+  await s.check({ start: 20, end: 30 });
+  a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).headline, '这 10 秒没能在这台电脑上准备好，什么都没有发出去。');
 });
 
 test('QQ #326 item 2: an old preview answer never lands in a box opened after it', async () => {
