@@ -268,7 +268,7 @@ test('QQ #326 item 1: no full description of what is sent → both send buttons 
     a.equal(api.calls.filter((c) => c[0] === 'send').length, 0, name);
   }
   a.equal(R.confirmModel(base, 'zh-CN').canSend, true, 'the full description still sends');
-  const noLead = { ...base, lead: 0, willSend: { ...base.willSend, seconds: 10 } };
+  const noLead = { ...base, lead: 0, willSend: { ...base.willSend, seconds: 10, leadIn: null } };
   a.equal(R.confirmModel(noLead, 'zh-CN').canSend, true, 'no lead and the clip is exactly the range: sends');
   a.equal(R.confirmModel({ ...base, sendToken: undefined }, 'zh-CN').canSend, false, 'no token');
   a.equal(R.confirmModel({ ...base, state: 'rendering' }, 'zh-CN').canSend, false, 'not ready');
@@ -535,4 +535,25 @@ test("#328's refusals (Deja 6871907804) get a plain sentence under the headline;
   a.deepEqual(R.resultModel(s2.state.raw, 'zh-CN', 10).notes, []);
   const en = R.resultModel({ status: 'no_result', reason: 'PREPARE_FAILED', why: 'SEND_LIMIT', findings: [] }, 'en', 10);
   a.ok(en.notes[0] && !/[一-鿿]/.test(en.notes[0]));
+});
+
+test('PG #321 6871936322: the examples are said to live only while running; a positive example names its part; leadIn must be the lead shown; a reason is cut at 100', async () => {
+  const m = R.confirmModel(await readyView({ taste: 2 }), 'zh-CN');
+  const i = m.lines.indexOf('点「发送检查」还会把之前记下的 2 条好坏例子（认可的和不认可的）一起发出去。');
+  a.ok(i > 0);
+  a.equal(m.lines[i + 1], '好坏例子的文字只在本次运行保留，重启后需重新填写。');
+  a.ok(!R.confirmModel(await readyView(), 'zh-CN').lines.some((l) => l.includes('重启后')), 'said only when there are examples');
+  a.deepEqual(m.payload.notes.map((x) => [x.kind, x.aspect]), [['positive', 'subtitle'], ['negative', null]]);
+  // the page shows them: 「认可（字幕）：…」, 「不认可：…」
+  const api = R.stubApi({ taste: 2 }), w = mountWith(api);
+  await settle(); w.button.click(); await settle();
+  w.byReview('preview')[0].click(); await settle();
+  a.deepEqual(w.byReview('note').map((n) => n.textContent), ['认可（字幕）：例子 1', '不认可：例子 2']);
+  // #328 153ed95f leadIn: a different lead-in than the one computed is not a description
+  const v = await readyView();
+  a.equal(R.confirmModel(v, 'zh-CN').canSend, true);
+  for (const [name, leadIn] of [['other start', { ...v.willSend.leadIn, from: 16 }], ['other length', { ...v.willSend.leadIn, seconds: 2 }], ['not a lead', { from: 'x' }], ['null while there is a lead', null]])
+    a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, leadIn } }, 'zh-CN').canSend, false, name);
+  const r = R.resultModel({ status: 'issues', findings: [], dimensions: { fact: { state: 'issues', reason: '长'.repeat(300) } } }, 'zh-CN', 10);
+  a.ok(r.dims[0].line.length <= '人和事：可能有问题。'.length + 101, 'reason cut to 100');
 });
