@@ -81,6 +81,34 @@ test('no receiver known, no token: the two send buttons are off, and the box say
   a.equal(R.destinationOf({ service: 'S', host: 'C:\\Users\\x' }), null, 'a path is not a host');
 });
 
+test("JJ #326: whole seconds with no lead, the truncation said before sending, the fallback said in both boxes", async () => {
+  const api = R.stubApi();
+  const prep = await api.prepare({ start: 0, end: 3.4 });   // no lead at 0
+  const m = R.confirmModel(prep, 'zh-CN');
+  a.equal(m.n, 3);
+  a.ok(m.lines.some((l) => l.includes('（3 秒）')) && !m.lines.some((l) => l.includes('3.4 秒')), 'the box says 3 秒 like the button');
+  a.deepEqual(m.buttons.map((b) => b.label)[2], '只发这 3 秒');
+  const cut = R.confirmModel({ ...prep, willSend: { ...prep.willSend, text: { ...prep.willSend.text, truncated: true } } }, 'zh-CN');
+  const iFull = cut.lines.findIndex((l) => l.startsWith('点「发送检查」')), iTrunc = cut.lines.indexOf('整条片子的字幕文字太长，点「发送检查」时只带这 3 秒附近的部分。');
+  a.ok(iTrunc > iFull, 'said in the box, before anything is sent');
+  const fb = R.confirmModel(await api.prepare({ start: 37, end: 47 }), 'zh-CN', null, { fellBack: true });
+  a.equal(fb.lines[0], '你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。');
+  a.deepEqual(R.resultModel({ status: 'passed', findings: [] }, 'zh-CN', 10, { fellBack: true }).notes, ['你标的范围超过 30 秒，这次检查的是播放头附近的 10 秒。']);
+});
+
+test("JJ #326: a failed prepare says nothing was sent; a failed send never says that", async () => {
+  const s1 = R.createSession(R.stubApi({ prepareError: 'X' }));
+  await s1.check({ start: 20, end: 30 });
+  a.equal(R.resultModel(s1.state.raw, 'zh-CN', 10).headline, '这 10 秒没能在这台电脑上准备好，什么都没有发出去。');
+  const api = R.stubApi(); api.send = async () => { throw new Error('socket hang up'); };
+  const s2 = R.createSession(api);
+  await s2.check({ start: 20, end: 30 }); await s2.send('full');
+  const r = R.resultModel(s2.state.raw, 'zh-CN', 10);
+  a.equal(r.headline, '检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。');
+  a.equal(r.passed, false);
+  a.equal(R.resultModel({ status: 'no_result', reason: 'TIMEOUT', findings: [] }, 'zh-CN').headline, '这次没有检查出结果。这不代表没问题。', 'the engine answering no_result is not a failed send');
+});
+
 test('a check: prepare first (nothing sent), send only from the box, with its token; 「不发了」 cancels and sends nothing', async () => {
   const api = R.stubApi(), s = R.createSession(api);
   a.equal(await s.send('full'), false, 'no box yet');
