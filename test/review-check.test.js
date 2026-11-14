@@ -632,7 +632,7 @@ test("JJ #326: STORE_FAILED (#328: the clip may already have gone out, the recor
 });
 
 test("#328 85d9e8d1 / PG #321 6872395398: in the Cindy plugin or a browser no send token is shown — view-only: no send buttons at all, one plain line, the clip can still be looked at", async () => {
-  const line = '这一步要在 MontClip 窗口里点，这里只能先看会发什么。';
+  const line = '「发送检查」这一步要在 MontClip 窗口里点。这里只能先看会发什么，或者点「不发了」。';
   const m = R.confirmModel(await readyView({ noPage: true }), 'zh-CN');
   a.equal(m.canSend, false);
   a.ok(m.lines.includes(line));
@@ -641,7 +641,7 @@ test("#328 85d9e8d1 / PG #321 6872395398: in the Cindy plugin or a browser no se
   a.equal(ok.canSend, true);
   a.ok(!ok.lines.includes(line));
   a.ok(ok.buttons.every((b) => !b.hidden));
-  a.ok(R.confirmModel(await readyView({ noPage: true }), 'en').lines.includes("This step has to be done in the MontClip window; here you can only see what would be sent first."));
+  a.ok(R.confirmModel(await readyView({ noPage: true }), 'en').lines.includes("“Send for a check” has to be done in the MontClip window. Here you can only see what would be sent, or click “Don't send”."));
   // mounted: the box has no 「发送检查」 / 「只发这 10 秒」, every button shown does something, and nothing is sent
   const api = R.stubApi({ noPage: true }), w = mountWith(api);
   await settle(); w.button.click(); await settle();
