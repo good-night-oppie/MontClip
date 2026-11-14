@@ -107,7 +107,7 @@ test("the box says what is sent, to whom, and that it may train a model", async 
   a.deepEqual(m.lines.slice(1), [
     '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段有重叠的字幕文字、剪辑时间点。',
     '与这段画面相交的字幕会整条发送，可能包含片段前后的文字。',
-    '点「只发这 10 秒」会发出去：0:17–0:30 的画面和声音（13 秒），不发字幕文字和剪辑时间点。',
+    '点「只发这 10 秒」会发出去：0:17–0:30 的画面和声音（13 秒）。不会另外附带字幕文字、剪辑时间点和好坏例子；画面里本来就有的字幕，还是会跟着画面一起发出去。',
     '两个按钮发的画面和声音里，都有前面多带的 3 秒（0:17–0:20），让 AI 知道前面在说什么。',
     '画面里如果有观众昵称、弹幕，会原样发出去。']);
   const taste = R.confirmModel(await readyView({ taste: 4 }), 'zh-CN');
@@ -510,15 +510,15 @@ test('the editor loads it and hands it the playhead; the playground copies it', 
 });
 
 test("#328's refusals (Deja 6871907804) get a plain sentence under the headline; a refused send still never says 「没发出去」", async () => {
-  for (const [code, line] of [['NOT_LOCAL', '这个检查只能在这台电脑上用。'], ['LEDGER_UNREADABLE', '检查记录读不出来，所以这次先不检查。'], ['LEDGER_UNWRITABLE', '检查记录写不进去，所以这次先不检查。']]) {
+  for (const [code, line] of [['NOT_LOCAL', '这个检查只能在运行 MontClip 的这台电脑上用。'], ['LEDGER_UNREADABLE', '检查记录读不出来，所以这次先不检查。如果一直这样，请反馈给我们。'], ['LEDGER_UNWRITABLE', '检查记录写不进去，所以这次先不检查。如果一直这样，请反馈给我们。']]) {
     const s = session(R.stubApi({ prepareError: code }));
     await s.check({ start: 20, end: 30 });
     const r = R.resultModel(s.state.raw, 'zh-CN', 10);
     a.equal(r.headline, '这 10 秒没能在这台电脑上准备好，什么都没有发出去。', code);
     a.deepEqual(r.notes, [line], code);
   }
-  for (const [code, line] of [['PROJECT_EDITED', '准备好以后工程又改过，和要发的内容对不上了。请重新检查。'], ['PROJECT_CHANGED', '现在打开的是别的工程。请回到这个工程再检查。'],
-    ['SEND_LIMIT', '这个工程能发出去的视频已经到上限了，这次不能再发。'], ['DESTINATION_CHANGED', '要发去的地址变了。请重新检查。'], ['STORE_FAILED', '检查的结果没能保存下来。']]) {
+  for (const [code, line] of [['PROJECT_EDITED', '准备好以后项目又改过，和要发的内容对不上了。请重新检查。'], ['PROJECT_CHANGED', '现在打开的是别的项目。请回到这个项目再检查。'],
+    ['SEND_LIMIT', '这个项目能发出去的视频已经到上限了，这次不能再发。'], ['DESTINATION_CHANGED', '要发去的地址变了。请重新检查。'], ['STORE_FAILED', '检查的结果没能保存下来，之后可能找不回这次的结果。']]) {
     const api = R.stubApi(); api.send = async () => { const e = new Error('x'); e.code = code; throw e; };
     const s = session(api);
     await s.check({ start: 20, end: 30 }); await s.send('full');
@@ -529,7 +529,7 @@ test("#328's refusals (Deja 6871907804) get a plain sentence under the headline;
   // a clip that failed while being made says why when the engine says so (status: state failed, reason)
   const api = R.stubApi(); const st = api.status; api.status = async (id) => ({ ...(await st(id)), state: 'failed', reason: 'PROJECT_EDITED' });
   const s = session(api); await s.check({ start: 20, end: 30 });
-  a.deepEqual(R.resultModel(s.state.raw, 'zh-CN', 10).notes, ['准备好以后工程又改过，和要发的内容对不上了。请重新检查。']);
+  a.deepEqual(R.resultModel(s.state.raw, 'zh-CN', 10).notes, ['准备好以后项目又改过，和要发的内容对不上了。请重新检查。']);
   // an unknown code adds nothing, and an engine message is never shown
   const s2 = session(R.stubApi({ prepareError: 'SOMETHING_ELSE' })); await s2.check({ start: 20, end: 30 });
   a.deepEqual(R.resultModel(s2.state.raw, 'zh-CN', 10).notes, []);
@@ -556,4 +556,26 @@ test('PG #321 6871936322: the examples are said to live only while running; a po
     a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, leadIn } }, 'zh-CN').canSend, false, name);
   const r = R.resultModel({ status: 'issues', findings: [], dimensions: { fact: { state: 'issues', reason: '长'.repeat(300) } } }, 'zh-CN', 10);
   a.ok(r.dims[0].line.length <= '人和事：可能有问题。'.length + 101, 'reason cut to 100');
+});
+
+test('JJ #326 6872083423 / 6872139855: the preview names a part with a short name, a rejected example with a part says so, and says when no text goes', async () => {
+  // a rejected example that names a part; a full clip with no subtitle touching it
+  const api = R.stubApi({ taste: 2, projectText: '' }); const st = api.status;
+  api.status = async (id) => { const v = await st(id); if (v.willSend) v.willSend = { ...v.willSend, notes: v.willSend.notes.map((x, i) => (i === 1 ? { ...x, aspect: 'packaging' } : x)) }; return v; };
+  const w = mountWith(api);
+  await settle(); w.button.click(); await settle();
+  w.byReview('preview')[0].click(); await settle();
+  a.deepEqual(w.byReview('note').map((n) => n.textContent), ['认可（字幕）：例子 1', '不认可（包装）：例子 2'], 'short names, no brackets inside brackets');
+  a.ok(w.text().includes('这一段没有字幕文字要发。'));
+  a.equal(w.byReview('text').length, 0);
+  // the box shown again for a window clip: it says no text goes separately
+  const m = R.confirmModel(await readyView({}, { start: 20, end: 30 }, 'window'), 'zh-CN');
+  a.equal(m.payload.scope, 'window');
+  const api2 = R.stubApi(); let k = 0; const st2 = api2.status;
+  api2.status = async (id) => { const v = await st2(id); if (v.state === 'ready' && ++k === 2) v.willSend = { ...v.willSend, requests: 2 }; return v; };
+  const w2 = mountWith(api2); await settle(); w2.button.click(); await settle();
+  w2.byReview('window')[0].click(); await settle();
+  a.equal(w2.ui.session.state.changed, true);
+  w2.byReview('preview')[0].click(); await settle();
+  a.ok(w2.text().includes('这次不另外发字幕文字。'));
 });
