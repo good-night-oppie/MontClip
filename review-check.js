@@ -46,7 +46,7 @@
       whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。",   // JJ #326 (PG v4.1 6871970875 with 字幕文字)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
-      noPage: "「发送检查」这一步要在 MontClip 窗口里点。这里只能先看会发什么，或者点「不发了」。",   // JJ #326 (on 41e61a6b; PG #321 6872395398: view-only in the Cindy plugin / a browser, no button added)
+      noPage: "要发送，请在 MontClip 窗口里点「发送检查」或「只发这 {n} 秒」。这里只能先看会发什么，或者点「不发了」。",   // JJ #326 final (PG #321 6872395398: view-only in the Cindy plugin / a browser, no button added)
       tasteLost: "有 {k} 条好坏例子的文字在重启后没有保留，这次不会发出去；需要的话请重新填写。",   // JJ #326 6872283674 (#328 willSend.tasteLost)
       fixedTitle: "会一起发给 AI 的固定标准和问题",                // JJ #326 6872283674: folded in 「先看要发的内容」
       fixedTwice: "分次发出时，第一次不带，从后面几次起带上。",   // JJ #326 6872283674: only when requests > 1, right under the folded title
@@ -139,7 +139,7 @@
       whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.",
       whatEdge: "Any subtitle that overlaps this clip in time will be sent in full, so it may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
-      noPage: "“Send for a check” has to be done in the MontClip window. Here you can only see what would be sent, or click “Don't send”.",
+      noPage: "To send it, click “Send for a check” or “Send only these {n} s” in the MontClip window. Here you can only see what would be sent, or click “Don't send”.",
       tasteLost: "The text of {k} saved examples wasn't retained after a restart and won't be sent this time. If you need those examples, please enter them again.",
       fixedTitle: "Preset standards and questions sent to the AI",
       fixedTwice: "When sending more than once, these are left out the first time and included from the second time onward.",
@@ -347,7 +347,7 @@
     // #328 85d9e8d1: only the desktop window's own requests are the page; anywhere else (the Cindy plugin, a browser tab) no token is shown.
     // PG #321 6872395398: there it is view-only — no send button that does nothing, one plain line instead; the clip can still be looked at.
     const viewOnly = !!(pay && dest && dest.verified && id && !token && view.state === "ready");
-    if (viewOnly) lines.push(t(lang, "noPage"));
+    if (viewOnly) lines.push(t(lang, "noPage", { n }));
     return {
       title: t(lang, "title", { n }), n, lines, payload: pay,
       blocked: !pay ? "noPayload" : !dest ? "noDestination" : !dest.verified ? "unverified" : null,
