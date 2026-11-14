@@ -43,7 +43,7 @@
       intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",   // JJ #326 6871859408
       whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段有重叠的字幕文字、剪辑时间点。",   // JJ #326 6871859408: a subtitle across the edge goes whole
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
-      whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒）。不会另外附带字幕文字、剪辑时间点和好坏例子；画面里本来就有的字幕，还是会跟着画面一起发出去。",   // JJ #326 6872083423 / 6872139855 (PG v4.1 6871970875)
+      whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。",   // JJ #326 (PG v4.1 6871970875 with 字幕文字)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
       tasteLost: "有 {k} 条好坏例子的文字在重启后没了，这次不会发出去。",   // draft (#328 eb3203ab willSend.tasteLost); JJ to finalize
