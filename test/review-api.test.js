@@ -611,3 +611,22 @@ test("window wording is the adopted sentence and matches the payload; the page i
   assert.equal(fw.tasteNotes, 0); assert.equal(fw.tasteLost, 1);
   assert.doesNotMatch(fw.what, /saved taste note/, "no note is announced that will not go");
 });
+
+/* ---- Deja: the fixed standards and questions are in willSend, and are what is sent ---- */
+test("willSend carries the five standards, the five questions and the fixed ask, and they are exactly what the request carries; in two passes only the second one has them", { skip }, async (t) => {
+  for (const mode of ["single", "two_pass"]) {
+    const S = setup(t, "pass");
+    const v = S.svc.prepare({ start: 24, end: 29, mode });
+    await until(() => S.svc.status(v.reviewId).state === "ready");
+    const st = S.svc.status(v.reviewId).willSend.standards;
+    assert.ok(st && st.rules.length === 5 && st.questions.length === 5 && typeof st.ask === "string", mode);
+    assert.equal(st.carriedBy, mode === "two_pass" ? "second" : "only");
+    await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+    const calls = fs.readFileSync(S.calls, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const main = calls[calls.length - 1].prompt;
+    const rules = st.rules.map((r, i) => `${i + 1}. ${r}`).join("\n"), questions = st.questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+    assert.ok(main.includes(rules + "\n"), mode + ": the five standards, as shown, are in the request in this order");
+    assert.ok(main.includes(questions + "\n" + st.ask), mode + ": the five questions and the ask, as shown, are in the request");
+    if (mode === "two_pass") for (const x of [...st.rules, ...st.questions, st.ask]) assert.ok(!calls[0].prompt.includes(x), "the blind first look has none of it");
+  }
+});

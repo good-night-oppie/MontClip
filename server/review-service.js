@@ -58,7 +58,9 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     reviewId: r.id, state: r.state, project: r.project, range: r.range, lead: r.lead, scope: r.scope, mode: r.mode, revision: r.revision, progress: r.progress ?? null,
     willSend: r.state === "ready" ? { what: what(r), to: r.destination, requests: r.mode === "two_pass" ? 2 : 1, tasteNotes: r.taste,
       /* the words themselves, as they will go: the project's subtitles and cut points (scope full) and the taste notes */
-      projectText: r.ctx || "", tasteLost: r.tasteLost || 0, tasteNotice: r.taste || r.tasteLost ? "文字只在本次运行保留，重启后需重新填写" : "", notes: (r.tasteSnap || []).map((t) => ({ kind: t.kind, aspect: t.aspect, text: t.text })),
+      projectText: r.ctx || "", /* the fixed standards and questions: the very strings the request is built from (video-bridge.js), shown so the page can list them */
+      standards: { rules: [...bridge.RUBRIC], questions: [...bridge.QUESTIONS], ask: bridge.QUESTIONS_ASK, carriedBy: r.mode === "two_pass" ? "second" : "only" },
+      tasteLost: r.tasteLost || 0, tasteNotice: r.taste || r.tasteLost ? "文字只在本次运行保留，重启后需重新填写" : "", notes: (r.tasteSnap || []).map((t) => ({ kind: t.kind, aspect: t.aspect, text: t.text })),
       leadIn: r.lead > 0 ? { from: +(r.range.start - r.lead).toFixed(2), to: r.range.start, seconds: r.lead } : null,
       seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: new Date(r.tokenExp).toISOString() } : undefined,
     previewSrc: r.file ? "/previews/" + encodeURIComponent(path.basename(r.file)) : undefined, result: r.result || undefined, reason: r.reason || undefined,

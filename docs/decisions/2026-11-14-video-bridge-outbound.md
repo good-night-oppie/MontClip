@@ -128,3 +128,7 @@ Successfully processed 1 files; Failed processing 0 files
 - 「只发这几秒」的文案固定为：`No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.`；发送内容与之一致（`willSend.what`），并仍显示实际起止和总时长。「好坏例子」一句只在这次真的会发出有效笔记时才出现，条数取这次发送的快照。
 - 重启后有几条笔记没了文字：`willSend.tasteLost`（scope=full）和 `GET /api/review/taste` 的 `lost`；页面据此写句子，不猜数字。
 - **未完成，不算通过：** V21f（跨重启保留文字，隐私方案待定）；笔记的 source/note 字段（未实现，不伪造来源）。
+
+## 发送前给主播看固定标准（Deja，#321）
+
+`willSend.standards = {rules[5], questions[5], ask, carriedBy}`：就是请求拼装时用的同一组字符串（`RUBRIC`、`QUESTIONS`、`QUESTIONS_ASK`），页面放在「查看将发送的内容」下的折叠区。`carriedBy` 为 `only`（单轮，这一个请求带）或 `second`（两遍，只有第二个请求带，盲看那个不带）。测试用页面看到的文字拼出请求里应有的整块，对比实际发出的请求。
