@@ -129,6 +129,39 @@ test('a check: prepare first (nothing sent), send only from the box, with its to
   a.equal(api2.calls.filter((c) => c[0] === 'send').length, 0);
 });
 
+/* ── QQ #326 (CHANGES_REQUESTED on d5872c56), items 1–4 ── */
+const deferred = () => { let resolve, reject; const p = new Promise((a, b) => { resolve = a; reject = b; }); return { p, resolve, reject }; };
+
+test('QQ #326 item 1: no full description of what is sent → both send buttons off, the box says why, send refuses', async () => {
+  const base = await R.stubApi().prepare({ start: 20, end: 30 });
+  const cases = {
+    'no willSend': { ...base, willSend: undefined },
+    'no video': { ...base, willSend: { ...base.willSend, video: undefined } },
+    'no text': { ...base, willSend: { ...base.willSend, text: undefined } },
+    'no range': { ...base, range: undefined },
+    'range backwards': { ...base, range: { start: 30, end: 20 } },
+    'video not holding the range': { ...base, willSend: { ...base.willSend, video: { start: 22, end: 30 } } },
+    'subtitleChars missing': { ...base, willSend: { ...base.willSend, text: { ...base.willSend.text, subtitleChars: undefined } } },
+    'cutPoints negative': { ...base, willSend: { ...base.willSend, text: { ...base.willSend.text, cutPoints: -1 } } },
+    'truncated unknown': { ...base, willSend: { ...base.willSend, text: { scope: 'full', subtitleChars: 10, cutPoints: 2 } } },
+    'lead not ending at the start': { ...base, lead: { start: 17, end: 19 } },
+  };
+  for (const [name, prep] of Object.entries(cases)) {
+    const m = R.confirmModel(prep, 'zh-CN');
+    a.equal(m.canSend, false, name);
+    a.deepEqual(m.buttons.filter((b) => !b.enabled).map((b) => b.id), ['full', 'window'], name);
+    a.ok(m.lines.includes('说不清这次具体会发出去什么，所以先不发。'), name + ': says why');
+    a.ok(!m.lines.some((l) => /会发出去：|只发出去：/.test(l)), name + ': never a made-up description');
+    const api = R.stubApi(); api.prepare = async () => prep;
+    const s = R.createSession(api);
+    await s.check({ start: 20, end: 30 });
+    a.equal(await s.send('full'), false, name + ': send refuses');
+    a.equal(await s.send('window'), false, name + ': send refuses');
+  }
+  const ok = R.confirmModel(base, 'zh-CN');
+  a.equal(ok.canSend, true, 'the full description still sends');
+});
+
 test('「先看要发的内容」 plays only a same-origin preview', async () => {
   a.equal(R.safePreviewSrc({ src: '/previews/preview_r_1.mp4' }), '/previews/preview_r_1.mp4');
   for (const src of ['https://x.example/a.mp4', '//x.example/a.mp4', '/media/a.mp4', '/previews/../project.json', 'C:\\a.mp4', 'javascript:alert(1)'])
