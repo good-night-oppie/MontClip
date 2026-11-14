@@ -518,7 +518,7 @@ test("#328's refusals (Deja 6871907804) get a plain sentence under the headline;
     a.deepEqual(r.notes, [line], code);
   }
   for (const [code, line] of [['PROJECT_EDITED', '准备好以后项目又改过，和要发的内容对不上了。请重新检查。'], ['PROJECT_CHANGED', '现在打开的是别的项目。请回到这个项目再检查。'],
-    ['SEND_LIMIT', '这个项目能发出去的视频已经到上限了，这次不能再发。'], ['DESTINATION_CHANGED', '要发去的地址变了。请重新检查。'], ['STORE_FAILED', '检查的结果没能保存下来，之后可能找不回这次的结果。']]) {
+    ['SEND_LIMIT', '这个项目能发出去的视频已经到上限了，这次不能再发。'], ['DESTINATION_CHANGED', '要发去的地址变了。请重新检查。'], ]) {
     const api = R.stubApi(); api.send = async () => { const e = new Error('x'); e.code = code; throw e; };
     const s = session(api);
     await s.check({ start: 20, end: 30 }); await s.send('full');
@@ -606,4 +606,27 @@ test("Deja #326: the fixed standards and questions are shown, folded, exactly as
   a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, tasteLost: -1 } }, 'zh-CN').canSend, false);
   const src = read('review-check.js');
   a.ok(!src.includes('保留真实对话') && !src.includes('人物/事件/字幕哪里错了'), 'the standards and questions are not written into the page');
+});
+
+test("JJ #326: STORE_FAILED (#328: the clip may already have gone out, the record was not saved) has its own headline", async () => {
+  const api = R.stubApi(); api.send = async () => { const e = new Error('x'); e.code = 'STORE_FAILED'; throw e; };
+  const s = session(api);
+  await s.check({ start: 20, end: 30 }); await s.send('full');
+  const r = R.resultModel(s.state.raw, 'zh-CN', 10);
+  a.equal(r.headline, '内容可能已经发到对方那边了，但检查的结果没能保存下来，这次没有结果可看。这不代表没问题。');
+  a.deepEqual(r.notes, ['再检查一次，内容会再发出去一次。']);
+  a.equal(r.passed, false);
+  // only a send that was called says it: the same code from prepare is the prepare headline
+  a.notEqual(R.resultModel({ status: 'no_result', reason: 'PREPARE_FAILED', why: 'STORE_FAILED', findings: [] }, 'zh-CN', 10).headline, r.headline);
+});
+
+test("#328 85d9e8d1: outside the desktop window no send token is shown — the box says so and nothing can be sent", async () => {
+  const m = R.confirmModel(await readyView({ noPage: true }), 'zh-CN');
+  a.equal(m.canSend, false);
+  a.ok(m.lines.includes('只能在 MontClip 桌面版的窗口里发送检查，这里只能看会发什么。'));
+  a.ok(m.buttons.filter((b) => b.id !== 'cancel').every((b) => !b.enabled));
+  const ok = R.confirmModel(await readyView({}), 'zh-CN');
+  a.equal(ok.canSend, true);
+  a.ok(!ok.lines.includes('只能在 MontClip 桌面版的窗口里发送检查，这里只能看会发什么。'));
+  a.ok(R.confirmModel(await readyView({ noPage: true }), 'en').lines.includes('A check can only be sent from the MontClip desktop window; here you can only see what would be sent.'));
 });
