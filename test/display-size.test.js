@@ -68,7 +68,7 @@ test("an entry that already has the stored size (imported before) is corrected t
   a.equal(MediaLib.displaySize(m, info), true);
   a.deepEqual([m.width, m.height], [2389, 1920]);
   a.equal(MediaLib.displaySize(m, info), false, "once");
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.match(app, /MediaLib\.displaySize\(m, i\)/, "refreshMediaInfo uses it");
 });
 

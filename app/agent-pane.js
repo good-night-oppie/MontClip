@@ -1,4 +1,4 @@
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./ui-preferences'),require('./agent-session-schema'));else root.MontClipAgentPane=factory(root.MontClipView,root.MontClipSessions);})(typeof globalThis!=='undefined'?globalThis:this,function(view,schema){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../ui-preferences'),require('../agent-session-schema'));else root.MontClipAgentPane=factory(root.MontClipView,root.MontClipSessions);})(typeof globalThis!=='undefined'?globalThis:this,function(view,schema){
 'use strict';
 function referenceChips(kind,context){
  if(!context||typeof context.projectId!=='string'||!context.projectId)return [];

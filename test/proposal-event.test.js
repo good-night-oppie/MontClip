@@ -4,7 +4,7 @@
 // produce that event shape already: {id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}.
 // Only checked values go into args; the model's reply text never does.
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const C=require('../captions'),P=require('../chat-proposal');
+const C=require('../captions'),P=require('../app/chat-proposal');
 const KEYS=['actor','args','at','capability','id','revisionAfter','revisionBefore','risk','runId','state','step'];
 function fixture(){
  const doc={revision:7,fps:30,media:[{id:'m',duration:600}],clips:[{id:'v',kind:'video',mediaId:'m',track:'V1',start:0,in:100,duration:300}]};
@@ -43,7 +43,7 @@ test('the states move only forward: result → applied (with revisionAfter) → 
  assert.deepEqual(P.STATES,['planned','awaiting_confirmation','running','has_result','applied','rejected','undone','failed']);
 });
 test('the page keeps one event per reviewed proposal and moves it on apply, cancel and undo',()=>{
- const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');
+ const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../app/app.js'),'utf8');
  // P1: the events live in the project's event log (agent-events.js); undo moves an event with its undo step
  for(const s of ["MontClipProposal.event(","MontClipProposal.failedEvent(",'moveEvent(suggestion.eventId, "applied"',"moveEvent(ev.id,'rejected')",'if (id) moveEvent(id, "undone")'])assert.ok(app.includes(s),s);
 });

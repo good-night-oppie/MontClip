@@ -121,7 +121,7 @@ test("a new tab of the same task does not save the closed tab's export", { skip:
 });
 
 test("webCodecsExport never reads opts: it uses runtime.sseConn only", () => {
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const start = app.indexOf("async function webCodecsExport(");
   const end = app.indexOf("async function fastExport(", start);
   const body = app.slice(start, end > start ? end : start + 20000);
@@ -227,7 +227,7 @@ test("a precheck longer than the grace keeps the task from the claim: a same-tab
 });
 
 test("the background export page receives conn through the editor's start opts", () => {
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const start = app.indexOf("async function runBgExportHere(");
   const body = app.slice(start, start + 1200);
   assert.ok(start >= 0);

@@ -31,7 +31,7 @@ test("the project summary carries width, height and fps as numbers, or null", (t
 });
 
 test("the dashboard escapes width, height and fps wherever it puts them in the page", () => {
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   // every place that writes ${p.width}×${p.height} does it inside escapeHtml(`…`)
   const uses = [...app.matchAll(/\$\{p\.width\}×\$\{p\.height\}/g)].map((m) => app.slice(Math.max(0, m.index - 12), m.index));
   assert.ok(uses.length >= 2, "found " + uses.length);

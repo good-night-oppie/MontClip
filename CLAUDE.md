@@ -303,7 +303,7 @@ See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`, `docs/decisions/2
 node server.js        # → http://localhost:7777
 ```
 
-Files: `index.html` + `style.css` + `app.js` (editor UI), `server.js` (API + hosting),
+Files: `index.html` + `style.css` + `app/app.js` (editor UI; the page's own scripts are in `app/`), `server.js` (API + hosting),
 `project.json` (the timeline — THE file to edit), `media/` (project footage),
 `library/` (default asset library, see below).
 

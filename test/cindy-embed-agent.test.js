@@ -14,7 +14,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT, makeDataDir, startServer, seedProject } = require("./helpers");
-const Approval = require("../agent-approval");
+const Approval = require("../app/agent-approval");
 const Host = require("../host-embed");
 const View = require("../ui-preferences");
 const { withPage } = require("./browser-contrast");
@@ -74,7 +74,7 @@ test("her line names none of the code's words: agentApprovals, embedded, 内置,
   }
 });
 test("the editor shows her line when ask() is denied inside Cindy — held like a 〔撤销〕 toast (VV, #221)", () => {
-  const app = read("app.js");
+  const app = read("app/app.js");
   assert.match(app, /embedded:\(\)=>agentEmbedded,onEmbedded:\(\)=>toastHeld\(uiText\('own\.ap-embedded-declined'\)\)\}\);/);
   assert.ok(Number(app.match(/const UNDO_TOAST_MS = (\d+);/)[1]) >= 8000, "it stays 8 s or more");
   const held = app.slice(app.indexOf("function toastHeld("), app.indexOf("function toast(msg)"));

@@ -35,11 +35,11 @@ const FAKE = `window.SelfieSegmentation = class { constructor(o) { this.o = o; f
   setOptions() {} onResults(f) { this.cb = f; } async send() { const c = document.createElement("canvas"); c.width = c.height = 8; const x=c.getContext('2d'); x.fillStyle='white'; x.fillRect(4,0,4,8); this.cb && this.cb({ segmentationMask: c }); } };`;
 // Replace only the inventory in the test page: actual fetch SRI + WebCrypto verify synthetic bytes.
 // Never claim these hashes or the fake segmentation are the production model.
-const fixtureBytes = Object.fromEntries(Object.keys(require('../../bgremove-assets').FILES).map(name =>
+const fixtureBytes = Object.fromEntries(Object.keys(require('../../app/bgremove-assets').FILES).map(name =>
   [name, Buffer.from(name === 'selfie_segmentation.js' ? FAKE : 'synthetic fixture: '+name)]));
 const fixtureFiles = Object.fromEntries(Object.entries(fixtureBytes).map(([name,bytes]) =>
   [name,{size:bytes.length,sha256:require('crypto').createHash('sha256').update(bytes).digest('base64')}]));
-const fixtureModule = fs.readFileSync(path.join(ROOT,'bgremove-assets.js'),'utf8').replace(
+const fixtureModule = fs.readFileSync(path.join(ROOT,'app/bgremove-assets.js'),'utf8').replace(
   /const FILES = [\s\S]*?\n  const error =/, 'const FILES = Object.freeze('+JSON.stringify(fixtureFiles)+');\n  const error =');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
@@ -65,7 +65,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       }
       if (m.method === "Fetch.requestPaused") {
         const sid = m.sessionId, { requestId, request } = m.params;
-        if (!REAL && request.url === ORIGIN+'/bgremove-assets.js') return send('Fetch.fulfillRequest', {
+        if (!REAL && request.url === ORIGIN+'/app/bgremove-assets.js') return send('Fetch.fulfillRequest', {
           requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'text/javascript'}],body:Buffer.from(fixtureModule).toString('base64')},sid);
         if (request.url.startsWith(ORIGIN) || /^(data|blob):/.test(request.url)) return send("Fetch.continueRequest", { requestId }, sid);
         external.push({ url: request.url, method: request.method, body: request.postData ? request.postData.length : 0 });

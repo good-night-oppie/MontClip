@@ -10,7 +10,7 @@
 // app.js is a browser script, so the FONTS section is sliced out and run against a small fake page that records every
 // request it would make.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const SRC=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const SRC=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
 const slice=(from,to)=>{const i=SRC.indexOf(from),j=SRC.indexOf(to,i);a.ok(i>=0&&j>i,'markers: '+from);return SRC.slice(i,j);};
 const lift=(re)=>{const m=re.exec(SRC);a.ok(m,String(re));return new Function('return ('+m[1]+');')();};
 const FONTS=slice('/* ═══════════════════════════ FONTS','/* ── Main loop ── */');

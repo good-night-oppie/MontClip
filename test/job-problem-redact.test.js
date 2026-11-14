@@ -15,7 +15,7 @@ const J = require("../server/export-jobs");
 const { makeDataDir, startServer } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");
-const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const app = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
 const fnBody = (head) => { const at = app.indexOf(head); a.ok(at >= 0, head); let d = 0, i = app.indexOf("{", at);
   for (; i < app.length; i++) { if (app[i] === "{") d++; else if (app[i] === "}" && --d === 0) break; } return app.slice(at, i + 1); };
 
@@ -132,5 +132,5 @@ test("#132 keeps no scrub of its own", () => {
   a.ok(!/MontClipProblem|showProblem|codeText\(/.test(app));
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   a.ok(!html.includes("problem-details.js"));
-  a.ok(html.indexOf('src="problem-redact.js"') > 0 && html.indexOf('src="problem-redact.js"') < html.indexOf('src="app.js"'));
+  a.ok(html.indexOf('src="problem-redact.js"') > 0 && html.indexOf('src="problem-redact.js"') < html.indexOf('src="app/app.js"'));
 });

@@ -39,15 +39,15 @@ test('the pane asks for the summary through tp, not by replacing {count} itself'
   const pane = read('agent-ui/pane.tsx');
   a.match(pane, /W\.MontClipView\.tp\(language,'officialPane_planSummary',\{count:plan\.steps\.length\},\{count:plan\.steps\.length\}\)/);
   a.doesNotMatch(pane, /t\.planSummary\.replace/);
-  a.match(read('cindy-official.js'), /officialPane_planSummary/, 'the bundle was rebuilt');
+  a.match(read('app/cindy-official.js'), /officialPane_planSummary/, 'the bundle was rebuilt');
 });
 
 test('the approval card: its first line is what the step changes (stepDetail), the plain sentence second (VV on #84; v7.2; step 3)', () => {
-  const app = read('app.js'), Approval = require('../agent-approval');
+  const app = read('app/app.js'), Approval = require('../app/agent-approval');
   // both callers give it, from MontClipPlan.stepDetail in the interface language, with the reply it is about
   a.ok(app.includes("askAgentApproval(d,{result,summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)})"));
   a.ok(app.includes("askAgentApproval(d,{result,summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),detail:MontClipPlan.stepDetail(s,mcView.get().language)})"));
-  const Plan = require('../agent-plan'), s = { capability: 'keep_ranges', args: { output_mode: 'one_file', ranges: [{ clipId: 'v1', from: 0, to: 115 }] } };
+  const Plan = require('../app/agent-plan'), s = { capability: 'keep_ranges', args: { output_mode: 'one_file', ranges: [{ clipId: 'v1', from: 0, to: 115 }] } };
   a.equal(Plan.stepDetail(s, 'zh-CN'), '保留 0:00–1:55');
   a.equal(Plan.stepDetail(s, 'en'), 'Keep 0:00–1:55');
   // the card: the detail first, the capability's sentence second; without a detail, the sentence first

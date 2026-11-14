@@ -117,6 +117,6 @@ test('each save failure code shows its own notice; an unknown code falls back to
  // the 〔复制问题信息〕 fragment is not shown anywhere until that button is on the panel
  for(const l of ['zh-CN','en'])for(const k of ['configKeyStore','configWriteFailed'])assert.ok(!view.text[l]['officialPane_'+k].includes(view.text[l].officialPane_configCopyDetails),l+' '+k);
  assert.doesNotMatch(pane,/configCopyDetails/,'not wired yet (#161)');
- const bundle=read('cindy-official.js');
+ const bundle=read('app/cindy-official.js');
  for(const s of ['KEY_STORE_UNAVAILABLE:"configKeyStore"','KEY_REQUIRED:"configKeyRequired"','CONFIG_INVALID:"configInvalid"','CONFIG_WRITE_FAILED:"configWriteFailed"'])assert.ok(bundle.includes(s),'bundle rebuilt: '+s);
 });

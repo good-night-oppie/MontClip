@@ -61,7 +61,7 @@ test('every npm package in the bundle has its version and full license recorded'
 });
 
 test('the parts are in the page bundle, under window.MontClipCindyParts', () => {
-  const bundle = fs.readFileSync(path.join(__dirname, '../cindy-official.js'), 'utf8');
+  const bundle = fs.readFileSync(path.join(__dirname, '../app/cindy-official.js'), 'utf8');
   assert.match(bundle, /MontClipCindyParts/);
   assert.match(bundle, /43001eaaa31ef322de9ae148c4051087277d6198/);
   for (const name of ['PermissionSelector', 'JumpToBottomChip', 'InlineReferenceChip', 'TodoListCard', 'ErrorMessageCard', 'WorkGroupBlock', 'ThinkingCard', 'ToolCallCard', 'AskUserQuestionPrompt'])
@@ -130,7 +130,7 @@ test('Chinese words where Cindy writes English in its JSX: ThinkingCard\'s title
   assert.ok(own['zh-CN'].chat.thinking.hidden && !/[a-z]/i.test(own['zh-CN'].chat.thinking.hidden));
   assert.equal(own.en.chat.thinking.hidden, 'Thinking hidden');
   // in the bundle
-  const bundle = fs.readFileSync(path.join(__dirname, '../cindy-official.js'), 'utf8');
+  const bundle = fs.readFileSync(path.join(__dirname, '../app/cindy-official.js'), 'utf8');
   assert.match(bundle, /chat\.thinking\.inProgress/);
   assert.doesNotMatch(bundle, /children:"Thinking"/);
 });
@@ -172,7 +172,7 @@ test('how long the AI took: words in Chinese (58 秒, 1 分 29 秒), Cindy\'s ow
 
 test('every MontClip string is in the built bundle (QQ on #109 7ab67eb: a string added without rebuilding never reached the pane)', () => {
   const strings = JSON.parse(fs.readFileSync(path.join(UI, 'montclip-strings.json'), 'utf8'));
-  const bundle = fs.readFileSync(path.join(__dirname, '..', 'cindy-official.js'), 'utf8');
+  const bundle = fs.readFileSync(path.join(__dirname, '..', 'app/cindy-official.js'), 'utf8');
   // esbuild writes non-ASCII characters as \uXXXX with upper-case hex digits
   const escaped = (s) => s.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'));
   const missing = [];

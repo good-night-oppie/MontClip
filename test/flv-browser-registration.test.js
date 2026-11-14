@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
-const source=fs.readFileSync(require.resolve('../app.js'),'utf8');
+const source=fs.readFileSync(require.resolve('../app/app.js'),'utf8');
 function world({ok=true,late=false}={}){
  const calls={saved:0,blobs:0},project={media:[],clips:[],revision:1};
  const context={project,runtime:{projectGen:1},state:{connected:true},uid:()=> 'one',MediaLib:require('../media-lib'),toast(m){calls.toast=m;},MontClipView:require('../ui-preferences'),mcView:{get:()=>({language:'zh-CN'})},getFolder(){},renderBin(){},scheduleSave(){calls.saved++;},refreshMediaInfo(){},ensureWave(){},grabThumb:async()=>{},loadMediaMetadata:async()=>{if(late)context.runtime.projectGen++;},fetch:async()=>({ok,status:409,json:async()=>({src:'/media/compat.mp4',originalSrc:'/media/source.flv',preparation:'remux'})}),URL:{createObjectURL(){calls.blobs++;return 'blob:x';}},

@@ -59,7 +59,7 @@ test('a boundary within half a frame counts as the same boundary; a real cut is 
 });
 
 test('the dialog counts only the captions that are shown and really cut', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
   const at = app.indexOf('async function showSentenceSelection(');
   const body = app.slice(at, app.indexOf('\n}\n', at));
   a.match(body, /plan\.captions\.filter\(\(?c\)? => c\.status === "visible" && c\.truncated\)\.length/);

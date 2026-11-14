@@ -3,7 +3,7 @@
 // summary shows the final length as mm:ss (h:mm:ss from an hour), the same as the Agent pane's durationText.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences');
-const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 const zh = V.text['zh-CN'], en = V.text.en;
 
 test("JJ's wording, verbatim", () => {

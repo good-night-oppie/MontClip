@@ -19,7 +19,7 @@ try { HAS_FFMPEG = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["
 /* ── Pitch worklet ── */
 const SR = 48000;
 const processors = {};
-vm.runInNewContext(fs.readFileSync(path.join(ROOT, "fx-worklet.js"), "utf8"), {
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, "app/fx-worklet.js"), "utf8"), {
   AudioWorkletProcessor: class {}, registerProcessor: (name, cls) => { processors[name] = cls; },
   sampleRate: SR, Math, Float32Array, Array,
 });

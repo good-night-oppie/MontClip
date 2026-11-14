@@ -154,7 +154,7 @@ test("package.json declares no runtime dependencies", () => {
 });
 
 test("inspector sliders advertise and handle Ctrl/Cmd-click reset", () => {
-  const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   assert.match(app, /els\.inspector\.addEventListener\("pointerdown"/,
     "slider reset is delegated on the inspector, not bound per range");
   assert.match(app, /Ctrl\/Cmd-click: reset to default/);

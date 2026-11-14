@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT } = require("./helpers");
 
-const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
 const HTML = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
 /* Keys handled on purpose without a dialog row, with the reason. */

@@ -5,7 +5,7 @@
 // the undo compared clip by clip, is desktop/caption-quick-smoke.cjs.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const Q = require('../caption-quick'), V = require('../ui-preferences');
+const Q = require('../app/caption-quick'), V = require('../ui-preferences');
 const zh = (k, v) => V.t('zh-CN', 'own.' + k, v), en = (k, v) => V.t('en', 'own.' + k, v);
 const cap = (id, fontSize, y, extra = {}) => ({ id, kind: 'text', track: 'V3', start: 0, duration: 2, mediaId: null,
   props: { caption: true, text: '合成 ' + id, fontSize, y, x: 0, wordTimes: [[0, 1]], ...extra } });
@@ -62,7 +62,7 @@ test("JJ's words; no px anywhere the streamer reads", () => {
 });
 
 test('two entries, one operation: 〔字幕大小〕 beside the style menu (all captions), the Inspector top (the selected ones)', () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /<select data-tr-cap-style[^>]*>[\s\S]{0,400}?<\/select>\n\s*<button type="button" class="btn tiny" data-tr-cap-quick/, 'right after the style menu');
   a.match(app, /q\("\[data-tr-cap-quick\]"\)\.addEventListener\("click", \(\) => openCaptionQuick\(\)\);/);
   a.match(app, /let html = captionQuickHtml\("selected"\) \+ \(state\.selIds\.size > 1/, 'the Inspector starts with it');
@@ -71,8 +71,8 @@ test('two entries, one operation: 〔字幕大小〕 beside the style menu (all 
   a.ok(!/MontClipCaptions\.(cues|clip)\(|addCaptionsFromTranscript/.test(fn), 'nothing generated again');
   a.match(fn, /MontClipCaptionQuick\.apply\(/);
   a.match(app, /function captionQuickTargets\(scope\) \{[\s\S]{0,400}!isClipLocked\(c\)/, 'locked captions are left alone');
-  a.match(read('index.html'), /<script src="caption-quick\.js"><\/script>/);
-  a.match(read('docs/demo/sync.js'), /"caption-quick\.js"/);
+  a.match(read('index.html'), /<script src="app\/caption-quick\.js"><\/script>/);
+  a.match(read('docs/demo/sync.js'), /"app\/caption-quick\.js"/);
 });
 
 // Deja (11-03, #81): a caption whose fontSize (or y) is keyframed would not show the new value — the keys win. Such a
@@ -97,7 +97,7 @@ test('keyframed captions: skipped for that property, left out of what the button
   a.equal(en('cq-animated-one'), "1 caption is animated (its size or position changes over time), so it was left as it is. To change it, select it and adjust it in the Inspector.");
   a.equal(en('cq-animated-many', { n: 2 }), "2 captions are animated (their size or position changes over time), so they were left as they are. To change them, select each one and adjust it in the Inspector.");
   // the page: N counts them; the toast adds the sentence; nothing changed → no undo step
-  const app = read('app.js'), fn = app.slice(app.indexOf('function captionQuickApply('), app.indexOf('function captionQuickApply(') + 1800);
+  const app = read('app/app.js'), fn = app.slice(app.indexOf('function captionQuickApply('), app.indexOf('function captionQuickApply(') + 1800);
   a.match(fn, /const \{ changed, skipped \} = MontClipCaptionQuick\.apply\(/);
   a.match(fn, /skipped === 1 \? uiText\("own\.cq-animated-one"\) : uiText\("own\.cq-animated-many", \{ n: skipped \}\)/, "one or several");
   a.match(fn, /if \(!changed\) \{[^}]*toast\(/, 'nothing to change: only the sentence, no undo step');

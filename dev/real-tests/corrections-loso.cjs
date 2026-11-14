@@ -17,7 +17,7 @@
    few are). */
 "use strict";
 const fs = require("fs"), path = require("path");
-const Songs = require("../../songs"), C = require("../../corrections"), H = require("../../highlight-candidates");
+const Songs = require("../../songs"), C = require("../../corrections"), H = require("../../app/highlight-candidates");
 const root = process.argv[2];
 if (!root || !fs.existsSync(path.join(root, "cases"))) { console.error("usage: corrections-loso.cjs <golden dir with cases/>"); process.exit(2); }
 const SONG = /演唱|舞蹈/;

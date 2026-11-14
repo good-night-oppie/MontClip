@@ -40,15 +40,15 @@ test("v12's words on the page 「记住我的剪辑习惯」 and in 设置 › �
 });
 test('the page loads corrections.js and segment-edits.js; settings has 自动出切片 after 听写',()=>{
  const html=read('index.html');
- a.ok(html.indexOf('<script src="corrections.js">')>0&&html.indexOf('<script src="segment-edits.js">')>0);
+ a.ok(html.indexOf('<script src="corrections.js">')>0&&html.indexOf('<script src="app/segment-edits.js">')>0);
  a.ok(html.indexOf('id="setSlices"')>html.indexOf('id="setAsr"'),'after 听写');
 });
 test('inside the page only the 自动出切片 code reads the corrections — never the assistant',()=>{
- const app=read('app.js'),from=app.indexOf('/* ── 记住我的剪辑习惯'),to=app.indexOf('/* ── end 记住我的剪辑习惯 ── */');
+ const app=read('app/app.js'),from=app.indexOf('/* ── 记住我的剪辑习惯'),to=app.indexOf('/* ── end 记住我的剪辑习惯 ── */');
  a.ok(from>0&&to>from,'one block');
  const outside=app.slice(0,from)+app.slice(to);
  a.deepEqual(outside.match(/.*(montclipCorrections|MontClipCorrections).*/g)||[],[],'only the block names them; the rest calls its functions');
- for(const f of ['agent-facts.js','agent-conversation.js','agent-format.js','agent-pane.js','cindy-official.js'])a.ok(!/orrections/.test(read(f)),f);
+ for(const f of ['app/agent-facts.js','app/agent-conversation.js','agent-format.js','app/agent-pane.js','app/cindy-official.js'])a.ok(!/orrections/.test(read(f)),f);
 });
 
 // JJ's final copy for 12f4f21 (Deja, 2026-11-03), as written
@@ -78,7 +78,7 @@ test("the habit's reason: JJ's whole sentence for every kind, in Chinese and Eng
  a.ok(!/\{unit/.test(zh('as-habit-why'))&&!/\{unit/.test(en('as-habit-why')),'no unit spliced in');
  for(const k of ['as-unit2-song','as-unit2-part','as-unit-song','as-unit-song-maybe','as-unit-moment','as-unit-interaction','as-unit-chat','as-unit-stunt','as-unit-other'])
   a.equal(V.text['zh-CN']['own.'+k],undefined,k+' is gone');
- const app=read('app.js');a.ok(!/as-unit/.test(app),'app.js uses no as-unit key');
+ const app=read('app/app.js');a.ok(!/as-unit/.test(app),'app.js uses no as-unit key');
  // the card a possible song is on says 唱歌: the kind word comes from the card's kind, never gated
  a.match(app,/"own\.as-habit-kind-" \+ c\.kind/);
 });
@@ -111,7 +111,7 @@ test("the line when it is off, its 〔打开〕 and the toast after it, in JJ's 
  a.equal(zh('as-learn-on-here'),'已打开「记住我的剪辑习惯」。从现在起，你在这里的修改会记在这台电脑上，不会发出去。');
  a.equal(en('as-learn-on-here'),'“Remember my editing habits” is on. From now on, changes you make here are kept on this computer and never sent.');
  // the same switch as the page: one store call, and the undo step turns it off again
- const app=read('app.js');
+ const app=read('app/app.js');
  a.match(app,/data-as-act="\$\{on \? "learn" : "learn-on"\}"/);
  a.match(app,/act === "learn-on"/);
 });
@@ -129,5 +129,5 @@ test('a card that is no longer a song shows no singing-only reason; a song again
  a.deepEqual(S.cardReasons({kind:'song',reasons:r}).map(x=>x.signal),['singing','loudness','danmaku']);
  for(const k of ['moment','interaction','chat','stunt','other'])a.deepEqual(S.cardReasons({kind:k,reasons:r}).map(x=>x.signal),['loudness','danmaku'],k);
  a.deepEqual(S.cardReasons({kind:'moment'}),[]);
- a.match(read('app.js'),/MontClipAutoSlices\.cardReasons\(c\)/);
+ a.match(read('app/app.js'),/MontClipAutoSlices\.cardReasons\(c\)/);
 });

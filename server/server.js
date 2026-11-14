@@ -88,6 +88,11 @@ const { createEmbed, sameSecret, TASK_ID_RE } = require("./embed");
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
 const ROOT = APP_DIR;
+/** What the static route hands out (#281 AS.1): the editor page's own code (app/), its icons, the Cindy plugin's pages
+ *  (cindy/, copied in by its build), and files at the root with a page file's extension (index.html, style.css, the
+ *  scripts the page and the server share, favicon.svg). Media, library, exports and proxies have their own routes. */
+const PAGE_DIRS = new Set(["app", "icons", "cindy"]);
+const PAGE_ROOT_EXT = new Set([".html", ".js", ".css", ".svg", ".png", ".ico"]);
 const PORT = process.env.PORT || 7777;
 const HOST = process.env.HOST || "127.0.0.1";
 const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
@@ -1107,6 +1112,9 @@ async function handleRequest(req, res) {
   }
   // never serve dotfiles/dot-directories (.git, .gitignore, …)
   if (p.split(/[\\/]/).some((seg) => seg.startsWith("."))) { res.writeHead(403); res.end(); return; }
+  // nor a ":" anywhere in the decoded path: NTFS reads "server::$INDEX_ALLOCATION" as the folder server and "x::$DATA" as
+  // x, so a name check after it would be fooled (QQ on #323). No route takes one; a file name never needs one.
+  if (p.includes(":")) { res.writeHead(403); res.end(); return; }
 
   /* API: project */
   if (p === "/api/project" && req.method === "GET") {
@@ -2622,13 +2630,18 @@ async function handleRequest(req, res) {
     return;
   }
 
-  /* Static app files */
+  /* Static app files: an allow-list (#281 AS.2). Only the page's own folders and the root's page files are handed out;
+     the local service's code (server/), config, docs, tests, the desktop shell and, in a checkout whose data folder is
+     the install folder, project.json and the rest of the user's files are not. */
   let file = p === "/" ? "/index.html" : p;
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
   /* run from a clone, the data folder is the app folder: what this server keeps there is never served as an app file */
   if (["reviews", "previews"].includes(path.relative(ROOT, file).split(path.sep)[0])) { res.writeHead(404); res.end(); return; }
-
+  // the path as the file system reads it (Windows: any case, trailing dots and spaces of a name dropped)
+  const parts = path.relative(ROOT, file).split(path.sep).map((s) => s.toLowerCase().replace(/[. ]+$/, ""));
+  const pageFile = parts.length > 1 ? PAGE_DIRS.has(parts[0]) : PAGE_ROOT_EXT.has(path.extname(parts[0]));
+  if (!pageFile) { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
 }
 

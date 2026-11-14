@@ -100,7 +100,7 @@ test("the framing page's origin: ancestorOrigins, else the referrer; none, opaqu
 test("the page loads host-embed.js before app.js, and the playground copies it", () => {
   const html = read("index.html");
   const at = (f) => html.indexOf(`<script src="${f}"></script>`);
-  assert.ok(at("host-embed.js") >= 0 && at("host-embed.js") < at("app.js"));
+  assert.ok(at("host-embed.js") >= 0 && at("host-embed.js") < at("app/app.js"));
   assert.match(read("docs/demo/sync.js"), /"host-embed\.js"/);
   assert.equal(read("docs/demo/host-embed.js"), read("host-embed.js"), "the playground's copy is current");
 });
@@ -114,6 +114,6 @@ test("embedded: the built-in assistant is hidden and cannot be opened; light the
   const light = rootVars(/html\[data-host-theme="light"\] \{([\s\S]*?)\n\}/.exec(css)[1]);
   for (const v of dark) if (v !== "--accent" && v !== "--accent-2" && v !== "--danger") assert.ok(light.has(v), "light theme sets " + v);
   assert.match(css, /html\[data-host-theme="light"\] \{\s*color-scheme: light;/);
-  const app = read("app.js");
+  const app = read("app/app.js");
   assert.match(app, /function setSideTab\(tab\) \{\n {2}if \(tab === "assistant" && typeof MontClipHost !== "undefined" && MontClipHost\.embedded\) tab = "inspector";/);
 });

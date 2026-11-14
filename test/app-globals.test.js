@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 test("app.js declares every top-level function once", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const names = [...src.matchAll(/^(?:async\s+)?function\s+([\w$]+)/gm)].map((m) => m[1]);
   const seen = new Set(), dup = new Set();
   for (const n of names) (seen.has(n) ? dup : seen).add(n);

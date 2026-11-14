@@ -3,7 +3,7 @@
 // locks it: the facts are numbers, short clip ids and the clip's kind, whatever the project holds.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const Facts=require('../agent-facts'),View=require('../ui-preferences');
+const Facts=require('../app/agent-facts'),View=require('../ui-preferences');
 
 // a project full of what must never be sent: file names, paths, subtitle and danmaku text, clip names
 const SECRETS=['我的直播 11月2日.mp4','/media/私密/录像.mp4','C:\\Users\\主播\\Videos\\a.flv','天空好想下雨','谢谢老板的火箭','开场白'];
@@ -44,7 +44,7 @@ test('the review box: the fold says what is sent, opens to the explanation and t
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/<details data-facts-note><summary>\{t\.factsTitle\}<\/summary><p data-facts-explain>\{t\.factsExplain\}<\/p><pre data-facts-raw>\{JSON\.stringify\(MontClipAgentPane\.messageFacts\(review\?\.messages\?\.at\(-1\)\?\.content\|\|''\),null,2\)\}<\/pre><\/details>/);
  a.ok(!pane.includes('t.factsNote'));
- a.match(read('cindy-official.js'),/data-facts-explain/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-facts-explain/,'the bundle was rebuilt');
  const zh=View.text['zh-CN'],en=View.text.en;
  a.equal(zh.officialPane_factsTitle,'还会附上时间线的数字 · 点开看原文');
  a.equal(en.officialPane_factsTitle,'Timeline numbers are also sent · click to see them');
@@ -64,8 +64,8 @@ const omittedShown=n=>{
  // one clip: its own sentence (factsOmittedOne), as the strings with -one do elsewhere
  a.match(pane,/\{factsOmitted>0&&<p data-facts-omitted>\{factsOmitted===1\?t\.factsOmittedOne:t\.factsOmitted\.replace\('\{n\}',String\(factsOmitted\)\)\}<\/p>\}/);
  a.match(pane,/setFactsOmitted\(options\.getFactsOmitted\?\.\(\)\|\|0\)/,'counted when the box opens');
- a.ok(read('app.js').includes('getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),'));
- a.match(read('cindy-official.js'),/data-facts-omitted/,'the bundle was rebuilt');
+ a.ok(read('app/app.js').includes('getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),'));
+ a.match(read('app/cindy-official.js'),/data-facts-omitted/,'the bundle was rebuilt');
  a.equal(View.text['zh-CN'].officialPane_factsOmitted.replace('{n}',String(n)),`有 ${n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。`);
  a.equal(View.text.en.officialPane_factsOmitted.replace('{n}',String(n)),`Timing for ${n} clips wasn't included, so the AI won't see where they are. Sending still works.`);
 };
@@ -95,7 +95,7 @@ test('nothing left out: no count; only clips that would have been sent count (ca
 test('the facts and the proposals check ids by the same rule',()=>{
  a.equal(Facts.SHORT_ID.source,'^[A-Za-z0-9_-]{1,128}$');
  a.match(read('capabilities.js'),/clipId: \{ type: "string", pattern: "\^\[A-Za-z0-9_-\]\{1,128\}\$" \}/);
- a.ok(read('chat-proposal.js').includes('/'+Facts.SHORT_ID.source+'/.test(v)'),'chat-proposal.js identity()');
+ a.ok(read('app/chat-proposal.js').includes('/'+Facts.SHORT_ID.source+'/.test(v)'),'chat-proposal.js identity()');
 });
 
 // JJ's final words (2026-11-03), as written; n = 1 in English says "it" (Deja's change for agreement). No 「编号」 / "IDs":
@@ -119,7 +119,7 @@ test('only the selected clips: the others, their highlights and their left-out c
  a.deepEqual(Facts.build(doc,{selected:['cap1']}),{clips:[]},'a selected caption is not a shot, and its text never goes');
  a.equal(Facts.omitted(doc,{selected:['c_v1']}),0);a.equal(Facts.omitted(doc,{selected:['C:/Users/主播/a.mp4']}),1);
  // the editor asks for the selected clips, for the facts and for the left-out count
- const app=read('app.js');
+ const app=read('app/app.js');
  a.ok(app.includes('getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),'));
  a.ok(app.includes('getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),'));
 });
