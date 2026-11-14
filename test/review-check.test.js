@@ -1,11 +1,21 @@
 'use strict';
-// 「检查这 10 秒」 (#321 step 2, Deja): the box, the result list and the prewarm, against a stand-in for the engine's
-// interface v0 (Cindy 6867768988). The real engine replaces the stand-in once #325 and step 1 are in; Win11 is then run by hand.
+// 「检查这 10 秒」 (#321 step 2, Deja): the box and the result list, against a stand-in with the shapes of Cindy's step 1
+// (MontClip#328, /api/review/*). The real server is exercised against #328's own routes before this goes in; Win11 by hand.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const R = require('../review-check');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const zh = (k, v) => R.t('zh-CN', k, v);
 const tick = () => new Promise((r) => setImmediate(r));
+const settle = async (n = 8) => { for (let i = 0; i < n; i++) await tick(); };
+const fast = { pollMs: 0, wait: () => Promise.resolve() };
+const session = (api) => R.createSession(api, fast);
+const deferred = () => { let resolve, reject; const p = new Promise((a, b) => { resolve = a; reject = b; }); return { p, resolve, reject }; };
+/** a ready view as #328's status returns it (prepare → status until ready) */
+async function readyView(opts = {}, range = { start: 20, end: 30 }, scope = 'full') {
+  const api = R.stubApi(opts);
+  const v = await api.prepare({ ...range, scope });
+  return api.status(v.reviewId);
+}
 
 /* ── a small DOM, enough for review-check.js ── */
 function fakeDoc() {
@@ -31,8 +41,8 @@ function mountWith(api, extra = {}) {
   const doc = fakeDoc(), button = doc.createElement('button');
   button.className = 'btn review-btn hidden';
   const seeks = [], timers = [];
-  const env = { doc, button, api, lang: () => 'zh-CN', time: () => 42, playing: () => false, duration: () => 200, inOut: () => ({}),
-    seek: (t) => seeks.push(t), blocked: () => false, setInterval: (fn) => timers.push(fn), ...extra };
+  const env = { doc, button, api, lang: () => 'zh-CN', time: () => 42, duration: () => 200, inOut: () => ({}),
+    seek: (t) => seeks.push(t), setInterval: (fn) => timers.push(fn), ...fast, ...extra };
   const ui = R.mount(env);
   const nodes = () => doc.body.all();
   const byReview = (id) => nodes().filter((n) => n.dataset && n.dataset.review === id);
