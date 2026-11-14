@@ -247,16 +247,18 @@
   }
 
   /** What the result box says. A pass only when the engine said passed and nothing inside the checked stretch was found. */
-  function resultModel(raw, lang, n) {
+  function resultModel(raw, lang, n, opts = {}) {
     const r = cleanResult(raw);
     const span = n || (r.range ? spanOf(r.range) : SPAN);
     const main = r.findings.filter((f) => !f.inLead);
     let status = r.status;
     if (status === "passed" && main.length) status = "issues";
     if (status === "issues" && !r.findings.length) status = "no_result";   // 「有问题」 with nothing to show is no answer
-    const notes = [];
+    const notes = opts.fellBack ? [t(lang, "rangeTooLong", { n: span })] : [];
     let headline;
-    if (status === "no_result") headline = r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy") : t(lang, "noResult");
+    if (status === "no_result") headline = r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
+      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span })
+      : raw && raw.sendError === true ? t(lang, "sendFailed") : t(lang, "noResult");
     else if (status === "passed") headline = t(lang, "passed", { n: span });
     else headline = t(lang, "issues", { count: main.length || r.findings.length });
     if (status !== "no_result" && r.scope === "window") notes.push(t(lang, "windowOnly", { n: span }));
@@ -331,9 +333,11 @@
     }
     async function preview() {
       if (s.phase !== "confirm" || !s.prep) return null;
+      const gen = s.gen, prep = s.prep, id = prep.reviewId;   // QQ #326 item 2: the answer belongs to this box only
       let src = null;
-      try { src = safePreviewSrc(await api.preview(s.prep.reviewId)); } catch { src = null; }
-      if (s.phase === "confirm") set({ previewSrc: src });
+      try { src = safePreviewSrc(await api.preview(id)); } catch { src = null; }
+      if (gen !== s.gen || s.phase !== "confirm" || s.prep !== prep || s.prep.reviewId !== id) return null;
+      set({ previewSrc: src });
       return src;
     }
     async function send(scope) {
@@ -345,7 +349,8 @@
       set({ phase: "sending", scope });
       let raw;
       try { raw = await api.send({ reviewId: prep.reviewId, sendToken: prep.sendToken, scope }); }
-      catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", findings: [] }; }
+      // the request itself failed: it may or may not have reached the receiver (JJ #326 sendFailed) — never 「没发出去」
+      catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", sendError: true, findings: [] }; }
       if (gen !== s.gen) return false;
       set({ phase: "result", raw: { ...raw, scope: raw && raw.scope ? raw.scope : scope } });
       return true;
