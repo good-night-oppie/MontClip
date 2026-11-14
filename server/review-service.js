@@ -110,6 +110,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
         contextText: ctx, digests, taste: r.tasteSnap, mode: r.mode, env, agy: agyOverride || undefined, onChild: (c) => { r.child = c; }, isCancelled: () => r.cancelled });
     } catch (e) { res = { status: "no_result", reason: "FAILED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" }; }
     r.child = null;
+    try { store.countSent(r.project, res.sentBytes); } catch { }   // what went out is counted before the record is saved: a record that cannot be saved does not make it unsent (#334)
     dropSample(r);
     if (r.cancelled) res = { status: "no_result", reason: "CANCELLED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" };
     let rec;
