@@ -342,14 +342,20 @@
       id: f.id, t: f.t, time: fmtTime(f.t), label: t(lang, "type_" + f.type) + (f.inLead ? t(lang, "inLead") : ""),
       detail: f.text, suggestion: f.suggestion ? t(lang, "suggestion", { text: f.suggestion }) : "", inLead: f.inLead, mark: f.mark,
     }));
-    return { status, passed: status === "passed", headline, notes, items, reviewId: r.reviewId };
+    return { status, passed: status === "passed", headline, notes, dims, items, reviewId: r.reviewId };
   }
 
-  /** The page's own server, interface v0. A route that isn't there (an engine without #321) reads as 「not present」. */
+  /** Only a same-origin managed preview is played; anything else from the server is refused. */
+  function safePreviewSrc(src) {
+    const s = typeof src === "string" ? src : src && typeof src.src === "string" ? src.src : "";
+    return /^\/previews\/[\w.%\-]+(\?[\w=&.\-]*)?$/.test(s) ? s : null;
+  }
+
+  /** The page's own server, #328's /api/review/* routes. A route that isn't there (an engine without #321) reads as 「not present」. */
   function httpApi(fetchImpl) {
     const f = fetchImpl || (typeof fetch === "function" ? fetch.bind(globalThis) : null);
-    const post = async (path, body) => {
-      const res = await f(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}), cache: "no-store" });
+    const req = async (path, init) => {
+      const res = await f(path, { cache: "no-store", ...init });
       let j = null;
       try { j = await res.json(); } catch { j = null; }
       if (!res.ok) { const e = new Error((j && j.error) || "HTTP " + res.status); e.status = res.status; e.code = j && j.code; e.body = j; throw e; }
