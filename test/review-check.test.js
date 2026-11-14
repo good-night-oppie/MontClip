@@ -201,6 +201,31 @@ test('QQ #326 item 3: 关闭 while the receiver is read keeps the box closed; a 
   a.equal(w2.ui.session.state.prep.reviewId, 'r_1');
 });
 
+test('QQ #326 item 4: a late 已修好 answer never throws and never marks another result', async () => {
+  // mark pending → recheck starts preparing → mark answers
+  const api = R.stubApi(), s = R.createSession(api);
+  await s.check({ start: 20, end: 30 }); await s.send('full');
+  const dm = deferred(); api.mark = () => dm.p;
+  const dp = deferred(); const realPrep = api.prepare; api.prepare = (b) => dp.p.then(() => realPrep(b));
+  const pendingMark = s.markFixed(0);
+  const rechecking = s.check({ start: 20, end: 30 });
+  dm.resolve({ ok: true });
+  a.equal(await pendingMark, false, 'no TypeError, no update');
+  dp.resolve(); await rechecking;
+
+  // mark pending → result B has arrived → mark answers: B is untouched
+  const api2 = R.stubApi(), s2 = R.createSession(api2);
+  await s2.check({ start: 20, end: 30 }); await s2.send('full');
+  const dm2 = deferred(); api2.mark = () => dm2.p;
+  const pending2 = s2.markFixed(0);
+  await s2.check({ start: 20, end: 30 }); await s2.send('full');
+  const b = s2.state.raw;
+  dm2.resolve({ ok: true });
+  a.equal(await pending2, false);
+  a.equal(s2.state.raw, b);
+  a.equal(s2.state.raw.findings[0].mark, null, 'B finding 0 is not marked');
+});
+
 test('「先看要发的内容」 plays only a same-origin preview', async () => {
   a.equal(R.safePreviewSrc({ src: '/previews/preview_r_1.mp4' }), '/previews/preview_r_1.mp4');
   for (const src of ['https://x.example/a.mp4', '//x.example/a.mp4', '/media/a.mp4', '/previews/../project.json', 'C:\\a.mp4', 'javascript:alert(1)'])
