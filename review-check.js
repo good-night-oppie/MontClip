@@ -30,12 +30,14 @@
     "zh-CN": {
       button: "检查这 {n} 秒",                                     // v2 §6
       buttonTip: "让 AI 看一看、听一听这 {n} 秒有没有问题。发出去之前会先给你看要发什么。",   // JJ #326
+      tooShort: "这一段不到 1 秒，没法检查",                         // JJ #326 recheck 6869383846: the tip on the greyed-out button
       title: "检查这 {n} 秒",                                      // JJ #326: kept
       preparing: "正在这台电脑上准备这 {n} 秒，还没有发出去。",     // JJ #326: kept
       cancelPrep: "取消",                                           // JJ #326: the button while preparing
       // v3.1 §3, word for word (n = 10)
       intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有整条片子的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",
       whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），整条片子的字幕文字 {chars} 字，和 {cuts} 个剪辑时间点。",   // JJ #326
+      whatFullCut: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），字幕文字 {chars} 字（只带这 {n} 秒附近的部分），和 {cuts} 个剪辑时间点。",   // JJ #326 recheck 6869383846: when the text is cut, {chars} may not be the whole video's
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
       whatWindow: "点「只发这 {n} 秒」只发出去：{from}–{to} 的画面和声音（{sec} 秒），不发整条片子的字幕文字和剪辑时间点。",   // JJ #326
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
@@ -77,11 +79,13 @@
     en: {
       button: "Check these {n} s",
       buttonTip: "Have AI watch and listen to these {n} seconds for problems. Before anything is sent, you see what would go.",
+      tooShort: "This stretch is under 1 second, so it can't be checked",
       title: "Check these {n} seconds",
       preparing: "Getting these {n} seconds ready on this computer. Nothing has been sent.",
       cancelPrep: "Cancel",
       intro: "Going online only happens in features you open yourself, and you see what goes first. When you click “Send for check”, the picture and sound of these {n} seconds, plus the whole video's subtitle text and cut points, go to an AI for checking and may be used for training.",
       whatFull: "“Send for check” sends out: picture and sound from {from} to {to} ({sec} s), the whole video's subtitle text ({chars} characters), and {cuts} cut points.",
+      whatFullCut: "“Send for check” sends out: picture and sound from {from} to {to} ({sec} s), {chars} characters of subtitle text (only the part near these {n} seconds), and {cuts} cut points.",
       whatFullLead: "With either button, the picture and sound include {leadSec} s from just before ({from} to {lead}), so the AI knows what came first.",
       whatWindow: "“Send only these {n} s” sends out only: picture and sound from {from} to {to} ({sec} s), without the whole video's subtitle text and cut points.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
@@ -206,7 +210,8 @@
     if (pay) {
       // without a lead the picture is the checked stretch itself: its seconds are the same whole number as 「这 N 秒」
       const sec = lead ? secs(video.end - video.start) : String(n);
-      lines.push(t(lang, "whatFull", { from: fmtTime(video.start), to: fmtTime(video.end), sec, chars: pay.chars, cuts: pay.cuts }));
+      // cut text: the line doesn't call {chars} the whole video's (JJ #326 recheck) — whether it counts before or after the cut is the engine's to say
+      lines.push(t(lang, pay.truncated ? "whatFullCut" : "whatFull", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec, chars: pay.chars, cuts: pay.cuts }));
       if (pay.truncated) lines.push(t(lang, "truncatedBefore", { n }));
       // 「只发这 10 秒」: the same picture and sound (the lead included — interface v0 has one willSend.video), no whole-video text
       lines.push(t(lang, "whatWindow", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec }));
@@ -467,7 +472,7 @@
       if (!btn) return;
       const r = rangeNow(), n = r ? spanOf(r) : SPAN;
       btn.textContent = t(L(), "button", { n });
-      btn.title = t(L(), "buttonTip", { n });
+      btn.title = r ? t(L(), "buttonTip", { n }) : t(L(), "tooShort");
       btn.disabled = !r;
     }
     async function refresh() {
