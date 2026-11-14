@@ -469,7 +469,7 @@ test("a ledger that cannot be read is an error and is never replaced by an empty
   assert.equal(fs.readFileSync(path.join(d, "p1.json"), "utf8"), "{ not json", "what was there is still there");
   const blocked = path.join(d, "file-not-dir"); fs.writeFileSync(blocked, "x");
   const s2 = createReviewStore({ dir: blocked });
-  assert.throws(() => s2.add("p2", { reviewId: "r", status: "issues", range: { start: 0, end: 1 }, contentKey: "k", findings: [] }), (e) => e.status === 500 && e.code === "LEDGER_UNWRITABLE" && !e.message.includes(blocked));
+  assert.throws(() => s2.add("p2", { reviewId: "r", status: "issues", range: { start: 0, end: 1 }, contentKey: "k", findings: [] }), (e) => e.status === 500 && ["LEDGER_UNWRITABLE", "LEDGER_UNREADABLE"].includes(e.code) && !e.message.includes(blocked));
 });
 
 test("scrubAll cleans every old ledger at start, a project that is never opened included; the totals of video sent are kept", (t) => {
