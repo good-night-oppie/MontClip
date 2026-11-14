@@ -44,7 +44,8 @@
       whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段有重叠的字幕文字、剪辑时间点。",   // JJ #326 6871859408: a subtitle across the edge goes whole
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
       whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不发字幕文字和剪辑时间点。",   // JJ #326: no 只 — whatTaste says the examples
-      whatTaste: "两个按钮都会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // JJ #326 6871754149: willSend.tasteNotes
+      whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
+      whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
       whatTwice: "会分 {k} 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。",   // JJ #326 6871859408: willSend.requests > 1 (#328: 1 or 2; two_pass looks blind first)
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
       to: "发给：{service}（{host}）",                             // Deja 6867787475; JJ #326: kept
@@ -58,6 +59,19 @@
       sendFull: "发送检查",                                         // v3 §5
       sendWindow: "只发这 {n} 秒",                                  // v3 §5
       cancel: "不发了",                                             // v3 §5
+      why_PROJECT_EDITED: "准备好以后工程又改过，和要发的内容对不上了。请重新检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_PROJECT_CHANGED: "现在打开的是别的工程。请回到这个工程再检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_SEND_LIMIT: "这个工程能发出去的视频已经到上限了，这次不能再发。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_NOT_LOCAL: "这个检查只能在这台电脑上用。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_LEDGER_UNREADABLE: "检查记录读不出来，所以这次先不检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_LEDGER_UNWRITABLE: "检查记录写不进去，所以这次先不检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_STORE_FAILED: "检查的结果没能保存下来。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_DESTINATION_CHANGED: "要发去的地址变了。请重新检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      previewText: "点「发送检查」会发出去的文字：",                // draft (PG 6871888446 (2): show the real text): willSend.projectText
+      previewNotes: "点「发送检查」会发出去的好坏例子：",            // draft: willSend.notes
+      previewNoText: "这次没有要发的文字。",                         // draft
+      noteGood: "认可",                                             // draft: a note the streamer approved
+      noteBad: "不认可",                                            // draft
       previewNote: "这就是要发出去的画面和声音。",                   // JJ #326: kept (preview and send use one reviewId — interface v0)
       sending: "正在发给 AI 并等它检查，请稍等……",                   // JJ #326
       unavailable: "这台电脑上暂时用不了这个检查。",                 // v2 §6
@@ -109,7 +123,8 @@
       whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text overlapping this section, plus the cut points.",
       whatFullLead: "With either button, the picture and sound include an extra {leadSec} s before the checked section ({from} to {lead}), to give the AI context about what was being said.",
       whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). It will not send subtitle text or cut points.",
-      whatTaste: "Either button also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
+      whatEdge: "Subtitles that overlap this part of the picture are sent whole, so they may include text from before or after the clip.",
+      whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
       whatTwice: "This will be sent {k} times: the first time with only the picture and sound, and the later times also with the other content described above.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
       to: "Send to: {service} ({host})",
@@ -123,6 +138,19 @@
       sendFull: "Send for a check",
       sendWindow: "Send only these {n} s",
       cancel: "Don't send",
+      why_PROJECT_EDITED: "The project was edited after this was prepared, so it no longer matches what would be sent. Please check again.",
+      why_PROJECT_CHANGED: "Another project is open now. Go back to this project and check again.",
+      why_SEND_LIMIT: "This project has reached its limit for video sent out, so nothing more can be sent.",
+      why_NOT_LOCAL: "This check only works on this computer.",
+      why_LEDGER_UNREADABLE: "The check records couldn't be read, so this check won't run for now.",
+      why_LEDGER_UNWRITABLE: "The check records couldn't be written, so this check won't run for now.",
+      why_STORE_FAILED: "The result of the check couldn't be saved.",
+      why_DESTINATION_CHANGED: "The address it would be sent to has changed. Please check again.",
+      previewText: "Text that “Send for a check” would send:",
+      previewNotes: "Examples that “Send for a check” would send:",
+      previewNoText: "No text would be sent this time.",
+      noteGood: "approved",
+      noteBad: "rejected",
       previewNote: "This is the picture and sound that would be sent.",
       sending: "Sending to the AI and waiting for the check. Please wait…",
       unavailable: "This check isn't available on this computer right now.",
@@ -168,6 +196,7 @@
     "protected_region_occluded", "other"];   // #328 video-bridge.js FINDING_TYPES
   const DIMENSIONS = ["fact", "subtitle", "pacing", "packaging"];             // #328 video-bridge.js DIMENSIONS
   const DIM_STATES = ["passed", "issues", "insufficient_evidence"];
+  const WHY = ["PROJECT_EDITED","PROJECT_CHANGED","SEND_LIMIT","NOT_LOCAL","LEDGER_UNREADABLE","LEDGER_UNWRITABLE","STORE_FAILED","DESTINATION_CHANGED"];
   const STATUSES = ["passed", "issues", "no_result"];
 
   function lang_(l) { return text[l] ? l : (String(l || "").startsWith("zh") ? "zh-CN" : "en"); }
@@ -225,8 +254,14 @@
     if (view.scope !== "full" && view.scope !== "window") return null;
     // QQ #326 (5900512724 item 1): the clip is exactly the lead + the range — nothing unnamed before or after
     if (!near_(seconds, range.end - range.start + lead)) return null;
+    // PG #321 6871888446: the words that go are shown as they go — the project's text (scope full) and the notes, one per counted note;
+    // 「只发这 N 秒」 (scope window) sends neither, so a window clip that carries any is not what the box can promise
+    if (typeof ws.projectText !== "string" || !Array.isArray(ws.notes) || ws.notes.length !== taste) return null;
+    const notes = ws.notes.map((x) => (x && typeof x.text === "string" ? { kind: x.kind === "negative" ? "negative" : "positive", text: x.text } : null));
+    if (notes.includes(null)) return null;
+    if (view.scope === "window" && (taste !== 0 || ws.projectText !== "")) return null;
     const video = { start: range.start - lead, end: range.end };
-    return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds };
+    return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes };
   }
 
   /** The receiver, as the engine reports it: a name and a host, and whether anyone confirmed that host (#328: verified). */
@@ -252,7 +287,7 @@
     if (pay) {
       const v = pay.video, sec = pay.lead ? secs(v.end - v.start) : String(n);
       const at = { n, from: fmtTime(v.start), to: fmtTime(v.end), sec };
-      if (pay.scope === "full") lines.push(t(lang, "whatFull", at));
+      if (pay.scope === "full") { lines.push(t(lang, "whatFull", at)); lines.push(t(lang, "whatEdge")); }
       lines.push(t(lang, "whatWindow", at));
       if (pay.lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(pay.lead.start), lead: fmtTime(pay.lead.end), leadSec: secs(pay.lead.end - pay.lead.start) }));
       if (pay.taste) lines.push(t(lang, "whatTaste", { k: pay.taste }));
@@ -335,6 +370,8 @@
       : r.reason === "INSUFFICIENT_EVIDENCE" ? t(lang, "insufficient") : t(lang, "noResult");
     else if (status === "passed") headline = t(lang, "passed", { n: span });
     else headline = t(lang, "issues", { count: main.length || r.findings.length || DIMENSIONS.filter((k) => r.dimensions[k].state === "issues").length });
+    const why = raw && typeof raw === "object" ? whyOf(raw.why) : null;
+    if (status === "no_result" && why) notes.push(t(lang, "why_" + why));
     if (status !== "no_result" && r.scope === "window") notes.push(t(lang, "windowOnly", { n: span }));
     if (!r.textAvailable) notes.push(t(lang, "textGone"));
     const dims = r.dimensions && !(raw && raw.sendError === true) ? DIMENSIONS.map((k) => ({ key: k, state: r.dimensions[k].state,
@@ -382,6 +419,8 @@
     const c = e && e.code;
     return c === "BUSY" || c === "NO_BRIDGE" || c === "DESTINATION_UNVERIFIED" ? c : "PREPARE_FAILED";
   };
+  /** the engine's own code, kept only when the page has a plain sentence for it (#328: PROJECT_EDITED, SEND_LIMIT, NOT_LOCAL, LEDGER_*, …) */
+  const whyOf = (c) => (typeof c === "string" && WHY.includes(c) ? c : null);
 
   /**
    * One check, as a small state machine (no DOM): idle → preparing → confirm → sending → result; any step → closed;
@@ -398,7 +437,7 @@
     async function prepareView(range, scope, gen) {
       let v;
       try { v = await api.prepare({ start: range.start, end: range.end, scope }); }
-      catch (e) { return gen !== s.gen ? { stale: true } : { failed: errReason(e), dest: e && e.body && e.body.destination }; }
+      catch (e) { return gen !== s.gen ? { stale: true } : { failed: errReason(e), why: whyOf(e && e.code), dest: e && e.body && e.body.destination }; }
       if (gen !== s.gen) { if (v && v.reviewId) api.cancel(v.reviewId).catch(() => {}); return { stale: true }; }
       if (!v || typeof v.reviewId !== "string") return { failed: "PREPARE_FAILED" };
       s.prep = v;   // what 「不发了」 cancels while it renders
@@ -408,19 +447,19 @@
         try { v = await api.status(v.reviewId); } catch { return { failed: "PREPARE_FAILED" }; }
         if (gen !== s.gen) return { stale: true };
       }
-      if (!v || v.state !== "ready") return { failed: "PREPARE_FAILED" };
+      if (!v || v.state !== "ready") return { failed: "PREPARE_FAILED", why: whyOf(v && v.reason) };
       return { view: v };
     }
-    function fail(reason, dest) {
+    function fail(reason, dest, why) {
       if (reason === "DESTINATION_UNVERIFIED") set({ phase: "unverified", prep: null, dest: dest || null });
-      else set({ phase: "result", prep: null, raw: { status: "no_result", reason, findings: [] } });
+      else set({ phase: "result", prep: null, raw: { status: "no_result", reason, why: why || null, findings: [] } });
     }
     async function check(range) {
       const gen = ++s.gen;
       set({ phase: "preparing", range, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false });
       const got = await prepareView(range, "full", gen);
       if (got.stale || gen !== s.gen) return;
-      if (got.failed) return fail(got.failed, got.dest);
+      if (got.failed) return fail(got.failed, got.dest, got.why);
       set({ phase: "confirm", prep: got.view });
     }
     function preview() {
@@ -436,12 +475,12 @@
       api.cancel(old.reviewId).catch(() => {});
       const got = await prepareView(s.range, "window", gen);
       if (got.stale || gen !== s.gen) return null;
-      if (got.failed) { fail(got.failed, got.dest); return null; }
+      if (got.failed) { fail(got.failed, got.dest, got.why); return null; }
       const a = payloadOf(old), b = payloadOf(got.view);
       const da = destinationOf(old.willSend && old.willSend.to), db = destinationOf(got.view.willSend && got.view.willSend.to);
-      // what 「只发这 10 秒」 said in the box is what goes: the same seconds, receiver, number of requests and notes — else show the box again
+      // what 「只发这 10 秒」 said in the box is what goes: the same seconds, receiver and number of requests, and no words (payloadOf) — else show the box again
       const same = !!(a && b && b.scope === "window" && near_(a.video.start, b.video.start) && near_(a.video.end, b.video.end) && a.requests === b.requests
-        && a.taste === b.taste && da && db && da.service === db.service && da.host === db.host && da.verified && db.verified);
+        && da && db && da.service === db.service && da.host === db.host && da.verified && db.verified);
       if (!same) { set({ phase: "confirm", prep: got.view, changed: true }); return null; }
       s.prep = got.view;
       return got.view;
@@ -460,7 +499,7 @@
       let raw;
       try { raw = await api.send(view.reviewId, view.sendToken); }
       // the request itself failed: it may or may not have reached the receiver (JJ #326 sendFailed) — never 「没发出去」
-      catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", sendError: true, findings: [] }; }
+      catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", why: whyOf(e && e.code), sendError: true, findings: [] }; }
       if (gen !== s.gen) return false;
       set({ phase: "result", raw: { ...raw, scope: raw && raw.scope ? raw.scope : scope } });
       return true;
@@ -500,7 +539,8 @@
     dimensions: { fact: { state: "issues", reason: "名牌和说话的人对不上。" }, subtitle: { state: "passed", reason: "" }, pacing: { state: "passed", reason: "" }, packaging: { state: "passed", reason: "" } },
     summary: "", textAvailable: true }));
     const view = (r) => ({ reviewId: r.id, state: r.state, range: r.range, lead: r.lead, scope: r.scope, mode: "single",
-      willSend: r.state === "ready" ? { what: "a short video clip (with its sound) of this stretch", to: dest, requests: 1, tasteNotes: opts.taste || 0,
+      willSend: r.state === "ready" ? { what: "a short video clip (with its sound) of this stretch", to: dest, requests: 1, tasteNotes: r.notes.length,
+        projectText: r.scope === "full" ? (opts.projectText != null ? opts.projectText : "18.00-21.50s text: 前面那句\n22.00-26.00s text: 这一句") : "", notes: r.notes,
         seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
       previewSrc: r.state === "ready" ? "/previews/preview_" + r.id + ".mp4" : undefined,
       sendToken: r.state === "ready" ? r.token : undefined });
@@ -511,7 +551,9 @@
         calls.push(["prepare", b]);
         if (opts.prepareError) { const e = new Error(opts.prepareError); e.code = opts.prepareError; if (opts.prepareError === "DESTINATION_UNVERIFIED") e.body = { destination: dest }; throw e; }
         const id = "r_" + (++n), lead = +Math.min(3, b.start).toFixed(3);
-        const r = { id, range: { start: b.start, end: b.end }, lead, scope: b.scope || "window", state: "rendering", token: "tok_" + n, polls: opts.renderPolls == null ? 1 : opts.renderPolls };
+        const k = (b.scope || "window") === "full" || opts.windowTaste ? opts.taste || 0 : 0;
+        const r = { id, range: { start: b.start, end: b.end }, lead, scope: b.scope || "window", state: "rendering", token: "tok_" + n,
+          notes: Array.from({ length: k }, (_, i) => ({ kind: i % 2 ? "negative" : "positive", aspect: "", text: "例子 " + (i + 1) })), polls: opts.renderPolls == null ? 1 : opts.renderPolls };
         live.set(id, r);
         return view(r);
       },
@@ -596,6 +638,17 @@
         if (s.previewSrc) {
           const v = el(doc, "video", "review-preview"); v.controls = true; v.preload = "metadata"; v.src = s.previewSrc;
           box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNote"))); box.appendChild(v);
+          const pay = m.payload;   // the words the clip goes with, shown as the engine will send them (textContent only)
+          if (pay && pay.scope === "full") {
+            if (pay.text) { box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewText"))); const pre = el(doc, "pre", "review-text", pay.text); pre.dataset.review = "text"; box.appendChild(pre); }
+            if (pay.notes.length) {
+              box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNotes")));
+              const ul = el(doc, "ul", "review-notes");
+              for (const x of pay.notes) { const li = el(doc, "li", null, t(lang, x.kind === "negative" ? "noteBad" : "noteGood") + "：" + x.text); li.dataset.review = "note"; ul.appendChild(li); }
+              box.appendChild(ul);
+            }
+            if (!pay.text && !pay.notes.length) box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoText")));
+          }
         }
         for (const b of m.buttons) {
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
