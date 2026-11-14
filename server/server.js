@@ -738,7 +738,7 @@ async function blankCheck(sess, file, loud, soundless = false) {
   if (!plan || (!plan.video.length && !plan.audio.length && !plan.silent.length)) return null;
   try {
     const r = await ExportCheck.check({ ffmpeg: FF.path("ffmpeg"), file, plan, resolve: resolveSrc,
-      silent: !sess.wav ? true : loud ? !!loud.silent : null, mix: sess.wav,
+      silent: !sess.wav ? true : ExportCheck.silentFromLoudness(loud), mix: sess.wav,
       // tests (and nothing else) shorten the time one read may take, to stand in for a slow disk
       ...(+process.env.MONTCLIP_EXPORT_CHECK_TIMEOUT_MS > 0 ? { timeoutMs: +process.env.MONTCLIP_EXPORT_CHECK_TIMEOUT_MS } : {}) });
     if (process.env.MONTCLIP_EXPORT_CHECK_LOG) console.log("[export-check] " + JSON.stringify(r));
