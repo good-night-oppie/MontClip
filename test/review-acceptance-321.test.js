@@ -174,6 +174,18 @@ test("4 ⑥: a finding about what comes after the clip is dropped, not moved ont
   assert.ok(!v.findings.some((f) => /14/.test(f.suggestion || "")), "no cut proposal outside the clip");
 });
 
+test("4 ⑥: a finding placed inside the clip that judges what comes after it → dropped, or that dimension is 'cannot judge'; no cut proposal", () => {
+  const v = parse({ verdict: "issues", dimensions: { ...DIMS_OK, pacing: { state: "issues", reason: "the rest of the sentence" } },
+    findings: [{ t: 11.8, type: "cut_jump", dimension: "pacing", about: "after_clip",
+      text: "the sentence goes on after the clip and its second half is cut wrongly", suggestion: "move the cut to 14 s" }] });
+  assert.ok(v, "the answer parses");
+  const near = v.findings.filter((f) => Math.abs(f.t - 11.8) < 0.5);
+  assert.ok(near.length === 0 || v.dimensions.pacing.state === "insufficient_evidence",
+    "nothing concluded about what was not reviewed: drop it, or mark that dimension as cannot judge");
+  assert.ok(!near.some((f) => /14|move|cut at|挪|剪/.test(f.suggestion || "")), "no cut proposal outside the clip");
+  noAutoChange(v);
+});
+
 test("4 ⑥ control: a finding inside the clip stays, shown as one of the states", () => {
   const v = parse({ verdict: "issues", dimensions: { ...DIMS_OK, pacing: { state: "issues", reason: "jump" } },
     findings: [{ t: 5.0, type: "cut_jump", dimension: "pacing", text: "a jump cut", suggestion: "" }] });
