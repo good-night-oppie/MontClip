@@ -18,90 +18,106 @@
   "use strict";
 
   const SPAN = 10;          // seconds checked around the playhead
+  const MIN_SPAN = 1;       // JJ #326: under 1 s can't be checked
   const MAX_SPAN = 30;      // JJ v1 R1b: a check is at most 30 s (an IN–OUT longer than that falls back to 10 s)
   const PREWARM_DELAY = 1500;   // ms the playhead has to rest before the clip is made ahead of time
 
-  // zh-CN: DRAFT for JJ, from v2 §6, v3 §5 and v3.1 §3 word for word where they give the sentence; the rest is Deja's
-  // draft (marked). 「10」 is {n}: a marked IN–OUT can be another length. JJ finalises on the PR.
-  // en: DRAFT for JJ.
+  // zh-CN: JJ's first pass on #326 (comment 6868600043, head d5872c56): the v2 / v3 / v3.1 sentences word for word, the
+  // rest as JJ wrote them there (marked 「JJ #326」). Still a DRAFT for JJ's re-check on the new head. 「10」 is {n}: a marked
+  // IN–OUT of 1–30 s is checked as it is (JJ: allowed; whole seconds; under 1 s it can't be clicked).
+  // en: DRAFT — Rea checks it against the final Chinese.
   const text = {
     "zh-CN": {
       button: "检查这 {n} 秒",                                     // v2 §6
-      buttonTip: "让 AI 看一看、听一听这 {n} 秒有没有问题。发出去之前会先问你。",   // draft (Deja)
-      title: "检查这 {n} 秒",                                      // draft (Deja)
-      preparing: "正在这台电脑上准备这 {n} 秒，还没有发出去。",     // draft (Deja)
+      buttonTip: "让 AI 看一看、听一听这 {n} 秒有没有问题。发出去之前会先给你看要发什么。",   // JJ #326
+      title: "检查这 {n} 秒",                                      // JJ #326: kept
+      preparing: "正在这台电脑上准备这 {n} 秒，还没有发出去。",     // JJ #326: kept
+      cancelPrep: "取消",                                           // JJ #326: the button while preparing
       // v3.1 §3, word for word (n = 10)
       intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有整条片子的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",
-      whatFull: "点「发送检查」会发：{from}–{to} 的画面和声音（{sec} 秒），整条片子的字幕文字 {chars} 字和 {cuts} 个剪辑时间点。",   // draft (Deja)
-      whatFullLead: "其中 {from}–{lead} 是前面接过来的 {leadSec} 秒，让 AI 知道前面在说什么。",   // draft (Deja)
-      whatWindow: "点「只发这 {n} 秒」只发：{from}–{to} 的画面和声音（{sec} 秒），不带整条片子的文字。",   // draft (Deja)
-      to: "发给：{service}（{host}）",                             // Deja 6867787475
-      training: "对方可能用这段内容训练模型",                       // Deja 6867787475
-      noDestination: "不知道这次会发到哪里，所以先不发。",           // draft (Deja)
+      whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），整条片子的字幕文字 {chars} 字，和 {cuts} 个剪辑时间点。",   // JJ #326
+      whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
+      whatWindow: "点「只发这 {n} 秒」只发出去：{from}–{to} 的画面和声音（{sec} 秒），不发整条片子的字幕文字和剪辑时间点。",   // JJ #326
+      whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
+      truncatedBefore: "整条片子的字幕文字太长，点「发送检查」时只带这 {n} 秒附近的部分。",   // draft (Deja) for JJ: JJ #326 asked for it before sending
+      to: "发给：{service}（{host}）",                             // Deja 6867787475; JJ #326: kept
+      training: "对方可能用这段内容训练模型",                       // Deja 6867787475; JJ #326: kept
+      noDestination: "不知道这次会发到哪里，所以先不发。",           // JJ #326: kept
+      noPayload: "说不清这次具体会发出去什么，所以先不发。",           // draft (Deja) for JJ: QQ #326 item 1 — the box can't say what is sent
       previewBtn: "先看要发的内容",                                 // v3 §5
       sendFull: "发送检查",                                         // v3 §5
       sendWindow: "只发这 {n} 秒",                                  // v3 §5
       cancel: "不发了",                                             // v3 §5
-      previewNote: "这就是要发出去的画面和声音。",                   // draft (Deja)
-      sending: "正在检查，大约要几十秒……",                          // draft (Deja)
+      previewNote: "这就是要发出去的画面和声音。",                   // JJ #326: kept (preview and send use one reviewId — interface v0)
+      sending: "正在发给 AI 并等它检查，请稍等……",                   // JJ #326
       unavailable: "这台电脑上暂时用不了这个检查。",                 // v2 §6
-      busy: "正在检查别的片段，等它查完再试。",                      // draft (Deja)
+      busy: "现在正在忙别的，等它忙完再点一次。",                      // JJ #326
       issues: "检查完了，发现 {count} 处可能有问题。",               // v2 §6
-      passed: "这 {n} 秒检查没有发现问题。这只是 AI 的判断，请你自己也听看一遍。",   // v2 §6
+      passed: "这 {n} 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。",   // JJ #326 (v2 §6, reworded by JJ)
       noResult: "这次没有检查出结果。这不代表没问题。",               // v2 §6
+      prepareFailed: "这 {n} 秒没能在这台电脑上准备好，什么都没有发出去。",   // JJ #326
+      sendFailed: "检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。",   // JJ #326
+      rangeTooLong: "你标的范围超过 30 秒，这次检查的是播放头附近的 {n} 秒。",   // JJ #326
       windowOnly: "这次只检查了这 {n} 秒，没有结合整条片子。",        // v3 §5
       truncated: "整条片子的文字太长，这次只带了这 {n} 秒附近的部分。",   // v3 §5
-      inLead: "（在前面接过来的那几秒里）",                          // draft (Deja)
+      inLead: "（在前面多带的那几秒里）",                              // JJ #326
       jump: "跳到这里",                                             // v2 §6
       fixed: "已修好",                                              // v2 §6
-      fixedDone: "已记下。改好了就点「重新检查」。",                 // draft (Deja)
+      fixedDone: "已标记为修好",                                     // JJ #326
       recheck: "重新检查",                                          // v2 §6
-      close: "关闭",                                                // draft (Deja)
-      suggestion: "建议：{text}",                                   // draft (Deja)
+      close: "关闭",                                                // JJ #326: kept
+      suggestion: "建议：{text}",                                   // JJ #326: kept
       type_speaker_swapped: "说话人可能标反了",                      // v2 §6
-      type_cut_jump: "这里的剪切可能太跳",                           // draft (Deja)
-      type_subtitle_mismatch: "字幕和说的话可能对不上",              // draft (Deja)
-      type_audio: "声音可能有问题",                                  // draft (Deja)
-      type_continuity: "前后可能接不上",                             // draft (Deja)
-      type_other: "这里可能有问题",                                  // draft (Deja)
+      type_cut_jump: "这里接得可能太突然",                           // JJ #326
+      type_subtitle_mismatch: "字幕和说的话可能对不上",              // JJ #326: kept
+      type_audio: "声音可能有问题",                                  // JJ #326: kept
+      type_continuity: "前后两段可能接不上",                         // JJ #326
+      type_other: "这里可能有问题",                                  // JJ #326: kept
     },
     en: {
       button: "Check these {n} s",
-      buttonTip: "Have AI watch and listen to these {n} seconds for problems. It asks you before anything is sent.",
+      buttonTip: "Have AI watch and listen to these {n} seconds for problems. Before anything is sent, you see what would go.",
       title: "Check these {n} seconds",
       preparing: "Getting these {n} seconds ready on this computer. Nothing has been sent.",
+      cancelPrep: "Cancel",
       intro: "Going online only happens in features you open yourself, and you see what goes first. When you click “Send for check”, the picture and sound of these {n} seconds, plus the whole video's subtitle text and cut points, go to an AI for checking and may be used for training.",
-      whatFull: "“Send for check” sends: picture and sound from {from} to {to} ({sec} s), the whole video's subtitle text ({chars} characters) and {cuts} cut points.",
-      whatFullLead: "{from} to {lead} is the {leadSec} s just before, so the AI knows what came first.",
-      whatWindow: "“Send only these {n} s” sends only: picture and sound from {from} to {to} ({sec} s), without the whole video's text.",
+      whatFull: "“Send for check” sends out: picture and sound from {from} to {to} ({sec} s), the whole video's subtitle text ({chars} characters), and {cuts} cut points.",
+      whatFullLead: "With either button, the picture and sound include {leadSec} s from just before ({from} to {lead}), so the AI knows what came first.",
+      whatWindow: "“Send only these {n} s” sends out only: picture and sound from {from} to {to} ({sec} s), without the whole video's subtitle text and cut points.",
+      whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
+      truncatedBefore: "The whole video's subtitle text is too long: “Send for check” takes only the part near these {n} seconds.",
       to: "Sent to: {service} ({host})",
       training: "They may use this content to train models",
       noDestination: "It isn't clear where this would be sent, so nothing will be sent.",
+      noPayload: "It isn't clear exactly what this would send, so nothing will be sent.",
       previewBtn: "See what will be sent",
       sendFull: "Send for check",
       sendWindow: "Send only these {n} s",
       cancel: "Don't send",
       previewNote: "This is the picture and sound that would be sent.",
-      sending: "Checking — this takes a few dozen seconds…",
+      sending: "Sending to the AI and waiting for its check…",
       unavailable: "This check isn't available on this computer right now.",
-      busy: "Another stretch is being checked. Try again when it's done.",
+      busy: "Busy with something else right now. Click again when it's done.",
       issues: "Done. Found {count} possible problem(s).",
-      passed: "The check found no problems in these {n} seconds. This is only the AI's judgement — please watch and listen yourself too.",
+      passed: "The check found no problems in these {n} seconds. This is only the AI's judgement — please watch it and listen to it yourself too.",
       noResult: "This check gave no result. That doesn't mean there's no problem.",
+      prepareFailed: "These {n} seconds couldn't be got ready on this computer. Nothing was sent.",
+      sendFailed: "The check didn't complete. It's not certain whether the content already reached them. That doesn't mean there's no problem.",
+      rangeTooLong: "The range you marked is over 30 seconds, so this checks the {n} seconds around the playhead.",
       windowOnly: "Only these {n} seconds were checked, without the rest of the video.",
       truncated: "The whole video's text was too long, so only the part near these {n} seconds was included.",
-      inLead: "(in the seconds just before)",
+      inLead: "(in the extra seconds just before)",
       jump: "Go here",
       fixed: "Fixed",
-      fixedDone: "Noted. When it's fixed, click “Check again”.",
+      fixedDone: "Marked as fixed",
       recheck: "Check again",
       close: "Close",
       suggestion: "Suggestion: {text}",
       type_speaker_swapped: "Speakers may be swapped",
-      type_cut_jump: "This cut may be too abrupt",
+      type_cut_jump: "This may join too abruptly",
       type_subtitle_mismatch: "Subtitles may not match what's said",
       type_audio: "The sound may have a problem",
-      type_continuity: "This may not follow on from before",
+      type_continuity: "The two parts may not follow on",
       type_other: "There may be a problem here",
     },
   };
