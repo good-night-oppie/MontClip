@@ -141,18 +141,25 @@
   const round1 = (v) => Math.round(v * 10) / 10;
   const secs = (v) => String(round1(v)).replace(/\.0$/, "");
 
-  /** What 「检查这 10 秒」 checks: a marked IN–OUT of at most 30 s, else 10 s around the playhead, inside the timeline. */
+  /**
+   * What 「检查这 10 秒」 checks: a marked IN–OUT of 1–30 s as it is, else 10 s around the playhead, inside the timeline.
+   * A marked IN–OUT over 30 s falls back to the playhead and says so (`fellBack`, JJ #326 rangeTooLong); a stretch
+   * under 1 s — marked, or the whole timeline — can't be checked (null: the button is off).
+   */
   function pickRange({ time, duration, inPoint, outPoint } = {}) {
     const dur = num(duration);
-    if (!dur || dur <= 0) return null;
+    if (!dur || dur < MIN_SPAN) return null;
     const a = num(inPoint), b = num(outPoint);
-    if (a != null && b != null && b > a && b - a <= MAX_SPAN && a >= 0 && b <= dur + 1e-6)
-      return { start: round1(a), end: round1(Math.min(b, dur)) };
+    const marked = a != null && b != null && b > a && a >= 0 && b <= dur + 1e-6;
+    if (marked && b - a < MIN_SPAN) return null;
+    if (marked && b - a <= MAX_SPAN) return { start: round1(a), end: round1(Math.min(b, dur)) };
     const span = Math.min(SPAN, dur);
     const tt = Math.min(Math.max(num(time) || 0, 0), dur);
     const start = Math.min(Math.max(tt - span / 2, 0), dur - span);
-    return { start: round1(start), end: round1(Math.min(start + span, dur)) };
+    const r = { start: round1(start), end: round1(Math.min(start + span, dur)) };
+    return marked ? { ...r, fellBack: true } : r;
   }
+  /** The whole seconds the button, the title and every 「这 N 秒」 say — and {sec} too when there is no lead (JJ #326). */
   const spanOf = (r) => Math.max(1, Math.round(r.end - r.start));
 
   /** The receiver, as status / prepare report it. Both a name and a host, or nothing (then nothing can be sent). */
@@ -163,7 +170,29 @@
     return { service, host };
   }
 
-  /** The confirm box. `canSend` is false without a destination or a token: the send buttons are then off. */
+  const span_ = (r) => (r && typeof r === "object" && num(r.start) != null && num(r.end) != null && r.start >= 0 && r.end > r.start ? r : null);
+  const count_ = (v) => (num(v) != null && v >= 0 ? Math.round(v) : null);
+  /**
+   * What prepare says will be sent, checked field by field (QQ #326 item 1): the checked range, the picture's range
+   * (which holds the range), and the whole-video text's size. Anything missing or odd → null: the box can't say what
+   * goes, so nothing can be sent. Never filled in from the request or with 0.
+   */
+  function payloadOf(prep) {
+    const range = span_(prep && prep.range), ws = prep && prep.willSend;
+    if (!range || !ws || typeof ws !== "object") return null;
+    const video = span_(ws.video), text = ws.text && typeof ws.text === "object" ? ws.text : null;
+    if (!video || video.start > range.start + 1e-6 || video.end < range.end - 1e-6 || !text) return null;
+    const chars = count_(text.subtitleChars), cuts = count_(text.cutPoints);
+    if (chars == null || cuts == null || typeof text.truncated !== "boolean") return null;
+    let lead = null;
+    if (prep.lead != null) {
+      lead = span_(prep.lead);
+      if (!lead || Math.abs(lead.end - range.start) > 1e-6 || lead.start < video.start - 1e-6) return null;
+    }
+    return { range, video, chars, cuts, truncated: text.truncated, lead };
+  }
+
+  /** The confirm box. `canSend` is false without a full description of what is sent, a destination or a token. */
   function confirmModel(prep, lang, statusDest) {
     const range = prep && prep.range && num(prep.range.start) != null ? prep.range : null;
     const n = range ? spanOf(range) : SPAN;
