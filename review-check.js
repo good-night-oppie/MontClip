@@ -43,7 +43,7 @@
       intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",   // JJ #326 6871859408
       whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段有重叠的字幕文字、剪辑时间点。",   // JJ #326 6871859408: a subtitle across the edge goes whole
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
-      whatWindow: "点「只发这 {n} 秒」只发出去：{from}–{to} 的画面和声音（{sec} 秒），不发字幕文字和剪辑时间点。",   // JJ #326 6871754149
+      whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不发字幕文字和剪辑时间点。",   // JJ #326: no 只 — whatTaste says the examples
       whatTaste: "两个按钮都会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // JJ #326 6871754149: willSend.tasteNotes
       whatTwice: "会分 {k} 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。",   // JJ #326 6871859408: willSend.requests > 1 (#328: 1 or 2; two_pass looks blind first)
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
@@ -108,7 +108,7 @@
       intro: "Only features you open yourself connect to the internet. You'll see what will be sent first. When you click “Send for a check”, the picture and sound of these {n} seconds, along with the subtitle text overlapping this section and the cut points, will be sent to AI for a check and may be used for training.",
       whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text overlapping this section, plus the cut points.",
       whatFullLead: "With either button, the picture and sound include an extra {leadSec} s before the checked section ({from} to {lead}), to give the AI context about what was being said.",
-      whatWindow: "Clicking “Send only these {n} s” will send only picture and sound from {from} to {to} ({sec} s). It will not send subtitle text or cut points.",
+      whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). It will not send subtitle text or cut points.",
       whatTaste: "Either button also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
       whatTwice: "This will be sent {k} times: the first time with only the picture and sound, and the later times also with the other content described above.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
