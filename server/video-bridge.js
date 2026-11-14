@@ -101,7 +101,14 @@ function icacls(target, grant) {
   const sid = currentSid();
   if (!sid) return false;
   const sysRoot = process.env.SystemRoot || process.env.WINDIR || "C:\Windows";
-  try { execFileSync(path.join(sysRoot, "System32", "icacls.exe"), [target, "/inheritance:r", "/grant:r", `*${sid}:${grant}`], { stdio: "ignore", windowsHide: true }); return true; } catch { return false; }
+  const exe = path.join(sysRoot, "System32", "icacls.exe");
+  try { execFileSync(exe, [target, "/inheritance:r", "/grant:r", `*${sid}:${grant}`], { stdio: "ignore", windowsHide: true }); } catch { return false; }
+  /* A process started elevated (an administrator, a CI runner) creates files with SYSTEM and Administrators full-control entries of their own,
+     which /inheritance:r does not remove (found by the Windows CI run on #328). Take them, and the broad groups, off explicitly; the current
+     user is never one of them by SID, so its own entry stays. */
+  const others = ["S-1-5-18", "S-1-5-32-544", "S-1-5-32-545", "S-1-5-11", "S-1-1-0"].filter((x) => x !== sid);
+  try { execFileSync(exe, [target, "/remove:g", ...others.map((x) => `*${x}`)], { stdio: "ignore", windowsHide: true }); } catch { }
+  return true;
 }
 /* the user may read, delete and change attributes of its own copy (the last two so that cleaning up works through the
    read-only attribute); what the lock keeps out is every other account on the computer, and an accidental write. A process

@@ -168,3 +168,13 @@ test("fail closed over HTTP: without the owner's confirmation of the address, pr
   }
   assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], []);
 });
+
+test("the checks of /api/export/request apply here too: an end past the timeline, or a sample (lead-in included) over 30 s, is refused with its reason", { skip, timeout: 60_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ clips: [{ id: "c_a", mediaId: "m_a", kind: "video", track: "V1", start: 0, in: 0, duration: 40 }], media: [{ id: "m_a", name: "a.mp4", kind: "video", src: "/media/a.mp4", duration: 60 }] }));
+  const { base } = await startServer(t, dir, agyEnv("pass"));
+  const past = await call(base, "POST", "/api/review/prepare", { start: 38, end: 45 });
+  assert.equal(past.status, 400); assert.equal(past.body.code, "RANGE_PAST_END"); assert.match(past.body.error, /past the end of the timeline/);
+  const long = await call(base, "POST", "/api/review/prepare", { start: 5, end: 35 });   // 30 s plus the 3 s lead-in is a 33 s sample
+  assert.equal(long.status, 400); assert.equal(long.body.code, "PREVIEW_TOO_LONG");
+  assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], [], "nothing was rendered");
+});

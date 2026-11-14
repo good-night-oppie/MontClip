@@ -237,3 +237,16 @@ test("destination: one function says where it goes, and it says plainly that thi
   assert.deepEqual(a, b); assert.equal(a.verified, false); assert.equal(a.source, "docs");
   assert.ok(Object.isFrozen(a) && Object.isFrozen(VB.DESTINATION));
 });
+
+test("Windows: entries a process started as administrator gives its own files (SYSTEM, Administrators, broad groups) are taken off, only the current user is left", { skip }, async (t) => {
+  if (!IS_WIN) return t.skip("Windows access lists");
+  const d = tmp(t), icacls = path.join(process.env.SystemRoot || "C:\Windows", "System32", "icacls.exe");
+  const f = path.join(d, "video_input.mp4"), dir = path.join(d, "box"); fs.writeFileSync(f, "x"); fs.mkdirSync(dir);
+  for (const target of [f, dir]) execFileSync(icacls, [target, "/grant", "*S-1-5-18:(F)", "*S-1-5-32-544:(F)", "*S-1-5-32-545:(R)", "*S-1-1-0:(R)"], { stdio: "ignore", windowsHide: true });
+  VB.lockFile(f); VB.lockDir(dir);
+  for (const target of [f, dir]) {
+    const out = execFileSync(icacls, [target], { encoding: "utf8", windowsHide: true });
+    assert.equal(out.split(/\r?\n/).filter((l) => /:\(/.test(l)).length, 1, "one entry only:\n" + out);
+    assert.ok(!/Everyone|BUILTIN|NT AUTHORITY/i.test(out), out);
+  }
+});
