@@ -39,14 +39,17 @@ function mountWith(api, extra = {}) {
   return { ui, doc, button, seeks, timers, nodes, byReview, overlay: ui.overlay, text: () => ui.overlay.textContent };
 }
 
-test('which seconds: 10 s around the playhead, inside the timeline; a marked IN–OUT of up to 30 s', () => {
+test('which seconds: 10 s around the playhead, inside the timeline; a marked IN–OUT of 1–30 s; over 30 s says so; under 1 s is off', () => {
   a.deepEqual(R.pickRange({ time: 42, duration: 200 }), { start: 37, end: 47 });
   a.deepEqual(R.pickRange({ time: 1, duration: 200 }), { start: 0, end: 10 });
   a.deepEqual(R.pickRange({ time: 199, duration: 200 }), { start: 190, end: 200 });
   a.deepEqual(R.pickRange({ time: 3, duration: 6 }), { start: 0, end: 6 });
   a.deepEqual(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 30 }), { start: 20, end: 30 });
-  a.deepEqual(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 55 }), { start: 37, end: 47 }, 'longer than 30 s: back to 10 s');
+  a.deepEqual(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 55 }), { start: 37, end: 47, fellBack: true }, 'longer than 30 s: back to 10 s, flagged');
   a.equal(R.pickRange({ time: 0, duration: 0 }), null);
+  a.equal(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 20.6 }), null, 'JJ #326: under 1 s can not be clicked');
+  a.equal(R.pickRange({ time: 0, duration: 0.8 }), null, 'a timeline under 1 s');
+  a.deepEqual(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 21 }), { start: 20, end: 21 });
 });
 
 test("the box says what is sent, to whom, and that it may train a model — JJ's v3.1 sentence word for word", () => {
