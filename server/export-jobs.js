@@ -260,4 +260,49 @@ function createExportJobs(opts) {
   };
 }
 
-module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS };
+/* #325 (QQ, Rea; #321 R1a / R1b / P6): the editor clamps a range to the timeline, so a part past its end used to come
+   back as a shorter file under the seconds that were asked. /api/export/request refuses those up front instead.
+   timelineLength mirrors the editor's projDur(): the last second a clip occupies on one of the project's lanes
+   (project.tracks, else the default V3…V1 + A1…A4). */
+const DEFAULT_LANES = ["V3", "V2", "V1", "A1", "A2", "A3", "A4"];
+function timelineLength(project) {
+  const p = project && typeof project === "object" ? project : {};
+  const lanes = new Set(Array.isArray(p.tracks) && p.tracks.length ? p.tracks.map((t) => t && t.id) : DEFAULT_LANES);
+  let end = 0;
+  for (const c of Array.isArray(p.clips) ? p.clips : []) {
+    if (!c || !lanes.has(c.track)) continue;
+    const e = +c.start + +c.duration;
+    if (Number.isFinite(e) && e > end) end = e;
+  }
+  return end;
+}
+/** The seconds an export request would render: {start, end} as given, else the project's IN / OUT ("in-out", the default
+ *  when either is set) or the whole timeline. */
+function requestedSpan(project, range, length) {
+  if (range && typeof range === "object") return { start: +range.start, end: +range.end };
+  const hasIn = Number.isFinite(project && project.inPoint), hasOut = Number.isFinite(project && project.outPoint);
+  const mode = range || (hasIn || hasOut ? "in-out" : "entire");
+  if (mode === "in-out" && (hasIn || hasOut)) {
+    const start = Math.min(Math.max(0, hasIn ? project.inPoint : 0), length);
+    return { start, end: Math.max(start, Math.min(Math.max(0, hasOut ? project.outPoint : length), length)) };
+  }
+  return { start: 0, end: length };
+}
+/** null when the request is fine, else {errorCode, error} for a 400. Shape errors are export-jobs' request()'s to report. */
+function checkExportSpan({ project, range, preview = false, maxPreviewSec = 30 }) {
+  const isSpan = range != null && typeof range === "object" && !Array.isArray(range) &&
+    Number.isFinite(range.start) && Number.isFinite(range.end) && range.start >= 0 && range.end > range.start;
+  if (range != null && typeof range === "object" && !isSpan) return null;   // request() refuses it with its own message
+  const length = timelineLength(project);
+  const EPS = 1e-6;
+  if (isSpan && range.end > length + EPS)
+    return { errorCode: "RANGE_PAST_END", error: `end ${range.end} s is past the end of the timeline (${+length.toFixed(3)} s): pass an end of at most ${+length.toFixed(3)}` };
+  if (preview) {
+    const s = requestedSpan(project, range, length);
+    if (s.end - s.start > maxPreviewSec + EPS)
+      return { errorCode: "PREVIEW_TOO_LONG", error: `a preview is at most ${maxPreviewSec} s; this one would be ${+(s.end - s.start).toFixed(3)} s — pass a shorter start / end, or export without preview` };
+  }
+  return null;
+}
+
+module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS, timelineLength, checkExportSpan };
