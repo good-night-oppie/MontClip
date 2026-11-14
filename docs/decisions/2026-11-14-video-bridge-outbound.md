@@ -25,6 +25,7 @@
 1. **主播在编辑器里点：** 页面先 `prepare`（只渲染小样，什么都不发），随后展示「将发送：这一段约 N 秒的小视频（带声音）；发给：Google Gemini；可能用于训练」，主播点〔发送〕才 `send`。`send` 需要 `prepare` 之后服务器给这一次检查的**一次性令牌**（10 分钟内有效，用一次就作废，只给编辑器页面看，Agent 看不到）。
 2. **Agent 替主播点：默认关闭（Deja 6867787475）。** 服务器只在环境变量 `MONTCLIP_REVIEW_AGENT_SEND=1` 时才接受 Agent 的 `send:true`（MCP `fablecut_review` 的 `check`）；没开时回 403 `AGENT_SEND_OFF`，什么都不渲染也不发。Agent 仍可 `prepare`（只渲染），由主播在页面点〔发送〕。**这个开关要等主人授权原文和范围核实后才打开；我在仓库和单里没找到「主人 11-12 授权」的原文（我最早写的接口 v0 里引用过这句，但我没有链接可附），所以这里不附，也不声称有。** 请 QQ 核验时向 Deja / 主人要原文；打开前先把链接和范围补进本节。若打开：Cindy 在对话里听到主播说「帮我看看这一段」，才用 `send:true` 调用。能力表里 `fablecut_review` 的风险等级是 `external`，和 `assistant_request`、`cloud_transcribe` 同属外发类（`agent-policy.js` 按它的等级和上限处理，本 PR 没有改 agent-policy，也没有在真机上验证它会弹哪张确认卡）；上限在 `capabilities.js` 的 `VIDEO`（每次 3.2 MB，每个打开的工程 100 MB；**100 MB 是我提的数，请 QQ 定**）。页面自己发 `send:true` 会被 403 拒绝。
 3. **关闭：** 没有任何自动触发、定时触发或后台预发（B8 的预热还没做；做的时候也只在本机渲染，不发送）。主播不点、Cindy 没被要求，就不会发。发送前可取消（`cancel`，令牌立刻作废，已渲染的小样删除）；发送中取消会结束 `agy` 的进程树。卸载或不装 `agy` 时，`prepare` 直接回 `NO_BRIDGE`，什么都不渲染。
+3a. **发出去的就是展示过的（ReviewInbox 对首个 head 的审查所指出的四点，已修，各有测试）：** 工程里的字幕文字和审美笔记在 `prepare` 那一刻就定下来（快照），之后改了字幕、加了笔记都不会随这次发送出去；`send` 时若打开的已是另一个工程，令牌作废（409 `PROJECT_CHANGED`），什么都不发；压缩副本还在做的时候取消，取消标志会在启动 `agy` 之前（两次请求之间也一样）被检查，`agy` 一次都不会启动（记录为 `no_result: CANCELLED`）；`gate` 以「最新的、涉及这一秒的检查」为准，之后对更小一段的检查发现问题（或被标 `recheck_needed`）就让那一段的通过失效，没检查成（`no_result`）不说明任何事。
 4. 这是新的外发路径，不属于 `assistant_request` 的 `TEXT` 上限，所以在能力表里单独加了 `VIDEO`。
 
 ## 防护（照 Python 参考实现「gemini-video-bridge」的围栏移植，测试逐条锁住）

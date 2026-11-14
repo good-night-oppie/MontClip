@@ -72,16 +72,18 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
 
   async function doSend(r) {
     if (r.state !== "ready") throw httpError(409, "that check is not waiting to be sent", { code: "NOT_READY" });
+    if (activeProject() !== r.project) { r.state = "failed"; r.reason = "PROJECT_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "another project is open now; prepare again", { code: "PROJECT_CHANGED" }); }
     if (!sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
     const from = r.range.start - r.lead;
     try {
-      const doc = readProject() || {};
-      const ctx = r.scope === "full" ? skeleton(doc, from, r.range.end) : "";
+      /* the project's words and the taste notes are the ones that were there when the page showed what would be sent: a project that
+         was switched or a note that was added since is not sent */
+      const ctx = r.ctx;
       const digests = [];   // B9 (rolling digests of other stretches) is the next batch
       res = await bridge.checkSample({ ffmpeg: ffmpeg(), ffprobe: ffprobe(), sampleFile: r.file, offset: from, leadSec: r.lead, rangeStart: r.range.start,
-        contextText: ctx, digests, taste: store.tasteList(r.project), mode: r.mode, env, agy: agyOverride || undefined, onChild: (c) => { r.child = c; } });
+        contextText: ctx, digests, taste: r.tasteSnap, mode: r.mode, env, agy: agyOverride || undefined, onChild: (c) => { r.child = c; }, isCancelled: () => r.cancelled });
     } catch (e) { res = { status: "no_result", reason: "FAILED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" }; }
     r.child = null;
     dropSample(r);
@@ -116,9 +118,10 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       const doc = readProject() || {};
       const from = Math.max(0, s - l);
       const range = { start: s, end: e };
+      const tasteSnap = store.tasteList(project);
       const id = "r_" + crypto.randomBytes(6).toString("hex");
       const job = requestSample({ project, range: { start: from, end: e }, where, revision: doc.revision ?? null });
-      const r = { id, project, range, lead: +(s - from).toFixed(3), scope, mode, taste: store.tasteList(project).length, destination: destination(), revision: doc.revision ?? null, key: store.contentKey(doc), state: "rendering", job: job.id,
+      const r = { id, project, range, lead: +(s - from).toFixed(3), scope, mode, tasteSnap: tasteSnap, taste: tasteSnap.length, ctx: scope === "full" ? skeleton(doc, from, e) : "", destination: destination(), revision: doc.revision ?? null, key: store.contentKey(doc), state: "rendering", job: job.id,
         source: agent ? "agent" : "streamer", autoSend: !!autoSend, progress: 0, token: null, tokenExp: 0, cancelled: false };
       reviews.set(id, r);
       waitRender(r).catch(() => { r.state = "failed"; r.reason = "FAILED"; });

@@ -83,7 +83,7 @@ function setup(t, mode, extra = {}) {
   const store = createReviewStore({ dir: path.join(d, "reviews") });
   let doc = DOC(), jobs = 0, cancelled = [];
   const svc = createReviewService({
-    store, bridge: extra.bridge || VB, readProject: () => doc, activeProject: () => "p1", pollMs: 20, agentSendEnabled: () => !!extra.agentSend,
+    store, bridge: extra.bridge || VB, readProject: () => doc, activeProject: () => (extra.active ? extra.active() : "p1"), pollMs: 20, agentSendEnabled: () => !!extra.agentSend,
     requestSample: ({ range }) => { jobs++; return { id: "x_" + jobs, range }; },
     getJob: () => ({ status: extra.jobStatus || "done", progress: 1, src: "/previews/sample.mp4" }),
     cancelJob: (id) => cancelled.push(id), sampleFile: () => sample,
@@ -282,4 +282,64 @@ test("taste notes: a positive one says what was approved, at most 30, removable;
   assert.deepEqual(s.tasteList("other"), [], "another project has its own notes");
   s.add("p", { reviewId: "r1", status: "issues", range: { start: 0, end: 1 }, contentKey: "k", findings: [] });
   assert.equal(s.tasteList("p").length, 29, "adding a record does not lose the notes");
+});
+
+/* ---- what ReviewInbox found on the first review of #328 (all four real) ---- */
+test("a cancel that comes while the copy is being made keeps the tool from ever starting", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const sending = S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  const c = S.svc.cancel(v.reviewId);       // no tool is running yet, so there is nothing to kill: only the flag
+  const rec = await sending;
+  assert.equal(c.state === "cancelled" || c.state === "sending", true);
+  assert.equal(rec.status, "no_result"); assert.equal(rec.reason, "CANCELLED");
+  assert.equal(fs.existsSync(S.report), false, "the tool never started, so nothing was sent");
+  assert.equal(S.svc.status(v.reviewId).state, "cancelled");
+});
+
+test("what goes out is what was shown: a project switched, a word edited or a note added after prepare is not sent", { skip }, async (t) => {
+  let active = "p1";
+  const S = setup(t, "pass", { active: () => active });
+  /* the project's words are the ones at prepare */
+  const a = S.svc.prepare({ start: 21, end: 26, scope: "full" });
+  await until(() => S.svc.status(a.reviewId).state === "ready");
+  const doc2 = JSON.parse(JSON.stringify(S.doc())); doc2.clips.find((c) => c.id === "t1").props.text = "SECRET-OF-ANOTHER-EDIT"; S.setDoc(doc2);
+  S.store.tasteAdd("p1", { kind: "negative", text: "NOTE-ADDED-AFTER-THE-QUESTION" });
+  assert.equal(S.svc.status(a.reviewId).willSend.tasteNotes, 0);
+  await S.svc.send(a.reviewId, S.svc.tokenFor(a.reviewId));
+  const prompt = JSON.parse(fs.readFileSync(S.report, "utf8")).prompt;
+  assert.ok(prompt.includes("大家好 hello"), "the words that were shown");
+  assert.ok(!prompt.includes("SECRET-OF-ANOTHER-EDIT") && !prompt.includes("NOTE-ADDED-AFTER-THE-QUESTION"), "nothing added since");
+  /* another project open now: the old token is refused and nothing starts */
+  fs.rmSync(S.report, { force: true });
+  const b = S.svc.prepare({ start: 21, end: 26, scope: "full" });
+  await until(() => S.svc.status(b.reviewId).state === "ready");
+  const token = S.svc.tokenFor(b.reviewId);
+  active = "p2";
+  await assert.rejects(S.svc.send(b.reviewId, token), (e) => e.status === 409 && e.code === "PROJECT_CHANGED");
+  assert.equal(fs.existsSync(S.report), false, "nothing was sent");
+  assert.equal(S.store.list("p2").length, 0); assert.equal(S.store.list("p1").length, 1, "only the first check is on record");
+});
+
+test("gate: a later check of a smaller part that found a problem takes the pass away for that part; a failed attempt says nothing", (t) => {
+  const s = createReviewStore({ dir: tmp(t) });
+  const add = (id, status, a, b, key = "K") => s.add("p", { reviewId: id, status, range: { start: a, end: b }, contentKey: key, revision: 1, findings: [], at: id });
+  const g = (a, b) => s.gate("p", { key: "K", start: a, end: b }).passed;
+  add("r1", "passed", 0, 30);
+  assert.equal(g(0, 30), true);
+  add("r2", "issues", 10, 15);
+  assert.equal(g(0, 30), false, "the whole is no longer passed");
+  assert.equal(g(10, 15), false);
+  assert.equal(g(0, 10), true, "the parts nobody questioned still are");
+  assert.equal(g(15, 30), true);
+  assert.equal(g(8, 12), false, "a window that overlaps the problem");
+  add("r3", "no_result", 10, 15);
+  assert.equal(g(10, 15), false, "a failed attempt does not give the pass back");
+  add("r4", "passed", 10, 15);
+  assert.equal(g(0, 30), true, "a newer pass of the same content over that part gives it back");
+  s.mark("p", { id: "r4", mark: "recheck_needed" });
+  assert.equal(g(0, 30), false, "a person's recheck_needed on it takes it away again");
+  assert.equal(g(0, 10), true);
+  assert.equal(g(0, 30) === false && s.gate("p", { key: "OTHER", start: 0, end: 10 }).passed, false, "another content has no pass");
 });

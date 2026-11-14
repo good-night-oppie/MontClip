@@ -401,10 +401,11 @@ async function runAgy({ agy, sandbox, targetName = "video_input.mp4", prompt, mo
  *  sampleFile: the file to look at. leadSec: how much of its start is lead-in. offset: the timeline second the sample's 0 is at.
  *  → {status:"passed"|"issues"|"no_result", reason?, findings, summary, windowDigest}. Findings carry timeline seconds. */
 async function checkSample({ ffmpeg, ffprobe, sampleFile, offset, leadSec = 0, rangeStart, contextText = "", digests = [], taste = [], mode = "single", model, timeoutSec, graceSec,
-  env = process.env, agy = findAgy(env), onChild = null, tmpRoot = os.tmpdir() }) {
+  env = process.env, agy = findAgy(env), onChild = null, isCancelled = () => false, tmpRoot = os.tmpdir() }) {
   const none = (reason) => ({ status: "no_result", reason, findings: [], summary: "", windowDigest: "", dimensions: null, mode, observation: "" });
   if (!agy) return none("NO_BRIDGE");
   if (mode !== "single" && mode !== "two_pass") return none("BAD_MODE");
+  if (isCancelled()) return none("CANCELLED");
   let sandbox = null;
   try {
     sandbox = fs.mkdtempSync(path.join(tmpRoot, "montclip-review-"));
@@ -414,12 +415,15 @@ async function checkSample({ ffmpeg, ffprobe, sampleFile, offset, leadSec = 0, r
     try { staged = await stageCompact({ ffmpeg, ffprobe, src: sampleFile, dst: target }); }
     catch (e) { return none(e && e.code === "NO_ENCODER" ? "NO_BRIDGE" : "BAD_SAMPLE"); }
     let observation = "";
+    /* a cancel that came while the copy was being made (nothing was running yet to stop) must keep the tool from ever starting */
+    if (isCancelled()) return none("CANCELLED");
     if (mode === "two_pass") {
       /* look 1: blind. Nothing about the edit, the names or the standards goes in, so it cannot be steered. Same copy, same fences. */
       const p1 = await runAgy({ agy, sandbox, prompt: buildBlindPrompt({ targetPath: target, durationSec: staged.durationSec, leadSec }), model, timeoutSec, graceSec, env, onChild });
       if (!p1.ok) return none(p1.reason);
       observation = parseObservation(p1.text);
       if (!observation) return none("BAD_OUTPUT");
+      if (isCancelled()) return none("CANCELLED");
     }
     const prompt = buildPrompt({ targetPath: target, durationSec: staged.durationSec, leadSec, contextText, digests, taste, observation });
     const r = await runAgy({ agy, sandbox, prompt, model, timeoutSec, graceSec, env, onChild });

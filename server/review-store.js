@@ -102,13 +102,29 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       write(projectId, doc);
       return view(rec);
     },
-    /** Does the project, as it is now (key), have a real pass that covers [start, end]? The newest check that covers it decides;
-     *  a pass someone marked recheck_needed does not count. */
+    /** Does the project, as it is now (key), have a real pass over every second of [start, end]? The newest check that says anything
+     *  about a second decides it, so a later check of a smaller part that found a problem (or a person's recheck_needed) takes
+     *  the pass away for that part. A check that could not be made (no_result) says nothing. */
     gate(projectId, { key, start, end }) {
-      const covering = read(projectId).records.filter((r) => r.contentKey === key && r.range && r.range.start <= start + 1e-6 && r.range.end >= end - 1e-6 && r.status !== "no_result");
-      const last = covering[covering.length - 1];
-      const passed = !!last && last.status === "passed" && !last.marks.some((m) => m.mark === "recheck_needed");
-      return { passed, recordId: passed ? last.reviewId : null, revision: last ? last.revision : null, covers: last ? [last.range.start, last.range.end] : null };
+      let segs = [];   // [{a, b, rec, ok}] — what the newest word is, over each piece
+      for (const r of read(projectId).records) {
+        if (r.contentKey !== key || !r.range || r.status === "no_result") continue;
+        const ok = r.status === "passed" && !r.marks.some((m) => m.mark === "recheck_needed");
+        const a0 = r.range.start, b0 = r.range.end, next = [];
+        for (const g of segs) {
+          if (g.b <= a0 || g.a >= b0) { next.push(g); continue; }
+          if (g.a < a0) next.push({ ...g, b: a0 });
+          if (g.b > b0) next.push({ ...g, a: b0 });
+        }
+        next.push({ a: a0, b: b0, rec: r, ok });
+        segs = next;
+      }
+      const over = segs.filter((g) => g.b > start + 1e-6 && g.a < end - 1e-6).sort((x, y) => x.a - y.a);
+      let at = start, passed = over.length > 0;
+      for (const g of over) { if (g.a > at + 1e-6 || !g.ok) { passed = false; break; } at = Math.max(at, g.b); }
+      if (at < end - 1e-6) passed = false;
+      const last = over.map((g) => g.rec).sort((x, y) => (x.at < y.at ? 1 : -1))[0] || null;
+      return { passed, recordId: passed && last ? last.reviewId : null, revision: last ? last.revision : null, covers: passed ? [start, end] : null };
     },
   };
 }
