@@ -18,90 +18,106 @@
   "use strict";
 
   const SPAN = 10;          // seconds checked around the playhead
+  const MIN_SPAN = 1;       // JJ #326: under 1 s can't be checked
   const MAX_SPAN = 30;      // JJ v1 R1b: a check is at most 30 s (an IN–OUT longer than that falls back to 10 s)
   const PREWARM_DELAY = 1500;   // ms the playhead has to rest before the clip is made ahead of time
 
-  // zh-CN: DRAFT for JJ, from v2 §6, v3 §5 and v3.1 §3 word for word where they give the sentence; the rest is Deja's
-  // draft (marked). 「10」 is {n}: a marked IN–OUT can be another length. JJ finalises on the PR.
-  // en: DRAFT for JJ.
+  // zh-CN: JJ's first pass on #326 (comment 6868600043, head d5872c56): the v2 / v3 / v3.1 sentences word for word, the
+  // rest as JJ wrote them there (marked 「JJ #326」). Still a DRAFT for JJ's re-check on the new head. 「10」 is {n}: a marked
+  // IN–OUT of 1–30 s is checked as it is (JJ: allowed; whole seconds; under 1 s it can't be clicked).
+  // en: DRAFT — Rea checks it against the final Chinese.
   const text = {
     "zh-CN": {
       button: "检查这 {n} 秒",                                     // v2 §6
-      buttonTip: "让 AI 看一看、听一听这 {n} 秒有没有问题。发出去之前会先问你。",   // draft (Deja)
-      title: "检查这 {n} 秒",                                      // draft (Deja)
-      preparing: "正在这台电脑上准备这 {n} 秒，还没有发出去。",     // draft (Deja)
+      buttonTip: "让 AI 看一看、听一听这 {n} 秒有没有问题。发出去之前会先给你看要发什么。",   // JJ #326
+      title: "检查这 {n} 秒",                                      // JJ #326: kept
+      preparing: "正在这台电脑上准备这 {n} 秒，还没有发出去。",     // JJ #326: kept
+      cancelPrep: "取消",                                           // JJ #326: the button while preparing
       // v3.1 §3, word for word (n = 10)
       intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有整条片子的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",
-      whatFull: "点「发送检查」会发：{from}–{to} 的画面和声音（{sec} 秒），整条片子的字幕文字 {chars} 字和 {cuts} 个剪辑时间点。",   // draft (Deja)
-      whatFullLead: "其中 {from}–{lead} 是前面接过来的 {leadSec} 秒，让 AI 知道前面在说什么。",   // draft (Deja)
-      whatWindow: "点「只发这 {n} 秒」只发：{from}–{to} 的画面和声音（{sec} 秒），不带整条片子的文字。",   // draft (Deja)
-      to: "发给：{service}（{host}）",                             // Deja 6867787475
-      training: "对方可能用这段内容训练模型",                       // Deja 6867787475
-      noDestination: "不知道这次会发到哪里，所以先不发。",           // draft (Deja)
+      whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），整条片子的字幕文字 {chars} 字，和 {cuts} 个剪辑时间点。",   // JJ #326
+      whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
+      whatWindow: "点「只发这 {n} 秒」只发出去：{from}–{to} 的画面和声音（{sec} 秒），不发整条片子的字幕文字和剪辑时间点。",   // JJ #326
+      whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
+      truncatedBefore: "整条片子的字幕文字太长，点「发送检查」时只带这 {n} 秒附近的部分。",   // draft (Deja) for JJ: JJ #326 asked for it before sending
+      to: "发给：{service}（{host}）",                             // Deja 6867787475; JJ #326: kept
+      training: "对方可能用这段内容训练模型",                       // Deja 6867787475; JJ #326: kept
+      noDestination: "不知道这次会发到哪里，所以先不发。",           // JJ #326: kept
+      noPayload: "说不清这次具体会发出去什么，所以先不发。",           // draft (Deja) for JJ: QQ #326 item 1 — the box can't say what is sent
       previewBtn: "先看要发的内容",                                 // v3 §5
       sendFull: "发送检查",                                         // v3 §5
       sendWindow: "只发这 {n} 秒",                                  // v3 §5
       cancel: "不发了",                                             // v3 §5
-      previewNote: "这就是要发出去的画面和声音。",                   // draft (Deja)
-      sending: "正在检查，大约要几十秒……",                          // draft (Deja)
+      previewNote: "这就是要发出去的画面和声音。",                   // JJ #326: kept (preview and send use one reviewId — interface v0)
+      sending: "正在发给 AI 并等它检查，请稍等……",                   // JJ #326
       unavailable: "这台电脑上暂时用不了这个检查。",                 // v2 §6
-      busy: "正在检查别的片段，等它查完再试。",                      // draft (Deja)
+      busy: "现在正在忙别的，等它忙完再点一次。",                      // JJ #326
       issues: "检查完了，发现 {count} 处可能有问题。",               // v2 §6
-      passed: "这 {n} 秒检查没有发现问题。这只是 AI 的判断，请你自己也听看一遍。",   // v2 §6
+      passed: "这 {n} 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。",   // JJ #326 (v2 §6, reworded by JJ)
       noResult: "这次没有检查出结果。这不代表没问题。",               // v2 §6
+      prepareFailed: "这 {n} 秒没能在这台电脑上准备好，什么都没有发出去。",   // JJ #326
+      sendFailed: "检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。",   // JJ #326
+      rangeTooLong: "你标的范围超过 30 秒，这次检查的是播放头附近的 {n} 秒。",   // JJ #326
       windowOnly: "这次只检查了这 {n} 秒，没有结合整条片子。",        // v3 §5
       truncated: "整条片子的文字太长，这次只带了这 {n} 秒附近的部分。",   // v3 §5
-      inLead: "（在前面接过来的那几秒里）",                          // draft (Deja)
+      inLead: "（在前面多带的那几秒里）",                              // JJ #326
       jump: "跳到这里",                                             // v2 §6
       fixed: "已修好",                                              // v2 §6
-      fixedDone: "已记下。改好了就点「重新检查」。",                 // draft (Deja)
+      fixedDone: "已标记为修好",                                     // JJ #326
       recheck: "重新检查",                                          // v2 §6
-      close: "关闭",                                                // draft (Deja)
-      suggestion: "建议：{text}",                                   // draft (Deja)
+      close: "关闭",                                                // JJ #326: kept
+      suggestion: "建议：{text}",                                   // JJ #326: kept
       type_speaker_swapped: "说话人可能标反了",                      // v2 §6
-      type_cut_jump: "这里的剪切可能太跳",                           // draft (Deja)
-      type_subtitle_mismatch: "字幕和说的话可能对不上",              // draft (Deja)
-      type_audio: "声音可能有问题",                                  // draft (Deja)
-      type_continuity: "前后可能接不上",                             // draft (Deja)
-      type_other: "这里可能有问题",                                  // draft (Deja)
+      type_cut_jump: "这里接得可能太突然",                           // JJ #326
+      type_subtitle_mismatch: "字幕和说的话可能对不上",              // JJ #326: kept
+      type_audio: "声音可能有问题",                                  // JJ #326: kept
+      type_continuity: "前后两段可能接不上",                         // JJ #326
+      type_other: "这里可能有问题",                                  // JJ #326: kept
     },
     en: {
       button: "Check these {n} s",
-      buttonTip: "Have AI watch and listen to these {n} seconds for problems. It asks you before anything is sent.",
+      buttonTip: "Have AI watch and listen to these {n} seconds for problems. Before anything is sent, you see what would go.",
       title: "Check these {n} seconds",
       preparing: "Getting these {n} seconds ready on this computer. Nothing has been sent.",
+      cancelPrep: "Cancel",
       intro: "Going online only happens in features you open yourself, and you see what goes first. When you click “Send for check”, the picture and sound of these {n} seconds, plus the whole video's subtitle text and cut points, go to an AI for checking and may be used for training.",
-      whatFull: "“Send for check” sends: picture and sound from {from} to {to} ({sec} s), the whole video's subtitle text ({chars} characters) and {cuts} cut points.",
-      whatFullLead: "{from} to {lead} is the {leadSec} s just before, so the AI knows what came first.",
-      whatWindow: "“Send only these {n} s” sends only: picture and sound from {from} to {to} ({sec} s), without the whole video's text.",
+      whatFull: "“Send for check” sends out: picture and sound from {from} to {to} ({sec} s), the whole video's subtitle text ({chars} characters), and {cuts} cut points.",
+      whatFullLead: "With either button, the picture and sound include {leadSec} s from just before ({from} to {lead}), so the AI knows what came first.",
+      whatWindow: "“Send only these {n} s” sends out only: picture and sound from {from} to {to} ({sec} s), without the whole video's subtitle text and cut points.",
+      whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
+      truncatedBefore: "The whole video's subtitle text is too long: “Send for check” takes only the part near these {n} seconds.",
       to: "Sent to: {service} ({host})",
       training: "They may use this content to train models",
       noDestination: "It isn't clear where this would be sent, so nothing will be sent.",
+      noPayload: "It isn't clear exactly what this would send, so nothing will be sent.",
       previewBtn: "See what will be sent",
       sendFull: "Send for check",
       sendWindow: "Send only these {n} s",
       cancel: "Don't send",
       previewNote: "This is the picture and sound that would be sent.",
-      sending: "Checking — this takes a few dozen seconds…",
+      sending: "Sending to the AI and waiting for its check…",
       unavailable: "This check isn't available on this computer right now.",
-      busy: "Another stretch is being checked. Try again when it's done.",
+      busy: "Busy with something else right now. Click again when it's done.",
       issues: "Done. Found {count} possible problem(s).",
-      passed: "The check found no problems in these {n} seconds. This is only the AI's judgement — please watch and listen yourself too.",
+      passed: "The check found no problems in these {n} seconds. This is only the AI's judgement — please watch it and listen to it yourself too.",
       noResult: "This check gave no result. That doesn't mean there's no problem.",
+      prepareFailed: "These {n} seconds couldn't be got ready on this computer. Nothing was sent.",
+      sendFailed: "The check didn't complete. It's not certain whether the content already reached them. That doesn't mean there's no problem.",
+      rangeTooLong: "The range you marked is over 30 seconds, so this checks the {n} seconds around the playhead.",
       windowOnly: "Only these {n} seconds were checked, without the rest of the video.",
       truncated: "The whole video's text was too long, so only the part near these {n} seconds was included.",
-      inLead: "(in the seconds just before)",
+      inLead: "(in the extra seconds just before)",
       jump: "Go here",
       fixed: "Fixed",
-      fixedDone: "Noted. When it's fixed, click “Check again”.",
+      fixedDone: "Marked as fixed",
       recheck: "Check again",
       close: "Close",
       suggestion: "Suggestion: {text}",
       type_speaker_swapped: "Speakers may be swapped",
-      type_cut_jump: "This cut may be too abrupt",
+      type_cut_jump: "This may join too abruptly",
       type_subtitle_mismatch: "Subtitles may not match what's said",
       type_audio: "The sound may have a problem",
-      type_continuity: "This may not follow on from before",
+      type_continuity: "The two parts may not follow on",
       type_other: "There may be a problem here",
     },
   };
@@ -125,18 +141,25 @@
   const round1 = (v) => Math.round(v * 10) / 10;
   const secs = (v) => String(round1(v)).replace(/\.0$/, "");
 
-  /** What 「检查这 10 秒」 checks: a marked IN–OUT of at most 30 s, else 10 s around the playhead, inside the timeline. */
+  /**
+   * What 「检查这 10 秒」 checks: a marked IN–OUT of 1–30 s as it is, else 10 s around the playhead, inside the timeline.
+   * A marked IN–OUT over 30 s falls back to the playhead and says so (`fellBack`, JJ #326 rangeTooLong); a stretch
+   * under 1 s — marked, or the whole timeline — can't be checked (null: the button is off).
+   */
   function pickRange({ time, duration, inPoint, outPoint } = {}) {
     const dur = num(duration);
-    if (!dur || dur <= 0) return null;
+    if (!dur || dur < MIN_SPAN) return null;
     const a = num(inPoint), b = num(outPoint);
-    if (a != null && b != null && b > a && b - a <= MAX_SPAN && a >= 0 && b <= dur + 1e-6)
-      return { start: round1(a), end: round1(Math.min(b, dur)) };
+    const marked = a != null && b != null && b > a && a >= 0 && b <= dur + 1e-6;
+    if (marked && b - a < MIN_SPAN) return null;
+    if (marked && b - a <= MAX_SPAN) return { start: round1(a), end: round1(Math.min(b, dur)) };
     const span = Math.min(SPAN, dur);
     const tt = Math.min(Math.max(num(time) || 0, 0), dur);
     const start = Math.min(Math.max(tt - span / 2, 0), dur - span);
-    return { start: round1(start), end: round1(Math.min(start + span, dur)) };
+    const r = { start: round1(start), end: round1(Math.min(start + span, dur)) };
+    return marked ? { ...r, fellBack: true } : r;
   }
+  /** The whole seconds the button, the title and every 「这 N 秒」 say — and {sec} too when there is no lead (JJ #326). */
   const spanOf = (r) => Math.max(1, Math.round(r.end - r.start));
 
   /** The receiver, as status / prepare report it. Both a name and a host, or nothing (then nothing can be sent). */
@@ -147,26 +170,53 @@
     return { service, host };
   }
 
-  /** The confirm box. `canSend` is false without a destination or a token: the send buttons are then off. */
-  function confirmModel(prep, lang, statusDest) {
-    const range = prep && prep.range && num(prep.range.start) != null ? prep.range : null;
+  const span_ = (r) => (r && typeof r === "object" && num(r.start) != null && num(r.end) != null && r.start >= 0 && r.end > r.start ? r : null);
+  const count_ = (v) => (num(v) != null && v >= 0 ? Math.round(v) : null);
+  /**
+   * What prepare says will be sent, checked field by field (QQ #326 item 1): the checked range, the picture's range
+   * (which holds the range), and the whole-video text's size. Anything missing or odd → null: the box can't say what
+   * goes, so nothing can be sent. Never filled in from the request or with 0.
+   */
+  function payloadOf(prep) {
+    const range = span_(prep && prep.range), ws = prep && prep.willSend;
+    if (!range || !ws || typeof ws !== "object") return null;
+    const video = span_(ws.video), text = ws.text && typeof ws.text === "object" ? ws.text : null;
+    if (!video || video.start > range.start + 1e-6 || video.end < range.end - 1e-6 || !text) return null;
+    const chars = count_(text.subtitleChars), cuts = count_(text.cutPoints);
+    if (chars == null || cuts == null || typeof text.truncated !== "boolean") return null;
+    let lead = null;
+    if (prep.lead != null) {
+      lead = span_(prep.lead);
+      if (!lead || Math.abs(lead.end - range.start) > 1e-6 || lead.start < video.start - 1e-6) return null;
+    }
+    return { range, video, chars, cuts, truncated: text.truncated, lead };
+  }
+
+  /** The confirm box. `canSend` is false without a full description of what is sent, a destination or a token. */
+  function confirmModel(prep, lang, statusDest, opts = {}) {
+    const pay = payloadOf(prep);
+    const range = pay ? pay.range : span_(prep && prep.range);
     const n = range ? spanOf(range) : SPAN;
     const ws = (prep && prep.willSend) || {};
     const dest = destinationOf(ws.destination) || destinationOf(statusDest);
-    const video = ws.video && num(ws.video.start) != null && num(ws.video.end) != null ? ws.video : range;
-    const textInfo = ws.text || {};
-    const lead = prep && prep.lead && num(prep.lead.start) != null && num(prep.lead.end) != null && prep.lead.end > prep.lead.start ? prep.lead : null;
-    const lines = [t(lang, "intro", { n })];
-    if (video) {
-      lines.push(t(lang, "whatFull", { from: fmtTime(video.start), to: fmtTime(video.end), sec: secs(video.end - video.start),
-        chars: Math.max(0, Math.round(num(textInfo.subtitleChars) || 0)), cuts: Math.max(0, Math.round(num(textInfo.cutPoints) || 0)) }));
+    const video = pay && pay.video, lead = pay && pay.lead;
+    const lines = [];
+    if (opts.fellBack) lines.push(t(lang, "rangeTooLong", { n }));
+    lines.push(t(lang, "intro", { n }));
+    if (pay) {
+      // without a lead the picture is the checked stretch itself: its seconds are the same whole number as 「这 N 秒」
+      const sec = lead ? secs(video.end - video.start) : String(n);
+      lines.push(t(lang, "whatFull", { from: fmtTime(video.start), to: fmtTime(video.end), sec, chars: pay.chars, cuts: pay.cuts }));
+      if (pay.truncated) lines.push(t(lang, "truncatedBefore", { n }));
+      // 「只发这 10 秒」: the same picture and sound (the lead included — interface v0 has one willSend.video), no whole-video text
+      lines.push(t(lang, "whatWindow", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec }));
       if (lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(lead.start), lead: fmtTime(lead.end), leadSec: secs(lead.end - lead.start) }));
-      // 「只发这 10 秒」: the same picture and sound (the lead included), no whole-video text
-      lines.push(t(lang, "whatWindow", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec: secs(video.end - video.start) }));
-    }
-    const canSend = !!(dest && prep && prep.reviewId && prep.sendToken);
+      lines.push(t(lang, "whatDanmaku"));
+    } else lines.push(t(lang, "noPayload"));
+    const canSend = !!(pay && dest && prep && typeof prep.reviewId === "string" && prep.reviewId && typeof prep.sendToken === "string" && prep.sendToken);
     return {
-      title: t(lang, "title", { n }), n, lines,
+      title: t(lang, "title", { n }), n, lines, payload: pay,
+      blocked: pay ? null : "noPayload",
       to: dest ? t(lang, "to", dest) : t(lang, "noDestination"),
       training: t(lang, "training"),
       destination: dest, canSend,
@@ -197,16 +247,18 @@
   }
 
   /** What the result box says. A pass only when the engine said passed and nothing inside the checked stretch was found. */
-  function resultModel(raw, lang, n) {
+  function resultModel(raw, lang, n, opts = {}) {
     const r = cleanResult(raw);
     const span = n || (r.range ? spanOf(r.range) : SPAN);
     const main = r.findings.filter((f) => !f.inLead);
     let status = r.status;
     if (status === "passed" && main.length) status = "issues";
     if (status === "issues" && !r.findings.length) status = "no_result";   // 「有问题」 with nothing to show is no answer
-    const notes = [];
+    const notes = opts.fellBack ? [t(lang, "rangeTooLong", { n: span })] : [];
     let headline;
-    if (status === "no_result") headline = r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy") : t(lang, "noResult");
+    if (status === "no_result") headline = r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
+      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span })
+      : raw && raw.sendError === true ? t(lang, "sendFailed") : t(lang, "noResult");
     else if (status === "passed") headline = t(lang, "passed", { n: span });
     else headline = t(lang, "issues", { count: main.length || r.findings.length });
     if (status !== "no_result" && r.scope === "window") notes.push(t(lang, "windowOnly", { n: span }));
@@ -281,9 +333,11 @@
     }
     async function preview() {
       if (s.phase !== "confirm" || !s.prep) return null;
+      const gen = s.gen, prep = s.prep, id = prep.reviewId;   // QQ #326 item 2: the answer belongs to this box only
       let src = null;
-      try { src = safePreviewSrc(await api.preview(s.prep.reviewId)); } catch { src = null; }
-      if (s.phase === "confirm") set({ previewSrc: src });
+      try { src = safePreviewSrc(await api.preview(id)); } catch { src = null; }
+      if (gen !== s.gen || s.phase !== "confirm" || s.prep !== prep || s.prep.reviewId !== id) return null;
+      set({ previewSrc: src });
       return src;
     }
     async function send(scope) {
@@ -295,7 +349,8 @@
       set({ phase: "sending", scope });
       let raw;
       try { raw = await api.send({ reviewId: prep.reviewId, sendToken: prep.sendToken, scope }); }
-      catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", findings: [] }; }
+      // the request itself failed: it may or may not have reached the receiver (JJ #326 sendFailed) — never 「没发出去」
+      catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", sendError: true, findings: [] }; }
       if (gen !== s.gen) return false;
       set({ phase: "result", raw: { ...raw, scope: raw && raw.scope ? raw.scope : scope } });
       return true;
@@ -312,11 +367,12 @@
       set({ phase: "closed", previewSrc: null });
     }
     async function markFixed(findingId) {
-      const id = s.raw && s.raw.reviewId;
-      if (!id) return false;
+      const raw = s.raw, gen = s.gen, id = raw && raw.reviewId;   // QQ #326 item 4: only the result it was written for
+      if (!id || s.phase !== "result") return false;
       try { await api.mark({ id, finding: findingId, mark: "fixed" }); } catch { return false; }
-      const findings = (s.raw.findings || []).map((f) => (f && f.id === findingId ? { ...f, mark: "fixed" } : f));
-      set({ raw: { ...s.raw, findings } });
+      if (gen !== s.gen || s.phase !== "result" || s.raw !== raw) return false;
+      const findings = (raw.findings || []).map((f) => (f && f.id === findingId ? { ...f, mark: "fixed" } : f));
+      set({ raw: { ...raw, findings } });
       return true;
     }
     /** No check possible (no bridge on this computer, or one already running): say so, nothing is prepared or sent. */
@@ -431,30 +487,30 @@
       const h = el(doc, "h2", null, t(lang, "title", { n })); h.id = "reviewTitle"; box.setAttribute("aria-labelledby", "reviewTitle");
       box.appendChild(h);
       const actions = el(doc, "div", "dialog-actions review-actions");
-      const add = (id, label, on, cls) => { const b = el(doc, "button", "btn" + (cls ? " " + cls : ""), label); b.dataset.review = id; b.addEventListener("click", on); actions.appendChild(b); return b; };
+      const add = (id, label, on, cls) => { const b = el(doc, "button", "btn review-action" + (cls ? " " + cls : ""), label); b.dataset.review = id; b.addEventListener("click", on); actions.appendChild(b); return b; };
       if (s.phase === "preparing") {
-        box.appendChild(el(doc, "p", "dim", t(lang, "preparing", { n })));
-        add("cancel", t(lang, "cancel"), () => session.cancel());
+        box.appendChild(el(doc, "p", "dim review-note", t(lang, "preparing", { n })));
+        add("cancel", t(lang, "cancelPrep"), () => session.cancel());
       } else if (s.phase === "confirm") {
-        const m = confirmModel(s.prep, lang, s.statusDest);
+        const m = confirmModel(s.prep, lang, s.statusDest, { fellBack: !!(s.range && s.range.fellBack) });
         for (const line of m.lines) box.appendChild(el(doc, "p", "review-line", line));
         const to = el(doc, "p", "review-to" + (m.destination ? "" : " review-warn"), m.to); to.dataset.review = "to"; box.appendChild(to);
         const tr = el(doc, "p", "review-training", m.training); tr.dataset.review = "training"; box.appendChild(tr);
         if (s.previewSrc) {
           const v = el(doc, "video", "review-preview"); v.controls = true; v.preload = "metadata"; v.src = s.previewSrc;
-          box.appendChild(el(doc, "p", "dim", t(lang, "previewNote"))); box.appendChild(v);
+          box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNote"))); box.appendChild(v);
         }
         for (const b of m.buttons) {
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
-          const node = add(b.id, b.label, on, b.id === "full" ? "primary" : "");
+          const node = add(b.id, b.label, on, b.id === "full" ? "review-send" : "");
           node.disabled = !b.enabled;
         }
       } else if (s.phase === "sending") {
-        box.appendChild(el(doc, "p", "dim", t(lang, "sending")));
+        box.appendChild(el(doc, "p", "dim review-note", t(lang, "sending")));
       } else if (s.phase === "result") {
-        const m = resultModel(s.raw, lang, n);
+        const m = resultModel(s.raw, lang, n, { fellBack: !!(s.range && s.range.fellBack) });
         const head = el(doc, "p", "review-headline review-" + m.status, m.headline); head.dataset.review = "headline"; box.appendChild(head);
-        for (const note of m.notes) box.appendChild(el(doc, "p", "dim", note));
+        for (const note of m.notes) box.appendChild(el(doc, "p", "dim review-note", note));
         if (m.items.length) {
           const ul = el(doc, "ul", "review-list");
           for (const it of m.items) {
@@ -477,17 +533,24 @@
           }
           box.appendChild(ul);
         }
-        if (!(s.raw && s.raw.reason === "NO_BRIDGE")) add("recheck", t(lang, "recheck"), () => { void start(s.range); }, m.status === "passed" ? "" : "primary");
+        if (!(s.raw && s.raw.reason === "NO_BRIDGE")) add("recheck", t(lang, "recheck"), () => { void start(s.range); }, m.status === "passed" ? "" : "review-send");
         add("close", t(lang, "close"), () => session.close());
       }
       box.appendChild(actions);
     }
     session.on(render);
-    /** 「检查这 10 秒」 and 「重新检查」: the receiver is read again each time, never remembered from when the page opened. */
+    /**
+     * 「检查这 10 秒」 and 「重新检查」: the receiver is read again each time, never remembered from when the page opened.
+     * QQ #326 item 3: each press is the newest intent; a later press, 「关闭」 or 「不发了」 while the receiver is being read
+     * makes the earlier one do nothing when its answer comes.
+     */
+    let intent = 0;
     async function start(r) {
       if (!r || session.state.phase === "preparing" || session.state.phase === "sending") return;
+      const mine = ++intent, gen = session.state.gen;
+      const live = () => mine === intent && gen === session.state.gen;
       await refresh();
-      if (!status) return;
+      if (!live() || !status) return;
       if (!status.available) { session.noResult(r, status.reason === "BUSY" ? "BUSY" : "NO_BRIDGE"); return; }
       await session.check(r, status.destination);
     }
@@ -503,6 +566,6 @@
     return { session, refresh, prewarmer, overlay, render: () => render(session.state) };
   }
 
-  return { text, t, fmtTime, pickRange, destinationOf, confirmModel, cleanResult, resultModel, httpApi, safePreviewSrc,
+  return { text, t, fmtTime, pickRange, destinationOf, payloadOf, confirmModel, cleanResult, resultModel, httpApi, safePreviewSrc,
     createSession, createPrewarmer, stubApi, mount, SPAN, MAX_SPAN, PREWARM_DELAY };
 });
