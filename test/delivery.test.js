@@ -502,3 +502,12 @@ test("a clip shorter than the loudness gate with real sound is not silent: -70 L
     assert.ok(!D.parseEbur128(r.stderr).silent, `a ${d} s tone through the real ffmpeg is not silent`);
   }
 });
+
+test("the other way round: 0.3 s of real silence through the real ffmpeg is still silent, so EXPORT_BLANK_SOUND still catches it", (t) => {
+  const ff = require("../server/ffmpeg-path").path("ffmpeg");
+  for (const d of [0.167, 0.3]) {
+    const r = require("node:child_process").spawnSync(ff, ["-hide_banner", "-nostats", "-f", "lavfi", "-i", `anullsrc=r=48000:cl=stereo:d=${d}`, "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"], { encoding: "utf8" });
+    if (r.error) return t.skip("no ffmpeg");
+    assert.equal(D.parseEbur128(r.stderr).silent, true, `${d} s of silence stays silent`);
+  }
+});
