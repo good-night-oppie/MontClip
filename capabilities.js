@@ -64,7 +64,8 @@
     fablecut_versions: ["sensitive", "保存、比较、恢复或删除项目版本", "Save, compare, restore or delete project versions"],
     fablecut_proxy: ["undoable", "做或删掉预览用的小文件，让预览更流畅", "Make or delete small preview files so the preview plays smoothly"],
     fablecut_export: ["sensitive", "把时间线导出成视频文件", "Export the timeline to a video file"],
-    fablecut_scopes: ["read", "测量画面的亮度和色彩", "Measure the picture's levels and colour"],
+    fablecut_review: ["external", "把一小段画面发给外部模型帮忙挑毛病", "Send a short clip to an outside model to look for problems"],
+    fablecut_scopes: ["read","测量画面的亮度和色彩", "Measure the picture's levels and colour"],
     // the sends the host makes itself (not MCP tools); P4: each external capability carries its caps (LIMITS below)
     assistant_request: ["external", "把聊天消息发给 AI 服务", "Send the chat to the AI service"],
     song_lookup: ["external", "按歌词联网查歌名（只发两三句歌词）", "Look up the song's name online from two or three lyric lines"],
@@ -83,7 +84,9 @@
   // a send is refused, saying by how much; it is never cut down to fit. cloud_transcribe's caps hold its place: not wired yet.
   const TEXT = { kind: "text", perSend: 131072, perScope: 4194304, scope: "chat" };
   const AUDIO = { kind: "audio", perSend: 26214400, perScope: 2147483648, scope: "project-open" };
-  const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, cloud_transcribe: AUDIO };
+  // #321: one compact clip of a stretch (at most 3.2 MB, server/video-bridge.js MAX_SAMPLE_BYTES) per check; 100 MB per open project (my proposal — QQ's to set)
+  const VIDEO = { kind: "video", perSend: 3355443, perScope: 104857600, scope: "project-open" };
+  const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, cloud_transcribe: AUDIO, fablecut_review: VIDEO };
   const HOST = ["assistant_request", "song_lookup", "cloud_transcribe"];
   // What the facts block of an assistant_request may carry about the sound (JJ via Deja, 2026-11-05; QQ's five on #169):
   // numbers only, never the sound, a file name or a path. singingParts — parts that may be singing ({clipId, from, to},

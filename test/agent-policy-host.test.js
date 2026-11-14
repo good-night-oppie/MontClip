@@ -8,7 +8,7 @@ const {createPolicyHost}=require('../desktop/agent-policy-host'),Cap=require('..
 const ALLOW=['https://openrouter.ai','https://api.deepseek.com'];
 const make=(o={})=>{let asked=0;const h=createPolicyHost({confirmYolo:async()=>{asked++;return o.yes??true;},external:()=>({enabled:o.enabled??true,allowlist:o.allowlist??ALLOW}),language:()=>'zh-CN'});return{h,get asked(){return asked;}};};
 const of=risk=>Cap.list().find(c=>c.risk===risk&&!['fablecut_status','fablecut_docs','fablecut_get_project','fablecut_encode_profiles'].includes(c.name)).name;
-const EXT=of('external'),UNDO=of('undoable'),SENS=of('sensitive');
+const EXT='assistant_request',UNDO=of('undoable'),SENS=of('sensitive');
 const ask=(h,o)=>h.decide({sessionId:'s1',capability:UNDO,target:{kind:'project',value:'p_1'},...o});
 
 test('starts in 手动; a restart (a new host) is 手动 again, with nothing approved',async()=>{

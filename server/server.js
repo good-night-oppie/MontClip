@@ -56,7 +56,7 @@ const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
 const {
-  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
+  APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, REVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
   PROJECT_FILE, LIBRARY_SUBDIRS, FRAMES_DIR, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
 /** Uploads arrive here first (same volume as media/; a dot folder, so never served). At start only .part files older than
@@ -1003,6 +1003,44 @@ const exportJobs = createExportJobs({
   },
 });
 
+/* #321: checking a stretch of the timeline with the video bridge (review-service.js; the records are in reviews/, apart from
+   project.json). Built when first used. */
+let reviewSvc = null, reviewStoreInst = null;
+function reviewStore() { return reviewStoreInst || (reviewStoreInst = require("./review-store").createReviewStore({ dir: REVIEWS_DIR })); }
+const liveProject = () => { try { return JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^﻿/, "")); } catch { return {}; } };
+function reviews() {
+  if (reviewSvc) return reviewSvc;
+  /* prores422 is the one profile every build can encode: the x264 ones ("draft") need the user's own FFmpeg. The sample is heavy but
+     short and is deleted as soon as it was sent or cancelled; what leaves is the compact copy video-bridge.js makes of it. */
+  const sampleProfile = () => "prores422";
+  reviewSvc = require("./review-service").createReviewService({
+    store: reviewStore(), bridge: require("./video-bridge"), readProject: liveProject, activeProject: () => projects.peekActive(),
+    /* the same checks as /api/export/request: an end past the timeline, or a sample over the preview limit, is refused with its reason */
+    requestSample: ({ project, range, where, revision }) => {
+      const bad = checkExportSpan({ project: liveProject(), range, preview: true, maxPreviewSec: PREVIEW_MAX_SEC });
+      if (bad) throw Object.assign(new Error(bad.error), { status: 400, code: bad.errorCode });
+      return exportJobs.request({ project, range, preview: true, profile: sampleProfile(), where, revision });
+    },
+    getJob: (id) => exportJobs.get(id), cancelJob: (id) => exportJobs.cancel(id),
+    sampleFile: (src) => { const n = path.basename(decodeURIComponent(String(src).split("?")[0])); const f = path.join(PREVIEWS_DIR, n); try { return fs.statSync(f).isFile() ? f : null; } catch { return null; } },
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"),
+    /* an agent sending on the streamer's behalf is OFF unless MONTCLIP_REVIEW_AGENT_SEND=1 (set only after QQ has verified the owner's authorisation) */
+    agentSendEnabled: () => process.env.MONTCLIP_REVIEW_AGENT_SEND === "1",
+    onChange: (r) => { try { broadcast("review", JSON.stringify({ id: r.id, state: r.state })); } catch { } },
+  });
+  return reviewSvc;
+}
+/* Who is the editor page? Not whoever writes Origin / Sec-Fetch-Site (a local process can put any header on a request), and not whoever shows a cookie the server
+   handed out (a script that makes one more request would get it too: QQ, #328). The page is the Electron window: the desktop main process mints a secret at every
+   start, gives it to this server only through its environment, and adds it as X-MontClip-Page to the editor window's own requests to /api/review/. It is never
+   sent over HTTP to anyone. A server started any other way (no secret) has no page: every caller is an agent, so no send token is ever shown and nothing is sent
+   from there. The review's other doors (the owner's confirmation of the address, the agent switch) do not depend on this one. */
+const REVIEW_PAGE_SECRET = /^[a-f0-9]{64}$/.test(process.env.MONTCLIP_REVIEW_PAGE_SECRET || "") ? process.env.MONTCLIP_REVIEW_PAGE_SECRET : null;
+delete process.env.MONTCLIP_REVIEW_PAGE_SECRET;   // nothing this server starts inherits it
+const isPageReq = (req) => { const h = req.headers["x-montclip-page"]; return !!REVIEW_PAGE_SECRET && typeof h === "string" && h.length === REVIEW_PAGE_SECRET.length && sameSecret(h, REVIEW_PAGE_SECRET) && !(embed && embed.worker(req)); };
+const isAgentReq = (req) => !isPageReq(req);
+const isLoopback = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket && req.socket.remoteAddress);
+
 /* Static file with HTTP Range support (required for <video> seeking) */
 function serveFile(req, res, filePath) {
   fs.stat(filePath, (err, st) => {
@@ -1731,6 +1769,70 @@ async function handleRequest(req, res) {
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
       sendJSON(res, code, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
+    }
+    return;
+  }
+  /* API: check a stretch of the timeline with the video bridge (#321). Nothing here changes the project.
+       POST /api/review/prepare {start, end, lead?, scope?: "window"|"full", where?, send?} → {reviewId, state: "rendering", …}
+            renders a small sample (a preview export job). A person's page then gets state "ready" with willSend {what, to} and a one-time
+            sendToken (from /api/review/status); only POST /api/review/send {id, token} sends it. An agent's request may pass send:true
+            (the streamer asked for it in the chat): the sample is sent when it is ready and no token is involved.
+       GET  /api/review/status?id= → the check now (result when done)         POST /api/review/cancel {id}
+       GET  /api/review/records?limit= · /api/review/record?id=                POST /api/review/mark {id, finding?, mark: fixed|recheck_needed|note, note?}
+       POST /api/review/correct {id, digest}                                   GET  /api/review/gate?start=&end= → {passed, recordId, …}
+       GET  /api/review/taste · POST /api/review/taste/add {kind: positive|negative, aspect (fact|subtitle|pacing|packaging; required for positive), text} · /taste/remove {id}
+       prepare also takes mode: "single" (default) | "two_pass" (a blind first look, then the full check: the same clip is sent in 2 requests).
+       An agent's send:true answers 403 AGENT_SEND_OFF unless MONTCLIP_REVIEW_AGENT_SEND=1.
+       "passed" is only ever written by a check that passed; mark refuses it (400). */
+  if (p.startsWith("/api/review/")) {
+    /* the review reaches this computer's own clips: only from this computer, whatever HOST the server was started with */
+    if (!isLoopback(req)) { sendJSON(res, 403, { code: "NOT_LOCAL", error: "the review answers only to this computer" }); return; }
+    const action = p.slice("/api/review/".length);
+    const agent = isAgentReq(req);
+    try {
+      const svc = reviews(), store = reviewStore(), project = projects.peekActive();
+      const body = req.method === "POST" ? JSON.parse((await readBody(req)).toString("utf8") || "{}") : {};
+      const q = (k) => url.searchParams.get(k);
+      if (action === "prepare" && req.method === "POST") {
+        if (body.send === true && !agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample" }); return; }
+        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, where: body.where, agent, autoSend: body.send === true }));
+      } else if (action === "status" && req.method === "GET") {
+        const v = svc.status(q("id") || undefined);
+        if (!agent && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
+        sendJSON(res, 200, v);
+      } else if (action === "send" && req.method === "POST") {
+        if (agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample; an agent asks with send:true in prepare" }); return; }
+        sendJSON(res, 200, await svc.send(String(body.id || ""), body.token));
+      } else if (action === "cancel" && req.method === "POST") {
+        sendJSON(res, 200, svc.cancel(String(body.id || "")));
+      } else if (action === "records" && req.method === "GET") {
+        sendJSON(res, 200, { records: store.list(project, Number(q("limit")) || 20) });
+      } else if (action === "record" && req.method === "GET") {
+        const rec = store.get(project, String(q("id") || ""));
+        if (!rec) { sendJSON(res, 404, { code: "NO_SUCH_REVIEW", error: "no such check" }); return; }
+        sendJSON(res, 200, rec);
+      } else if (action === "mark" && req.method === "POST") {
+        sendJSON(res, 200, store.mark(project, { id: String(body.id || ""), finding: body.finding ?? null, mark: body.mark, note: body.note }));
+      } else if (action === "correct" && req.method === "POST") {
+        sendJSON(res, 200, store.correct(project, { id: String(body.id || ""), digest: body.digest }));
+      } else if (action === "taste" && req.method === "GET") {
+        sendJSON(res, 200, { notes: store.tasteList(project), lost: store.tasteList(project).filter((x) => !x.textAvailable).length, max: 30, textMax: 200, notice: "文字只在本次运行保留，重启后需重新填写" });
+      } else if (action === "taste/add" && req.method === "POST") {
+        sendJSON(res, 200, store.tasteAdd(project, { kind: body.kind, aspect: body.aspect, text: body.text }));
+      } else if (action === "taste/remove" && req.method === "POST") {
+        sendJSON(res, 200, store.tasteRemove(project, String(body.id || "")));
+      } else if (action === "bypass" && req.method === "POST") {
+        const s = Number(body.start), e = Number(body.end);
+        if (!Number.isFinite(s) || !Number.isFinite(e) || s < 0 || e <= s) { sendJSON(res, 400, { code: "BAD_RANGE", error: "start and end are seconds with 0 <= start < end" }); return; }
+        sendJSON(res, 200, store.bypass(project, { start: s, end: e }));
+      } else if (action === "gate" && req.method === "GET") {
+        const s = Number(q("start")), e = Number(q("end"));
+        if (!Number.isFinite(s) || !Number.isFinite(e) || s < 0 || e <= s) { sendJSON(res, 400, { code: "BAD_RANGE", error: "start and end are seconds with 0 <= start < end" }); return; }
+        sendJSON(res, 200, store.gate(project, { key: store.contentKey(liveProject()), start: s, end: e }));
+      } else { sendJSON(res, 404, { error: "unknown review endpoint" }); }
+    } catch (e) {
+      const code = Number.isInteger(e.status) ? e.status : e instanceof SyntaxError ? 400 : e.code === 409 || e.code === 400 ? e.code : 500;
+      sendJSON(res, code, { code: e.errorCode || (typeof e.code === "string" ? e.code : undefined), error: String(e.message || e), busy: e.busy, destination: e.destination });
     }
     return;
   }
@@ -2519,6 +2621,9 @@ async function handleRequest(req, res) {
   let file = p === "/" ? "/index.html" : p;
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
+  /* run from a clone, the data folder is the app folder: what this server keeps there is never served as an app file */
+  if (["reviews", "previews"].includes(path.relative(ROOT, file).split(path.sep)[0])) { res.writeHead(404); res.end(); return; }
+
   serveFile(req, res, file);
 }
 
@@ -2547,6 +2652,7 @@ server.listen(PORT, HOST, () => {
   boundPort = server.address().port;
   writerLock.update({ port: boundPort });
   console.log(`\n  MontClip running →  http://localhost:${boundPort}\n`);
+  try { reviewStore().scrubAll(); } catch { }   // a review record from before the no-words rule is cleaned now, opened project or not
   const ready = { type: "montclip-ready", origin: serverOrigin() };
   if (DESKTOP) {
     process.parentPort?.postMessage(ready);
