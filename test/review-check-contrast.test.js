@@ -11,6 +11,9 @@ const browser = (() => { try { return require("../server/export-jobs").findBrows
 const skip = !browser ? "no Chrome / Edge to measure in" : typeof WebSocket !== "function" ? "needs Node's WebSocket (Node 22)" : false;
 
 const project = seedProject({ name: "对比度", revision: 1, media: [], clips: [] });
+// Each state mounts a fresh box and works only inside it (window.__rc.overlay; the boxes of earlier states stay in the
+// page, hidden). `wait` returns {reached, ms, step, at}, and every assertion message carries it with the theme, state,
+// text count and skipped texts: the earlier 1-in-7 failures (#326) left no reason, so a miss now says where it stopped.
 const open = (opts) => `(() => {
   const R = window.MontClipReviewCheck;
   if (window.__rc) window.__rc.session.close();
@@ -19,35 +22,50 @@ const open = (opts) => `(() => {
   window.__rc = R.mount({ doc: document, button: b, api, lang: () => "zh-CN", time: () => 42, playing: () => false,
     duration: () => 200, inOut: () => ({}), seek: () => {}, blocked: () => false, setInterval: () => {} });
   b.style.display = "none";
-  setTimeout(() => b.click(), 50);
+  window.__rcBtn = b;
   return true;
 })()`;
+// poll inside the newest box until `sel` is there (at most 15 s); `click` (optional) is pressed once it is enabled
+const wait = (steps) => `new Promise((done) => {
+  const t0 = Date.now(), steps = ${JSON.stringify(steps)}; let i = 0;
+  (function w() {
+    const box = window.__rc && window.__rc.overlay, st = steps[i];
+    if (st.click) { const el = st.click === "#open" ? window.__rcBtn : box.querySelector(st.click);
+      if (el && !el.disabled && !(st.click === "#open" && box.classList.contains("hidden") === false)) { el.click(); i++; } }
+    else if (box && !box.classList.contains("hidden") && box.querySelector(st.sel)) i++;
+    if (i >= steps.length) return setTimeout(() => done({ reached: true, ms: Date.now() - t0 }), 300);
+    if (Date.now() - t0 > 15000) return done({ reached: false, ms: Date.now() - t0, step: i, at: JSON.stringify(steps[i]) });
+    setTimeout(w, 50);
+  })();
+})`;
 const STATES = [
-  { name: "confirm", run: open("{}") },
-  { name: "no receiver", run: open("{ destination: null }") },
+  { name: "confirm", run: open("{}") + ";" + wait([{ click: "#open" }, { sel: '[data-review="training"]' }]) },
+  { name: "no receiver", run: open("{ destination: null }") + ";" + wait([{ click: "#open" }, { sel: '[data-review="to"].review-warn' }]) },
   { name: "result", run: open(`{ result: (scope, range) => ({ status: "issues", scope, range, findings: [
       { id: 0, t: 41, type: "speaker_swapped", text: "左边的人说话时，字幕标成了右边的名字。", suggestion: "把这两句字幕的说话人对调。" },
-      { id: 1, t: 36, type: "cut_jump", text: "前面接过来的地方有点跳。", inLead: true }] }) }`) + `;setTimeout(() => document.querySelector('[data-review="full"]').click(), 400)` },
+      { id: 1, t: 36, type: "cut_jump", text: "前面接过来的地方有点跳。", inLead: true }] }) }`)
+      + ";" + wait([{ click: "#open" }, { click: '[data-review="full"]' }, { sel: '[data-review="headline"]' }, { sel: '[data-review="jump"]' }]) },
 ];
 
 for (const theme of ["dark", "light"]) {
-  test(`${theme} theme: every text in the review box at least 4.5:1`, { skip, timeout: 90000 }, async (t) => {
+  test(`${theme} theme: every text in the review box at least 4.5:1`, { skip, timeout: 120000 }, async (t) => {
     const { base } = await startServer(t, makeDataDir(t, project), { FABLECUT_NO_FS_WATCH: "1" });
     const url = base + (theme === "light" ? "/?host=cindy&theme=light" : "/");
-    // wait until the box shows what this state is about (a cold browser can take a while), at most 10 s
-    const ready = { confirm: '[data-review="training"]', "no receiver": '[data-review="to"].review-warn', result: '[data-review="headline"]' };
-    const states = STATES.map((st) => ({ ...st, run: st.run + `;new Promise((r) => { const t0 = Date.now(); (function w() {
-      if (document.querySelector('${ready[st.name]}') || Date.now() - t0 > 10000) return setTimeout(r, 300); setTimeout(w, 100); })(); })` }));
-    const out = await measureContrast({ browser, url, width: 1280, height: 900, settleMs: 1500, states });
+    const t0 = Date.now();
+    const out = await measureContrast({ browser, url, width: 1280, height: 900, settleMs: 1500, states: STATES });
+    t.diagnostic(`${theme}: page + 3 states measured in ${Date.now() - t0} ms`);
     for (const st of STATES) {
-      const { texts, skipped } = out[st.name];
+      const { texts, skipped, ran } = out[st.name];
       const mine = texts.filter((x) => /review|reviewDialog|reviewTitle/.test(x.where));
-      assert.ok(mine.length >= (st.name === "result" ? 6 : 8), `${st.name}: the box drew its texts (${mine.length})`);
+      const why = `${theme}, ${st.name}: ran ${JSON.stringify(ran)}, ${mine.length} texts, skipped ${JSON.stringify(skipped.slice(0, 5))}`;
+      t.diagnostic(why);
+      assert.equal(ran && ran.reached, true, `the box never got to this state — ${why}`);
+      assert.ok(mine.length >= (st.name === "result" ? 6 : 8), `the box drew its texts — ${why}`);
       const boxSkipped = skipped.filter((x) => /review/.test(x.where));
-      assert.deepEqual(boxSkipped, [], `${st.name}: no text in the box sits on a gradient`);
+      assert.deepEqual(boxSkipped, [], `no text in the box sits on a gradient — ${why}`);
       const low = mine.filter((x) => x.ratio < 4.5).map((x) => `${x.ratio} "${x.text}" ${x.where} (${x.fg} on ${x.bg})`);
       t.diagnostic(`${theme}, ${st.name}: ${mine.length} texts, lowest ${Math.min(...mine.map((x) => x.ratio))}:1`);
-      assert.deepEqual(low, [], `${st.name}: texts under 4.5:1`);
+      assert.deepEqual(low, [], `texts under 4.5:1 — ${why}`);
     }
     if (theme === "dark") {
       const warn = out["no receiver"].texts.find((x) => x.text.startsWith("不知道这次会发到哪里"));
