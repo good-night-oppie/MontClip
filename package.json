@@ -3,12 +3,13 @@
   "version": "1.18.0",
   "private": true,
   "description": "MontClip: a zero-dependency browser video editor that AI agents can drive — JSON timeline, MCP server, REST API, live-reloading UI.",
-  "main": "server.js",
+  "main": "server/server.js",
   "bin": {
-    "fablecut": "cli.js"
+    "fablecut": "server/cli.js"
   },
   "files": [
     "*.js",
+    "server/",
     "index.html",
     "style.css",
     "cindy-parts.css",
@@ -29,11 +30,11 @@
     "licenses/mediapipe/"
   ],
   "scripts": {
-    "start": "node server.js",
+    "start": "node server/server.js",
     "test": "node --test",
-    "test:integration": "node --test real-tests/openrouter.integration.cjs",
-    "test:e2e": "node real-tests/run-deepseek-e2e.cjs",
-    "test:e2e:meta": "node real-tests/run-meta-e2e.cjs"
+    "test:integration": "node --test dev/real-tests/openrouter.integration.cjs",
+    "test:e2e": "node dev/real-tests/run-deepseek-e2e.cjs",
+    "test:e2e:meta": "node dev/real-tests/run-meta-e2e.cjs"
   },
   "keywords": [
     "video-editor",

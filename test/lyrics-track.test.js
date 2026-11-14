@@ -6,7 +6,7 @@
 // undo step; the agent's result {text, start, end, matched, confidence} with n and k; JJ's copy word for word.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const T=require('../lyrics-track'),L=require('../lyrics-align'),C=require('../captions'),View=require('../ui-preferences');
-const Cap=require('../capabilities'),TOOLS=require('../mcp-tools');
+const Cap=require('../capabilities'),TOOLS=require('../server/mcp-tools');
 const {SONGS,sing,text}=require('./lyrics-synth');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 const FAKE=['这一句根本没有唱过','风筝飞过了十二座山','橙色的列车开往北极'];
@@ -239,7 +239,7 @@ test('capabilities: the proposal only reads; applying is undoable (one Ctrl+Z), 
 test('the page loads the module before app.js, and the server queues the card for an open tab only',()=>{
  const html=read('index.html');
  a.ok(html.indexOf('lyrics-track.js')>html.indexOf('lyrics-align.js')&&html.indexOf('lyrics-track.js')<html.indexOf('"app.js"'));
- const Jobs=require('../export-jobs');
+ const Jobs=require('../server/export-jobs');
  const jobs=Jobs.createExportJobs({editors:()=>0,broadcast:()=>{},url:()=>''});
  a.throws(()=>jobs.request({kind:'lyrics',where:'auto',lyrics:{}}),/needs one/);
  a.throws(()=>jobs.request({kind:'lyrics',where:'headless',lyrics:{}}),/someone has to answer/);

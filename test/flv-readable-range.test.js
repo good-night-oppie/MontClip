@@ -1,6 +1,6 @@
 "use strict";
 const {test}=require('node:test'), assert=require('node:assert/strict');
-const {accumulator}=require('../flv-readable-range');
+const {accumulator}=require('../server/flv-readable-range');
 
 const streams=[{codec_type:'video',avg_frame_rate:'30/1',time_base:'1/1000'},{codec_type:'audio',sample_rate:'48000',time_base:'1/1000'}];
 function range(end,declared) {

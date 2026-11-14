@@ -36,7 +36,7 @@ const section = (s) => console.log("\n" + s);
 section("Versions");
 const pkg = readJSON("package.json");
 const V = pkg.version;
-const mcpSrc = fs.readFileSync(path.join(ROOT, "mcp-server.js"), "utf8");
+const mcpSrc = fs.readFileSync(path.join(ROOT, "server", "mcp-server.js"), "utf8");
 const serverInfo = /serverInfo:\s*\{\s*name:\s*"[^"]*",\s*version:\s*"([^"]+)"/.exec(mcpSrc);
 const versions = {
   "package.json": V,
@@ -123,7 +123,7 @@ for (const f of rootJs) {
 function mcpTools(dir) {
   return new Promise((resolve, reject) => {
     const data = fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-check-"));
-    const child = spawn(process.execPath, [path.join(dir, "mcp-server.js")], {
+    const child = spawn(process.execPath, [path.join(dir, "server", "mcp-server.js")], {
       cwd: dir, env: { ...process.env, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: ["pipe", "pipe", "pipe"],
     });
     let buf = "", err = "";
@@ -169,7 +169,7 @@ function checkTools(label, tools) {
 /* ── The installed npm package ships what it runs ── */
 function checkInstalled(dir) {
   const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
-  const want = new Set(["server.js", "mcp-server.js", "cli.js", "CLAUDE.md", "encoding-profiles.json"]);
+  const want = new Set(["server/server.js", "server/mcp-server.js", "server/cli.js", "CLAUDE.md", "encoding-profiles.json"]);
   for (const [, f] of html.matchAll(/(?:src|href)="\/?([^"#:?]+)"/g)) if (!/^https?:/.test(f)) want.add(f);
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
     const src = fs.readFileSync(path.join(dir, f), "utf8");
@@ -179,7 +179,7 @@ function checkInstalled(dir) {
   const missing = [...want].filter((f) => !fs.existsSync(path.join(dir, f)));
   check(!missing.length, `installed package ships the ${want.size} files the page and server load`,
     `installed package is missing: ${missing.join(", ")} — add them to package.json "files"`);
-  const v = spawnSync(process.execPath, [path.join(dir, "cli.js"), "-v"], { encoding: "utf8" });
+  const v = spawnSync(process.execPath, [path.join(dir, "server", "cli.js"), "-v"], { encoding: "utf8" });
   check(v.status === 0 && v.stdout.trim() === V, `fablecut -v → ${V}`, `fablecut -v printed "${(v.stdout || v.stderr).trim()}"`);
 }
 

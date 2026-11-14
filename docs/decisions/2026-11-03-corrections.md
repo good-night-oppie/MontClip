@@ -103,13 +103,13 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
 
 ## The evaluation stays clean
 
-`real-tests/songs-golden.cjs` runs with corrections off; `--corrections <records.json>` (a file given by hand, never what
+`dev/real-tests/songs-golden.cjs` runs with corrections off; `--corrections <records.json>` (a file given by hand, never what
 the app kept) turns them on. They come from the same streamer as the golden recordings, so using them by default would
-leak the answers into hit_rate. `real-tests/corrections-loso.cjs` is the leave-one-streamer-out check below.
+leak the answers into hit_rate. `dev/real-tests/corrections-loso.cjs` is the leave-one-streamer-out check below.
 
 ## STATUS (2026-11-03, local golden set, numbers only)
 
-There are no real corrections yet. `real-tests/corrections-loso.cjs` leaves one streamer out at a time (13 streamers: the
+There are no real corrections yet. `dev/real-tests/corrections-loso.cjs` leaves one streamer out at a time (13 streamers: the
 recordings sharing a video id) and simulates corrections from every other streamer's recordings — a found song near a
 labelled start trimmed to it, a found song with none 「不是唱歌」, a labelled song nothing was found for 「是唱歌」 — then
 scores the left-out streamer with corrections off and on. The corrected spec (±5 s, 4 of the last 5, both directions):

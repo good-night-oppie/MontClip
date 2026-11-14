@@ -13,7 +13,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const app = read('app.js');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i) + 2); };
-const V = require('../ui-preferences'), FF = require('../ffmpeg-path'), C = require('../export-check');
+const V = require('../ui-preferences'), FF = require('../server/ffmpeg-path'), C = require('../server/export-check');
 const noFf = !FF.available('ffmpeg') && 'bundled ffmpeg not installed';
 
 function fragmentedQuiet(file, seconds = 600) {
@@ -50,7 +50,7 @@ test('a piece whose file takes too long to read is not "unreadable": the file is
   const dir = tmp(t, 'mcto-');
   const frag = path.join(dir, 'frag.mp4'), junk = path.join(dir, 'junk.mp4'), out = path.join(dir, 'out.wav');
   fragmentedQuiet(frag);
-  fs.writeFileSync(junk, require('crypto').randomBytes(64 * 1024));
+  fs.writeFileSync(junk, Buffer.alloc(64 * 1024, 0x5a));   // fixed junk: this ffmpeg cannot read it (#310)
   execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=f=440:r=48000:d=3', out], { windowsHide: true });
   const resolve = (src) => path.join(dir, src.replace('/media/', ''));
   const plan = C.cleanPlan({ video: [], audio: [], silent: [{ n: 2, t: 10, src: '/media/frag.mp4', at: 300, dur: 5 }, { n: null, t: 75, src: '/media/frag.mp4', at: 500, dur: 3 }] });
@@ -83,7 +83,13 @@ test('a piece whose file takes too long to read is not "unreadable": the file is
   const r2 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: out, plan: bad, resolve, silent: false, mix: null, timeoutMs: 120000 });
   a.deepEqual([r2.ok, r2.lost, r2.unchecked], [false, [{ n: 4, t: 30 }], []]);
   a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED');
-  a.equal((await C.soundRead(FF.path('ffmpeg'), junk, 1, 2)).timedOut, false, 'a read error is not a timeout');
+  a.deepEqual(await C.soundRead(FF.path('ffmpeg'), junk, 1, 2), { db: null, timedOut: false }, 'the fixed junk really cannot be read');
+  // #310: a "[mm:ss]" line makes libavformat guess lrc (a text subtitle format) for junk bytes. That guess has no
+  // sound stream, but the file could not be read — it is not a container without sound (-Infinity), which would
+  // count as "silent in its file too" and let the export pass.
+  const guessed = path.join(dir, 'guessed.mp4');
+  fs.writeFileSync(guessed, Buffer.concat([Buffer.from('['), Buffer.alloc(64 * 1024)]));   // read as lrc, low score
+  a.deepEqual(await C.soundRead(FF.path('ffmpeg'), guessed, 1, 2), { db: null, timedOut: false }, 'a low-score guess is not a container without sound');
 });
 
 /** One profile export through the real routes (/api/export/begin with a profile, no delivery), its plan naming one silent
@@ -109,9 +115,10 @@ async function profileExport(t, env, srcFile) {
 
 test('profile export: a silent piece and one not checked in time reach the reply (and so the job); unreadable still deletes the file', { skip: noFf, timeout: 180_000 }, async (t) => {
   const dir = tmp(t, 'mctp-');
-  const frag = path.join(dir, 'frag.mp4'), junk = path.join(dir, 'junk.mp4');
+  const frag = path.join(dir, 'frag.mp4'), junk = path.join(dir, 'junk.mp4'), guessed = path.join(dir, 'guessed.mp4');
   fragmentedQuiet(frag);
-  fs.writeFileSync(junk, require('crypto').randomBytes(64 * 1024));
+  fs.writeFileSync(junk, Buffer.alloc(64 * 1024, 0x5a));   // fixed junk: this ffmpeg cannot read it (#310)
+  fs.writeFileSync(guessed, Buffer.concat([Buffer.from('['), Buffer.alloc(64 * 1024)]));   // read as lrc, low score
   const quiet = await profileExport(t, { MONTCLIP_EXPORT_CHECK_TIMEOUT_MS: '120000' }, frag);   // read in time, however loaded
   a.equal(quiet.status, 200, JSON.stringify(quiet.out));
   a.deepEqual(quiet.out.report.checks.map((c) => [c.code, c.n, c.t]), [['EXPORT_CLIP_SILENT', 2, 10]], 'the silent piece reaches the profile reply');
@@ -123,6 +130,11 @@ test('profile export: a silent piece and one not checked in time reach the reply
   const lost = await profileExport(t, { MONTCLIP_EXPORT_CHECK_TIMEOUT_MS: '120000' }, junk);
   a.equal(lost.status, 500); a.equal(lost.out.code, 'EXPORT_AUDIO_FAILED');
   a.deepEqual(lost.exports, [], 'unreadable: no file');
+  // #310: junk guessed as lrc has no sound stream in the guess; the export must still fail, not pass as silent
+  const misread = await profileExport(t, { MONTCLIP_EXPORT_CHECK_TIMEOUT_MS: '120000' }, guessed);
+  a.equal(misread.status, 500, 'a low-score guess is not a container without sound: ' + JSON.stringify(misread.out));
+  a.equal(misread.out.code, 'EXPORT_AUDIO_FAILED');
+  a.deepEqual(misread.exports, [], 'unreadable: no file');
 });
 
 test('the page hands a profile export\'s warnings to the job result, as the delivery path does', () => {
@@ -131,9 +143,9 @@ test('the page hands a profile export\'s warnings to the job result, as the deli
   a.ok(fast.includes(': end.report ? { result: { outputs: result.outputs } } : {}) }, true);'), 'and the job result carries it');
   a.ok(fast.includes('{ exportFile: true, ...(end.report ? { savedMsg: exportReportLine(end.report) } : {}) }'), 'an export from the editor says it too');
   // fablecut_export reads outputs[0].report for one file
-  a.match(read('mcp-server.js'), /const rep = outs && outs\[0\] && outs\[0\]\.report;/);
+  a.match(read('server/mcp-server.js'), /const rep = outs && outs\[0\] && outs\[0\]\.report;/);
   // the job keeps the result the page reports
-  const { createExportJobs } = require('../export-jobs');
+  const { createExportJobs } = require('../server/export-jobs');
   const jobs = createExportJobs({ url: () => 'http://127.0.0.1:1/', broadcast() {}, editors: () => 1 });
   const j = jobs.request({ kind: 'export', where: 'tab' });
   jobs.claim(j.id, {});
@@ -144,7 +156,7 @@ test('the page hands a profile export\'s warnings to the job result, as the deli
 });
 
 test('a failed export job keeps its reason code (EXPORT_AUDIO_FAILED …) in the record and its view, not only the English', () => {
-  const { createExportJobs } = require('../export-jobs');
+  const { createExportJobs } = require('../server/export-jobs');
   const jobs = createExportJobs({ url: () => 'http://127.0.0.1:1/', broadcast() {}, editors: () => 1 });
   const j = jobs.request({ kind: 'export', where: 'tab' });
   a.ok(jobs.claim(j.id, {}));

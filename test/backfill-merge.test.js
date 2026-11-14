@@ -7,7 +7,7 @@
    Only with no server at all does the agent write the file itself (as before). */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm"), http = require("node:http");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const MediaLib = require("../media-lib");
 const { makeDataDir, seedProject, startServer, startMcp, readProject } = require("./helpers");
 

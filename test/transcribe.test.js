@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const T = require("../transcribe.js");
-const ProjectOps = require("../project-ops.js");
+const ProjectOps = require("../server/project-ops.js");
 
 // Whisper's model, language, joinChunks, plan and quiet went with it (#70, Deja 2026-11-03): the model and the language
 // are tested in asr-offline.test.js, the words the engine gives in asr-words.test.js.

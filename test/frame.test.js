@@ -28,7 +28,7 @@ const { makeDataDir, startServer, startMcp, rawGet } = require("./helpers");
 const NO_WATCH = { FABLECUT_NO_FS_WATCH: "1" };
 
 const hasFfmpeg = () => {
-  try { execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }); return true; }
+  try { execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }); return true; }
   catch { return false; }
 };
 const JPEG_SOI = (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
@@ -44,7 +44,7 @@ const JPEG_SOI = (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
    time. Reproduction: docs/validation/2026-11-02-keepalive-race.md. */
 function runFfmpeg(args, input) {
   return new Promise((resolve, reject) => {
-    const child = spawn(require("../ffmpeg-path").path("ffmpeg"), args, { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(require("../server/ffmpeg-path").path("ffmpeg"), args, { stdio: ["pipe", "pipe", "pipe"] });
     const out = [], err = [];
     child.stdout.on("data", (c) => out.push(c));
     child.stderr.on("data", (c) => err.push(c));

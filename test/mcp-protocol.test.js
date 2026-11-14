@@ -58,7 +58,7 @@ test("initialize result carries the capabilities and serverInfo clients read", a
 test("the advertised server version tracks package.json", async () => {
   // Drift here means clients report a version the release does not match.
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const src = fs.readFileSync(path.join(ROOT, "mcp-server.js"), "utf8");
+  const src = fs.readFileSync(path.join(ROOT, "server/mcp-server.js"), "utf8");
   const declared = (src.match(/serverInfo:\s*\{[^}]*version:\s*"([^"]+)"/) || [])[1];
   assert.equal(declared, pkg.version,
     "mcp-server.js serverInfo.version and package.json version must be bumped together");

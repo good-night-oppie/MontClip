@@ -29,7 +29,7 @@ test('package and bundle metadata say MontClip',()=>{
  a.equal(pkg.name,'montclip');a.ok(!/fablecut/i.test(pkg.description));a.ok(!/fablecut/i.test(pkg.homepage||''));
  a.equal(man.name,'montclip');a.equal(man.display_name,'MontClip');
  for(const k of ['description','long_description','homepage'])a.ok(!/fablecut/i.test(man[k]||''),k);
- a.equal(pkg.bin.fablecut,'cli.js','the fablecut command stays (internal identifier)');
+ a.equal(pkg.bin.fablecut,'server/cli.js','the fablecut command stays (internal identifier)');
  for(const t of man.tools)a.match(t.name,/^fablecut_/,'MCP tool names unchanged');
 });
 
@@ -48,7 +48,7 @@ test('not published: private package, no registry entry, no install command anyw
  const ci=read('.github/workflows/ci.yml');a.ok(!/npm publish/.test(ci),'CI does not rehearse a publish');a.ok(!/fablecut-\*\.tgz|node_modules\/fablecut/.test(ci),'CI packs the package by its name');
  a.ok(!/readJSON\("server\.json"\)/.test(read('.github/scripts/release-check.js')),'release-check no longer reads server.json');
  const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
- const files=['README.md','DEVELOPMENT.md','CLAUDE.md','cli.js','mcp-server.js','docs/llms.txt','docs/i18n/README.zh-CN.md',...walk('docs').filter(f=>/\.html$/.test(f)&&!/^docs\/(validation|demo)\//.test(f))];
+ const files=['README.md','DEVELOPMENT.md','CLAUDE.md','server/cli.js','server/mcp-server.js','docs/llms.txt','docs/i18n/README.zh-CN.md',...walk('docs').filter(f=>/\.html$/.test(f)&&!/^docs\/(validation|demo)\//.test(f))];
  for(const f of files){const t=read(f);
   a.ok(!/npx\s+(-y\s+)?(fablecut|montclip)|"npx"/.test(t),f+' still tells people to install with npx');
   a.ok(!/plugin marketplace add ronak-create|fablecut\.mcpb/.test(t),f+' still points at the upstream plugin or bundle');}
@@ -57,7 +57,7 @@ test('not published: private package, no registry entry, no install command anyw
 test('editor, server, CLI and MCP descriptions name MontClip where a person reads them',()=>{
  const strings=src=>[...src.matchAll(/(["'`])((?:\\.|(?!\1)[^\\])*)\1/g)].map(m=>m[2]);
  const out=[];
- for(const f of ['app.js','server.js','cli.js','mcp-server.js','index.html'])for(const s of f.endsWith('.html')?[read(f).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<!--[\s\S]*?-->/g,'')]:strings(read(f)))out.push(...hits(s,f));
+ for(const f of ['app.js','server/server.js','server/cli.js','server/mcp-server.js','index.html'])for(const s of f.endsWith('.html')?[read(f).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<!--[\s\S]*?-->/g,'')]:strings(read(f)))out.push(...hits(s,f));
  a.deepEqual(out,[]);
 });
 
@@ -91,10 +91,10 @@ test('no inherited promises: sponsor, free/no paid tier, zero-dependency/no-inst
 });
 
 test('CI validates only JSON files that exist (server.json is gone with option A)', () => {
-  const ci = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
-  const step = ci.slice(ci.indexOf('- name: Validate JSON files'), ci.indexOf('done', ci.indexOf('- name: Validate JSON files')));
-  // the shell's line continuations (a lone backslash) are not file names
-  const files = (step.match(/for f in ([\s\S]*?); do/) || [])[1].split(/\s+/).filter((t) => t && t !== '\\');
+  // The named-JSON check moved from an inline ci.yml step into .github/scripts/ci-check.js
+  // (MontClip #281 prep PR); the list still must name only files that exist — server.json stays gone.
+  const src = fs.readFileSync(path.join(__dirname, '..', '.github', 'scripts', 'ci-check.js'), 'utf8');
+  const files = (src.match(/const JSON_FILES = \[([\s\S]*?)\];/) || [])[1].match(/"([^"]+)"/g).map((s) => s.slice(1, -1));
   a.ok(files.length >= 3, files.join(' '));
   for (const f of files) a.ok(fs.existsSync(path.join(__dirname, '..', f)), 'CI validates a file that is not there: ' + f);
 });

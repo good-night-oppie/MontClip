@@ -19,7 +19,7 @@ const T = require("../transcribe.js");
 
 const ROOT = path.join(__dirname, "..");
 const RATE = 16000;
-const ffmpeg = () => require("../ffmpeg-path").path("ffmpeg");
+const ffmpeg = () => require("../server/ffmpeg-path").path("ffmpeg");
 
 /* ── transcribe.js: which parts a transcript covers ── */
 
@@ -76,12 +76,12 @@ function fakeSherpa() {
   return { sherpa: { Vad, OfflineRecognizer: { createAsync: async () => rec }, OfflinePunctuation: class {} }, heard };
 }
 function engineDir(t, { native = true } = {}) {
-  const { manifest } = require("../asr-models");
+  const { manifest } = require("../server/asr-models");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-asr-long-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const nm = path.join(dir, "engine", "node_modules");
   fs.mkdirSync(path.join(nm, "sherpa-onnx-node"), { recursive: true }); fs.writeFileSync(path.join(nm, "sherpa-onnx-node", "package.json"), "{}");
-  if (native) { const n = path.join(nm, require("../asr-local").nativePackage()); fs.mkdirSync(n, { recursive: true }); fs.writeFileSync(path.join(n, "package.json"), "{}"); }
+  if (native) { const n = path.join(nm, require("../server/asr-local").nativePackage()); fs.mkdirSync(n, { recursive: true }); fs.writeFileSync(path.join(n, "package.json"), "{}"); }
   const vad = path.join(dir, manifest.engine.vad.file); fs.writeFileSync(vad, ""); fs.truncateSync(vad, manifest.engine.vad.size);
   fs.mkdirSync(path.join(dir, "model"));
   const store = { dir: (k) => (k === "asr" ? path.join(dir, "model") : null), status: () => ({ asr: { ready: true, missing: [], bad: [] }, punct: { ready: false, missing: [], bad: [] } }) };
@@ -92,7 +92,7 @@ for (const duration of [12, null]) test('MC-08: cancellation preserves paragraph
   const E = engineDir(t), file = path.join(E.dir, 'partial.wav');
   fs.writeFileSync(file, 'synthetic media identity');
   // Feed PCM at the subprocess boundary: no model, media download or installed FFmpeg needed.
-  const filename = path.join(ROOT, 'asr-local.js'), mod = { exports: {} };
+  const filename = path.join(ROOT, 'server/asr-local.js'), mod = { exports: {} };
   const realRequire = require('node:module').createRequire(filename);
   const source = process.env.MONTCLIP_TEST_BASELINE ? execFileSync('git', ['show', 'HEAD:asr-local.js'], { cwd: ROOT, encoding: 'utf8' }) : fs.readFileSync(filename, 'utf8');
   require('node:vm').runInNewContext(source, { module: mod, exports: mod.exports, __dirname: ROOT, process, Buffer, setTimeout, clearTimeout,
@@ -107,7 +107,7 @@ for (const duration of [12, null]) test('MC-08: cancellation preserves paragraph
   }, { filename });
   const { sherpa } = fakeSherpa();
   const asr = mod.exports.createAsr({ asrDir: E.dir, store: E.store, ffmpeg: 'synthetic-pcm', sherpa });
-  const store = require('../transcripts').createTranscripts({ dir: path.join(E.dir, 'transcripts'), resolveSrc: () => file });
+  const store = require('../server/transcripts').createTranscripts({ dir: path.join(E.dir, 'transcripts'), resolveSrc: () => file });
   const ac = new AbortController();
   let checkpoints = 0;
   await a.rejects(asr.transcribe(file, { duration, signal: ac.signal, onCheckpoint: r => {
@@ -127,7 +127,7 @@ test("a long recording, two short windows: only those parts are decoded, the wor
   const file = path.join(E.dir, "long.mp4");
   execFileSync(ffmpeg(), ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=300:sample_rate=16000:duration=1800", "-ac", "1", "-c:a", "libmp3lame", "-b:a", "32k", file]);
   const { sherpa, heard } = fakeSherpa();
-  const asr = require("../asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg(), sherpa });
+  const asr = require("../server/asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg(), sherpa });
   const ranges = [[600, 605], [1500, 1503.5]];
   const fracs = [];
   const r = await asr.transcribe(file, { ranges, duration: 1800, onProgress: (f) => fracs.push(f) });
@@ -145,7 +145,7 @@ test("two refill reads that both start before 3 s (both read from the file's sta
   const file = path.join(E.dir, "short.wav");
   execFileSync(ffmpeg(), ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=300:sample_rate=16000:duration=10", "-ac", "1", file]);
   const { sherpa } = fakeSherpa();
-  const asr = require("../asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg(), sherpa });
+  const asr = require("../server/asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg(), sherpa });
   // heard before: [0.5, 3.9]; now [0, 6] is wanted
   const had = T.validate({ duration: 10, words: [["旧", 1.6, 1.8]], spans: [[0.5, 3.9]] });
   const plan = T.refillPlan(had, [[0, 6]], { pad: 1.5, duration: 10 });
@@ -164,7 +164,7 @@ test("two refill reads that both start before 3 s (both read from the file's sta
 
 test("the engine's native part for this computer is missing: not ready, and transcribe says ASR_ENGINE_MISSING", async (t) => {
   const E = engineDir(t, { native: false });
-  const asr = require("../asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg() });
+  const asr = require("../server/asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg() });
   a.equal(asr.status().engine.ready, false);
   await a.rejects(asr.transcribe(path.join(E.dir, "x.wav"), {}), (e) => e.code === "ASR_ENGINE_MISSING");
 });
@@ -175,11 +175,13 @@ test("a copy of the engine without desktop/asr-manifest.json (the plugin's): /ap
   // the plugin's build copies the top-level files and a few folders, not desktop/asr-manifest.json
   const app = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-noasr-app-"));
   for (const f of fs.readdirSync(ROOT)) if (/\.(js|html|css|json)$/.test(f) && f !== "project.json") fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
+  fs.mkdirSync(path.join(app, "server"), { recursive: true });
+  for (const f of fs.readdirSync(path.join(ROOT, "server"))) if (/\.(js|json)$/.test(f)) fs.copyFileSync(path.join(ROOT, "server", f), path.join(app, "server", f));
   fs.mkdirSync(path.join(app, "desktop"));
   for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
   const dataDir = makeDataDir(t);
   fs.mkdirSync(path.join(dataDir, "media"), { recursive: true }); fs.writeFileSync(path.join(dataDir, "media", "a.wav"), Buffer.alloc(100));
-  const s = await startServer(t, dataDir, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_ASR_DIR: path.join(dataDir, "no-asr") }, { serverJs: path.join(app, "server.js") });
+  const s = await startServer(t, dataDir, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_ASR_DIR: path.join(dataDir, "no-asr") }, { serverJs: path.join(app, "server/server.js") });
   t.after(() => fs.rmSync(app, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
   const st = await fetch(s.base + "/api/asr/status");
   a.equal(st.status, 200);
@@ -317,7 +319,7 @@ test("the real engine: the model's test sentence an hour into a long file, heard
   // an hour of silence, the sentence (about 5.6 s), a minute of silence: mp3 sound in an mp4, as the replay is
   execFileSync(ffmpeg(), ["-v", "error", "-f", "lavfi", "-t", "3600", "-i", "anullsrc=r=16000:cl=mono", "-i", path.join(VENDOR, "test_wavs", "0.wav"),
     "-f", "lavfi", "-t", "60", "-i", "anullsrc=r=16000:cl=mono", "-filter_complex", "[0:a][1:a][2:a]concat=n=3:v=0:a=1", "-c:a", "libmp3lame", "-b:a", "32k", file]);
-  const asr = require("../asr-local").createAsr({ asrDir: VENDOR, modelsDir: path.join(VENDOR, "models"), ffmpeg: ffmpeg(), cacheDir: path.join(dir, "cache") });
+  const asr = require("../server/asr-local").createAsr({ asrDir: VENDOR, modelsDir: path.join(VENDOR, "models"), ffmpeg: ffmpeg(), cacheDir: path.join(dir, "cache") });
   const t0 = Date.now();
   const r = await asr.transcribe(file, { ranges: [[3598, 3608]], duration: 3665.6 });
   const secs = (Date.now() - t0) / 1000;

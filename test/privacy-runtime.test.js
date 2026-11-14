@@ -2,7 +2,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const http = require('node:http'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const { fork,spawn,execFileSync } = require('node:child_process');
-const { serverLease, resolveMediaTools,pipeClient,verifyBrowserArguments } = require('../real-tests/privacy-runtime.cjs');
+const { serverLease, resolveMediaTools,pipeClient,verifyBrowserArguments } = require('../dev/real-tests/privacy-runtime.cjs');
 const {makeDataDir}=require('./helpers');
 
 async function foreign(t) {
@@ -59,7 +59,7 @@ test('owned IPC server proof works and exit invalidates its lease',async t=>{
   const data=makeDataDir(t),token=require('node:crypto').randomBytes(32).toString('hex'),proof='random-fixture-'+Date.now();
   fs.mkdirSync(path.join(data,'media'),{recursive:true});
   fs.writeFileSync(path.join(data,'media','proof.txt'),proof);
-  const child=fork(path.join(__dirname,'../server.js'),[],{env:{...process.env,PORT:'0',HOST:'127.0.0.1',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore','ignore','ignore','ipc']});
+  const child=fork(path.join(__dirname,'../server/server.js'),[],{env:{...process.env,PORT:'0',HOST:'127.0.0.1',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore','ignore','ignore','ipc']});
   t.after(()=>{if(child.exitCode===null&&!child.killed)child.kill();});
   const lease=await serverLease(child,{token,proofPath:'/media/proof.txt',proof});
   lease.assertAlive();assert.equal((await fetch(lease.origin+'/api/project',{headers:lease.headers})).status,200);

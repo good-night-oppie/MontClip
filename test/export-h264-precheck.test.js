@@ -4,8 +4,8 @@
 // that once per slice. ADR 2026-11-02 point 3 / Deja C: clicking export refuses at once, in plain words, before any
 // audio mix or frame is rendered. Exports that don't use H.264 still go out.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences'), X = require('../external-ffmpeg');
-const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+const V = require('../ui-preferences'), X = require('../server/external-ffmpeg');
+const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i)); };
 
 // JJ, europa-aws ~/montclip-labels/jj/2026-11-04-错误白话表-默认条数-发到手机-JJ.md v2 (sha256 d99c25d1…),
@@ -62,7 +62,7 @@ test('server: every H.264 export path refuses with the same code before renderin
 
 test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV1) still starts', async (t) => {
   const { makeDataDir, seedProject, startServer } = require('./helpers');
-  if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  if (!require('../server/ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   // no H.264 anywhere: hidden in the bundled build, and nothing on PATH (JJ P1 looks there too)
   const nowhere = path.join(dir, 'no-such-folder');
@@ -81,12 +81,12 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
   }
   const r = await begin({ ...canvas, deliveries: [{ delivery: { preset: 'archive' }, name: 'c' }] });
   const j = await r.json(); a.equal(r.status, 200, JSON.stringify(j)); a.ok(j.id);
-  await fetch(base + '/api/export/end?id=' + j.id + '&discard=1', { method: 'POST' });
+  await fetch(base + '/api/export/end?id=' + j.id + '&discard=1&token=' + j.endToken, { method: 'POST' });
 });
 
 test('server, an H.264 encoder present but no local FFmpeg: a libx264 profile still asks for your own FFmpeg (extNeeded)', async (t) => {
   const { makeDataDir, seedProject, startServer } = require('./helpers');
-  if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  if (!require('../server/ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   // "no local FFmpeg": nothing chosen and nothing on PATH (JJ P1 looks there too)
   const nowhere = path.join(dir, 'no-such-folder');

@@ -69,7 +69,7 @@ test('a failed search says it in plain words; the raw error only goes to the log
   a.ok(!/someone|\/home\/a|直播/.test(out), out);
   a.match(out, /ENOSPC/);
   // the server says which drive is full and why, never the path
-  const server = read('server.js');
+  const server = read('server/server.js');
   a.match(server, /job\.code = e\.code === "ENOSPC" \? "ENOSPC" : "SONGS_FAILED"/);
   a.match(server, /code: job\.code/);
   a.match(server, /drive: songDrive\(\)/);

@@ -105,7 +105,7 @@ test("uploads keep their rules: never overwrite, the bytes intact, a dropped upl
 });
 
 test("the export audio is streamed to disk too; uploads and audio no longer go through readBody", () => {
-  const server = read("server.js");
+  const server = read("server/server.js");
   const at = (m) => server.slice(server.indexOf(m), server.indexOf("\n  }\n", server.indexOf(m)));
   a.doesNotMatch(at('if (p === "/api/upload" && req.method === "POST")'), /readBody\(/);
   a.doesNotMatch(at('if (p === "/api/export/audio" && req.method === "POST")'), /readBody\(/);

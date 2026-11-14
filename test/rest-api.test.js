@@ -222,13 +222,13 @@ test("POST /api/export/begin validates the encoding profile", async (t) => {
   assert.equal(ok.status, 200, body.error);
   assert.equal(body.profile, "prores422");
   assert.ok(body.id, "a valid profile starts a session");
-  const end = await fetch(base + "/api/export/end?id=" + encodeURIComponent(body.id) + "&discard=1",
+  const end = await fetch(base + "/api/export/end?id=" + encodeURIComponent(body.id) + "&discard=1&token=" + encodeURIComponent(body.endToken),
     { method: "POST" });
   assert.equal(end.status, 200);
 });
 
 test("buildExportArgs uses raw RGBA when the client asks for it", () => {
-  const { buildExportArgs, resolveProfile } = require("../encode-profiles");
+  const { buildExportArgs, resolveProfile } = require("../server/encode-profiles");
   const args = buildExportArgs(resolveProfile("draft"), {
     fps: 50, outPath: "out.mp4", pixelFormat: "rgba", width: 1920, height: 1080,
   });
@@ -238,8 +238,8 @@ test("buildExportArgs uses raw RGBA when the client asks for it", () => {
 });
 
 test("the profile dry run probes a frame hardware encoders accept, and names the cause of a failure", async (t) => {
-  if (!require("../ffmpeg-path").available("ffmpeg")) { t.skip("bundled ffmpeg not installed"); return; }
-  const { dryRunProfile } = require("../encode-profiles");
+  if (!require("../server/ffmpeg-path").available("ffmpeg")) { t.skip("bundled ffmpeg not installed"); return; }
+  const { dryRunProfile } = require("../server/encode-profiles");
   const base = { extension: ".mp4", color: { matrix: "bt709", primaries: "bt709", trc: "bt709", range: "tv" } };
   // NVENC refuses frames under ~145×49; a 200×100 crop stands in for that check without the hardware
   const crop = await dryRunProfile({ ...base, args: ["-vf", "crop=200:100", "-c:v", "mpeg4", "-pix_fmt", "yuv420p", "-c:a", "aac"] });
@@ -250,7 +250,7 @@ test("the profile dry run probes a frame hardware encoders accept, and names the
 });
 
 test("buildExportArgs still accepts JPEG image2pipe for older clients", () => {
-  const { buildExportArgs, resolveProfile } = require("../encode-profiles");
+  const { buildExportArgs, resolveProfile } = require("../server/encode-profiles");
   const args = buildExportArgs(resolveProfile("draft"), { fps: 30, outPath: "out.mp4" });
   const i = args.indexOf("-thread_queue_size");
   assert.ok(i >= 0);
@@ -297,7 +297,7 @@ test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
      request, fetch could not see it close while frozen, and /api/export/begin
      went out on the dead socket (ECONNRESET, "fetch failed").
      Reproduction: docs/validation/2026-11-02-keepalive-race.md. */
-  if (!require("../ffmpeg-path").available("ffmpeg")) { t.skip("bundled ffmpeg not installed"); return; }
+  if (!require("../server/ffmpeg-path").available("ffmpeg")) { t.skip("bundled ffmpeg not installed"); return; }
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fc-jpeg-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -308,7 +308,7 @@ test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
     const jpg = path.join(tmp, `in${i}.jpg`);
     const hex = (v) => v.toString(16).padStart(2, "0");
     const c = `${hex(i * 18)}${hex(40)}${hex(255 - i * 12)}`;
-    execFileSync(require("../ffmpeg-path").path("ffmpeg"), [
+    execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), [
       "-y", "-hide_banner", "-loglevel", "error",
       "-f", "lavfi", "-i", `color=c=#${c}:s=64x64:d=0.04`,
       "-frames:v", "1", jpg,
@@ -336,7 +336,7 @@ test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
 
   const ex = path.join(tmp, "ex");
   fs.mkdirSync(ex);
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), [
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), [
     "-y", "-hide_banner", "-loglevel", "error", "-i", file, path.join(ex, "f%02d.png"),
   ]);
   const pngs = fs.readdirSync(ex).filter((f) => f.endsWith(".png")).sort();

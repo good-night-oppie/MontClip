@@ -34,9 +34,12 @@ test("no desktop/asr-manifest.json (the plugin's package): ASR_MANIFEST_MISSING,
   const app = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-nomanifest-"));
   t.after(() => fs.rmSync(app, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
   for (const f of fs.readdirSync(ROOT)) if (/\.(js|html|css|json)$/.test(f) && f !== "project.json") fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
+  // #281: the server code lives in server/ now, so the copy must keep that folder
+  fs.mkdirSync(path.join(app, "server"), { recursive: true });
+  for (const f of fs.readdirSync(path.join(ROOT, "server"))) if (/\.(js|json)$/.test(f)) fs.copyFileSync(path.join(ROOT, "server", f), path.join(app, "server", f));
   fs.mkdirSync(path.join(app, "desktop"));
   for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
-  const r = await ask(t, (d) => ({ MONTCLIP_ASR_DIR: path.join(d, "asr") }), { serverJs: path.join(app, "server.js") });
+  const r = await ask(t, (d) => ({ MONTCLIP_ASR_DIR: path.join(d, "asr") }), { serverJs: path.join(app, "server/server.js") });
   a.equal(r.status.http, 200);
   a.equal(r.status.body.code, "ASR_MANIFEST_MISSING");
   a.equal(r.transcribe.http, 409);
@@ -57,7 +60,7 @@ test("no engine folder at all: ASR_ENGINE_MISSING", async (t) => {
 test("the engine is there, the model is not: ASR_MODEL_MISSING", async (t) => {
   const r = await ask(t, (d) => {
     const asrDir = path.join(d, "asr"), nm = path.join(asrDir, "engine", "node_modules");
-    for (const pkg of ["sherpa-onnx-node", require("../asr-local").nativePackage()]) {
+    for (const pkg of ["sherpa-onnx-node", require("../server/asr-local").nativePackage()]) {
       fs.mkdirSync(path.join(nm, pkg), { recursive: true }); fs.writeFileSync(path.join(nm, pkg, "package.json"), "{}");
     }
     fs.writeFileSync(path.join(asrDir, "silero_vad.onnx"), Buffer.alloc(643854));
@@ -72,7 +75,7 @@ test("the engine is there, the model is not: ASR_MODEL_MISSING", async (t) => {
 
 test("everything installed: status says no code", () => {
   // the codes come from one place, in order: manifest, engine (with the VAD), model
-  const S = require("../asr-status.js");
+  const S = require("../server/asr-status.js");
   a.equal(S.code(null), "ASR_MANIFEST_MISSING");
   a.equal(S.code({ engine: { ready: false }, vad: { ready: true }, asr: { ready: true } }), "ASR_ENGINE_MISSING");
   a.equal(S.code({ engine: { ready: true }, vad: { ready: false }, asr: { ready: true } }), "ASR_ENGINE_MISSING");
@@ -81,9 +84,9 @@ test("everything installed: status says no code", () => {
 });
 
 test("fablecut_transcribe: a package without the speech manifest is said plainly too", () => {
-  const src = fs.readFileSync(path.join(ROOT, "mcp-server.js"), "utf8");
+  const src = fs.readFileSync(path.join(ROOT, "server/mcp-server.js"), "utf8");
   a.match(src, /ASR_MANIFEST_MISSING/, "mcp-server knows the code");
-  const S = require("../asr-status.js");
+  const S = require("../server/asr-status.js");
   for (const code of ["ASR_MANIFEST_MISSING", "ASR_ENGINE_MISSING", "ASR_MODEL_MISSING"]) {
     a.match(S.SAY[code], /nothing was transcribed/i, code);
     a.match(S.SAY[code], /「[^」]+」/, code + " carries a sentence for the user");
@@ -110,7 +113,7 @@ const modelMb = () => {
 };
 
 test("JJ's final sentences for the user, word for word; the model's size from the manifest", () => {
-  const S = require("../asr-status.js");
+  const S = require("../server/asr-status.js");
   a.equal(modelMb(), 240, "the pinned Paraformer files: 243,446,974 bytes, about 240 MB");
   a.deepEqual(S.userText("ASR_ENGINE_MISSING"), JJ.engine);
   a.deepEqual(S.userText("ASR_MANIFEST_MISSING"), JJ.engine, "a copy without the manifest has no transcription program either");
@@ -123,8 +126,8 @@ test("JJ's final sentences for the user, word for word; the model's size from th
 });
 
 test("the agent alone hears what is missing: missing and the manifest's ids, marked not for the user", () => {
-  const S = require("../asr-status.js");
-  const { nativePackage } = require("../asr-local");
+  const S = require("../server/asr-status.js");
+  const { nativePackage } = require("../server/asr-local");
   const m = JSON.parse(fs.readFileSync(path.join(ROOT, "desktop", "asr-manifest.json"), "utf8"));
   a.deepEqual(S.agentCode("ASR_MODEL_MISSING"), { code: "ASR_MODEL_MISSING", missing: "model", ids: [m.models.asr.id] });
   a.deepEqual(S.agentCode("ASR_ENGINE_MISSING"), { code: "ASR_ENGINE_MISSING", missing: "engine", ids: ["sherpa-onnx-node@2.0.1", nativePackage() + "@2.0.1", m.engine.vad.file] });
@@ -153,9 +156,12 @@ test("no manifest: status and the 409 name no path on this computer", async (t) 
   const app = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-nomanifest-"));
   t.after(() => fs.rmSync(app, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
   for (const f of fs.readdirSync(ROOT)) if (/\.(js|html|css|json)$/.test(f) && f !== "project.json") fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
+  // #281: the server code lives in server/ now, so the copy must keep that folder
+  fs.mkdirSync(path.join(app, "server"), { recursive: true });
+  for (const f of fs.readdirSync(path.join(ROOT, "server"))) if (/\.(js|json)$/.test(f)) fs.copyFileSync(path.join(ROOT, "server", f), path.join(app, "server", f));
   fs.mkdirSync(path.join(app, "desktop"));
   for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
-  const r = await ask(t, (d) => ({ MONTCLIP_ASR_DIR: path.join(d, "asr") }), { serverJs: path.join(app, "server.js") });
+  const r = await ask(t, (d) => ({ MONTCLIP_ASR_DIR: path.join(d, "asr") }), { serverJs: path.join(app, "server/server.js") });
   a.equal(r.status.body.code, "ASR_MANIFEST_MISSING");
   a.match(r.status.body.engine.why, /asr-manifest\.json/, "still says which file");
   noLocalPath(r.status.body, localRoots(app), "status");
@@ -163,17 +169,17 @@ test("no manifest: status and the 409 name no path on this computer", async (t) 
 });
 
 test("an engine that can't be loaded: the error names no path on this computer", async (t) => {
-  const { manifest } = require("../asr-models");
+  const { manifest } = require("../server/asr-models");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-badengine-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const nm = path.join(dir, "engine", "node_modules");
   // sherpa-onnx-node whose main file is not there: require() throws "Cannot find module '<full path>'"
   fs.mkdirSync(path.join(nm, "sherpa-onnx-node"), { recursive: true }); fs.writeFileSync(path.join(nm, "sherpa-onnx-node", "package.json"), '{"main":"gone.js"}');
-  const native = path.join(nm, require("../asr-local").nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, "package.json"), "{}");
+  const native = path.join(nm, require("../server/asr-local").nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, "package.json"), "{}");
   const vad = path.join(dir, manifest.engine.vad.file); fs.writeFileSync(vad, ""); fs.truncateSync(vad, manifest.engine.vad.size);
   fs.mkdirSync(path.join(dir, "model"));
   const store = { dir: (k) => (k === "asr" ? path.join(dir, "model") : null), status: () => ({ asr: { ready: true, missing: [], bad: [] }, punct: { ready: false, missing: [], bad: [] } }) };
-  const asr = require("../asr-local").createAsr({ asrDir: dir, store, ffmpeg: "ffmpeg" });
+  const asr = require("../server/asr-local").createAsr({ asrDir: dir, store, ffmpeg: "ffmpeg" });
   let err = null;
   try { await asr.transcribe(path.join(dir, "x.wav"), {}); } catch (e) { err = e; }
   a.equal(err && err.code, "ASR_ENGINE_MISSING");
@@ -181,7 +187,7 @@ test("an engine that can't be loaded: the error names no path on this computer",
 });
 
 test("hidePaths: a path keeps only its last part; a URL, a ratio or a time is left alone", () => {
-  const { hidePaths } = require("../asr-status.js");
+  const { hidePaths } = require("../server/asr-status.js");
   a.equal(hidePaths("open 'C:\\Users\\name\\AppData\\x\\desktop\\asr-manifest.json'"), "open '…/asr-manifest.json'");
   a.equal(hidePaths("Cannot find module '/home/name/x/sherpa-onnx-node/gone.js'. Please"), "Cannot find module '…/gone.js'. Please");
   a.equal(hidePaths("open '~/MontClip/desktop/asr-manifest.json'"), "open '…/asr-manifest.json'");
@@ -192,7 +198,7 @@ test("hidePaths: a path keeps only its last part; a URL, a ratio or a time is le
 /* JJ (2026-11-05): a size is the manifest's bytes rounded to 10 MB (243,371,218 → 240), never written by hand, and the
    Cindy plugin's status card says it through the same function (aboutMb, here). */
 test("aboutMb: bytes to MB rounded to 10; the model's size follows the manifest's bytes", () => {
-  const S = require("../asr-status.js");
+  const S = require("../server/asr-status.js");
   a.equal(typeof S.aboutMb, "function");
   a.equal(S.aboutMb(243371218), 240);
   a.equal(S.aboutMb(134885400), 130);

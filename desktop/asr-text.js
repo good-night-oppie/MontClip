@@ -1,7 +1,7 @@
 'use strict';
 // The host's own questions about the speech model (#70): the page cannot word them, and nothing is sent before the
 // streamer says yes (ADR 2026-11-03: the approval box is the host's). New copy, for JJ.
-const { manifest } = require('../asr-models');
+const { manifest } = require('../server/asr-models');
 
 const mbOf = (which) => {
   const m = manifest.models[which];

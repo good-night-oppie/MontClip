@@ -231,3 +231,7 @@ The generated cindy-official.js has been adapted through bundling/minification a
 The complete original282-byte Cindy NOTICE is also embedded verbatim in THIRD-PARTY-NOTICES.txt; upstream/NOTICE remains unchanged. Behavior SPEC v2 reference/hash is recorded in the ADR; it is not a source-code license substitute.
 
 The official pane bundle also includes scheduler 0.27.0 (MIT, Meta Platforms, Inc. and affiliates). Its full license is retained in agent-ui/THIRD-PARTY-NOTICES.txt. BUNDLED-LICENSES.json pins each bundled dependency version and full notice hash.
+
+## Used at build time, not shipped
+
+- Noto Sans CJK (Debian/Ubuntu package `fonts-noto-cjk`, version `1:20220127+repack1-1`, license SIL Open Font License 1.1, Copyright 2010-2012 Google Corporation): renders the text in the synthetic sample [examples/sample](examples/sample) and the README demo, via [scripts/readme-demo/make-synthetic-source.py](scripts/readme-demo/make-synthetic-source.py). It is used only to draw those pixels; the font file is not in this repository or in any release. If the font is ever added to the repository, or a script downloads it, that counts as distributing it: include the full OFL text and the copyright notice with it.

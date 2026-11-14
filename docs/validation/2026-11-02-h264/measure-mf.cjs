@@ -14,7 +14,7 @@
 // This is our own setup: VV's report was not available on this machine, so compare rows within this
 // file rather than with VV's numbers.
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), cp = require('node:child_process');
-const FF = require('../../../ffmpeg-path');
+const FF = require('../../../server/ffmpeg-path');
 const ffmpeg = FF.path('ffmpeg');
 if (!FF.available('ffmpeg')) throw new Error('bundled ffmpeg not installed: ' + FF.reason('ffmpeg'));
 const SECONDS = Number(process.argv[2]) || 10, W = 1920, H = 1080, FPS = 30;

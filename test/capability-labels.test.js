@@ -49,5 +49,5 @@ test('the version kept before the AI\'s edits is named in the interface language
     a.ok(!src.includes('AI 开始前 / Before the AI run'), f);
     a.match(src, /action:'before_agent',name:uiText\('own\.before-ai'\)/, f);
   }
-  a.ok(read('history.js').includes('"Before AI changes"'), 'the server\'s own default (no language) reads the same in English');
+  a.ok(read('server/history.js').includes('"Before AI changes"'), 'the server\'s own default (no language) reads the same in English');
 });

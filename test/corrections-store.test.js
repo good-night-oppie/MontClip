@@ -53,7 +53,7 @@ test('bounded: the newest are kept',()=>{
 });
 
 test('not in the project, not in MCP: the server, MCP and project code never read them',()=>{
- for(const f of ['server.js','mcp-server.js','mcp-tools.js','project-ops.js','projects.js'])a.ok(!/corrections/i.test(read(f)),f);
+ for(const f of ['server/server.js','server/mcp-server.js','server/mcp-tools.js','server/project-ops.js','server/projects.js'])a.ok(!/corrections/i.test(read(f)),f);
  // the main process reaches them through fixed channels only, behind the same guard as the other settings; no path from the page
  const main=read('desktop/main.js');
  for(const op of ['status','append','setEnabled','clear','records','undo'])a.match(main,new RegExp(`"montclip:corrections:${op}"`),op);
@@ -63,7 +63,7 @@ test('not in the project, not in MCP: the server, MCP and project code never rea
 });
 
 test('the golden-set evaluation runs without corrections unless asked (they come from the same streamer: a leak)',()=>{
- const g=read('real-tests/songs-golden.cjs');
+ const g=read('dev/real-tests/songs-golden.cjs');
  a.match(g,/const corrections = arg\("--corrections"\);/);
  a.match(g,/corrections: off/);
  a.ok(!/corrections-store|userData/.test(g),'never the streamer’s own store');

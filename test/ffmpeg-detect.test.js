@@ -8,7 +8,7 @@
 //     Windows: 「选择 ffmpeg.exe」, the existing flow. No automatic download.
 //  5. 「重新检测」 works without a restart; a chosen path is saved and survives one.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-const FF = require('../ffmpeg-path'), X = require('../external-ffmpeg'), Card = require('../ffmpeg-card');
+const FF = require('../server/ffmpeg-path'), X = require('../server/external-ffmpeg'), Card = require('../ffmpeg-card');
 // removed after the test's servers (and the ffmpeg.exe copies they run from these folders) are stopped: helpers.tmpDir
 function tmp(t) { return require('./helpers').tmpDir(t, 'mc-detect-'); }
 
@@ -279,7 +279,7 @@ test('server: an upload named ffmpeg.exe can be neither chosen nor checked; the 
   a.equal(choose.result, 'notFfmpeg'); a.equal(fs.existsSync(path.join(dir, 'external-ffmpeg.json')), false);
   const check = await (await fetch(base + '/api/ffmpeg/check', { method: 'POST', body: JSON.stringify({ path: file }) })).json();
   a.equal(check.ok, false); a.equal(check.code, 'notFfmpeg');
-  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server/server.js'), 'utf8');
   const route = server.slice(server.indexOf('if (p === "/api/ffmpeg/check"'), server.indexOf('if (p === "/api/ffmpeg/choose"'));
   a.match(route, /if \(DESKTOP\) \{ sendJSON\(res, 403,/, 'desktop: only the main process file dialog');
   a.match(server, /FF\.setPlaces\(\{ deny: \[MEDIA_DIR, LIBRARY_DIR, UPLOADS_DIR, ANALYSIS_DIR, PROXIES_DIR, FRAMES_DIR, EXPORTS_DIR/);
@@ -318,7 +318,7 @@ test('the bundled build is used for everything; another FFmpeg only for H.264, o
   a.ok((await ext.available(new Set(['ffv1', 'h264_omx']))).has('libx264'), 'bundled has none: libx264 from PATH');
   a.equal((await ext.current()).source, 'path');
   // the europa 5.1 / ebur128 case cannot happen: measuring uses FF.path (the bundled build), never the H.264 program
-  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server/server.js'), 'utf8');
   const loud = server.slice(server.indexOf('async function measureLoudness('), server.indexOf('function ffprobeJSON('));
   a.match(loud, /runFfmpeg\(Delivery\.LOUDNESS_ARGS\(file\), timeout\)/); a.ok(!/measurePath|pickFfmpeg|FF\.use\(/.test(server));
   a.ok(FF.GATE_ARGS.join(' ').includes('ebur128=peak=true:framelog=quiet'), 'the gate runs the ebur128 options measuring uses');
@@ -345,7 +345,7 @@ test('server: bundled build + a full FFmpeg on PATH → bundled for everything, 
 /* QQ (b): which program each path starts. The local FFmpeg only for exports and proxies; signals, song-scan, asr (and
    frames) start the bundled build. */
 test('analysis paths are wired to the bundled build; only exports and proxies reach the local FFmpeg', () => {
-  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server/server.js'), 'utf8');
   for (const mod of ['./asr-local', './signals', './song-scan'])
     a.match(server, new RegExp(`require\\("${mod.replace('.', '\\.')}"\\)[^\\n]*ffmpeg: \\(\\) => FF\\.path\\("ffmpeg"\\)`), mod);
   const px = server.slice(server.indexOf('const proxies = createProxies({'), server.indexOf('noEncoder:', server.indexOf('const proxies = createProxies({')));
@@ -476,7 +476,7 @@ test('the fallback gate: FFmpeg 6.0 or newer, and the options MontClip runs (lou
   a.equal(FF.versionBelow('5.1.9', '6.0'), true); a.equal(FF.versionBelow('6.0', '6.0'), false); a.equal(FF.versionBelow('10.1', '6.0'), false);
   const filters = FF.GATE_CHECKS.map((args) => args[args.indexOf('-af') + 1]);
   a.ok(filters.includes('ebur128=peak=true:framelog=quiet'), 'the loudness measurement\'s options');
-  a.ok(filters.includes(require('../song-scan').FILTER), 'song-scan\'s own filter, the very string it runs');
+  a.ok(filters.includes(require('../server/song-scan').FILTER), 'song-scan\'s own filter, the very string it runs');
 });
 
 test('no bundled build (POSIX): below 6.0 is never the fallback even if it runs the options; 6.0+ or a git build must run them', (t) => {

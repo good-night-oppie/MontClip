@@ -7,7 +7,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const S = require("../frame-stats");
+const S = require("../server/frame-stats");
 
 /** A w×h RGB24 buffer of one flat colour. */
 const solid = (w, h, r, g, b) => {

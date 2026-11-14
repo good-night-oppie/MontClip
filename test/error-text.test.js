@@ -5,7 +5,7 @@
 // codes and English go to the log only; 〔复制问题信息〕 copies that line with viewers, keys and user folders taken out.
 // The rows this PR owns are locked word for word. (FLV gaps / conversion rows: #130; the export "no encoder" row: #125.)
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences'), R = require('../problem-redact'), X = require('../external-ffmpeg');
+const V = require('../ui-preferences'), R = require('../problem-redact'), X = require('../server/external-ffmpeg');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const app = read('app.js');
 const CJK = /[　-〿㐀-鿿＀-￯]/;
@@ -16,12 +16,12 @@ const zh = (k, v) => V.t('zh-CN', k, v), en = (k, v) => V.t('en', k, v);
 
 /** Every code the server, the desktop main process and the page hand to the interface. */
 function publicCodes() {
-  const codes = new Set([...require('../prepare-media').PUBLIC_CODES, 'IMPORT_FAILED']);
+  const codes = new Set([...require('../server/prepare-media').PUBLIC_CODES, 'IMPORT_FAILED']);
   for (const c of all(read('desktop/flv-import.js'), /fail\("([A-Z_]+)"/g)) codes.add(c);
-  for (const c of all(read('export-jobs.js'), /errorCode: "([A-Z_]+)"/g)) codes.add(c);
-  for (const c of all(read('external-ffmpeg.js'), /code: "([A-Za-z0-9]+)"/g)) codes.add(c);
-  for (const c of all(read('server.js'), /code: ?"([A-Za-z0-9_]+)"/g)) codes.add(c);
-  for (const c of all(read('server.js'), /"(ext[A-Z][A-Za-z]+)" : ext\.code/g)) codes.add(c);
+  for (const c of all(read('server/export-jobs.js'), /errorCode: "([A-Z_]+)"/g)) codes.add(c);
+  for (const c of all(read('server/external-ffmpeg.js'), /code: "([A-Za-z0-9]+)"/g)) codes.add(c);
+  for (const c of all(read('server/server.js'), /code: ?"([A-Za-z0-9_]+)"/g)) codes.add(c);
+  for (const c of all(read('server/server.js'), /"(ext[A-Z][A-Za-z]+)" : ext\.code/g)) codes.add(c);
   for (const c of all(app, /code: "((?:EXPORT|DISK)_[A-Z_]+)"/g)) codes.add(c);
   for (const c of V.ERROR_CODES) codes.add(c);
   codes.add('ffmpegMissing');
@@ -82,7 +82,7 @@ test('JJ (2026-11-04): three more rows — the timeline changed, a picture too s
   // a picture smaller than the encoder takes: n is the smallest side, from the server (NVENC's 145×49 → 145)
   a.equal(V.errorText('zh-CN', { code: 'frameTooSmall', params: { w: 120, h: 40, n: 145 } }).text, '画面太小，导不出来：宽和高都至少要 145 像素。把画面大小改大一点再导出。原片没有改动。');
   a.equal(V.errorText('en', { code: 'frameTooSmall', params: { w: 120, h: 40, n: 145 } }).text, 'The picture is too small to export: width and height must each be at least 145 pixels. Make it larger and export again. The original is unchanged.');
-  a.match(read('server.js'), /code: "frameTooSmall",[^]{0,200}params: \{ w: frame\.outW, h: frame\.outH, n: Math\.max\(\.\.\.\[\.\.\.available\]\.map\(\(e\) => Delivery\.ENCODERS\[e\]\?\.min \|\| \[\]\)\.flat\(\)\) \}/);
+  a.match(read('server/server.js'), /code: "frameTooSmall",[^]{0,200}params: \{ w: frame\.outW, h: frame\.outH, n: Math\.max\(\.\.\.\[\.\.\.available\]\.map\(\(e\) => Delivery\.ENCODERS\[e\]\?\.min \|\| \[\]\)\.flat\(\)\) \}/);
   a.deepEqual(require('../delivery').ENCODERS.h264_nvenc.min, [145, 49]);
   // the FFmpeg chosen in Settings, whichever way it fails
   for (const code of ['extGone', 'extNotFfmpeg', 'extNoX264', 'extSettingBad', 'extNotFullPath']) {
@@ -271,7 +271,7 @@ test('the page: nothing raw on screen; the copy button with its small print; the
   a.match(fnBody(app, 'function sayExportFailure('), /toastProblem\(sayError\(e, "export"\), uiText\("own\.export-failed-prefix"\)\)/);
   a.ok(!/alert\(uiText\("own\.export-failed-prefix"\)/.test(app), 'no alert of an export failure');
   a.match(app, /toastAction\(uiText\("exportSaveFolderFailed"\), uiText\("btnOtherFolder"\)/, '#116: 〔换个文件夹〕 opens the save window again');
-  const server = read('server.js');
+  const server = read('server/server.js');
   a.match(server, /p === "\/api\/problem-details"/);
   // #161: the plain sentence, the files as type and size, the code — with the user name too (test/problem-details.test.js)
   a.match(server, /Redact\.problemDetails\(p, \{ home: os\.homedir\(\), platform: process\.platform, user: userName\(\), language: body\.language \}\)/);

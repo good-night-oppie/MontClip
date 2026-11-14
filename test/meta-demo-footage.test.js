@@ -1,13 +1,13 @@
 'use strict';
-/* real-tests/meta-demo-footage.cjs records the Muse Spark demo takes. It must never carry or leak a
-   key: the only source is real-tests/meta-key-file.cjs (same rules as #124), every line out is
+/* dev/real-tests/meta-demo-footage.cjs records the Muse Spark demo takes. It must never carry or leak a
+   key: the only source is dev/real-tests/meta-key-file.cjs (same rules as #124), every line out is
    scrubbed, and nothing runs without an explicit MONTCLIP_REAL_MODELS=1 plus a fresh profile. */
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
-const FILE = path.join(__dirname, '..', 'real-tests', 'meta-demo-footage.cjs');
+const FILE = path.join(__dirname, '..', 'dev/real-tests', 'meta-demo-footage.cjs');
 
 test('the demo footage script is present and parses', () => {
-  a.ok(fs.existsSync(FILE), 'real-tests/meta-demo-footage.cjs is committed');
+  a.ok(fs.existsSync(FILE), 'dev/real-tests/meta-demo-footage.cjs is committed');
   new Function(fs.readFileSync(FILE, 'utf8'));
 });
 

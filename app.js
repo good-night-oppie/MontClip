@@ -19206,7 +19206,7 @@ async function loadGoogleFont(name) {
   } catch { return false; }
   // The stylesheet goes in from a blob: address, so its font files on fonts.gstatic.com carry no Referer either: a
   // sheet's requests name the sheet as their referrer, and a blob: address is never sent as one. (A <link> straight to
-  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; real-tests/font-consent-browser-smoke.cjs
+  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; dev/real-tests/font-consent-browser-smoke.cjs
   // checks the headers a browser really sends.)
   const href = URL.createObjectURL(new Blob([css], { type: "text/css" }));
   const ok = await new Promise((resolve) => {
@@ -21226,7 +21226,7 @@ async function fastExport(opts = {}) {
   const fps = (delivery && delivery.fps) || projectFps();
   let result = null;
   const { start: t0, end: t1, frames } = beginExportWindow(fps);
-  let sessId = null;
+  let sessId = null, endToken = null;
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
@@ -21246,14 +21246,14 @@ async function fastExport(opts = {}) {
     const begin = await fetch("/api/export/begin", {
       method: "POST",
       body: JSON.stringify(delivery ? {
-        fps, duration: frames / fps,
+        fps, duration: frames / fps, conn: (opts && opts.conn) || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: { ...exportCheckPlan(t0, t1), silent }, panIntent: exportPanIntent(),
       } : {
         fps,
         frames,
         name: opts.name || exportBaseName("export"),
-        profile: profileId,
+        profile: profileId, conn: (opts && opts.conn) || (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         hasAudio: !!wav,
         job,
         check: { ...exportCheckPlan(t0, t1), silent },
@@ -21262,7 +21262,9 @@ async function fastExport(opts = {}) {
     }).then((r) => r.json());
     if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
-    if (opts.onSession) opts.onSession(sessId);   // a background export's editor can discard it if this page stops answering
+    endToken = begin.endToken || "";
+    if (typeof liveExports !== "undefined") liveExports.set(sessId, endToken);
+    if (opts.onSession) opts.onSession(sessId, endToken);   // a background export's editor can discard it if this page stops answering
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
     exportFullCanvas = !!delivery;
@@ -21351,6 +21353,7 @@ async function fastExport(opts = {}) {
       try { workers?.terminate(); } catch { }
     }
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
+    if (sessId && typeof liveExports !== "undefined") liveExports.delete(sessId);
     if (!end.src) throw exportEndError(end, "encode failed");
     // a profile export's warnings (a silent piece, one not checked in time) come as end.report (server.js warningReport)
     const outs = end.outputs || [{ file: decodeURIComponent(end.src.split("/").pop()), ok: true, src: end.src, ...(end.report ? { report: end.report } : {}) }];
@@ -21372,7 +21375,7 @@ async function fastExport(opts = {}) {
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, ...(end.report ? { savedMsg: exportReportLine(end.report) } : {}) });
   } catch (e) {
     // The export worker is removed as soon as this returns; keep it alive until discard reaches the server.
-    if (sessId) await fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
+    if (sessId) await fetch("/api/export/end?id=" + sessId + "&discard=1&token=" + encodeURIComponent(endToken), { method: "POST" }).catch(() => { });
     const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
     // JJ final copy (#190): one full sentence for alert and queue; the
     // technical code stays only in the structured result for logs.
@@ -21390,6 +21393,7 @@ async function fastExport(opts = {}) {
     endExportWindow();
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
+    if (sessId && typeof liveExports !== "undefined") liveExports.delete(sessId);
     els.exportOverlay.classList.add("hidden");
     els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
@@ -21401,6 +21405,19 @@ async function fastExport(opts = {}) {
    Renders waiting outputs back to back. Outputs that share a frame rate and a
    range go out in ONE render: the frames are drawn once and every output's
    ffmpeg encodes them (up to 8 at a time). Lives in this tab only. */
+/* #302: a page that goes away mid-export tells the server at once, so its ffmpeg stops and its half-made files go;
+   the server still sweeps sessions whose page could not send this (a crash). */
+const liveExports = new Map();
+addEventListener("pagehide", () => {
+  for (const [id, token] of liveExports) {
+    try { navigator.sendBeacon("/api/export/end?id=" + encodeURIComponent(id) + "&discard=1&token=" + encodeURIComponent(token)); } catch { }
+  }
+  // QQ's double insurance: the hidden export page's own session too (idempotent with its pagehide beacon).
+  try {
+    const bg = bgExport && typeof bgExport.job === "function" ? bgExport.job() : null;
+    if (bg && bg.sess) navigator.sendBeacon("/api/export/end?id=" + encodeURIComponent(bg.sess) + "&discard=1&token=" + encodeURIComponent(bg.token || ""));
+  } catch { }
+});
 const exportQueue = [];
 // Asked by the desktop close prompt (desktop/export-close.js): is an export running here, and how many exported videos in
 // the queue are not saved yet (status done and not saved; the queue lives only in this page, the copies stay in exports/).
@@ -21613,7 +21630,7 @@ const bgExport = !BgExport || EXPORT_WORKER ? null : BgExport.createController({
     };
   },
   // the page did not answer a cancel: its half-made file goes here (server.js cleanupExport)
-  discard: (sess) => fetch("/api/export/end?id=" + encodeURIComponent(sess) + "&discard=1", { method: "POST" }).catch(() => { }),
+  discard: (sess, token) => fetch("/api/export/end?id=" + encodeURIComponent(sess) + "&discard=1&token=" + encodeURIComponent(token || ""), { method: "POST" }).catch(() => { }),
   onChange: (j) => renderBgExport(j),
   onToast: (_j, text) => toast(text),
   onDone: (j, result) => finishBgExport(j, result),
@@ -21681,7 +21698,7 @@ function startBgExport(fastOpts) {
   const range = exportRangeMode();
   const delivery = fastOpts.delivery || null;
   const name = delivery ? deliveryFileName(delivery, delivery.fps || projectFps()) : exportBaseName("export");
-  const opts = delivery ? { deliveries: [{ delivery, name }], range } : { profile: fastOpts.profile, name, range };
+  const opts = delivery ? { deliveries: [{ delivery, name }], range, conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined } : { profile: fastOpts.profile, name, range, conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined };
   const q = { id: "q" + Math.random().toString(36).slice(2, 8), bg: true, spec: delivery,
     label: delivery ? queueLabel(delivery) : exportProfileMeta(fastOpts.profile).label, profile: delivery ? null : fastOpts.profile,
     name, range, status: "running", progress: 0 };
@@ -21742,7 +21759,7 @@ async function runBgExportHere(doc, opts, hooks) {
   if (opts.deliveries) await fetchDeliveryInfo();
   exportRangeForced = opts.range === "in-out" ? "in-out" : "entire";
   try {
-    const run = opts.deliveries ? { deliveries: opts.deliveries } : { profile: opts.profile, name: opts.name };
+    const run = opts.deliveries ? { deliveries: opts.deliveries, conn: opts.conn } : { profile: opts.profile, name: opts.name, conn: opts.conn };
     return await fastExport({ ...run, silent: true, onProgress: hooks.onProgress, onPhase: hooks.onPhase, onSession: hooks.onSession });
   } finally { exportRangeForced = null; }
 }
@@ -21844,7 +21861,7 @@ function jobProblem(id, reply) {
 const JOB_HEARTBEAT_MS = 5000;
 async function runExportJob(ticket) {
   if (!ticket?.id || state.exporting || bgExportBusy()) return; // a busy tab leaves it for another
-  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden, conn: runtime.sseConn || undefined }) })
+  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden, conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined }) })
     .then((r) => r.ok).catch(() => false);
   if (!claimed) return;
   let running = true;
@@ -22279,7 +22296,7 @@ async function webCodecsExport() {
   const { start: t0, end: t1, frames } = beginExportWindow();
   const fps = projectFps();
   const keyEvery = Math.max(1, Math.round(fps * 2));
-  let sessId = null;
+  let sessId = null, endToken = null;
   let encoder = null;
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
@@ -22297,7 +22314,7 @@ async function webCodecsExport() {
       body: JSON.stringify({
         fps,
         name: exportBaseName("export"),
-        mode: "annexb",
+        mode: "annexb", conn: (typeof runtime !== "undefined" && runtime.sseConn) || undefined,
         hasAudio: !!wav,
         check: { ...exportCheckPlan(t0, t1), silent },
       }),
@@ -22305,6 +22322,8 @@ async function webCodecsExport() {
     }).then((r) => r.json());
     if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
+    endToken = begin.endToken || "";
+    if (typeof liveExports !== "undefined") liveExports.set(sessId, endToken);
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
       if (!r.ok) throw new Error("audio upload failed");
@@ -22386,11 +22405,12 @@ async function webCodecsExport() {
     encoder.close();
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
+    if (sessId && typeof liveExports !== "undefined") liveExports.delete(sessId);
     if (!end.src) throw exportEndError(end, "mux failed");
     saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     try { encoder?.close(); } catch { }
-    if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
+    if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1&token=" + encodeURIComponent(endToken), { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     if (msg !== "cancelled") sayExportFailure(e);
   } finally {
@@ -22400,6 +22420,7 @@ async function webCodecsExport() {
     endExportWindow();
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
+    if (sessId && typeof liveExports !== "undefined") liveExports.delete(sessId);
     els.exportOverlay.classList.add("hidden");
     els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();

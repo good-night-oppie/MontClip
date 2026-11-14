@@ -9,17 +9,17 @@ Run it from a clone:
 ```bash
 git clone https://github.com/good-night-oppie/MontClip.git
 cd MontClip
-node server.js        # → http://localhost:7777
+node server/server.js  # → http://localhost:7777
 ```
 
-Projects, media and exports go to the default data folder next to `server.js`; set `FABLECUT_DATA_DIR` to put them elsewhere.
+Projects, media and exports go to the default data folder in the MontClip folder (the repository root); set `FABLECUT_DATA_DIR` to put them elsewhere.
 
-Requirements: **Node 18+** and a Chromium-based browser. **ffmpeg on PATH** is
+Requirements: **Node 18+** and a Chromium-based browser. **ffmpeg 6.0 or newer on PATH** is
 optional but recommended (fast export + upload remuxing). AI background
 removal fetches its model from a CDN on first use.
 
 The server binds **127.0.0.1 only** (v1.3.1+). To use it from another device on
-your LAN, opt in explicitly: `HOST=0.0.0.0 FABLECUT_ALLOWED_HOSTS=<your-ip> node server.js`.
+your LAN, opt in explicitly: `HOST=0.0.0.0 FABLECUT_ALLOWED_HOSTS=<your-ip> node server/server.js`.
 
 Drop media into the window (or `./media/`), paste an HTTPS URL via **+ URL**,
 drag clips onto the timeline, edit, export.
@@ -47,7 +47,7 @@ Three equivalent control surfaces:
    MontClip is not published to npm, so register it from a clone:
 
    ```bash
-   claude mcp add -s user fablecut -- node "<path-to>/fablecut/mcp-server.js"
+   claude mcp add -s user fablecut -- node "<path-to>/fablecut/server/mcp-server.js"
    ```
 
    **OpenCode** can use the same stdio server from its project or global
@@ -59,7 +59,7 @@ Three equivalent control surfaces:
      "mcp": {
        "fablecut": {
          "type": "local",
-         "command": ["node", "/absolute/path/to/MontClip/mcp-server.js"],
+         "command": ["node", "/absolute/path/to/MontClip/server/mcp-server.js"],
          "enabled": true
        }
      }
@@ -75,9 +75,11 @@ Three equivalent control surfaces:
      "name": "fablecut",
      "transport": "stdio",
      "command": "node",
-     "args": ["/absolute/path/to/MontClip/mcp-server.js"]
+     "args": ["/absolute/path/to/MontClip/server/mcp-server.js"]
    }
    ```
+
+   If you configured MCP before the layout change, update the path to the new location.
 
    The server is intentionally client-neutral. It speaks MCP over stdio and
    does not require Claude-specific environment variables. With a clone, keep
@@ -129,13 +131,14 @@ dropping it silently.
 ## Project layout
 
 ```
-server.js        zero-dependency HTTP server: static hosting, REST API, SSE,
+server/server.js  zero-dependency HTTP server: static hosting, REST API, SSE,
                  ffmpeg export pipeline
 app.js           the editor: timeline UI, compositor, keyframes, text engine,
                  SVG rasterizer, chroma key, exporters
 index.html       single-page UI
 style.css        dark editor theme
-mcp-server.js    stdio MCP server exposing the editor to AI agents
+server/mcp-server.js
+                 stdio MCP server exposing the editor to AI agents
 analyze.js       reference-video analyzer: shots, beats/BPM, energy, drop,
                  music extraction (module + CLI)
 CLAUDE.md        the agent manual (schema + recipes) — also served by fablecut_docs

@@ -14,7 +14,7 @@ const FX = require("../audio-fx.js");
 const EditOps = require("../edit-ops.js");
 
 let HAS_FFMPEG = false;
-try { HAS_FFMPEG = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch {}
+try { HAS_FFMPEG = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch {}
 
 /* ── Pitch worklet ── */
 const SR = 48000;
@@ -141,7 +141,7 @@ const skip = HAS_FFMPEG ? false : "noise reduction needs ffmpeg on PATH";
 function noisyTake(dir) {
   fs.mkdirSync(path.join(dir, "media"), { recursive: true });
   const file = path.join(dir, "media", "take.wav");
-  const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-y",
+  const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-y",
     "-f", "lavfi", "-i", "anoisesrc=color=white:amplitude=0.05:duration=3:sample_rate=48000",
     "-f", "lavfi", "-i", "sine=frequency=330:duration=2:sample_rate=48000",
     "-filter_complex", "[1]adelay=1000|1000,volume=0.4[t];[0][t]amix=inputs=2:normalize=0,aformat=channel_layouts=stereo",
@@ -150,7 +150,7 @@ function noisyTake(dir) {
   return file;
 }
 function rmsDb(file, from, dur) {
-  const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "info", "-ss", String(from), "-t", String(dur), "-i", file, "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" });
+  const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "info", "-ss", String(from), "-t", String(dur), "-i", file, "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" });
   return +/mean_volume: (-?[\d.]+) dB/.exec(r.stderr)[1];
 }
 

@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../real-tests/meta-demo-footage.cjs'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../dev/real-tests/meta-demo-footage.cjs'), 'utf8');
 function fixture(t) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'footage-')));
   t.after(() => { const out=path.join(root,'out');try{if(fs.lstatSync(out).isSymbolicLink())fs.unlinkSync(out);}catch{} fs.rmSync(root, {recursive:true, force:true}); });
@@ -18,11 +18,11 @@ function boot(f, {missingKey=false, encodeStatus=1, lifecycle=false, recordingFa
       if(id==='electron') return {app:{setPath:(_k,v)=>{userData=v;},getPath:()=>userData,exit:n=>{exited=n;},on:(name,fn)=>handlers[name]=fn},BrowserWindow};
       if(id==='node:fs'&&reportFails)return {...fs,writeFileSync(p,...args){if(p===path.join(f.out,'footage-result.json'))throw Error('synthetic report denied');return fs.writeFileSync(p,...args);}};
       if(id==='./meta-key-file.cjs') return {readKey:()=>{keyReads++;return missingKey?{skip:'no key file at '+path.join(f.root,'private-user','key')}:{key:'synthetic-secret'};}};
-      if(id==='./footage-profile.cjs') return require('../real-tests/footage-profile.cjs');
-      if(id==='../desktop/agent-service') return agentModule;
+      if(id==='./footage-profile.cjs') return require('../dev/real-tests/footage-profile.cjs');
+      if(id==='../../desktop/agent-service') return agentModule;
       if(id==='node:child_process') return {spawnSync:(_bin,args)=>{fs.writeFileSync(args.at(-1),'partial');return {status:encodeStatus,stderr:Buffer.from(f.root+'/private-user/error synthetic-secret')};}};
       if(id==='node:module') return {_load(){}};
-      if(id==='../desktop/main') {
+      if(id==='../../desktop/main') {
         if(lifecycle){
           const disk=cleanupFails?{...fs,unlinkSync(){throw Error('synthetic denied');}}:fs;
           service=agentModule.createDiskService(userData||f.profile,{isEncryptionAvailable:()=>true,encryptString:s=>Buffer.from(s),decryptString:b=>b.toString()},disk);

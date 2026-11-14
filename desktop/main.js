@@ -8,7 +8,7 @@ const { nativeText, languageOf } = require("./native-text");
 const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-failure");
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
-const External = require("../external-ffmpeg");
+const External = require("../server/external-ffmpeg");
 const Capabilities = require("../capabilities");
 const HostEmbed = require("../host-embed");   // ?host=cindy: the built-in assistant's requests are refused   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
@@ -56,9 +56,9 @@ async function start() {
   }
   flvImports = require("./flv-import").createFlvImports({ mediaDir: path.join(env.FABLECUT_DATA_DIR, "media") });
   // another MontClip (the one in Cindy) editing this data folder: say so, instead of a service that "stopped"
-  const inUse = dataDirInUse(env.FABLECUT_DATA_DIR, require("../writer-lock").holder);
+  const inUse = dataDirInUse(env.FABLECUT_DATA_DIR, require("../server/writer-lock").holder);
   if (inUse) throw inUse;
-  worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
+  worker = utilityProcess.fork(path.join(__dirname, "..", "server", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
   let startErr = "";   // what the server said before it was ready (the last 8 KB): why it stopped, if it does
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
@@ -181,7 +181,7 @@ async function start() {
   // says yes in the host's own box (sizes and sites), from the listed hosts only (asr-download.js); or imported from a
   // folder the streamer picks (a U 盘). Every file is checked against desktop/asr-manifest.json. The page passes no
   // path and no address: only which model.
-  const AsrModels = require("../asr-models"), AsrDownload = require("../asr-download"), { asrDownloadText, asrImportTitle } = require("./asr-text");
+  const AsrModels = require("../server/asr-models"), AsrDownload = require("../asr-download"), { asrDownloadText, asrImportTitle } = require("./asr-text");
   // the only sites a model is downloaded from (Deja, 2026-11-03), hf-mirror.com first, github.com second, and the hosts
   // GitHub's release downloads redirect to; written here, not read from a file
   const ASR_HOSTS = Object.freeze(["hf-mirror.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]);
@@ -339,7 +339,7 @@ async function start() {
   // Desktop FLV import: the page hands over the file the user picked; the path is read by the preload and never
   // returned to the page. Fixed operations, same sender / frame / origin guard as the settings.
   const FLV_CODES = new Set(["FLV_NOT_FOUND", "FLV_NOT_FLV", "FLV_IMPORT_EXPIRED", "FLV_IMPORT_BUSY", "FLV_IMPORT_CANCELED", "FLV_SOURCE_CHANGED", "FLV_COPY_MISMATCH", "FLV_CLEANUP_FAILED"]);
-  const { publicPreparationError } = require("../prepare-media");
+  const { publicPreparationError } = require("../server/prepare-media");
   for (const op of ["inspect", "prepare", "status", "cancel", "finish"]) ipcMain.handle("montclip:flv:" + op, async (event, value) => {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "FLV_FORBIDDEN" };
     try {
