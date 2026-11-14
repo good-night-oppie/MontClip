@@ -175,6 +175,7 @@
   }
 
   const span_ = (r) => (r && typeof r === "object" && num(r.start) != null && num(r.end) != null && r.start >= 0 && r.end > r.start ? r : null);
+  const same_ = (a, b) => Math.abs(a - b) <= 1e-6;
   const count_ = (v) => (num(v) != null && v >= 0 ? Math.round(v) : null);
   /**
    * What prepare says will be sent, checked field by field (QQ #326 item 1): the checked range, the picture's range
@@ -185,14 +186,17 @@
     const range = span_(prep && prep.range), ws = prep && prep.willSend;
     if (!range || !ws || typeof ws !== "object") return null;
     const video = span_(ws.video), text = ws.text && typeof ws.text === "object" ? ws.text : null;
-    if (!video || video.start > range.start + 1e-6 || video.end < range.end - 1e-6 || !text) return null;
+    if (!video || !text) return null;
     const chars = count_(text.subtitleChars), cuts = count_(text.cutPoints);
     if (chars == null || cuts == null || typeof text.truncated !== "boolean") return null;
     let lead = null;
     if (prep.lead != null) {
       lead = span_(prep.lead);
-      if (!lead || Math.abs(lead.end - range.start) > 1e-6 || lead.start < video.start - 1e-6) return null;
+      if (!lead || !same_(lead.end, range.start)) return null;
     }
+    // QQ #326 (5900512724 item 1): one shape only — the picture ends where the range ends and starts where the lead
+    // starts, or where the range starts when there is no lead. Anything else would send seconds the box doesn't name.
+    if (!same_(video.end, range.end) || !same_(video.start, lead ? lead.start : range.start)) return null;
     return { range, video, chars, cuts, truncated: text.truncated, lead };
   }
 
@@ -261,9 +265,10 @@
     if (status === "issues" && !r.findings.length) status = "no_result";   // 「有问题」 with nothing to show is no answer
     const notes = opts.fellBack ? [t(lang, "rangeTooLong", { n: span })] : [];
     let headline;
-    if (status === "no_result") headline = r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
-      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span })
-      : raw && raw.sendError === true ? t(lang, "sendFailed") : t(lang, "noResult");
+    // a send that was called and failed may have reached the receiver: that comes first, whatever its code says (QQ #326 5900512724 item 2)
+    if (status === "no_result") headline = raw && raw.sendError === true ? t(lang, "sendFailed")
+      : r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
+      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span }) : t(lang, "noResult");
     else if (status === "passed") headline = t(lang, "passed", { n: span });
     else headline = t(lang, "issues", { count: main.length || r.findings.length });
     if (status !== "no_result" && r.scope === "window") notes.push(t(lang, "windowOnly", { n: span }));
