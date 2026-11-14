@@ -28,7 +28,7 @@
   // is checked as it is. Lines marked 「draft (#328)」 are new or changed for Cindy's step-1 interface (#328) and wait for JJ:
   // what is sent is now this stretch's subtitles (not the whole video's), there are no counts, taste notes go with both
   // buttons, an unconfirmed domain says 「未验证」, and the result has four dimensions. JJ's first pass on these
-  // (6871754149 on 1678c837) is applied; intro and whatFull wait on what #328 sends besides this stretch's text.
+  // (6871754149) and second pass (6871859408: subtitles overlapping this stretch, whatTwice) are applied.
   // en: Rea's review on #326 (6869597666, 6869664676); for the #328 lines, Rea's provisional pass (6871768896) on 1678c837,
   // with whatTaste, unverifiedBlock, dimState_* and the two new finding types following JJ's later Chinese (6871754149).
   const text = {
@@ -39,13 +39,13 @@
       title: "检查这 {n} 秒",                                      // JJ #326: kept
       preparing: "正在这台电脑上准备这 {n} 秒，还没有发出去。",     // JJ #326: kept
       cancelPrep: "取消",                                           // JJ #326: the button while preparing
-      // v3.1 §3 with one change (draft #328): the engine sends this stretch's subtitles and cut points, not the whole video's
-      intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有这一段里的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",
-      whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段里的字幕文字、剪辑时间点。",   // JJ #326 6871754149 passed: no counts from the engine
+      // v3.1 §3 with one change (JJ #326 6871859408): the engine sends the subtitles overlapping this stretch, not the whole video's
+      intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",   // JJ #326 6871859408
+      whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段有重叠的字幕文字、剪辑时间点。",   // JJ #326 6871859408: a subtitle across the edge goes whole
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
       whatWindow: "点「只发这 {n} 秒」只发出去：{from}–{to} 的画面和声音（{sec} 秒），不发字幕文字和剪辑时间点。",   // JJ #326 6871754149
       whatTaste: "两个按钮都会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // JJ #326 6871754149: willSend.tasteNotes
-      whatTwice: "同一段会分 {k} 次发出去。",                              // JJ #326 6871754149 passed: willSend.requests > 1
+      whatTwice: "会分 {k} 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。",   // JJ #326 6871859408: willSend.requests > 1 (#328: 1 or 2; two_pass looks blind first)
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
       to: "发给：{service}（{host}）",                             // Deja 6867787475; JJ #326: kept
       toUnverified: "发给：{service}（{host}，未验证）",            // Deja (#328): an unconfirmed domain is never shown as confirmed
@@ -105,12 +105,12 @@
       title: "Check these {n} seconds",
       preparing: "Getting these {n} seconds ready on this computer. Nothing has been sent.",
       cancelPrep: "Cancel",
-      intro: "Only features you open yourself connect to the internet. You'll see what will be sent first. When you click “Send for a check”, the picture and sound of these {n} seconds, along with the subtitle text and cut points in this section, will be sent to AI for a check and may be used for training.",
-      whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text and cut points in this section.",
+      intro: "Only features you open yourself connect to the internet. You'll see what will be sent first. When you click “Send for a check”, the picture and sound of these {n} seconds, along with the subtitle text overlapping this section and the cut points, will be sent to AI for a check and may be used for training.",
+      whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text overlapping this section, plus the cut points.",
       whatFullLead: "With either button, the picture and sound include an extra {leadSec} s before the checked section ({from} to {lead}), to give the AI context about what was being said.",
       whatWindow: "Clicking “Send only these {n} s” will send only picture and sound from {from} to {to} ({sec} s). It will not send subtitle text or cut points.",
       whatTaste: "Either button also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
-      whatTwice: "The same section will be sent {k} times.",
+      whatTwice: "This will be sent {k} times: the first time with only the picture and sound, and the later times also with the other content described above.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
       to: "Send to: {service} ({host})",
       toUnverified: "Send to: {service} ({host}, not verified)",
