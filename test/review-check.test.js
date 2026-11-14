@@ -54,6 +54,16 @@ test('which seconds: 10 s around the playhead, inside the timeline; a marked IN�
   w.timers[0]();
   a.equal(w.button.disabled, true);
   a.equal(w.button.title, '这一段不到 1 秒，没法检查', 'JJ #326 recheck: the greyed-out button says why');
+  const w0 = mountWith(R.stubApi(), { duration: () => 0 });
+  w0.timers[0]();
+  a.equal(w0.button.disabled, true, 'nothing loaded: off');
+  a.equal(w0.button.title, '', 'JJ #326 (833f73e4): nothing loaded never says 「不到 1 秒」');
+  const wn = mountWith(R.stubApi(), { duration: () => undefined });
+  wn.timers[0]();
+  a.equal(wn.button.title, '', 'no length known: no 「不到 1 秒」 either');
+  const ws = mountWith(R.stubApi(), { duration: () => 0.8 });
+  ws.timers[0]();
+  a.equal(ws.button.title, '这一段不到 1 秒，没法检查', 'a loaded timeline under 1 s does say it');
   a.deepEqual(R.pickRange({ time: 42, duration: 200, inPoint: 20, outPoint: 21 }), { start: 20, end: 21 });
 });
 
