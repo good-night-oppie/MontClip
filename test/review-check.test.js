@@ -325,6 +325,10 @@ test('in the page: 「不发了」 sends nothing; no bridge says so; untrusted t
   const api = R.stubApi(), w = mountWith(api);
   await tick(); w.button.click(); await tick(); await tick();
   w.byReview('cancel')[0].click(); await tick();
+  const slow = R.stubApi(); let release; slow.prepare = (b) => new Promise((r) => { release = () => r(R.stubApi().prepare(b)); });
+  const wp = mountWith(slow); await tick(); wp.button.click(); await tick(); await tick();
+  a.equal(wp.byReview('cancel')[0].textContent, '取消', 'JJ #326: while preparing the button is 取消, not 不发了');
+  release();
   a.deepEqual(api.calls.map((c) => c[0]), ['status', 'status', 'prepare', 'cancel']);
   a.ok(w.overlay.classList.contains('hidden'));
 
