@@ -43,7 +43,7 @@
       intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",   // JJ #326 6871859408
       whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段有重叠的字幕文字、剪辑时间点。",   // JJ #326 6871859408: a subtitle across the edge goes whole
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
-      whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不发字幕文字和剪辑时间点。",   // JJ #326: no 只 — whatTaste says the examples
+      whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒）。不会另外附带字幕文字、剪辑时间点和好坏例子；画面里本来就有的字幕，还是会跟着画面一起发出去。",   // JJ #326 6872083423 / 6872139855 (PG v4.1 6871970875)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
       tasteMemory: "好坏例子的文字只在本次运行保留，重启后需重新填写。",   // draft (PG #321 6871936322 三: the words are kept in memory only); JJ to finalize
@@ -60,19 +60,22 @@
       sendFull: "发送检查",                                         // v3 §5
       sendWindow: "只发这 {n} 秒",                                  // v3 §5
       cancel: "不发了",                                             // v3 §5
-      why_PROJECT_EDITED: "准备好以后工程又改过，和要发的内容对不上了。请重新检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
-      why_PROJECT_CHANGED: "现在打开的是别的工程。请回到这个工程再检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
-      why_SEND_LIMIT: "这个工程能发出去的视频已经到上限了，这次不能再发。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
-      why_NOT_LOCAL: "这个检查只能在这台电脑上用。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
-      why_LEDGER_UNREADABLE: "检查记录读不出来，所以这次先不检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
-      why_LEDGER_UNWRITABLE: "检查记录写不进去，所以这次先不检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
-      why_STORE_FAILED: "检查的结果没能保存下来。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
-      why_DESTINATION_CHANGED: "要发去的地址变了。请重新检查。",   // draft (#328 codes, Deja 6871907804): JJ to finalize
+      why_PROJECT_EDITED: "准备好以后项目又改过，和要发的内容对不上了。请重新检查。",   // JJ #326 6872083423 / 6872139855
+      why_PROJECT_CHANGED: "现在打开的是别的项目。请回到这个项目再检查。",   // JJ #326 6872083423 / 6872139855
+      why_SEND_LIMIT: "这个项目能发出去的视频已经到上限了，这次不能再发。",   // JJ #326 6872083423 / 6872139855
+      why_NOT_LOCAL: "这个检查只能在运行 MontClip 的这台电脑上用。",   // JJ #326 6872083423 / 6872139855
+      why_LEDGER_UNREADABLE: "检查记录读不出来，所以这次先不检查。如果一直这样，请反馈给我们。",   // JJ #326 6872083423 / 6872139855
+      why_LEDGER_UNWRITABLE: "检查记录写不进去，所以这次先不检查。如果一直这样，请反馈给我们。",   // JJ #326 6872083423 / 6872139855
+      why_STORE_FAILED: "检查的结果没能保存下来，之后可能找不回这次的结果。",   // JJ #326 6872083423 / 6872139855 (#328: after the clip may have gone out)
+      why_DESTINATION_CHANGED: "要发去的地址变了。请重新检查。",   // JJ #326 6872083423 / 6872139855
       previewText: "点「发送检查」会发出去的文字：",                // draft (PG 6871888446 (2): show the real text): willSend.projectText
       previewNotes: "点「发送检查」会发出去的好坏例子：",            // draft: willSend.notes
-      previewNoText: "这次没有要发的文字。",                         // draft
+      previewNoText: "这一段没有字幕文字要发。",                     // JJ #326 6872083423 / 6872139855: 「发送检查」 with no subtitle touching the stretch
+      previewNoTextWindow: "这次不另外发字幕文字。",                 // JJ #326 6872083423 / 6872139855: 「只发这 N 秒」
       noteGood: "认可",                                             // draft: a note the streamer approved
-      noteGoodOn: "认可（{label}）",                                 // draft: … for one of the four (PG 6871936322: aspect fact/subtitle/pacing/packaging)
+      noteGoodOn: "认可（{label}）",                                 // JJ #326 6872083423 / 6872139855: {label} is a short name below
+      noteBadOn: "不认可（{label}）",                               // JJ #326 6872083423 / 6872139855
+      noteDim_fact: "人和事", noteDim_subtitle: "字幕", noteDim_pacing: "节奏", noteDim_packaging: "包装",   // JJ #326 6872083423 / 6872139855
       noteBad: "不认可",                                            // draft
       noteSep: "：",
       previewNote: "这就是要发出去的画面和声音。",                   // JJ #326: kept (preview and send use one reviewId — interface v0)
@@ -125,7 +128,7 @@
       intro: "Only features you open yourself connect to the internet. You'll see what will be sent first. When you click “Send for a check”, the picture and sound of these {n} seconds, along with the subtitle text overlapping this section and the cut points, will be sent to AI for a check and may be used for training.",
       whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text overlapping this section, plus the cut points.",
       whatFullLead: "With either button, the picture and sound include an extra {leadSec} s before the checked section ({from} to {lead}), to give the AI context about what was being said.",
-      whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). It will not send subtitle text or cut points.",
+      whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). It doesn't also send subtitle text, cut points or the saved examples; subtitles that are already in the picture still go out with it.",
       whatEdge: "Subtitles that overlap this part of the picture are sent whole, so they may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
       tasteMemory: "The words of these examples are kept only while the app is running; after a restart they need to be written again.",
@@ -145,16 +148,19 @@
       why_PROJECT_EDITED: "The project was edited after this was prepared, so it no longer matches what would be sent. Please check again.",
       why_PROJECT_CHANGED: "Another project is open now. Go back to this project and check again.",
       why_SEND_LIMIT: "This project has reached its limit for video sent out, so nothing more can be sent.",
-      why_NOT_LOCAL: "This check only works on this computer.",
-      why_LEDGER_UNREADABLE: "The check records couldn't be read, so this check won't run for now.",
-      why_LEDGER_UNWRITABLE: "The check records couldn't be written, so this check won't run for now.",
-      why_STORE_FAILED: "The result of the check couldn't be saved.",
+      why_NOT_LOCAL: "This check only works on the computer running MontClip.",
+      why_LEDGER_UNREADABLE: "The check records couldn't be read, so this check won't run for now. If this keeps happening, please let us know.",
+      why_LEDGER_UNWRITABLE: "The check records couldn't be written, so this check won't run for now. If this keeps happening, please let us know.",
+      why_STORE_FAILED: "The result of the check couldn't be saved, so it may not be possible to find it again later.",
       why_DESTINATION_CHANGED: "The address it would be sent to has changed. Please check again.",
       previewText: "Text that “Send for a check” would send:",
       previewNotes: "Examples that “Send for a check” would send:",
-      previewNoText: "No text would be sent this time.",
+      previewNoText: "There is no subtitle text in this part to send.",
+      previewNoTextWindow: "No subtitle text is sent separately this time.",
       noteGood: "approved",
       noteGoodOn: "approved ({label})",
+      noteBadOn: "rejected ({label})",
+      noteDim_fact: "people and events", noteDim_subtitle: "subtitles", noteDim_pacing: "pacing", noteDim_packaging: "on-screen graphics",
       noteBad: "rejected",
       noteSep: ": ",
       previewNote: "This is the picture and sound that would be sent.",
@@ -656,13 +662,13 @@
               box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNotes")));
               const ul = el(doc, "ul", "review-notes");
               for (const x of pay.notes) {
-                const tag = x.kind === "negative" ? t(lang, "noteBad") : x.aspect ? t(lang, "noteGoodOn", { label: t(lang, "dim_" + x.aspect) }) : t(lang, "noteGood");
+                const tag = x.aspect ? t(lang, x.kind === "negative" ? "noteBadOn" : "noteGoodOn", { label: t(lang, "noteDim_" + x.aspect) }) : t(lang, x.kind === "negative" ? "noteBad" : "noteGood");
                 const li = el(doc, "li", null, tag + t(lang, "noteSep") + x.text); li.dataset.review = "note"; ul.appendChild(li);
               }
               box.appendChild(ul);
             }
-            if (!pay.text && !pay.notes.length) box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoText")));
-          }
+            if (!pay.text) box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoText")));
+          } else if (pay && pay.scope === "window") box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoTextWindow")));
         }
         for (const b of m.buttons) {
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
