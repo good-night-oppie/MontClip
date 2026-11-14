@@ -162,6 +162,45 @@ test('QQ #326 item 1: no full description of what is sent → both send buttons 
   a.equal(ok.canSend, true, 'the full description still sends');
 });
 
+test('QQ #326 item 2: an old preview answer never lands in a box opened after it', async () => {
+  const api = R.stubApi(), d = deferred(); let first = true;
+  const real = api.preview; api.preview = (id) => { if (first) { first = false; return d.p; } return real(id); };
+  const s = R.createSession(api);
+  await s.check({ start: 20, end: 30 });
+  const pending = s.preview();
+  await s.cancel();
+  await s.check({ start: 40, end: 50 });
+  a.equal(s.state.prep.reviewId, 'r_2');
+  d.resolve({ src: '/previews/old.mp4' });
+  a.equal(await pending, null);
+  a.equal(s.state.previewSrc, null, 'B shows nothing of A');
+  a.equal(await s.preview(), '/previews/preview_r_2.mp4', 'B asks for its own');
+});
+
+test('QQ #326 item 3: 关闭 while the receiver is read keeps the box closed; a double press prepares once; a late answer never wins', async () => {
+  // recheck → status pending → 关闭 → status answers: nothing reopens, nothing is prepared
+  const api = R.stubApi(), w = mountWith(api);
+  await tick(); w.button.click(); await tick(); await tick();
+  w.byReview('full')[0].click(); await tick(); await tick();
+  const d = deferred(); api.status = () => d.p;
+  w.byReview('recheck')[0].click(); await tick();
+  w.byReview('close')[0].click(); await tick();
+  d.resolve({ available: true, destination: { service: 'Gemini', host: 'generativelanguage.googleapis.com' } }); await tick(); await tick();
+  a.ok(w.overlay.classList.contains('hidden'), 'stays closed');
+  a.equal(api.calls.filter((c) => c[0] === 'prepare').length, 1, 'nothing prepared after 关闭');
+
+  // two presses, the first status answering last: one prepare, for the second press
+  const api2 = R.stubApi(), w2 = mountWith(api2); await tick();
+  const d1 = deferred(), d2 = deferred(); const q = [d1, d2]; api2.status = () => q.shift().p;
+  w2.button.click(); await tick(); w2.button.click(); await tick();
+  const st = { available: true, destination: { service: 'Gemini', host: 'generativelanguage.googleapis.com' } };
+  d2.resolve(st); await tick(); await tick(); await tick();
+  d1.resolve(st); await tick(); await tick(); await tick();
+  a.equal(api2.calls.filter((c) => c[0] === 'prepare').length, 1, 'one prepare for a double press');
+  a.equal(w2.ui.session.state.phase, 'confirm');
+  a.equal(w2.ui.session.state.prep.reviewId, 'r_1');
+});
+
 test('「先看要发的内容」 plays only a same-origin preview', async () => {
   a.equal(R.safePreviewSrc({ src: '/previews/preview_r_1.mp4' }), '/previews/preview_r_1.mp4');
   for (const src of ['https://x.example/a.mp4', '//x.example/a.mp4', '/media/a.mp4', '/previews/../project.json', 'C:\\a.mp4', 'javascript:alert(1)'])
