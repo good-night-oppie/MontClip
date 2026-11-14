@@ -46,6 +46,7 @@
       whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。",   // JJ #326 (PG v4.1 6871970875 with 字幕文字)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
+      noPage: "只能在 MontClip 桌面版的窗口里发送检查，这里只能看会发什么。",   // draft (#328 85d9e8d1: no send token outside the desktop window); JJ to finalize
       tasteLost: "有 {k} 条好坏例子的文字在重启后没了，这次不会发出去。",   // draft (#328 eb3203ab willSend.tasteLost); JJ to finalize
       fixedTitle: "每次都会发给模型的固定问题",                       // draft (Deja #326): folded in 「先看要发的内容」; JJ to finalize
       fixedStandards: "审片标准：",                                  // draft
@@ -70,7 +71,8 @@
       why_NOT_LOCAL: "这个检查只能在运行 MontClip 的这台电脑上用。",   // JJ #326 6872083423 / 6872139855
       why_LEDGER_UNREADABLE: "检查记录读不出来，所以这次先不检查。如果一直这样，请反馈给我们。",   // JJ #326 6872083423 / 6872139855
       why_LEDGER_UNWRITABLE: "检查记录写不进去，所以这次先不检查。如果一直这样，请反馈给我们。",   // JJ #326 6872083423 / 6872139855
-      why_STORE_FAILED: "检查的结果没能保存下来，之后可能找不回这次的结果。",   // JJ #326 6872083423 / 6872139855 (#328: after the clip may have gone out)
+      why_STORE_FAILED: "再检查一次，内容会再发出去一次。",   // JJ #326 (STORE_FAILED final)
+      storeFailed: "内容可能已经发到对方那边了，但检查的结果没能保存下来，这次没有结果可看。这不代表没问题。",   // JJ #326: the headline when #328 says STORE_FAILED (after the clip may have gone out)
       why_DESTINATION_CHANGED: "要发去的地址变了。请重新检查。",   // JJ #326 6872083423 / 6872139855
       previewText: "点「发送检查」会发出去的文字：",                // draft (PG 6871888446 (2): show the real text): willSend.projectText
       previewNotes: "点「发送检查」会发出去的好坏例子：",            // draft: willSend.notes
@@ -135,6 +137,7 @@
       whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). It doesn't also send subtitle text, cut points or the saved examples; subtitles that are already in the picture still go out with it.",
       whatEdge: "Subtitles that overlap this part of the picture are sent whole, so they may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
+      noPage: "A check can only be sent from the MontClip desktop window; here you can only see what would be sent.",
       tasteLost: "The words of {k} saved examples were lost in a restart, so they won't be sent this time.",
       fixedTitle: "Fixed questions sent to the model every time",
       fixedStandards: "Review standards:",
@@ -159,7 +162,8 @@
       why_NOT_LOCAL: "This check only works on the computer running MontClip.",
       why_LEDGER_UNREADABLE: "The check records couldn't be read, so this check won't run for now. If this keeps happening, please let us know.",
       why_LEDGER_UNWRITABLE: "The check records couldn't be written, so this check won't run for now. If this keeps happening, please let us know.",
-      why_STORE_FAILED: "The result of the check couldn't be saved, so it may not be possible to find it again later.",
+      why_STORE_FAILED: "Checking again will send the content again.",
+      storeFailed: "The content may already have reached them, but the result of the check couldn't be saved, so there is no result to show. That doesn't mean there's no problem.",
       why_DESTINATION_CHANGED: "The address it would be sent to has changed. Please check again.",
       previewText: "Text that “Send for a check” would send:",
       previewNotes: "Examples that “Send for a check” would send:",
@@ -335,6 +339,8 @@
     const token = view && typeof view.sendToken === "string" && view.sendToken ? view.sendToken : null;
     const id = view && typeof view.reviewId === "string" && view.reviewId ? view.reviewId : null;
     const canSend = !!(pay && dest && dest.verified && id && token && view.state === "ready");
+    // #328 85d9e8d1: only the desktop window's own requests are the page; anywhere else (a browser tab, a server started another way) no token is shown
+    if (pay && dest && dest.verified && id && !token && view.state === "ready") lines.push(t(lang, "noPage"));
     return {
       title: t(lang, "title", { n }), n, lines, payload: pay,
       blocked: !pay ? "noPayload" : !dest ? "noDestination" : !dest.verified ? "unverified" : null,
@@ -401,7 +407,7 @@
     const notes = opts.fellBack ? [t(lang, "rangeTooLong", { n: span })] : [];
     let headline;
     // a send that was called and failed may have reached the receiver: that comes first, whatever its code says (QQ #326 5900512724 item 2)
-    if (status === "no_result") headline = raw && raw.sendError === true ? t(lang, "sendFailed")
+    if (status === "no_result") headline = raw && raw.sendError === true ? t(lang, whyOf(raw.why) === "STORE_FAILED" ? "storeFailed" : "sendFailed")
       : r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
       : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span })
       : r.reason === "INSUFFICIENT_EVIDENCE" ? t(lang, "insufficient") : t(lang, "noResult");
@@ -582,7 +588,7 @@
         projectText: r.scope === "full" ? (opts.projectText != null ? opts.projectText : "18.00-21.50s text: 前面那句\n22.00-26.00s text: 这一句") : "", notes: r.notes,
         seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
       previewSrc: r.state === "ready" ? "/previews/preview_" + r.id + ".mp4" : undefined,
-      sendToken: r.state === "ready" ? r.token : undefined });
+      sendToken: r.state === "ready" && !opts.noPage ? r.token : undefined });
     return {
       calls, live,
       async available() { calls.push(["available"]); return opts.available !== false; },
