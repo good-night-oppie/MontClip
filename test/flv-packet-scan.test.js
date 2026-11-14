@@ -201,7 +201,7 @@ test("⑥ damaged bytes behind normal timestamps: an import of small drops is no
 });
 
 test("⑥ export: a decoder error on damaged bytes stops the export with a plain sentence, never falls back to the element", () => {
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const at = app.indexOf("async function exportDecodeFrame("), body = app.slice(at, app.indexOf("\nasync function seekVideosTo(", at));
   assert.match(body, /e\.name === "EncodingError"[\s\S]*?throw Object\.assign\(new Error\(MontClipView\.t\(mcView\.get\(\)\.language, "exportSourceDamaged"/);
   assert.ok(body.indexOf('"EncodingError"') < body.indexOf("falls back to its element"), "checked before the fallback");

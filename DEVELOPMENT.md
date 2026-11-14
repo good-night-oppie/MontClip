@@ -133,8 +133,10 @@ dropping it silently.
 ```
 server/server.js  zero-dependency HTTP server: static hosting, REST API, SSE,
                  ffmpeg export pipeline
-app.js           the editor: timeline UI, compositor, keyframes, text engine,
+app/app.js       the editor: timeline UI, compositor, keyframes, text engine,
                  SVG rasterizer, chroma key, exporters
+app/             the rest of the page's own scripts (agent pane, workers,
+                 mp4 demuxer ...); files the server also loads stay at the root
 index.html       single-page UI
 style.css        dark editor theme
 server/mcp-server.js

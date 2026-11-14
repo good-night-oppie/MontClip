@@ -3,7 +3,7 @@
 // 「剪到 1 分钟以内，再改竖屏」 — the cut first, with JJ's sentence before it (the assistant's own words, so it may say 我).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const View=require('../ui-preferences'),V=require('../agent-conversation'),S=require('../desktop/agent-service'),F=require('../agent-format'),L=require('../agent-limits');
+const View=require('../ui-preferences'),V=require('../app/agent-conversation'),S=require('../desktop/agent-service'),F=require('../agent-format'),L=require('../app/agent-limits');
 const zh=(k,v)=>View.t('zh-CN','own.'+k,v),en=(k,v)=>View.t('en','own.'+k,v);
 
 test('JJ定稿, word for word: progress, 〔取消〕, changed, busy, failed, undo failed; the rest as drafted',()=>{
@@ -35,7 +35,7 @@ test('a file that couldn\'t be opened is named after rf-failed (the name the bin
  a.equal(zh('rf-failed-name',{name:'第一场.mp4'}),'打不开的素材是「第一场.mp4」。');
  a.equal(en('rf-failed-name',{name:'live.mp4'}),"The clip that couldn't be opened is “live.mp4”.");
  a.match(read('ui-preferences.js'),/no path\. 待 JJ 定稿\n\s*"rf-failed-name"/);
- const app=read('app.js'),run=app.slice(app.indexOf('async function runAgentReframe('),app.indexOf('function agentReframeBackOf('));
+ const app=read('app/app.js'),run=app.slice(app.indexOf('async function runAgentReframe('),app.indexOf('function agentReframeBackOf('));
  a.match(run,/const c=take\[i\];reading=c;say\(i,0\);/,'the clip being read is known');
  a.match(run,/m\.name\.split\(\/\[\\\\\/\]\/\)\.pop\(\)\.trim\(\)/,'only the last part of the name: never a path');
  a.match(run,/return \{ok:false,code:'FAILED',\.\.\.\(failed&&failedName\(\)\?\{name:failedName\(\)\}:\{\}\)\};/);
@@ -73,7 +73,7 @@ test('剪到 1 分钟以内，再改竖屏: the format note sent (substitute tra
  a.deepEqual(V.parseProposal(reply),edit);a.equal(V.proposalLead(reply),SENT_ZH);
  a.deepEqual(V.proposalSummary(reply,[]),{count:1,duration:55,mode:'one_file'});
  a.match(read('agent-ui/pane.tsx'),/lead=p\?MontClipConversation\.proposalLead\(text\):'';return p\?\(lead\?lead\+'\\n\\n':''\)\+\(p\.mode==='reframe'/);
- a.match(read('cindy-official.js'),/proposalLead/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/proposalLead/,'the bundle was rebuilt');
 });
 
 test('the sentence before a proposal is only a short paragraph: anything else is not a proposal',()=>{
@@ -85,7 +85,7 @@ test('the sentence before a proposal is only a short paragraph: anything else is
 });
 
 test('JJ final sequence-limit wording renders the same limit as the guard',()=>{
- const vm=require('node:vm'),Seq=require('../sequences'),app=read('app.js');
+ const vm=require('node:vm'),Seq=require('../sequences'),app=read('app/app.js');
  const start=app.indexOf("  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'");
  const branch=app.slice(start,app.indexOf('\n  const c=agentProjectContext();',start));
  for(const [lang,expected] of [

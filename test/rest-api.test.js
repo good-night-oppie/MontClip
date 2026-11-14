@@ -352,7 +352,7 @@ test("the app shell and its assets are served", async (t) => {
   assert.match(index.headers.get("content-type"), /text\/html/);
   assert.match(await index.text(), /<canvas|<body/i);
 
-  const js = await fetch(base + "/app.js");
+  const js = await fetch(base + "/app/app.js");
   assert.equal(js.status, 200);
   assert.match(js.headers.get("content-type"), /javascript/);
   await js.text();

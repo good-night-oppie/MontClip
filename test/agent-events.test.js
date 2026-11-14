@@ -3,7 +3,7 @@
 // project (summaries only). The host sets the risk from the capability table; whatever the event claims is ignored.
 // Undo goes by event; a whole run can be undone at once when nothing else came after it.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const E=require('../agent-events'),P=require('../chat-proposal');
+const E=require('../app/agent-events'),P=require('../app/chat-proposal');
 const KEYS=['actor','args','at','capability','id','revisionAfter','revisionBefore','risk','runId','state','step'];
 const ev=(o={})=>({id:'e1',runId:'r1',step:1,capability:'keep_ranges',args:{output_mode:'one_file',ranges:[{clipId:'v',from:1,to:3}]},actor:'ai',risk:'read',state:'has_result',revisionBefore:3,revisionAfter:null,at:'t1',...o});
 
@@ -42,7 +42,7 @@ test('stored in the project as summaries: bounded count, bounded args, no media'
  a.equal(E.createLog({version:1,events:[{bad:1}]}).list().length,0,'a damaged log is dropped, not trusted');
 });
 test('the page: every undo step carries its event id, saves carry the log, undo by event and by run',()=>{
- const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');
+ const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../app/app.js'),'utf8');
  a.match(app,/function pushUndo\(snap = undoSnapshot\(\), \{ eventId = null, capability = "manual_edit", args = \{\}, noEvent = false \} = \{\}\)/);
  a.ok(!/runtime\.undo\.push\(snapshot\);/.test(app),'gesture undo steps go through pushUndo');
  a.match(app,/agentLog: eventLog\(\)\.toJSON\(\)/);a.match(app,/eventLog\(\)\.settle\(project\.revision\)/);
@@ -54,7 +54,7 @@ test('the version store keeps an agent version before an AI run',()=>{
  a.match(h,/case "before_agent": return \{ version: beforeAgent\(/);
 });
 test('undo steps carry their event id: object steps at the start, a gesture\'s clips-only step wrapped (and restored as clips)',()=>{
- const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');
+ const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../app/app.js'),'utf8');
  const fn=n=>{const i=app.indexOf('function '+n+'(');return app.slice(i,app.indexOf('\n}',i)+2);};
  const {eventIdOf,withEventId}=new Function(fn('eventIdOf')+fn('withEventId')+'return {eventIdOf,withEventId};')();
  const o=withEventId('{"clips":[],"markers":[]}','e1');a.equal(eventIdOf(o),'e1');a.deepEqual(JSON.parse(o),{eventId:'e1',clips:[],markers:[]});

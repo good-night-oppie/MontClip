@@ -6930,7 +6930,7 @@ function ensureRulerWorker() {
   try {
     if (window.Worker && els.ruler.transferControlToOffscreen) {
       const offscreen = els.ruler.transferControlToOffscreen();
-      const w = new Worker("ruler-worker.js");
+      const w = new Worker("app/ruler-worker.js");
       w.postMessage({ type: "init", canvas: offscreen }, [offscreen]);
       rulerWorker = w;
     }
@@ -9932,7 +9932,7 @@ function loadFxWorklet(ctx) {
   if (!ctx.audioWorklet) return Promise.resolve(false);
   let p = fxWorklets.get(ctx);
   if (!p) {
-    p = ctx.audioWorklet.addModule("fx-worklet.js?v=2")
+    p = ctx.audioWorklet.addModule("app/fx-worklet.js?v=2")
       .then(() => { fxWorkletReady.add(ctx); return true; })
       .catch((err) => { console.warn("[MontClip] fx worklet unavailable:", err); return false; });
     fxWorklets.set(ctx, p);
@@ -13491,7 +13491,7 @@ async function installMeterWorklet(audio) {
   const nInputs = Math.max(1, nAudio + 1); // +1 = the finished program
   let meter = null;
   try {
-    await audio.ctx.audioWorklet.addModule("meter-worklet.js?v=9");
+    await audio.ctx.audioWorklet.addModule("app/meter-worklet.js?v=9");
     // Aborted by syncAudioGraphTracks while we were loading — retry fresh.
     if (meterState._reloadMeter) return;
     meter = new AudioWorkletNode(audio.ctx, "fablecut-meter", {

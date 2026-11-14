@@ -136,7 +136,7 @@ test("the delivery template names files by the same rule (one rule, written once
 });
 
 test("every place that names an exported file uses it: export, captions, mapping, the page's downloads", () => {
-  const app = read("app.js"), server = read("server/server.js"), mcp = read("server/mcp-server.js");
+  const app = read("app/app.js"), server = read("server/server.js"), mcp = read("server/mcp-server.js");
   a.doesNotMatch(app, /replace\(\/\[\^\\w\\- \]\+\/g/, "app.js: no name reduced to [A-Za-z0-9_- ]");
   a.doesNotMatch(mcp, /replace\(\/\[\^\\w\\- \]\+\/g/, "mcp-server.js: captions and mapping keep Chinese");
   // the fallback for a name with nothing usable is 直播切片 {月-日} in Chinese (第四批, test/default-names.test.js)

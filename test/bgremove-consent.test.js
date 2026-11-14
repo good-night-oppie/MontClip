@@ -10,7 +10,7 @@
 // and run against a small fake page that records every request it would make.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const ROOT=path.join(__dirname,'..');
-const SRC=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+const SRC=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8');
 const slice=(from,to)=>{const i=SRC.indexOf(from),j=SRC.indexOf(to,i);a.ok(i>=0&&j>i,'markers: '+from);return SRC.slice(i,j);};
 const BG=slice('/* ═════════════ AI BACKGROUND REMOVAL','/* ═══════════ PIXEL PIPELINE');
 // the shared consent box (FONTS), when there is one
@@ -40,7 +40,7 @@ function page({desktop=false,clips=[],scriptFailures=0,sendFails=false,noResult=
  // what MediaPipe's script would do once loaded: fetch its wasm and model through locateFile
  class SelfieSegmentation{constructor({locateFile}){for(const f of MP_FILES)requests.push(locateFile(f));}setOptions(){}onResults(cb){this.cb=cb;}async send(){if(sendFails)throw Error('synthetic model failure');if(!noResult)this.cb({segmentationMask:{width:8,height:8}});}}
  const window=desktop?{montclipViewSettings:{}}:{};
- const assets=require('../bgremove-assets');
+ const assets=require('../app/bgremove-assets');
  // Asset byte verification is covered separately with real WebCrypto and synthetic fixtures.
  window.MontClipBgAssets={async load(consent){
   a.equal(consent,true);requests.push(assets.source('selfie_segmentation.js'));
@@ -203,12 +203,12 @@ test('call sites: the checkbox asks; nothing else builds the CDN address; the pa
  a.match(SRC,/k === "bgRemove"[\s\S]{0,200}requestBgRemove\(/,'the inspector checkbox asks');
  // every https:// address the editor page could reach: Google Fonts (#151) and MediaPipe, both behind a box.
  // transcribe.js runs the local server's Paraformer (#70): no Whisper, no CDN.
- const files=['app.js','transcribe.js','index.html','ui-preferences.js','ui-terms.js'];
+ const files=['app/app.js','transcribe.js','index.html','ui-preferences.js','ui-terms.js'];
  for(const f of files){
   const src=fs.readFileSync(path.join(ROOT,f),'utf8');
   const hosts=[...src.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map(m=>m[1].toLowerCase())
    .filter(h=>!['127.0.0.1','localhost','www.w3.org'].includes(h));
-  const allowed=f==='app.js'?['fonts.googleapis.com','cdn.jsdelivr.net']:[];
+  const allowed=f==='app/app.js'?['fonts.googleapis.com','cdn.jsdelivr.net']:[];
   for(const h of hosts)a.ok(allowed.includes(h),`${f}: ${h} is not a known, gated host`);
  }
  const tx=fs.readFileSync(path.join(ROOT,'transcribe.js'),'utf8');

@@ -4,7 +4,7 @@
 // (4) is #170; (5) the outgoing payload's fields are locked, and the review box's words name both.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const Facts=require('../agent-facts'),Cap=require('../capabilities'),V=require('../agent-conversation'),Format=require('../agent-format');
+const Facts=require('../app/agent-facts'),Cap=require('../capabilities'),V=require('../app/agent-conversation'),Format=require('../agent-format');
 const View=require('../ui-preferences'),Store=require('../desktop/view-settings');
 
 const doc=(secs,clips=1)=>({media:[{id:'m1',name:'我的直播.mp4',src:'/media/私密/我的直播.mp4',kind:'video',duration:secs*clips}],
@@ -74,7 +74,7 @@ test('(2) the review box lists the sound in plain numbers: singing parts, how lo
   a.ok(/唱歌|singing/.test(t.officialPane_factsCounts)&&/音量|loudness/.test(t.officialPane_factsCounts),l);
  }
  a.match(read('ui-preferences.js'),/QQ's five on #169 \(Deja, 2026-11-05\), JJ定稿 \(2026-11-05\)/);
- a.match(read('cindy-official.js'),/data-facts-counts/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-facts-counts/,'the bundle was rebuilt');
 });
 
 test('(3) 设置 › 「附上唱歌段和音量」: on by default, kept when off (browser and desktop), nothing read or sent when off',()=>{
@@ -91,7 +91,7 @@ test('(3) 设置 › 「附上唱歌段和音量」: on by default, kept when of
  a.equal(st.set({mode:'simple',language:'zh-CN',soundFacts:true}).ok,false,'true is not stored: absent is on');
  a.equal(st.set({mode:'simple',language:'zh-CN'}).ok,true);a.deepEqual(st.get().value,{mode:'simple',language:'zh-CN'});
  // the editor: the switch, and off means not read and not sent
- const html=read('index.html'),app=read('app.js');
+ const html=read('index.html'),app=read('app/app.js');
  a.match(html,/<input type="checkbox" id="setSoundFactsOn">\s*<span>\s*<span class="settings-label" data-i18n="own\.sf-label">/);
  a.match(app,/if \(sf\) sf\.checked = soundFactsOn\(\);/);
  a.match(app,/mcView\.set\(\{ soundFacts: !!e\.target\.checked \}\);/);
@@ -107,7 +107,7 @@ test('(3) 设置 › 「附上唱歌段和音量」: on by default, kept when of
 test('(3) off, a message about the quiet part gets the editor\'s note above the reply: it can\'t be done, and how to turn it on',()=>{
  for(const t of ['把她开口唱之前的安静部分剪掉','剪掉静音','cut the quiet part before she starts singing','remove the silence'])a.ok(Facts.asksAboutSound(t),t);
  for(const t of ['剪到 1 分钟以内','保留第二句','keep the first 30 seconds'])a.ok(!Facts.asksAboutSound(t),t);
- const app=read('app.js');
+ const app=read('app/app.js');
  a.match(app,/soundOffNote:\(text\)=>soundFactsOn\(\)\|\|!MontClipFacts\.asksAboutSound\(text\)\?'':uiText\('own\.sf-off-note',\{settings:uiText\('term\.settings'\),switch:uiText\('own\.sf-label'\)\}\),/);
  const note=(l)=>View.t(l,'own.sf-off-note',{settings:View.text[l]['term.settings'],switch:View.text[l]['own.sf-label']});
  a.equal(note('zh-CN'),'「附上唱歌段和音量」现在关着，助手判断不了哪里安静、从哪里开始唱。要用的话，到〔设置〕里打开「附上唱歌段和音量」，再发一次。');
@@ -116,7 +116,7 @@ test('(3) off, a message about the quiet part gets the editor\'s note above the 
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/const soundNote=m\.role==='assistant'\?options\.soundOffNote\?\.\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text\)\|\|'':'';/);
  a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}/);
- a.match(read('cindy-official.js'),/data-sound-off/);
+ a.match(read('app/cindy-official.js'),/data-sound-off/);
 });
 
 test('over 8 h: the review box says it, and the two are not in what is sent (JJ定稿, 2026-11-05)',()=>{
@@ -128,10 +128,10 @@ test('over 8 h: the review box says it, and the two are not in what is sent (JJ�
  a.equal(Facts.soundSummary(tail.facts),null,'so no counts line either');
  a.equal(View.text['zh-CN'].officialPane_factsLong,'片子超过 8 小时，这次没有附上唱歌段和音量。');
  a.equal(View.text.en.officialPane_factsLong,'The video is longer than 8 hours, so singing parts and loudness are not attached this time.');
- const pane=read('agent-ui/pane.tsx'),app=read('app.js');
+ const pane=read('agent-ui/pane.tsx'),app=read('app/app.js');
  a.match(pane,/\{review&&options\.soundTooLong\?\.\(\)&&<p data-facts-long>\{t\.factsLong\}<\/p>\}/);
  a.match(app,/soundTooLong:\(\)=>\{const doc=projectJSON\(\),s=runtime\.soundFacts;return soundFactsOn\(\)&&!!s&&s\.signature===JSON\.stringify\(MontClipFacts\.soundMedia\(doc\)\)&&MontClipFacts\.tooLong\(doc,s\.sound,undefined,selectedClips\(\)\.map\(c=>c\.id\)\);\},/);
- a.match(read('cindy-official.js'),/data-facts-long/);
+ a.match(read('app/cindy-official.js'),/data-facts-long/);
 });
 
 test('JJ定稿: nothing said to the streamer, the model or the docs says 「每秒的音量」 / "loudness for each second" any more',()=>{
@@ -139,7 +139,7 @@ test('JJ定稿: nothing said to the streamer, the model or the docs says 「每�
  for(const l of ['zh-CN','en'])for(const [k,v] of Object.entries(View.text[l]))if(typeof v==='string')said.push(k+': '+v);
  said.push('FORMAT_NOTE: '+Format.FORMAT_NOTE);
  for(const c of Cap.list())said.push(c.name+': '+c.summary['zh-CN']+' '+c.summary.en);
- for(const f of ['CLAUDE.md','index.html','capabilities.js','agent-facts.js','agent-format.js'])said.push(f+': '+read(f));
+ for(const f of ['CLAUDE.md','index.html','capabilities.js','app/agent-facts.js','agent-format.js'])said.push(f+': '+read(f));
  for(const s of said)a.ok(!/每秒的音量|loudness for each second/i.test(s),s.slice(0,120));
  a.equal(View.t('zh-CN','own.sf-hint'),'开着的时候，发给 AI 的内容里会附上哪几段可能在唱歌，以及音量大小（每秒或每隔几秒一个数）：只是数字，不是录音。关掉以后，助手判断不了哪里安静、从哪里开始唱。');
  a.equal(View.t('en','own.sf-hint'),"When on, what is sent to the AI includes which parts may be singing and the loudness (one number every second or every few seconds): numbers only, not the recording. When off, the assistant can't tell where it is quiet or where the singing starts.");

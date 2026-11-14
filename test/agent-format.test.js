@@ -4,7 +4,7 @@
 // button appears only for a usable proposal; errors are told apart; OpenRouter is a third
 // fixed service. Unit tests: no network, substitutes only.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const S=require('../desktop/agent-service'),F=require('../agent-format'),C=require('../agent-conversation');
+const S=require('../desktop/agent-service'),F=require('../agent-format'),C=require('../app/agent-conversation');
 const pane=fs.readFileSync(path.join(__dirname,'../agent-ui/pane.tsx'),'utf8'),view=require('../ui-preferences').text;
 const payload=(content='keep these')=>({version:1,requestId:'r1',projectId:'p',sequenceId:'s',revision:1,gen:0,messages:[{role:'user',content}]});
 const service=(request,extra={})=>{const s=S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:'nvidia/x-vl:free',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>'test-key',request,providers:S.ALL_PROVIDERS,...extra});return s;}; // OpenRouter: the test switch (agent-providers.test.js)

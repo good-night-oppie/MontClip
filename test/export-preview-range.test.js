@@ -252,3 +252,84 @@ test("fablecut_export takes start and end together, not with range, and says whe
   assert.match(t.inputSchema.properties.preview.description, /at most 30 s/, "the tool says how long a sample may be");
   assert.match(t.inputSchema.properties.end.description, /RANGE_PAST_END/);
 });
+
+/* #321: a sample with no encoding named gets a light one: H.264 (the "web" delivery preset at the picture's own size) where this computer
+   can encode H.264, else ProRes 422, which every build can. Anything the caller names is kept; a normal export is unchanged. */
+async function withTab(t, env) {
+  const dir = makeDataDir(t, seedProject({ revision: 2 }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: path.join(dir, "no-such-browser"), ...env });
+  const tab = fakeTab(t, base); await tab.connected();
+  return { base, dir };
+}
+const cancel = (base, id) => post(base, "/api/export/job/cancel?id=" + id, {});
+
+test("a sample with no encoding named: ProRes 422 where there is no H.264 encoder", { skip, timeout: 60_000 }, async (t) => {
+  const { base } = await withTab(t, { MONTCLIP_TEST_NO_H264: "1" });
+  const r = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.profile, "prores422"); assert.equal(r.body.preset, null);
+  await cancel(base, r.body.id);
+});
+
+test("a sample with no encoding named: light H.264 where there is an encoder; what the caller names is kept; a normal export is not touched", { skip, timeout: 60_000 }, async (t) => {
+  const { base } = await withTab(t, {});
+  const h264 = await fetch(base + "/api/export/h264").then((r) => r.json());
+  if (!h264.encoders || !h264.encoders.length) return t.skip("no H.264 encoder on this computer");
+  const light = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true });
+  assert.equal(light.status, 200, JSON.stringify(light.body));
+  assert.equal(light.body.preset, "web"); assert.equal(light.body.profile, null);
+  assert.match(light.body.delivery, /H\.?264|h264|AAC/i, light.body.delivery);
+  assert.ok(light.body.notes.some((n) => /sample/i.test(n)), "the reply says which encoding it chose and why");
+  await cancel(base, light.body.id);
+  const named = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true, profile: "prores422" });
+  assert.equal(named.body.profile, "prores422"); assert.equal(named.body.preset, null); await cancel(base, named.body.id);
+  const preset = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true, preset: "youtube" });
+  assert.equal(preset.body.preset, "youtube"); await cancel(base, preset.body.id);
+  const plain = await post(base, "/api/export/request", { where: "tab" });
+  assert.equal(plain.body.preview, false); assert.equal(plain.body.preset, null); assert.equal(plain.body.profile, null, "a normal export keeps the server's own default");
+  await cancel(base, plain.body.id);
+});
+
+/* ---- QQ's three follow-ups on #325 (review 5901047800, "after the merge") ---- */
+test("preview registry: every removal is logged with its name and the reason, and a name the registry never saw is never logged as removed", () => {
+  const dir = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "mc-prevlog-"));
+  try {
+    let clock = 1_000_000_000_000; const lines = [];
+    const store = createPreviewStore(dir, { keep: 1, maxAgeMs: 24 * 3600_000, workMs: 3600_000, clock: () => clock, log: (l) => lines.push(l) });
+    const mk = (n, ageMs) => { const f = path.join(dir, n); fs.writeFileSync(f, "x"); const d = new Date(clock - ageMs); fs.utimesSync(f, d, d); return n; };
+    store.addFile(mk("preview_new.mp4", 1000)); store.addFile(mk("preview_over.mp4", 2000)); store.addFile(mk("preview_old.mp4", 25 * 3600_000));
+    fs.mkdirSync(path.join(dir, "fablecut-left")); store.addWork("fablecut-left", "dir");
+    mk("preview_stranger.mp4", 30 * 3600_000);
+    clock += 2 * 3600_000;
+    const removed = store.prune();
+    assert.deepEqual([...removed].sort(), ["fablecut-left", "preview_old.mp4", "preview_over.mp4"]);
+    for (const n of removed) assert.ok(lines.some((l) => l.includes(n)), "logged: " + n);
+    assert.ok(lines.some((l) => /fablecut-left/.test(l) && /leftover/.test(l)) && lines.some((l) => /preview_over\.mp4/.test(l) && /over the newest 1/.test(l)) && lines.some((l) => /preview_old\.mp4/.test(l) && /older than/.test(l)));
+    assert.ok(!lines.some((l) => l.includes("preview_stranger")), "what it never registered is not touched, so not logged");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("when the registry cannot be written, the work folder that was just made is removed instead of being left in previews/ for good", () => {
+  const dir = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "mc-prevreg-"));
+  try {
+    const store = createPreviewStore(dir);
+    fs.mkdirSync(path.join(dir, ".preview-registry.json"));          // a folder in the registry's place: the atomic replace cannot succeed
+    fs.mkdirSync(path.join(dir, "fablecut-new")); fs.writeFileSync(path.join(dir, "preview_x.part.mp4"), "p");
+    assert.throws(() => store.registerRun("fablecut-new", ["preview_x.part.mp4"]), /registry/i);
+    assert.ok(!fs.existsSync(path.join(dir, "fablecut-new")), "the folder just made is gone");
+    assert.ok(!fs.existsSync(path.join(dir, "preview_x.part.mp4")), "and the part file");
+    assert.throws(() => store.registerRun("../escape", []), "a name outside previews/ is refused, nothing outside is removed");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("fablecut_export through MCP names the reason code (RANGE_PAST_END, PREVIEW_TOO_LONG) as well as the words", { skip, timeout: 120_000 }, async (t) => {
+  const { startMcp } = require("./helpers");
+  const dir = makeDataDir(t, seedProject({ revision: 2, media: [{ id: "m_a", name: "a.mp4", kind: "video", src: "/media/a.mp4", duration: 32 }],
+    clips: [{ id: "c_a", mediaId: "m_a", kind: "video", track: "V1", start: 0, in: 0, duration: 32 }] }));
+  const { port } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: path.join(dir, "no-such-browser") });
+  const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port) });
+  await mcp.request("initialize", { protocolVersion: "2025-11-25" });
+  const run = async (args) => { try { const r = await mcp.callTool("fablecut_export", { wait: false, where: "tab", ...args }); return String(r && (r.text || JSON.stringify(r))); } catch (e) { return String(e.message || e); } };
+  assert.match(await run({ preview: true, start: 31, end: 35 }), /RANGE_PAST_END/);
+  assert.match(await run({ preview: true, start: 0, end: 31 }), /PREVIEW_TOO_LONG/);
+});

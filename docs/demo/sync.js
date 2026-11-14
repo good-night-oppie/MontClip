@@ -13,8 +13,8 @@ const OUT = __dirname;
 let html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 html = html
   .replace(/<title>[^<]*<\/title>/, "<title>MontClip playground</title>")
-  .replace('<script src="app.js"></script>',
-    '<script src="static-shim.js"></script>\n<script src="app.js"></script>');
+  .replace('<script src="app/app.js"></script>',
+    '<script src="static-shim.js"></script>\n<script src="app/app.js"></script>');
 if (!html.includes("static-shim.js")) {
   console.error("! could not inject the shim - app.js script tag not found");
   process.exit(1);
@@ -24,9 +24,10 @@ fs.copyFileSync(path.join(ROOT, "range-plan.js"), path.join(OUT, "range-plan.js"
 
 /* app.js and style.css are copied verbatim. Some of these only exist on
    branches that add them, so a missing one is skipped rather than fatal. */
-for (const f of ["app.js", "host-embed.js", "bgremove-assets.js", "narrow-layout.js", "loudness.js", "ducking.js", "silence.js", "beats.js", "transcribe.js", "captions.js", "audio-fx.js", "mask.js", "tracker.js", "reframe.js", "highlights.js", "highlight-candidates.js", "caption-quick.js", "lyrics-align.js", "lyrics-track.js", "songs.js", "auto-slices.js", "corrections.js", "segment-edits.js", "danmaku.js", "motion.js", "color.js", "edit-ops.js", "comp.js", "sequences.js", "templates.js", "mp4-demux.js", "media-lib.js", "delivery.js", "bg-export.js", "fx-worklet.js", "style.css", "favicon.svg", "ruler-worker.js", "meter-worklet.js", "svg-sanitize.js", "credits.js", "ui-preferences.js", "ui-terms.js", "problem-redact.js", "ffmpeg-card.js"]) {
+for (const f of ["app/app.js", "host-embed.js", "app/bgremove-assets.js", "app/narrow-layout.js", "loudness.js", "ducking.js", "silence.js", "beats.js", "transcribe.js", "captions.js", "audio-fx.js", "mask.js", "tracker.js", "reframe.js", "highlights.js", "app/highlight-candidates.js", "app/caption-quick.js", "lyrics-align.js", "lyrics-track.js", "songs.js", "auto-slices.js", "corrections.js", "app/segment-edits.js", "danmaku.js", "motion.js", "color.js", "edit-ops.js", "comp.js", "sequences.js", "templates.js", "app/mp4-demux.js", "media-lib.js", "delivery.js", "app/bg-export.js", "app/fx-worklet.js", "style.css", "favicon.svg", "app/ruler-worker.js", "app/meter-worklet.js", "svg-sanitize.js", "credits.js", "ui-preferences.js", "ui-terms.js", "problem-redact.js", "app/ffmpeg-card.js"]) {
   const from = path.join(ROOT, f);
   if (!fs.existsSync(from)) continue;
+  fs.mkdirSync(path.dirname(path.join(OUT, f)), { recursive: true });   // the editor's own page code sits in app/ (#281 stage 2)
   fs.copyFileSync(from, path.join(OUT, f));
 }
 

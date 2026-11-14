@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const M = require("../mp4-demux.js");
+const M = require("../app/mp4-demux.js");
 
 const hasFfmpeg = () => {
   try {

@@ -152,7 +152,7 @@ test('the 「AI 数据说明」 is kept by the main process across launches; a n
 });
 
 test('every request to the AI goes through the review box (QQ 4): confirm sends only a prepared, unchanged review, once', async () => {
-  const Conv = require('../agent-conversation'), sends = [];
+  const Conv = require('../app/agent-conversation'), sends = [];
   let draft = '只保留第一句', messages = [];
   const state = { current: () => ({ draft, references: [], messages }), complete: () => {} };
   const c = Conv.createConversation({ state, getContext: () => ({ projectId: 'p1', sequenceId: 'main', revision: 1, gen: 0 }), service: { send: async (p) => { sends.push(p); return { ok: true, text: 'x' }; } }, id: () => 'r' + sends.length });
@@ -172,7 +172,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
   a.doesNotMatch(pane, /m\.role!=='user'&&<span className="cindy-ai-label"/, 'no label on each reply');
   a.equal(T0('zh-CN')('aiRepliesLine'), '回复由 AI 生成');
   a.equal(T0('en')('aiRepliesLine'), 'Replies are AI-generated');
-  a.match(fs.readFileSync(path.join(__dirname, '..', 'cindy-official.js'), 'utf8'), /data-ai-replies-line/, 'the bundle was rebuilt');
+  a.match(fs.readFileSync(path.join(__dirname, '..', 'app/cindy-official.js'), 'utf8'), /data-ai-replies-line/, 'the bundle was rebuilt');
   a.ok(pane.includes("const read=metadata.provider==='deepseek'?await W.montclipAgentService?.noticeGet?.():{accepted:true};"), 'the notice names DeepSeek: shown for it');
   // one button, 〔我知道了〕, and it is not a yes to sending: it keeps that she read it, then the review box as before
   const notice = pane.slice(pane.indexOf('<dialog ref={noticeDialog}'), pane.indexOf('</dialog>', pane.indexOf('<dialog ref={noticeDialog}')));

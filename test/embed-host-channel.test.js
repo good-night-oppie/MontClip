@@ -54,7 +54,7 @@ test("a task's channel: 128 bits of an HMAC of its project and session, under a 
 /* ── the editor (app.js startHostChannel) ── */
 
 function hostChannel(env0 = {}) {
-  const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   const i = SRC.indexOf("function startHostChannel("), j = SRC.indexOf("\n}\n", i) + 3;
   assert.ok(i > 0, "app.js has startHostChannel");
   const channels = [], timers = [];
@@ -113,7 +113,7 @@ test("editor: it tells its own task's panel where the playhead is, takes its see
 });
 
 test("editor: the channel comes from the claim answer, not from the address or the page's own guess", () => {
-  const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   const conn = SRC.slice(SRC.indexOf('es.addEventListener("conn"'), SRC.indexOf('es.addEventListener("versions"'));
   assert.match(conn, /\/api\/embed\/claim/);
   assert.match(conn, /startHostChannel\(\w+\.channel\)/, "the claim's answer opens the channel");

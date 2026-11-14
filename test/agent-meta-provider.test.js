@@ -4,7 +4,7 @@
 // its reply (a keep_ranges edit: "delete 3–5 s") is checked and applied by the editor's own code and is one undo step.
 // A wrong key (401) and a wrong model name are told in plain words. No real key and no network beyond 127.0.0.1.
 const {test}=require('node:test'),a=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),crypto=require('node:crypto');
-const S=require('../desktop/agent-service'),F=require('../agent-format'),V=require('../agent-conversation'),P=require('../chat-proposal'),R=require('../range-plan'),E=require('../agent-events'),U=require('../ui-preferences');
+const S=require('../desktop/agent-service'),F=require('../agent-format'),V=require('../app/agent-conversation'),P=require('../app/chat-proposal'),R=require('../range-plan'),E=require('../app/agent-events'),U=require('../ui-preferences');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 const FAKE_KEY='test-only-not-a-real-key';
 
@@ -34,7 +34,7 @@ function fixture(){
 }
 // The editor's own apply and undo (app.js), run on that document
 function editor(doc){
- const src=read('app.js'),fn=n=>{const s=src.indexOf('function '+n+'(');a.ok(s>=0,n);return src.slice(s,src.indexOf('\n}',s)+2);};
+ const src=read('app/app.js'),fn=n=>{const s=src.indexOf('function '+n+'(');a.ok(s>=0,n);return src.slice(s,src.indexOf('\n}',s)+2);};
  const ctx={project:doc,runtime:{undo:[],redo:[]},crypto,MontClipEvents:E,SeqLib:{activeId:()=>'main',find:()=>null,others:()=>[]},seqRoot:()=>doc,
   applyProject(p){for(const k of Object.keys(p))ctx.project[k]=p[k];},setSelection(){},setTime(){},scheduleSave(){},renderTranscript(){},pruneSelection(){},renderInspector(){},toast(){}};
  vm.createContext(ctx);
@@ -54,7 +54,7 @@ test('Meta is offered: listed after OpenRouter, Muse Spark filled in, its fixed 
 });
 
 test('the settings show "Meta（Muse Spark）" (zh) / "Meta (Muse Spark)" (en), and the review shows api.meta.ai',()=>{
- const pane=read('agent-ui/pane.tsx'),bundle=read('cindy-official.js');
+ const pane=read('agent-ui/pane.tsx'),bundle=read('app/cindy-official.js');
  a.match(pane,/meta:'Meta（Muse Spark）'/);a.match(pane,/PROVIDER_NAME_EN:Record<string,string>=\{meta:'Meta \(Muse Spark\)'\}/);
  a.match(pane,/meta:'api\.meta\.ai'/,'the review dialog names the host the text goes to');
  a.match(pane,/<p>\{DOMAIN\[provider\]\|\|DOMAIN\.openai\} · \{cfg\?\.model\}<\/p>/,'the review line reads the same map');

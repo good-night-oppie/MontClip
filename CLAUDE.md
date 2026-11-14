@@ -303,7 +303,7 @@ See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`, `docs/decisions/2
 node server.js        # → http://localhost:7777
 ```
 
-Files: `index.html` + `style.css` + `app.js` (editor UI), `server.js` (API + hosting),
+Files: `index.html` + `style.css` + `app/app.js` (editor UI; the page's own scripts are in `app/`), `server.js` (API + hosting),
 `project.json` (the timeline — THE file to edit), `media/` (project footage),
 `library/` (default asset library, see below).
 
@@ -2946,6 +2946,10 @@ agent last wrote, so an export right after a patch includes that patch.
   goes to `previews/` (not `exports/`), is named `preview_*`, one file only (not with
   `outputs`); of the samples the server made (it keeps a list of them), the newest 20 are
   kept and none stays longer than a day — nothing else in `previews/` is ever removed.
+  Every removal is written, name and reason only, to `logs/export-cleanup.log` in the data folder; if the list cannot be written, the folder just made is removed again. The MCP error for a refused sample starts with its code (`RANGE_PAST_END`, `PREVIEW_TOO_LONG`).
+  With no `profile`, `preset` or `delivery` named, a sample gets a light encoding by itself:
+  H.264 (the `web` preset at the picture's own size, nothing reframed) where this computer can
+  encode H.264, else ProRes 422; the reply says which. Name one to choose.
   Look at a 10 s sample before exporting the whole timeline.
 - `fablecut_review {start, end}` has a video-understanding model (Google Gemini, through the
   local `agy` tool) look at that stretch, picture and sound, and list problems (swapped name

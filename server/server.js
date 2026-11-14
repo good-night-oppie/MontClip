@@ -88,6 +88,11 @@ const { createEmbed, sameSecret, TASK_ID_RE } = require("./embed");
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
 const ROOT = APP_DIR;
+/** What the static route hands out (#281 AS.1): the editor page's own code (app/), its icons, the Cindy plugin's pages
+ *  (cindy/, copied in by its build), and files at the root with a page file's extension (index.html, style.css, the
+ *  scripts the page and the server share, favicon.svg). Media, library, exports and proxies have their own routes. */
+const PAGE_DIRS = new Set(["app", "icons", "cindy"]);
+const PAGE_ROOT_EXT = new Set([".html", ".js", ".css", ".svg", ".png", ".ico"]);
 const PORT = process.env.PORT || 7777;
 const HOST = process.env.HOST || "127.0.0.1";
 const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
@@ -420,7 +425,7 @@ function reserveExportPaths(dir, baseName, ext) {
 const PREVIEW_KEEP = 20, PREVIEW_MAX_AGE_MS = 24 * 3600 * 1000, PREVIEW_WORKDIR_MS = 3600 * 1000;
 /* #325 R1b: a sample is a quick look — at most this many seconds (Deja may change it) */
 const PREVIEW_MAX_SEC = 30;
-const previewStore = createPreviewStore(PREVIEWS_DIR, { keep: PREVIEW_KEEP, maxAgeMs: PREVIEW_MAX_AGE_MS, workMs: PREVIEW_WORKDIR_MS });
+const previewStore = createPreviewStore(PREVIEWS_DIR, { keep: PREVIEW_KEEP, maxAgeMs: PREVIEW_MAX_AGE_MS, workMs: PREVIEW_WORKDIR_MS, log: logPreviewRemoval });
 /** Work folders and .part files that running sample exports still use: never pruned. */
 function livePreviewNames() {
   const live = new Set();
@@ -437,8 +442,7 @@ function prunePreviews() {
 }
 /** Registers what a sample export has just created in previews/ (its work folder, its .part files). */
 function registerPreviewWork(dir, parts) {
-  previewStore.addWork(path.basename(dir), "dir");
-  for (const p of parts) if (p) previewStore.addWork(path.basename(p), "file");
+  previewStore.registerRun(path.basename(dir), parts.filter(Boolean).map((p) => path.basename(p)));   // a registry that cannot be written removes what was just made
 }
 /** A sample has been saved under its own name: record it as ours, then keep the newest PREVIEW_KEEP. */
 function registerPreviewFile(outPath, partPath) {
@@ -920,6 +924,12 @@ function cleanupExport(id) {
   const job = ExportCleanup.stopSessions([s], { timeoutMs: 5000, log: logCleanupLeft });
   pendingCleanups.add(job); job.finally(() => { pendingCleanups.delete(job); if (s.preview) prunePreviews(); });   // #325: forget the work removed
 }
+/** What the preview cleanup removed, and why (QQ, #325): DATA_DIR/logs/export-cleanup.log, local only, names only. */
+function logPreviewRemoval(msg) {
+  const line = `${new Date().toISOString()} previews/: ${X.maskUserPath(String(msg))}
+`;
+  try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
+}
 /** Paths an export cleanup could not delete, kept in DATA_DIR/logs/export-cleanup.log (local only). */
 function logCleanupLeft(left) {
   const line = left.map((p) => `${new Date().toISOString()} not removed: ${X.maskUserPath(p)}`).join("\n") + "\n";   // no user name (QQ)
@@ -1102,6 +1112,9 @@ async function handleRequest(req, res) {
   }
   // never serve dotfiles/dot-directories (.git, .gitignore, …)
   if (p.split(/[\\/]/).some((seg) => seg.startsWith("."))) { res.writeHead(403); res.end(); return; }
+  // nor a ":" anywhere in the decoded path: NTFS reads "server::$INDEX_ALLOCATION" as the folder server and "x::$DATA" as
+  // x, so a name check after it would be fooled (QQ on #323). No route takes one; a file name never needs one.
+  if (p.includes(":")) { res.writeHead(403); res.end(); return; }
 
   /* API: project */
   if (p === "/api/project" && req.method === "GET") {
@@ -1697,7 +1710,7 @@ async function handleRequest(req, res) {
      cancel call in error. */
   if (p === "/api/export/request" && req.method === "POST") {
     try {
-      const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      let opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       /* E5a (MontClip#215): the job names the open project and the Cindy task that asked. The task is taken only from
          the plugin worker's own request (X-MontClip-Session); a page's body or URL never names one (MontClip-Cindy#18).
          A caller that names another project, or a switch before the job is queued, is EXPORT_PROJECT_CHANGED. */
@@ -1723,6 +1736,13 @@ async function handleRequest(req, res) {
         if (bad) { sendJSON(res, 400, { code: bad.errorCode, error: bad.error }); return; }
       }
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
+      /* a sample with no encoding named is a look, not a deliverable: a light one (H.264 "web" at the picture's own size, so nothing is reframed)
+         where this computer can encode H.264, else ProRes 422, which every build can */
+      let sampleNote = null;
+      if (opts.preview === true && !opts.profile && !opts.preset && !opts.delivery && !opts.outputs) {
+        if (Delivery.encodersFor("h264", await deliveryEncoders()).length) { opts = { ...opts, preset: "web", delivery: { width: null, height: null } }; sampleNote = "sample: no encoding was named, so a light H.264 one (web preset, the picture's own size) is used; pass profile or preset to choose"; }
+        else { opts = { ...opts, profile: "prores422" }; sampleNote = "sample: no encoding was named and this computer has no H.264 encoder, so ProRes 422 is used (large, but short); pass profile or preset to choose"; }
+      }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
       // several files from one render: outputs:true = the project's checked batch outputs, or a list of specs
@@ -1752,12 +1772,13 @@ async function handleRequest(req, res) {
           { available: await deliveryEncoders(), presets: savedDeliveryPresets() });
         delivery = n.spec; notes = n.notes;
       }
+      if (sampleNote) notes = [...notes, sampleNote];
       let revision = null;
       try { revision = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).revision ?? null; } catch {}
       checkProject();
       const job = exportJobs.request({ project: exportProject, session, range: opts.range, preview: opts.preview === true, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
       sendJSON(res, 200, deliveries ? { ...job, delivery: `${deliveries.length} outputs from one render`, notes: outNotes }
-        : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
+        : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : sampleNote ? { ...job, notes } : job);
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
       sendJSON(res, code, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
@@ -2609,13 +2630,18 @@ async function handleRequest(req, res) {
     return;
   }
 
-  /* Static app files */
+  /* Static app files: an allow-list (#281 AS.2). Only the page's own folders and the root's page files are handed out;
+     the local service's code (server/), config, docs, tests, the desktop shell and, in a checkout whose data folder is
+     the install folder, project.json and the rest of the user's files are not. */
   let file = p === "/" ? "/index.html" : p;
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
   /* run from a clone, the data folder is the app folder: what this server keeps there is never served as an app file */
   if (["reviews", "previews"].includes(path.relative(ROOT, file).split(path.sep)[0])) { res.writeHead(404); res.end(); return; }
-
+  // the path as the file system reads it (Windows: any case, trailing dots and spaces of a name dropped)
+  const parts = path.relative(ROOT, file).split(path.sep).map((s) => s.toLowerCase().replace(/[. ]+$/, ""));
+  const pageFile = parts.length > 1 ? PAGE_DIRS.has(parts[0]) : PAGE_ROOT_EXT.has(path.extname(parts[0]));
+  if (!pageFile) { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
 }
 

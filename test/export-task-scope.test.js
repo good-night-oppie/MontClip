@@ -80,7 +80,7 @@ test("a job that names no project is not ended by a project switch", (t) => {
 /* ── the editor tab (app.js runClaimedJob): the ticket's project is not the one the tab shows ── */
 
 test("an editor tab showing another project fails the ticket with EXPORT_PROJECT_CHANGED instead of rendering it", async () => {
-  const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   const at = app.indexOf("async function runClaimedJob(");
   const end = app.indexOf("\nasync function ", at + 10);
   const sent = [];

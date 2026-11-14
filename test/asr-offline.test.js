@@ -9,11 +9,11 @@ const { startServer, makeDataDir } = require('./helpers');
 test('Whisper, transformers.js and the browser worker are gone; the editor asks the local server to transcribe', () => {
   a.ok(!fs.existsSync(path.join(ROOT, 'transcribe-worker.js')), 'no browser worker');
   a.ok(!fs.existsSync(path.join(ROOT, 'desktop', 'transcribe-manifest.json')) && !fs.existsSync(path.join(ROOT, 'desktop', 'fetch-transcribe.cjs')));
-  for (const f of ['app.js', 'transcribe.js', 'index.html', 'server/server.js']) {
+  for (const f of ['app/app.js', 'transcribe.js', 'index.html', 'server/server.js']) {
     const s = read(f);
     a.ok(!/whisper|transformers\.min|onnxruntime-web|transcribe-worker|transcribe-assets|jsdelivr\.net\/npm\/@huggingface/i.test(s), f + ' still mentions the old browser path');
   }
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /fetch\("\/api\/asr\/transcribe", \{ method: "POST"/);
   a.ok(!/new Worker\(/.test(app.slice(app.indexOf('async function transcribeFile('), app.indexOf('async function transcribeSrcs('))));
 });
@@ -124,7 +124,7 @@ test('JJ v2: the download states and the empty panel, word for word', () => {
   a.equal(zh('tr-empty'), '还没有文稿。点「听写选中的」，把选中的片段听写成文字。');
   for (const k of ['asr-missing', 'asr-download', 'asr-downloading', 'asr-ready', 'asr-interrupted', 'asr-no-space', 'asr-check-failed', 'asr-resume', 'asr-later', 'asr-again', 'asr-download-cancel', 'tr-empty'])
     a.ok(V.text.en['own.' + k] && !/[一-鿿]/.test(V.text.en['own.' + k]), k + ' in English');
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.ok(!/data-tr-asr-punct/.test(app), 'the transcript tab offers no punctuation download (Settings › 听写 does: test/asr-jj3.test.js)');
   a.match(app, /data-tr-asr-cancel/); a.match(app, /data-tr-asr-later/);
 });

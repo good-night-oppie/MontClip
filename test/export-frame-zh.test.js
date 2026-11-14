@@ -21,7 +21,7 @@ test('JJ定稿, word for word: every option, the custom size and the tooltip, in
 });
 
 test('the drop-down is built from those keys, in the order and with the sizes it had, and rebuilt on a language switch',()=>{
- const app=read('app.js');
+ const app=read('app/app.js');
  a.match(app,/const EXPORT_FRAME_ASPECTS = \[\n  \{ key: "ef-full-canvas", w: 0, h: 0 \},\n  \{ key: "ef-9-16", w: 9, h: 16 \},\n  \{ key: "ef-16-9", w: 16, h: 9 \},\n  \{ key: "ef-4-5", w: 4, h: 5 \},\n  \{ key: "ef-1-1", w: 1, h: 1 \},\n\];/);
  a.ok(!/"Full canvas"|"9:16 Reel"|"4:5 IG"|"1:1 Square"/.test(app),'no option words left in app.js');
  const sync=app.slice(app.indexOf('function syncExportFrameSel()'),app.indexOf('function applyProject('));

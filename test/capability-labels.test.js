@@ -38,13 +38,13 @@ test("JJ's re-review: an unknown operation says the AI asked, it was blocked, no
 test('no interface text names a capability by its internal name', () => {
   for (const language of ['zh-CN', 'en']) for (const [k, s] of Object.entries(View.text[language]))
     a.ok(!/fablecut_/.test(s), k + ' (' + language + '): ' + s);
-  for (const f of ['app.js', 'agent-pane.js', 'agent-ui/pane.tsx'])
+  for (const f of ['app/app.js', 'app/agent-pane.js', 'agent-ui/pane.tsx'])
     a.ok(!/\$\{[^}]*\.capability\}|textContent\s*=\s*[^;\n]*\.capability\b/.test(read(f)), f + ' shows an event\'s capability name');
 });
 test('the version kept before the AI\'s edits is named in the interface language only', () => {
   a.equal(View.t('zh-CN', 'own.before-ai'), 'AI 改之前');
   a.equal(View.t('en', 'own.before-ai'), 'Before AI changes');
-  for (const f of ['app.js', 'docs/demo/app.js']) {
+  for (const f of ['app/app.js', 'docs/demo/app/app.js']) {
     const src = read(f);
     a.ok(!src.includes('AI 开始前 / Before the AI run'), f);
     a.match(src, /action:'before_agent',name:uiText\('own\.before-ai'\)/, f);

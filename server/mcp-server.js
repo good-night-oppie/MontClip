@@ -1386,7 +1386,7 @@ async function exportTool(args) {
       }
     }
     const r = await apiJSON("POST", "/api/export/request", { range: span, preview: args.preview === true, profile: args.profile, preset: args.preset, delivery: args.delivery, outputs: args.outputs, where: args.where || "auto" });
-    if (r.status !== 200) throw new Error(r.body?.error || `export request failed (${r.status})`);
+    if (r.status !== 200) throw new Error((r.body?.code ? r.body.code + ": " : "") + (r.body?.error || `export request failed (${r.status})`));
     job = r.body;
     if (job.notes && job.notes.length) startNote = `Settings adjusted: ${job.notes.join("; ")}\n`;
     if (args.wait === false) return (job.delivery ? `Output: ${job.delivery}\n` : "") + startNote + describeExportJob(job);
