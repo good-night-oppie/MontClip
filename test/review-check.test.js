@@ -579,3 +579,31 @@ test('JJ #326 6872083423 / 6872139855: the preview names a part with a short nam
   w2.byReview('preview')[0].click(); await settle();
   a.ok(w2.text().includes('这次不另外发字幕文字。'));
 });
+
+test("Deja #326: the fixed standards and questions are shown, folded, exactly as willSend gives them — never written into the page; #328 tasteLost is said", async () => {
+  const fixedText = { standards: ['标准一', '标准二'], questions: ['问题一？', '问题二？'], ask: '每问一条回答。' };
+  const api = R.stubApi({ fixedText, taste: 1, tasteLost: 2 }), w = mountWith(api);
+  await settle(); w.button.click(); await settle();
+  a.ok(w.byReview('to')[0], 'box open');
+  a.equal(w.byReview('fixed').length, 0, 'not in the main box');
+  w.byReview('preview')[0].click(); await settle();
+  const d = w.byReview('fixed')[0];
+  a.equal(d.tagName.toLowerCase(), 'details', 'folded');
+  a.deepEqual(w.byReview('standard').map((n) => n.textContent), ['标准一', '标准二']);
+  a.deepEqual(w.byReview('question').map((n) => n.textContent), ['问题一？', '问题二？']);
+  a.equal(w.byReview('ask')[0].textContent, '每问一条回答。');
+  a.ok(w.text().includes('每次都会发给模型的固定问题'));
+  const m = R.confirmModel(await readyView({ fixedText, taste: 1, tasteLost: 2 }), 'zh-CN');
+  a.ok(m.lines.includes('有 2 条好坏例子的文字在重启后没了，这次不会发出去。'));
+  // no fixed text from the engine: nothing shown, nothing made up
+  const w2 = mountWith(R.stubApi()); await settle(); w2.button.click(); await settle();
+  w2.byReview('preview')[0].click(); await settle();
+  a.equal(w2.byReview('fixed').length, 0);
+  // malformed: not a description
+  const v = await readyView({ fixedText });
+  for (const bad of [{ standards: 'x', questions: [], ask: '' }, { standards: [], questions: [1], ask: 'a' }, { standards: [], questions: [] }])
+    a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, fixedText: bad } }, 'zh-CN').canSend, false, JSON.stringify(bad));
+  a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, tasteLost: -1 } }, 'zh-CN').canSend, false);
+  const src = read('review-check.js');
+  a.ok(!src.includes('保留真实对话') && !src.includes('人物/事件/字幕哪里错了'), 'the standards and questions are not written into the page');
+});
