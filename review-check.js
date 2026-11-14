@@ -472,7 +472,9 @@
       if (!btn) return;
       const r = rangeNow(), n = r ? spanOf(r) : SPAN;
       btn.textContent = t(L(), "button", { n });
-      btn.title = r ? t(L(), "buttonTip", { n }) : t(L(), "tooShort");
+      // 「不到 1 秒」 only when there is a timeline and the stretch really is under 1 s — never with nothing loaded (JJ #326, 833f73e4)
+      const dur = num(env.duration());
+      btn.title = r ? t(L(), "buttonTip", { n }) : dur && dur > 0 ? t(L(), "tooShort") : "";
       btn.disabled = !r;
     }
     async function refresh() {
