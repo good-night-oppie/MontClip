@@ -117,16 +117,16 @@ function createReviewStore({ dir, now = () => Date.now() }) {
      *  field that is not lost when old records roll off, and a floor this process keeps in memory, so a record that could not be saved (STORE_FAILED) or a
      *  ledger removed by the cleaning (#333) does not make the total smaller. A ledger from before the field has the sum of its records. */
     sentTotal(projectId) {
-      let disk = 0;
-      try { const d = read(projectId); disk = d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d); } catch { }
-      return Math.max(disk, sentFloor.get(projectId) || 0);
+      const d = read(projectId);   // no ledger yet is 0; one that cannot be read throws (LEDGER_UNREADABLE): a total is never guessed
+      return Math.max(d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d), sentFloor.get(projectId) || 0);
     },
     /** Counts bytes that have just gone out. Call it as soon as they have, before the record is saved. A write that fails still counts here. */
     countSent(projectId, bytes) {
       const b = Number(bytes) || 0; if (b <= 0) return;
-      const total = this.sentTotal(projectId) + b;
-      sentFloor.set(projectId, total);
-      try { const d = read(projectId); d.sentBytesTotal = (d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d)) + b; write(projectId, d); } catch { }
+      let d = null; try { d = read(projectId); } catch { }   // after the send: counting must not fail, whatever the ledger looks like
+      const disk = d ? (d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d)) : 0;
+      sentFloor.set(projectId, Math.max(disk, sentFloor.get(projectId) || 0) + b);
+      try { if (!d) return; d.sentBytesTotal = (d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d)) + b; write(projectId, d); } catch { }
     },
     add(projectId, rec) {
       const doc = read(projectId);

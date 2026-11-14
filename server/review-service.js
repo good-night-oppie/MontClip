@@ -96,7 +96,9 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     if (r.state !== "ready") throw httpError(409, "that check is not waiting to be sent", { code: "NOT_READY" });
     if (activeProject() !== r.project) { r.state = "failed"; r.reason = "PROJECT_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "another project is open now; prepare again", { code: "PROJECT_CHANGED" }); }
     if (store.contentKey(readProject() || {}) !== r.key) { r.state = "failed"; r.reason = "PROJECT_EDITED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "the project was edited after this sample was made, so it no longer matches; prepare again", { code: "PROJECT_EDITED" }); }
-    { const need = (r.mode === "two_pass" ? 2 : 1) * bridge.MAX_SAMPLE_BYTES; if (store.sentTotal(r.project) + need > sendCapBytes) { r.state = "failed"; r.reason = "SEND_LIMIT"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "this project has reached its limit for video sent out", { code: "SEND_LIMIT" }); } }
+    /* a ledger that cannot be read: nothing is sent, the tool is not started (it would go out with no record and no count) */
+    let sentSoFar; try { sentSoFar = store.sentTotal(r.project); } catch (e) { r.state = "failed"; r.reason = "LEDGER_UNREADABLE"; r.token = null; dropSample(r); onChange(r); throw e; }
+    { const need = (r.mode === "two_pass" ? 2 : 1) * bridge.MAX_SAMPLE_BYTES; if (sentSoFar + need > sendCapBytes) { r.state = "failed"; r.reason = "SEND_LIMIT"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "this project has reached its limit for video sent out", { code: "SEND_LIMIT" }); } }
     if (!destination().verified || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
     r.state = "sending"; r.token = null; onChange(r);
     let res;

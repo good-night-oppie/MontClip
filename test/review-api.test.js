@@ -720,3 +720,25 @@ test("an agent's send (switch on) is recorded on disk with service and domain, k
   for (const w of ["The name plates look swapped", "Host on the left", "Swap the two name plates"]) assert.ok(!text.includes(w), "no free text on disk: " + w);
   assert.equal(rec.source, "agent");
 });
+
+/* QQ on #339: a ledger that cannot be read stops the send before anything goes out; no ledger at all is just the first send */
+test("a ledger that cannot be read stops a send before anything leaves: the tool is not started, the sample is dropped, the ledger is not touched", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  fs.mkdirSync(path.join(S.d, "reviews"), { recursive: true });
+  const f = path.join(S.d, "reviews", "p1.json"); fs.writeFileSync(f, "{ not json");
+  await assert.rejects(S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId)), (e) => e.status === 500 && e.code === "LEDGER_UNREADABLE" && !String(e.message).includes(S.d));
+  assert.equal(fs.existsSync(S.report), false, "the tool was never started");
+  assert.equal(fs.readFileSync(f, "utf8"), "{ not json", "what was there is still there");
+  assert.throws(() => S.store.sentTotal("p1"), (e) => e.code === "LEDGER_UNREADABLE", "the total is not guessed as 0");
+});
+test("with no ledger yet the first send goes as usual, and is counted", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  assert.equal(S.store.sentTotal("p1"), 0, "nothing sent yet");
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  assert.equal(rec.status, "passed"); assert.equal(fs.existsSync(S.report), true, "the tool ran");
+  assert.ok(S.store.sentTotal("p1") > 0);
+});
