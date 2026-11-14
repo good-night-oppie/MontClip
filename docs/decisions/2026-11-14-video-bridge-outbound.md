@@ -132,3 +132,7 @@ Successfully processed 1 files; Failed processing 0 files
 ## 发送前给主播看固定标准（Deja，#321）
 
 `willSend.standards = {rules[5], questions[5], ask, carriedBy}`：就是请求拼装时用的同一组字符串（`RUBRIC`、`QUESTIONS`、`QUESTIONS_ASK`），页面放在「查看将发送的内容」下的折叠区。`carriedBy` 为 `only`（单轮，这一个请求带）或 `second`（两遍，只有第二个请求带，盲看那个不带）。测试用页面看到的文字拼出请求里应有的整块，对比实际发出的请求。
+
+## 发送范围一变，三处一次改完（Deja，#321）
+
+`willSend` 对每个 scope 说的话（`what`、`notes`、`projectText`、`tasteNotes`、剪辑点）必须和实际请求带的一致；引擎文字、页面文案、测试（`review-api.test.js` 的「scope contract」）三处同时改，不单独改其中一处。引擎返回英文句作标识，主播看到的中文由页面提供（PG，#321 6872473697）。

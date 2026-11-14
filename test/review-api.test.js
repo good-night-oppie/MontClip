@@ -652,3 +652,26 @@ test("window: the request itself carries 0 good/bad examples, no edit points, no
     }
   }
 });
+
+/* ---- Deja: whatever willSend says about a scope is what the request carries, for every scope; change one, change all three (engine, page, test) ---- */
+test("scope contract: for window and for full, what willSend claims (what / tasteNotes / notes / projectText) is exactly what the request carries", { skip }, async (t) => {
+  const claim = { window: /No subtitle text, edit points, or good\/bad examples are attached/, full: /plus the subtitles and cut points that touch it .*saved taste note|plus the subtitles and cut points that touch it/ };
+  for (const scope of ["window", "full"]) {
+    const S = setup(t, "pass"); S.setDoc(scopeDoc());
+    S.store.tasteAdd("p1", { kind: "negative", text: "CONTRACT-NOTE" });
+    const v = S.svc.prepare({ start: 24, end: 26, lead: 2, scope });
+    await until(() => S.svc.status(v.reviewId).state === "ready");
+    const w = S.svc.status(v.reviewId).willSend;
+    assert.match(w.what, claim[scope], scope);
+    await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+    const prompt = JSON.parse(fs.readFileSync(S.report, "utf8")).prompt;
+    const hasNote = prompt.includes("CONTRACT-NOTE"), hasLines = prompt.includes("CROSS-START-LINE") && prompt.includes("CROSS-END-LINE"), hasCuts = prompt.includes("clip starts");
+    assert.equal(hasNote, w.notes.some((n) => n.text === "CONTRACT-NOTE"), scope + ": notes shown = notes sent");
+    assert.equal(hasNote, /saved taste note/.test(w.what), scope + ": the sentence about examples appears exactly when examples go");
+    assert.equal(w.tasteNotes, hasNote ? 1 : 0);
+    assert.equal(hasLines, w.projectText.includes("CROSS-START-LINE") && w.projectText.includes("CROSS-END-LINE"), scope + ": subtitle lines shown = lines sent");
+    assert.equal(hasCuts, w.projectText.includes("clip starts"), scope + ": cut points shown = cut points sent");
+    assert.equal(hasLines, scope === "full"); assert.equal(hasNote, scope === "full");
+    assert.ok(!prompt.includes("OUTSIDE-LINE"), scope);
+  }
+});
