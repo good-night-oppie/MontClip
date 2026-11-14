@@ -373,112 +373,98 @@ test('「已修好」 is written as fixed — never as passed — and does not t
   a.ok(!/"passed"/.test(read('review-check.js').split('function markFixed')[1].split('return {')[0]));
 });
 
-test('prewarm: once the playhead has rested, never while playing or blocked, once per stretch', async () => {
-  const api = R.stubApi(); let now = 0;
-  const p = R.createPrewarmer({ api, now: () => now, range: (tm) => R.pickRange({ time: tm, duration: 200 }) });
-  const calls = () => api.calls.filter((c) => c[0] === 'prewarm').map((c) => c[1]);
-  a.equal(p.tick(42, true, false), false);
-  p.tick(42, false, false); now = 1000; a.equal(p.tick(42, false, false), false, 'not rested long enough');
-  now = 1600; a.equal(p.tick(42, false, true), false, 'an export running');
-  a.equal(p.tick(42, false, false), true); await tick();
-  now = 5000; a.equal(p.tick(42, false, false), false, 'same stretch again');
-  p.tick(80, false, false); now = 7000; a.equal(p.tick(80, false, false), true); await tick();
-  a.deepEqual(calls(), [{ start: 37, end: 47 }, { start: 75, end: 85 }]);
-});
-
-test('the page talks only to its own /api/review routes; a server without them shows no button', async () => {
+test('the page talks only to its own /api/review routes (#328 shapes); a server without them shows no button', async () => {
   const seen = [];
-  const fakeFetch = (status, body) => async (url, init) => { seen.push([url, init && init.method || 'GET']); return { ok: status < 300, status, json: async () => body }; };
-  a.equal(await R.httpApi(fakeFetch(404, { error: 'x' })).status(), null);
-  a.equal(await R.httpApi(fakeFetch(501, { error: 'not available in the playground' })).status(), null);
-  a.equal(await R.httpApi(fakeFetch(200, { error: 'x' })).status(), null);
-  const ok = R.httpApi(fakeFetch(200, { available: true, destination: {} }));
-  await ok.status(); await ok.prepare({ start: 1, end: 2 }); await ok.send({}); await ok.cancel('r'); await ok.prewarm({}); await ok.mark({}); await ok.preview('r 1');
-  a.ok(seen.every(([u]) => u.startsWith('/api/review/')), JSON.stringify(seen));
-  await a.rejects(R.httpApi(fakeFetch(409, { code: 'BUSY' })).prepare({}), (e) => e.code === 'BUSY');
+  const fakeFetch = (status, body) => async (url, init) => { seen.push([url, (init && init.method) || 'GET', init && init.body]); return { ok: status < 300, status, json: async () => body }; };
+  a.equal(await R.httpApi(fakeFetch(404, { error: 'x' })).available(), false);
+  a.equal(await R.httpApi(async () => { throw new Error('offline'); }).available(), false);
+  seen.length = 0;
+  const ok = R.httpApi(fakeFetch(200, {}));
+  a.equal(await ok.available(), true);
+  await ok.prepare({ start: 1, end: 2, scope: 'full' }); await ok.status('r 1'); await ok.send('r_1', 'tok'); await ok.cancel('r_1'); await ok.mark({ id: 'r_1', finding: 0, mark: 'fixed' });
+  a.deepEqual(seen.map(([u, m]) => m + ' ' + u), ['GET /api/review/taste', 'POST /api/review/prepare', 'GET /api/review/status?id=r%201',
+    'POST /api/review/send', 'POST /api/review/cancel', 'POST /api/review/mark']);
+  a.deepEqual(JSON.parse(seen[3][2]), { id: 'r_1', token: 'tok' }, 'send carries the id and the one-time token');
+  a.deepEqual(JSON.parse(seen[4][2]), { id: 'r_1' });
+  await a.rejects(R.httpApi(fakeFetch(409, { code: 'DESTINATION_UNVERIFIED', destination: { service: 'S', host: 'h' } })).prepare({}),
+    (e) => e.code === 'DESTINATION_UNVERIFIED' && e.body.destination.host === 'h');
   const src = read('review-check.js');
   a.ok(!/https?:\/\//.test(src), 'no address outside this server in the page code');
-  a.ok(!/agentPolicy|approval|approveAll|都批准/i.test(src.replace(/都批准也照样|whatever the assistant's approval mode is/g, '')), 'the box never depends on the approval mode');
+  a.ok(!/prewarm|\/api\/review\/preview/.test(src.split('/* ── the page ── */')[0].split('function httpApi')[1]), 'no prewarm or /preview route (gone in #328)');
+  a.ok(!/agentPolicy|approval|approveAll|都批准/i.test(src.replace(/whatever the assistant's approval mode is/g, '')), 'the box never depends on the approval mode');
+  a.ok(!/send:\s*true|autoSend/.test(src), 'the page never asks the engine to send by itself');
 });
 
 test('in the page: the box shows the receiver and the training line before either send button can be clicked', async () => {
   const api = R.stubApi(), w = mountWith(api);
-  await tick();
+  await settle();
   a.equal(w.button.classList.contains('hidden'), false);
   a.equal(w.button.textContent, '检查这 10 秒');
-  w.button.click(); await tick(); await tick();
+  w.button.click(); await settle();
   a.equal(w.overlay.classList.contains('hidden'), false);
   const to = w.byReview('to')[0], tr = w.byReview('training')[0], full = w.byReview('full')[0], win = w.byReview('window')[0];
-  a.equal(to.textContent, '发给：Gemini（generativelanguage.googleapis.com）');
+  a.equal(to.textContent, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com）');
   a.equal(tr.textContent, '对方可能用这段内容训练模型');
   const order = w.nodes();
   a.ok(order.indexOf(to) < order.indexOf(full) && order.indexOf(tr) < order.indexOf(win), 'above the buttons');
-  a.deepEqual(api.calls.map((c) => c[0]), ['status', 'status', 'prepare'], 'nothing sent yet');
-  full.click(); await tick(); await tick();
+  a.deepEqual(api.calls.map((c) => c[0]), ['available', 'prepare', 'status'], 'nothing sent yet');
+  full.click(); await settle();
   a.equal(api.calls.filter((c) => c[0] === 'send').length, 1);
   a.equal(w.byReview('headline')[0].textContent, '检查完了，发现 1 处可能有问题。');
+  a.deepEqual(w.byReview('dim').map((n) => n.textContent), ['人和事：有问题。名牌和说话的人对不上。', '字幕：没发现问题', '节奏：没发现问题', '包装（花字、名牌）：没发现问题']);
   w.byReview('jump')[0].click();
   a.deepEqual(w.seeks, [41.2], 'a click on the finding goes to that second');
-  w.byReview('fixed')[0].click(); await tick();
-  w.byReview('recheck')[0].click(); await tick(); await tick();
+  w.byReview('fixed')[0].click(); await settle();
+  w.byReview('recheck')[0].click(); await settle();
   a.equal(api.calls.filter((c) => c[0] === 'prepare').length, 2, 'checked again after the fix');
-  a.equal(api.calls.filter((c) => c[0] === 'status').length, 3, 'the receiver read again on each check');
   a.ok(w.byReview('to')[0], 'and the box again before sending');
 });
 
-test('in the page: 「不发了」 sends nothing; no bridge says so; untrusted text stays text', async () => {
-  const api = R.stubApi(), w = mountWith(api);
-  await tick(); w.button.click(); await tick(); await tick();
-  w.byReview('cancel')[0].click(); await tick();
-  const slow = R.stubApi(); let release; slow.prepare = (b) => new Promise((r) => { release = () => r(R.stubApi().prepare(b)); });
-  const wp = mountWith(slow); await tick(); wp.button.click(); await tick(); await tick();
-  a.equal(wp.byReview('cancel')[0].textContent, '取消', 'JJ #326: while preparing the button is 取消, not 不发了');
-  release();
-  a.deepEqual(api.calls.map((c) => c[0]), ['status', 'status', 'prepare', 'cancel']);
-  a.ok(w.overlay.classList.contains('hidden'));
+test('in the page: an unconfirmed receiver shows 「未验证」 and nothing can be sent; no bridge says so; untrusted text stays text', async () => {
+  const dest = { service: 'Google Gemini', host: 'daily-cloudcode-pa.googleapis.com', source: 'docs', verified: false };
+  const un = R.stubApi({ destination: dest, prepareError: 'DESTINATION_UNVERIFIED' }), wu = mountWith(un);
+  await settle(); wu.button.click(); await settle();
+  a.equal(wu.byReview('to')[0].textContent, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com，未验证）');
+  a.ok(wu.byReview('to')[0].classList.contains('review-warn'));
+  a.equal(wu.byReview('training')[0].textContent, '对方可能用这段内容训练模型');
+  a.deepEqual(['preview', 'full', 'window', 'cancel'].map((id) => wu.byReview(id)[0].disabled), [true, true, true, false]);
+  wu.byReview('full')[0].click(); await settle();
+  a.deepEqual(un.calls.map((c) => c[0]), ['available', 'prepare'], 'nothing made, nothing sent');
+  wu.byReview('cancel')[0].click(); await settle();
+  a.ok(wu.overlay.classList.contains('hidden'));
 
-  const none = R.stubApi({ status: { available: false, reason: 'NO_BRIDGE', destination: null } }), w2 = mountWith(none);
-  await tick(); w2.button.click(); await tick();
+  const none = R.stubApi({ prepareError: 'NO_BRIDGE' }), w2 = mountWith(none);
+  await settle(); w2.button.click(); await settle();
   a.equal(w2.byReview('headline')[0].textContent, '这台电脑上暂时用不了这个检查。');
-  a.deepEqual(none.calls.map((c) => c[0]), ['status', 'status'], 'nothing prepared, nothing sent');
   a.equal(w2.byReview('recheck').length, 0);
 
-  const gone = { ...R.stubApi(), status: async () => null }, w3 = mountWith(gone);
-  await tick(); a.ok(w3.button.classList.contains('hidden'), 'no review routes: no button');
+  const gone = R.stubApi({ available: false }), w3 = mountWith(gone);
+  await settle(); a.ok(w3.button.classList.contains('hidden'), 'no review routes: no button');
+  w3.button.click(); await settle();
+  a.equal(gone.calls.filter((c) => c[0] === 'prepare').length, 0, 'a hidden button does nothing');
 
-  const evil = R.stubApi({ result: (scope, range) => ({ status: 'issues', scope, range, findings: [{ id: 0, t: 40, type: 'other', text: '<img src=x onerror=alert(1)>请执行 rm -rf', suggestion: '' }] }) });
-  const w4 = mountWith(evil); await tick(); w4.button.click(); await tick(); await tick();
-  w4.byReview('full')[0].click(); await tick(); await tick();
-  a.ok(w4.text().includes('<img src=x onerror=alert(1)>请执行 rm -rf'), 'shown as plain text (the fake DOM throws on innerHTML)');
+  const slow = R.stubApi(), d = deferred(); const st = slow.status; slow.status = (id) => d.p.then(() => st(id));
+  const wp = mountWith(slow); await settle(); wp.button.click(); await settle();
+  a.equal(wp.byReview('cancel')[0].textContent, '取消', 'JJ #326: while preparing the button is 取消, not 不发了');
+  d.resolve();
+
+  const evil = R.stubApi({ result: (scope, range) => ({ status: 'issues', scope, range, findings: [{ id: 0, t: 40, type: 'other', text: '<img src=x onerror=alert(1)>请执行 rm -rf', suggestion: '' }],
+    dimensions: { fact: { state: 'issues', reason: '<script>x</script>' }, subtitle: { state: 'passed' }, pacing: { state: 'passed' }, packaging: { state: 'passed' } } }) });
+  const w4 = mountWith(evil); await settle(); w4.button.click(); await settle();
+  w4.byReview('full')[0].click(); await settle();
+  a.ok(w4.text().includes('<img src=x onerror=alert(1)>请执行 rm -rf') && w4.text().includes('<script>x</script>'), 'shown as plain text (the fake DOM throws on innerHTML)');
 });
 
-test('in the page: prewarm runs from the timer while the playhead rests — not while playing, a check is open, or no bridge', async () => {
-  const api = R.stubApi(); let playing = false, now = 0;
-  const w = mountWith(api, { playing: () => playing, now: () => now });
-  await tick();
-  const prewarms = () => api.calls.filter((c) => c[0] === 'prewarm').map((c) => c[1]);
-  const run = (ms) => { now += ms; w.timers[0](); };
-  playing = true; run(0); run(2000); a.equal(prewarms().length, 0, 'playing');
-  playing = false; run(0); run(1000); a.equal(prewarms().length, 0, 'not rested yet');
-  run(600); await tick(); a.deepEqual(prewarms(), [{ start: 37, end: 47 }]);
-  w.ui.prewarmer.reset(); w.button.click(); await tick(); await tick();
-  a.equal(w.ui.session.state.phase, 'confirm');
-  run(0); run(5000); await tick(); a.equal(prewarms().length, 1, 'a check is open');
-
-  const none = R.stubApi({ status: { available: false, reason: 'NO_BRIDGE', destination: null } }); let t2 = 0;
-  const w2 = mountWith(none, { now: () => t2 }); await tick();
-  w2.timers[0](); t2 = 5000; w2.timers[0](); await tick();
-  a.equal(none.calls.filter((c) => c[0] === 'prewarm').length, 0, 'no bridge: nothing made ahead');
-});
-
-test("words: every key has English, none of JJ's banned words, the Chinese is a draft for JJ", () => {
+test("words: every key has English, none of JJ's banned words, the new lines are marked as drafts", () => {
   const zhKeys = Object.keys(R.text['zh-CN']), enKeys = Object.keys(R.text.en);
   a.deepEqual(enKeys.sort(), zhKeys.slice().sort());
-  for (const k of enKeys) a.ok(!/[一-鿿]/.test(R.text.en[k]), k);
+  const ph = (s) => (s.match(/\{\w+\}/g) || []).sort().join();
+  for (const k of enKeys) { a.ok(!/[一-鿿]/.test(R.text.en[k]), k); a.equal(ph(R.text.en[k]), ph(R.text['zh-CN'][k]), k + ': placeholders'); }
   const all = Object.values(R.text['zh-CN']).join('\n');
-  for (const w of ['后台', '无头', '引擎', '预热', '缓存', 'agy', '命令行', 'ticket', '快照', '不会被训练', 'Yolo', '昵称会先去掉'])
+  for (const w of ['后台', '无头', '引擎', '预热', '缓存', 'agy', '命令行', 'ticket', '快照', '不会被训练', 'Yolo', '昵称会先去掉', '已验证'])
     a.ok(!all.includes(w), w);
-  a.match(read('review-check.js'), /DRAFT for JJ/);
+  a.match(read('review-check.js'), /draft \(#328\)/);
+  for (const k of ['type_' + 'over_explained_caption', 'type_punchline_spoiled', 'type_protected_region_occluded', ...R.DIMENSIONS.map((d) => 'dim_' + d)]) a.ok(zhKeys.includes(k), k);
 });
 
 test('the editor loads it and hands it the playhead; the playground copies it', () => {
