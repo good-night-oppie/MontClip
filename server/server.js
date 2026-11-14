@@ -83,7 +83,7 @@ const { createPreviewStore } = require("./preview-store");
 const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
-const { createEmbed, sameSecret, TASK_ID_RE, REVIEW_PAGE_COOKIE, reviewPageCookie } = require("./embed");
+const { createEmbed, sameSecret, TASK_ID_RE } = require("./embed");
 
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
@@ -1030,14 +1030,14 @@ function reviews() {
   });
   return reviewSvc;
 }
-/* Who is the editor page? Not whoever writes Origin / Sec-Fetch-Site: a local process can put any header on a request (QQ, #328). The page is the one
-   that holds the page cookie (handed out by the review's own first answer, kept and returned by a browser) (the cookie is minted per server start, HttpOnly, only sent to /api/review/, attributes in embed.js);
-   a request with the headers but without the cookie is an agent. A local process that loads the editor page itself can get the cookie too — that is
-   the same trust boundary as the person's own account on this computer, and the review's other doors (the owner's confirmation of the address, the
-   agent switch) do not depend on this one. */
-const REVIEW_PAGE_SECRET = crypto.randomBytes(24).toString("hex");
-const cookieOf = (req, name) => { const m = new RegExp("(?:^|;\\s*)" + name + "=([^;]*)").exec(req.headers.cookie || ""); return m ? m[1] : ""; };
-const isPageReq = (req) => { const c = cookieOf(req, REVIEW_PAGE_COOKIE); return c.length === REVIEW_PAGE_SECRET.length && sameSecret(c, REVIEW_PAGE_SECRET) && !(embed && embed.worker(req)); };
+/* Who is the editor page? Not whoever writes Origin / Sec-Fetch-Site (a local process can put any header on a request), and not whoever shows a cookie the server
+   handed out (a script that makes one more request would get it too: QQ, #328). The page is the Electron window: the desktop main process mints a secret at every
+   start, gives it to this server only through its environment, and adds it as X-MontClip-Page to the editor window's own requests to /api/review/. It is never
+   sent over HTTP to anyone. A server started any other way (no secret) has no page: every caller is an agent, so no send token is ever shown and nothing is sent
+   from there. The review's other doors (the owner's confirmation of the address, the agent switch) do not depend on this one. */
+const REVIEW_PAGE_SECRET = /^[a-f0-9]{64}$/.test(process.env.MONTCLIP_REVIEW_PAGE_SECRET || "") ? process.env.MONTCLIP_REVIEW_PAGE_SECRET : null;
+delete process.env.MONTCLIP_REVIEW_PAGE_SECRET;   // nothing this server starts inherits it
+const isPageReq = (req) => { const h = req.headers["x-montclip-page"]; return !!REVIEW_PAGE_SECRET && typeof h === "string" && h.length === REVIEW_PAGE_SECRET.length && sameSecret(h, REVIEW_PAGE_SECRET) && !(embed && embed.worker(req)); };
 const isAgentReq = (req) => !isPageReq(req);
 const isLoopback = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket && req.socket.remoteAddress);
 
@@ -1781,9 +1781,6 @@ async function handleRequest(req, res) {
     if (!isLoopback(req)) { sendJSON(res, 403, { code: "NOT_LOCAL", error: "the review answers only to this computer" }); return; }
     const action = p.slice("/api/review/".length);
     const agent = isAgentReq(req);
-    /* a client that has none yet is handed the page cookie with its first answer; a browser keeps and returns it by itself, so the editor page needs no code
-       for it, while a request without a cookie jar (the MCP tool, a script) never shows it back */
-    if (agent) res.setHeader("Set-Cookie", reviewPageCookie(REVIEW_PAGE_SECRET));
     try {
       const svc = reviews(), store = reviewStore(), project = projects.peekActive();
       const body = req.method === "POST" ? JSON.parse((await readBody(req)).toString("utf8") || "{}") : {};

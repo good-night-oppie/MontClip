@@ -419,7 +419,9 @@ async function runAgy({ agy, sandbox, targetName = "video_input.mp4", prompt, mo
     catch { resolve({ ok: false, reason: "FAILED" }); return; }
     if (onChild) onChild(child);
     let stdout = "", over = false, settled = false;
-    const finish = (r) => { if (settled) return; settled = true; clearTimeout(timer); resolve(r); };
+    /* what the tool keeps of this conversation (the model's own words) is deleted whichever way this ends: an answer, a failure, an error, a timeout */
+    const scrub = () => { try { const ev = readEvents(stdout, sandbox, target); try { lockToolSession(ev.convId, home); } catch { } purgeToolSession(ev.convId, home); } catch { } };
+    const finish = (r) => { if (settled) return; settled = true; clearTimeout(timer); scrub(); resolve(r); };
     var timer;
     let timedOut = false;
     /* the tree is ended, and the answer waits for it to be gone (a folder cannot be removed under a running process on Windows) */
@@ -430,10 +432,9 @@ async function runAgy({ agy, sandbox, targetName = "video_input.mp4", prompt, mo
     child.on("error", () => finish({ ok: false, reason: "FAILED" }));
     child.on("close", (code) => {
       killTree(child, true);
+      scrub();   // first, before any early return: a timeout is no exception
       if (timedOut) return finish({ ok: false, reason: "TIMEOUT" });
       const ev = readEvents(stdout, sandbox, target);
-      try { lockToolSession(ev.convId, home); } catch { }
-      try { purgeToolSession(ev.convId, home); } catch { }
       if (ev.forbidden.length) return finish({ ok: false, reason: "FORBIDDEN_TOOL" });
       const final = ev.final;
       const ok = code === 0 && final && final.status === "SUCCESS" && ev.readDone;
@@ -449,7 +450,7 @@ async function runAgy({ agy, sandbox, targetName = "video_input.mp4", prompt, mo
  *  sampleFile: the file to look at. leadSec: how much of its start is lead-in. offset: the timeline second the sample's 0 is at.
  *  → {status:"passed"|"issues"|"no_result", reason?, findings, summary, windowDigest}. Findings carry timeline seconds. */
 async function checkSample({ ffmpeg, ffprobe, sampleFile, offset, leadSec = 0, rangeStart, contextText = "", digests = [], taste = [], mode = "single", model, timeoutSec, graceSec,
-  env = process.env, agy = findAgy(env), onChild = null, isCancelled = () => false, tmpRoot = os.tmpdir() }) {
+  env = process.env, agy = findAgy(env), onChild = null, isCancelled = () => false, tmpRoot = os.tmpdir(), home = os.homedir() }) {
   /* what each request carried (kind, size, which kinds of reference text went along) and how many bytes of the clip went out: numbers and kinds, no words */
   const acct = { passes: [], bytes: 0 };
   const none = (reason) => ({ status: "no_result", reason, findings: [], summary: "", windowDigest: "", dimensions: null, mode, observation: "", passes: acct.passes, sentBytes: acct.bytes });
@@ -471,7 +472,7 @@ async function checkSample({ ffmpeg, ffprobe, sampleFile, offset, leadSec = 0, r
       /* look 1: blind. Nothing about the edit, the names or the standards goes in, so it cannot be steered. Same copy, same fences. */
       const blindPrompt = buildBlindPrompt({ targetPath: TARGET_NAME, durationSec: staged.durationSec, leadSec });
       acct.passes.push({ kind: "blind", clipBytes: staged.bytes, promptChars: blindPrompt.length, standards: false, projectText: false, tasteNotes: 0, firstLook: false }); acct.bytes += staged.bytes;
-      const p1 = await runAgy({ agy, sandbox, prompt: blindPrompt, model, timeoutSec, graceSec, env, onChild });
+      const p1 = await runAgy({ agy, sandbox, prompt: blindPrompt, model, timeoutSec, graceSec, env, onChild, home });
       if (!p1.ok) return none(p1.reason);
       observation = parseObservation(p1.text);
       if (!observation) return none("BAD_OUTPUT");
@@ -479,7 +480,7 @@ async function checkSample({ ffmpeg, ffprobe, sampleFile, offset, leadSec = 0, r
     }
     const prompt = buildPrompt({ targetPath: TARGET_NAME, durationSec: staged.durationSec, leadSec, contextText, digests, taste, observation });
     acct.passes.push({ kind: "check", clipBytes: staged.bytes, promptChars: prompt.length, standards: true, projectText: !!contextText, tasteNotes: taste.length, firstLook: !!observation }); acct.bytes += staged.bytes;
-    const r = await runAgy({ agy, sandbox, prompt, model, timeoutSec, graceSec, env, onChild });
+    const r = await runAgy({ agy, sandbox, prompt, model, timeoutSec, graceSec, env, onChild, home });
     if (!r.ok) return none(r.reason);
     const v = parseVerdict(r.text, { durationSec: staged.durationSec });
     if (!v) return none("BAD_OUTPUT");

@@ -19,7 +19,7 @@ const IS_WIN = process.platform === "win32";
 const tmp = (t, p = "mcvb-") => { const d = fs.mkdtempSync(path.join(os.tmpdir(), p)); t.after(() => VB.rmForce(d)); return d; };
 /** an environment that starts the stand-in; extra env is only for the parent (it must not reach the tool) */
 function envFor(mode, opts = {}) {
-  const prefix = [FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.calls ? [`--calls=${opts.calls}`] : []), ...(opts.child ? [`--child=${opts.child}`] : []), ...(opts.sentinel ? [`--sentinel=${opts.sentinel}`] : []), "--"];
+  const prefix = [FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.calls ? [`--calls=${opts.calls}`] : []), ...(opts.child ? [`--child=${opts.child}`] : []), ...(opts.sessionHome ? [`--session-home=${opts.sessionHome}`] : []), ...(opts.sentinel ? [`--sentinel=${opts.sentinel}`] : []), "--"];
   return { ...process.env, MONTCLIP_AGY_BIN: process.execPath, MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify(prefix), ...(opts.extra || {}) };
 }
 function makeSample(dir, sec = 10) {
@@ -307,4 +307,17 @@ test("V20/V22 anchors: the adopted words hash to the values read back and verifi
   assert.equal(h(VB.RUBRIC.join("\n")), "eacb76d38d4465c2d81d11bb0b17fc8d3e2081ec87f2b46a038d4aca0e01a58d");
   assert.equal(h(VB.QUESTIONS.join("\n")), "db8b19fdb2882027e892ce439dbf71dde58c61565db02c492348a37e9b3ffac5");
   assert.equal(h(VB.QUESTIONS_ASK), "871d39aaab27ec99492dc6cca3303d92fd1fe29063c590c3846ee9629103dc13");
+});
+
+test("what the tool keeps of a conversation is deleted after every check: a normal one, a failed one and one that ran out of time (QQ, #328)", { skip }, async (t) => {
+  const d = tmp(t), root = tmp(t, "mcroot-"), sample = makeSample(d);
+  for (const mode of ["pass", "garbage", "hang"]) {
+    const home = tmp(t, "mchome-"), cli = path.join(home, ".gemini", "antigravity-cli");
+    const r = await VB.checkSample(base(t, sample, envFor(mode, { sessionHome: home }), { tmpRoot: root, home, timeoutSec: 1, graceSec: 2 }));
+    if (mode === "hang") assert.equal(r.reason, "TIMEOUT");
+    assert.ok(!fs.existsSync(path.join(cli, "brain", "conv-test")), mode + ": the notes folder is gone");
+    assert.ok(!fs.existsSync(path.join(cli, "conversations", "conv-test.db")), mode + ": the conversation file is gone");
+    const left = []; (function walk(p) { for (const e of fs.existsSync(p) ? fs.readdirSync(p, { withFileTypes: true }) : []) { const q = path.join(p, e.name); if (e.isDirectory()) walk(q); else left.push(fs.readFileSync(q, "utf8")); } })(home);
+    assert.ok(!left.some((x) => x.includes("SESSION-SENTINEL-4471")), mode + ": the sentinel is nowhere under the tool's home");
+  }
 });

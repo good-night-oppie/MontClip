@@ -15,17 +15,13 @@ let HAS_FFMPEG = false;
 try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch { }
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 
-const agyEnv = (mode, report, more = {}) => ({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com", FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
+const PAGE_SECRET = "a1b2c3d4".repeat(8);   // what the Electron main process hands the server at start and adds to the editor window's own requests
+const agyEnv = (mode, report, more = {}) => ({ MONTCLIP_REVIEW_PAGE_SECRET: PAGE_SECRET, MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com", FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(report ? [`--report=${report}`] : []), "--"]) });
-/* The editor page is the one that was handed the page cookie when it loaded the editor (a header alone proves nothing: a local process can write any header). */
-const PAGE = { "Sec-Fetch-Site": "same-origin", Origin: "http://localhost" };
-async function asPage(base) {
-  const r = await fetch(base + "/api/review/records");
-  const c = /mc_review_page=[^;]+/.exec(r.headers.get("set-cookie") || "");
-  assert.ok(c, "the first answer of the review hands out the page cookie");
-  PAGE.Cookie = c[0];
-  return PAGE;
-}
+/* The editor page is the Electron window: the main process adds the page secret to its own requests to /api/review/ (it never travels over HTTP to anyone else,
+   and a header like Origin proves nothing: a local process can write any header). */
+const PAGE = { "Sec-Fetch-Site": "same-origin", Origin: "http://localhost", "X-MontClip-Page": PAGE_SECRET };
+async function asPage() { return PAGE; }
 /* node's fetch adds neither Origin nor Sec-Fetch-Site: that is an agent (MCP / the plugin); the page's header is added by hand */
 const call = (base, method, p, body, headers) => fetch(base + p, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
   .then(async (r) => ({ status: r.status, body: await r.json() }));
@@ -187,29 +183,67 @@ test("the checks of /api/export/request apply here too: an end past the timeline
   assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], [], "nothing was rendered");
 });
 
-test("a header is not a page: Origin and Sec-Fetch-Site without the page cookie get no token and cannot send (QQ #328); the cookie is HttpOnly, Strict and only for the review", { skip, timeout: 120_000 }, async (t) => {
+test("a header is not a page: Origin, Sec-Fetch-Site, a cookie or a guessed secret get no token and cannot send; no answer of the review hands out a secret or a cookie (QQ #328)", { skip, timeout: 120_000 }, async (t) => {
   const dir = makeDataDir(t, seedProject({ revision: 3 }));
   const report = path.join(dir, "..", path.basename(dir) + "-rpt.json"); t.after(() => { try { fs.rmSync(report, { force: true }); } catch { } });
   const { base } = await startServer(t, dir, agyEnv("pass", report));
   const tab = fakeTab(t, base); await tab.connected();
   const forged = { "Sec-Fetch-Site": "same-origin", Origin: base, "Sec-Fetch-Mode": "cors", Referer: base + "/" };
-  const root = await fetch(base + "/api/review/records"); const sc = root.headers.get("set-cookie") || "";
-  assert.equal((await fetch(base + "/")).headers.get("set-cookie"), null, "the editor page itself gets no cookie from the review");
-  assert.match(sc, /mc_review_page=[0-9a-f]{48}/); assert.match(sc, /HttpOnly/i); assert.match(sc, /SameSite=Strict/i); assert.match(sc, /Path=\/api\/review\//);
+  /* 1: the first request of a script, and the second, and the tenth: never a cookie, never anything it could show back */
+  for (let i = 0; i < 3; i++) {
+    const r = await fetch(base + "/api/review/records", { headers: forged });
+    assert.equal(r.headers.get("set-cookie"), null, "no answer of the review sets a cookie");
+    assert.ok(!JSON.stringify([...r.headers]).includes(PAGE_SECRET) && !(await r.text()).includes(PAGE_SECRET), "the secret is in no answer");
+  }
+  assert.equal((await fetch(base + "/")).headers.get("set-cookie"), null);
   const prep = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab" }, forged);
   assert.equal(prep.status, 200, JSON.stringify(prep.body));
   await playTab(base, tab);
   const id = prep.body.reviewId;
   await until(async () => (await call(base, "GET", "/api/review/status?id=" + id, undefined, forged)).body.state === "ready");
-  const seen = (await call(base, "GET", "/api/review/status?id=" + id, undefined, forged)).body;
-  assert.equal(seen.sendToken, undefined, "forged headers are shown no token");
-  assert.equal((await call(base, "POST", "/api/review/send", { id, token: "0".repeat(48) }, forged)).status, 403);
-  assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, { ...forged, Cookie: "mc_review_page=" + "0".repeat(48) })).body.code, "AGENT_SEND_OFF", "a wrong cookie is an agent, and the agent switch is off");
+  /* 2: forged headers, a replayed or invented cookie, a wrong or short secret, the right secret in the wrong place: all agents */
+  const agents = [forged, { ...forged, Cookie: "mc_review_page=" + PAGE_SECRET }, { ...forged, Cookie: "mc_review_page=" + "0".repeat(64) },
+    { ...forged, "X-MontClip-Page": "0".repeat(64) }, { ...forged, "X-MontClip-Page": PAGE_SECRET.slice(0, 32) }, { ...forged, "X-MontClip-Page": "" },
+    { ...forged, "X-MontClip-Session": PAGE_SECRET }];
+  for (const h of agents) {
+    const seen = (await call(base, "GET", "/api/review/status?id=" + id, undefined, h)).body;
+    assert.equal(seen.sendToken, undefined, "no token for " + JSON.stringify(Object.keys(h)));
+    assert.equal((await call(base, "POST", "/api/review/send", { id, token: "0".repeat(48) }, h)).status, 403);
+    assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, h)).body.code, "AGENT_SEND_OFF", "an agent, and the agent switch is off");
+  }
   assert.equal(fs.existsSync(report), false, "nothing was sent");
   const real = await asPage(base);
-  assert.match((await call(base, "GET", "/api/review/status?id=" + id, undefined, real)).body.sendToken, /^[0-9a-f]{48}$/, "the real page gets the token");
+  assert.match((await call(base, "GET", "/api/review/status?id=" + id, undefined, real)).body.sendToken, /^[0-9a-f]{48}$/, "the window that carries the secret gets the token");
   assert.equal((await fetch(base + "/reviews/default.json")).status, 404, "what this server keeps is not an app file");
   assert.equal((await fetch(base + "/reviews/")).status, 404);
+});
+
+test("without a page secret (not started by the desktop app) nobody is the page: no token is ever shown, whatever header is sent", { skip, timeout: 120_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ revision: 3 }));
+  const env = agyEnv("pass"); delete env.MONTCLIP_REVIEW_PAGE_SECRET;
+  const { base } = await startServer(t, dir, env);
+  const tab = fakeTab(t, base); await tab.connected();
+  const h = { ...PAGE };   // even the header the desktop would add
+  const prep = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab" }, h);
+  assert.equal(prep.status, 200, JSON.stringify(prep.body));
+  await playTab(base, tab);
+  await until(async () => (await call(base, "GET", "/api/review/status?id=" + prep.body.reviewId, undefined, h)).body.state === "ready");
+  assert.equal((await call(base, "GET", "/api/review/status?id=" + prep.body.reviewId, undefined, h)).body.sendToken, undefined);
+  assert.equal((await call(base, "POST", "/api/review/send", { id: prep.body.reviewId, token: "0".repeat(48) }, h)).status, 403);
+});
+
+test("the desktop main process adds the page secret only to the editor window's own requests to /api/review/, and hands it to the server only through its environment", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "desktop", "main.js"), "utf8");
+  assert.ok(src.includes("MONTCLIP_REVIEW_PAGE_SECRET: pageSecret"), "the server gets it in its environment");
+  assert.ok(src.includes('const pageSecret = crypto.randomBytes(32).toString("hex")'), "minted fresh at every start");
+  const at = src.indexOf("onBeforeSendHeaders((details, callback) => {"), end = src.indexOf("\n  });", at);
+  assert.ok(at > 0 && end > at, "the header hook is there");
+  const hook = src.slice(at, end);
+  assert.ok(hook.includes("X-MontClip-Page") && hook.includes("pageSecret"));
+  assert.ok(hook.includes("/api/review/"), "only for the review's path");
+  assert.ok(hook.includes("webContentsId"), "only for the editor window's own contents");
+  const server = fs.readFileSync(path.join(__dirname, "..", "server", "server.js"), "utf8");
+  assert.doesNotMatch(server, /reviewPageCookie|mc_review_page/, "no cookie is handed out");
 });
 
 test("the review answers only to this computer: a connection through the machine's own network address is refused", { skip, timeout: 60_000 }, async (t) => {

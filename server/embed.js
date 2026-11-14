@@ -156,6 +156,4 @@ function createEmbed({ token, hostAllowed, now = Date.now }) {
 }
 
 /** The review's page cookie (#321): the one place its attributes are written. Only the review's own paths ever receive it. */
-const REVIEW_PAGE_COOKIE = "mc_review_page";
-const reviewPageCookie = (secret) => `${REVIEW_PAGE_COOKIE}=${secret}; Path=/api/review/; HttpOnly; SameSite=Strict`;
-module.exports = { REVIEW_PAGE_COOKIE, reviewPageCookie, COOKIE, COOKIE_ATTRS, MAX_SESSIONS, TOKEN_RE, TASK_TICKET_MS, TASK_ID_RE, sameSecret, cookieValue, createEmbed };
+module.exports = { COOKIE, COOKIE_ATTRS, MAX_SESSIONS, TOKEN_RE, TASK_TICKET_MS, TASK_ID_RE, sameSecret, cookieValue, createEmbed };

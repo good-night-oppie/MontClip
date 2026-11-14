@@ -25,6 +25,13 @@ const tool = (name, p, state = "DONE") => line({ event: "step_update", step_upda
 const answer = (obj) => { const text = typeof obj === "string" ? obj : JSON.stringify(obj); line({ event: "step_update", step_update: { step_type: "agent_response", text_delta: text } }); line({ event: "result", result: { status: "SUCCESS", response: text, duration_seconds: 1.5 } }); };
 
 line({ event: "init", init: { conversation_id: "conv-test" } });
+/* like the real tool: what it keeps of this conversation under <home>/.gemini/antigravity-cli, with a sentinel standing for the model's own words */
+if (opt["session-home"]) {
+  const cli = path.join(opt["session-home"], ".gemini", "antigravity-cli");
+  fs.mkdirSync(path.join(cli, "brain", "conv-test"), { recursive: true }); fs.mkdirSync(path.join(cli, "conversations"), { recursive: true });
+  fs.writeFileSync(path.join(cli, "brain", "conv-test", "notes.txt"), "SESSION-SENTINEL-4471 the model's own words");
+  fs.writeFileSync(path.join(cli, "conversations", "conv-test.db"), "SESSION-SENTINEL-4471");
+}
 const mode = opt.mode || "pass";
 /* the four verdicts every full answer carries; over = {fact:"issues", …} */
 const DIMS = (over = {}) => Object.fromEntries(["fact", "subtitle", "pacing", "packaging"].map((k) => [k, { state: over[k] || "passed", reason: over[k] ? "see findings" : "" }]));
