@@ -61,8 +61,12 @@ test("the box says what is sent, to whom, and that it may train a model — JJ's
     a.equal(m.training, '对方可能用这段内容训练模型');
     a.deepEqual(m.buttons.map((b) => b.label), ['先看要发的内容', '发送检查', '只发这 10 秒', '不发了']);
     a.ok(m.canSend && m.buttons.every((b) => b.enabled));
-    a.ok(m.lines.some((l) => l.includes('0:18–0:30') && l.includes('1824 字') && l.includes('37 个剪辑时间点')), 'what 发送检查 sends, with the lead');
-    a.ok(m.lines.some((l) => l.startsWith('点「只发这 10 秒」只发') && l.includes('不带整条片子的文字')), 'what 只发这 10 秒 sends');
+    // JJ #326, word for word; the lead line comes after both send lines; the danmaku line last
+    a.deepEqual(m.lines.slice(1), [
+      '点「发送检查」会发出去：0:18–0:30 的画面和声音（11.5 秒），整条片子的字幕文字 1824 字，和 37 个剪辑时间点。',
+      '点「只发这 10 秒」只发出去：0:18–0:30 的画面和声音（11.5 秒），不发整条片子的字幕文字和剪辑时间点。',
+      '两个按钮发的画面和声音里，都有前面多带的 1.5 秒（0:18–0:20），让 AI 知道前面在说什么。',
+      '画面里如果有观众昵称、弹幕，会原样发出去。']);
   });
 });
 
