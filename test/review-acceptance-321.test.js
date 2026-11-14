@@ -6,9 +6,11 @@
      1. ① sound not checked: audio was sent but usage says 0 audio tokens, or there is no usage → 「声音没检查」.
      2. ③ missed subtitle line: ONLY "the model returns a missing line → shown as a suggestion the streamer confirms,
         nothing changed by itself". Whether the model can hear it is left to the same-clip real run.
-     3. ⑤④ (+ C7/C8 from attempt-07, PG 6878593931) one rule — anything uncertain is only a prompt: picture text read
-        differently or wrongly, subtitle change time not matching the speech, a model claim the actual frames contradict
-        → 「这里请你确认」.
+     3. ⑤④ one rule — anything uncertain is only a prompt: picture text read differently, subtitle change time not
+        matching the speech → 「这里请你确认」. With C7/C8 from attempt-07 (PG 6878593931):
+        C7  what the model says about the picture is first checked against the frames decoded on this computer; a claim
+            the frames contradict is suppressed — not shown at all (not even as 「这里请你确认」);
+        C8  when picture text is the only basis, the most it can be is 「这里请你确认」, never 「建议你改这里」.
      4. ⑥ nothing concluded outside the clip: the result says which stretch was reviewed, and makes no cut proposal outside it.
 
    The streamer sees only three plain states; none of them changes the video by itself. The tests assert on the state ids
@@ -97,16 +99,6 @@ test("3 ⑤: the same picture text read two different ways → one 「这里请�
   noAutoChange(v);
 });
 
-test("3 C8: the frame reads 甲, the model reads 乙 and proposes a change → 「这里请你确认」, never 「建议你改这里」, no replacement", () => {
-  const v = parse({ verdict: "issues", dimensions: SUB_ISSUE("bracket text"),
-    findings: [{ t: 4.0, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture_text", reads: "（乙）",
-      text: "the bracket reads 乙", suggestion: "change 「甲」 to 「乙」" }] });
-  assert.ok(v, "the answer parses");
-  assert.equal(v.findings[0].state, "confirm");
-  assert.ok(!/甲|乙|change|改成/.test(v.findings[0].suggestion || ""), "no replacement wording survives");
-  noAutoChange(v);
-});
-
 test("3 ④: the subtitle change time does not match the speech → 「这里请你确认」, no time is moved", () => {
   const v = parse({ verdict: "issues", dimensions: SUB_ISSUE("maybe early"),
     findings: [{ t: 11.4, type: "subtitle_mismatch", dimension: "subtitle", basis: "audio", screenChangeAt: 11.4,
@@ -117,16 +109,47 @@ test("3 ④: the subtitle change time does not match the speech → 「这里请
   noAutoChange(v);
 });
 
-test("3 C7: the model says the subtitle changed at 11.0 s, the actual frames change at 11.4 s → 「这里请你确认」, no move, no re-cut", () => {
+/* C7: the frames say the subtitle changes at 11.4 s and the bracket reads （甲）. A model claim that contradicts them is
+   suppressed: no finding at that spot, nothing shown, nothing changed. */
+test("3 C7: the model says the subtitle changed at 11.0 s, the actual frames change at 11.4 s → suppressed, not shown", () => {
   const v = parse({ verdict: "issues", dimensions: SUB_ISSUE("screen changes early"),
     findings: [{ t: 11.0, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture", screenChangeAt: 11.0,
       text: "the subtitle has already changed while the line is still being said", suggestion: "move the change to 11.6 s" }] });
+  assert.ok(v, "the answer parses (a suppressed finding does not throw the whole answer away)");
+  assert.equal(v.findings.filter((f) => Math.abs(f.t - 11) < 0.5).length, 0, "the contradicted claim is not shown at all");
+  assert.ok(!v.states.includes("suggest") && !v.states.includes("confirm"), "nothing is shown for it");
+  noAutoChange(v);
+});
+
+test("3 C7: the frame reads （甲）, the model reads （乙） → suppressed, not shown, no change of words", () => {
+  const v = parse({ verdict: "issues", dimensions: SUB_ISSUE("bracket text"),
+    findings: [{ t: 4.0, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture_text", reads: "（乙）",
+      text: "the bracket reads 乙", suggestion: "change 「甲」 to 「乙」" }] });
   assert.ok(v, "the answer parses");
-  assert.equal(v.findings.length <= 1, true);
-  for (const f of v.findings) {
-    assert.equal(f.state, "confirm", "a claim the frames contradict is at most 「这里请你确认」");
-    assert.ok(!/move|11\.6|挪|改到/.test(f.suggestion || ""));
-  }
+  assert.equal(v.findings.filter((f) => Math.abs(f.t - 4) < 0.5).length, 0, "a reading the frame contradicts is not shown");
+  noAutoChange(v);
+});
+
+test("3 C7 control: the model's change time agrees with the frames (11.4 s) → still shown, as 「这里请你确认」", () => {
+  const v = parse({ verdict: "issues", dimensions: SUB_ISSUE("maybe early"),
+    findings: [{ t: 11.4, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture", screenChangeAt: 11.4,
+      text: "the change may come before the line ends", suggestion: "" }] });
+  assert.ok(v, "the answer parses");
+  assert.equal(v.findings.length, 1, "a claim the frames support is not suppressed");
+  assert.equal(v.findings[0].state, "confirm");
+  noAutoChange(v);
+});
+
+/* C8: no decoded frame text at that spot, so the picture text is the only basis: at most 「这里请你确认」. */
+test("3 C8: picture text is the only basis and the model proposes a change → 「这里请你确认」, never 「建议你改这里」, no replacement", () => {
+  const v = parse({ verdict: "issues", dimensions: SUB_ISSUE("bracket text"),
+    findings: [{ t: 7.0, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture_text", reads: "（乙）",
+      text: "the bracket reads 乙, the subtitle says 甲", suggestion: "change 「甲」 to 「乙」" }] });
+  assert.ok(v, "the answer parses");
+  assert.equal(v.findings.length, 1);
+  assert.equal(v.findings[0].state, "confirm", `at most ${STATES.confirm}`);
+  assert.notEqual(v.findings[0].state, "suggest");
+  assert.ok(!/甲|乙|change|改成/.test(v.findings[0].suggestion || ""), "no replacement wording survives");
   noAutoChange(v);
 });
 
