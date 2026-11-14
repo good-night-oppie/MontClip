@@ -106,7 +106,7 @@ test("the box says what is sent, to whom, and that it may train a model", async 
   a.ok(m.canSend && m.buttons.every((b) => b.enabled));
   a.deepEqual(m.lines.slice(1), [
     '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段有重叠的字幕文字、剪辑时间点。',
-    '点「只发这 10 秒」只发出去：0:17–0:30 的画面和声音（13 秒），不发字幕文字和剪辑时间点。',
+    '点「只发这 10 秒」会发出去：0:17–0:30 的画面和声音（13 秒），不发字幕文字和剪辑时间点。',
     '两个按钮发的画面和声音里，都有前面多带的 3 秒（0:17–0:20），让 AI 知道前面在说什么。',
     '画面里如果有观众昵称、弹幕，会原样发出去。']);
   const taste = R.confirmModel(await readyView({ taste: 4 }), 'zh-CN');
