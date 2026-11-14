@@ -128,11 +128,22 @@
       issues: "Done. Found {count} possible problem(s).",
       passed: "The check found no problems in these {n} seconds. This is only the AI's judgement — please watch it and listen to it yourself too.",
       noResult: "This check gave no result. That doesn't mean there's no problem.",
+      insufficient: "Some things couldn't be judged, so this check gave no result. That doesn't mean there's no problem.",
       prepareFailed: "Couldn't prepare these {n} seconds on this computer. Nothing was sent.",
       sendFailed: "The check didn't complete. It's not certain whether the content already reached them. That doesn't mean there's no problem.",
       rangeTooLong: "The range you marked is over 30 seconds, so this checks the {n} seconds around the playhead.",
-      windowOnly: "Only these {n} seconds were checked, without the rest of the video.",
-      truncated: "The whole video's text was too long, so only the part near these {n} seconds was included.",
+      windowOnly: "Only these {n} seconds were checked, without the subtitle text.",
+      textGone: "The original wording of this record wasn't kept; only times and kinds remain.",
+      dimLine: "{label}: {state}",
+      dimReason: ". {text}",
+      dim_fact: "People and facts",
+      dim_subtitle: "Subtitles",
+      dim_pacing: "Pacing",
+      dim_packaging: "Packaging (captions, name plates)",
+      dimState_passed: "no problems found",
+      dimState_issues: "problems",
+      dimState_insufficient_evidence: "couldn't tell",
+      dimState_unknown: "no verdict",
       inLead: "(in the extra seconds just before)",
       jump: "Go here",
       fixed: "Fixed",
@@ -145,10 +156,16 @@
       type_subtitle_mismatch: "Subtitles may not match what's said",
       type_audio: "The sound may have a problem",
       type_continuity: "The two sections may not connect smoothly",
+      type_over_explained_caption: "The caption may explain too much",
+      type_punchline_spoiled: "The punchline may be given away early",
+      type_protected_region_occluded: "Something that shouldn't be covered may be covered",
       type_other: "There may be a problem here",
     },
   };
-  const TYPES = ["speaker_swapped", "cut_jump", "subtitle_mismatch", "audio", "continuity", "other"];
+  const TYPES = ["speaker_swapped", "cut_jump", "subtitle_mismatch", "audio", "continuity", "over_explained_caption", "punchline_spoiled",
+    "protected_region_occluded", "other"];   // #328 video-bridge.js FINDING_TYPES
+  const DIMENSIONS = ["fact", "subtitle", "pacing", "packaging"];             // #328 video-bridge.js DIMENSIONS
+  const DIM_STATES = ["passed", "issues", "insufficient_evidence"];
   const STATUSES = ["passed", "issues", "no_result"];
 
   function lang_(l) { return text[l] ? l : (String(l || "").startsWith("zh") ? "zh-CN" : "en"); }
@@ -189,81 +206,92 @@
   /** The whole seconds the button, the title and every 「这 N 秒」 say — and {sec} too when there is no lead (JJ #326). */
   const spanOf = (r) => Math.max(1, Math.round(r.end - r.start));
 
-  /** The receiver, as status / prepare report it. Both a name and a host, or nothing (then nothing can be sent). */
+  const span_ = (r) => (r && typeof r === "object" && num(r.start) != null && num(r.end) != null && r.start >= 0 && r.end > r.start ? r : null);
+  const near_ = (a, b, eps = 0.011) => Math.abs(a - b) <= eps;   // the engine rounds seconds to 2 decimals
+  const count_ = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
+  /**
+   * What the engine says will be sent (#328: status → willSend {what, to, requests, tasteNotes, seconds}), checked field by
+   * field (QQ #326 item 1): the checked range, the lead before it, the scope, and that the seconds sent are exactly lead +
+   * range. Anything missing or odd → null: the box can't say what goes, so nothing can be sent. Never filled in from the
+   * request or with 0. `what` is the engine's own English sentence and is not shown; the box says it from these fields.
+   */
+  function payloadOf(view) {
+    const range = span_(view && view.range), ws = view && view.willSend;
+    if (!range || !ws || typeof ws !== "object") return null;
+    const lead = num(view.lead), seconds = num(ws.seconds), requests = count_(ws.requests), taste = count_(ws.tasteNotes);
+    if (lead == null || lead < 0 || lead > range.start + 1e-6 || seconds == null || requests == null || requests < 1 || taste == null) return null;
+    if (view.scope !== "full" && view.scope !== "window") return null;
+    // QQ #326 (5900512724 item 1): the clip is exactly the lead + the range — nothing unnamed before or after
+    if (!near_(seconds, range.end - range.start + lead)) return null;
+    const video = { start: range.start - lead, end: range.end };
+    return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds };
+  }
+
+  /** The receiver, as the engine reports it: a name and a host, and whether anyone confirmed that host (#328: verified). */
   function destinationOf(d) {
     if (!d || typeof d !== "object") return null;
     const service = clip(String(d.service || "").trim(), 60), host = clip(String(d.host || "").trim(), 120);
     if (!service || !host || /[\s/\\]/.test(host)) return null;
-    return { service, host };
+    return { service, host, verified: d.verified === true };
   }
+  /** 「发给：…」 — with 「未验证」 next to the domain unless the engine says it was confirmed (Deja, #328: never shown as confirmed). */
+  const toLine = (lang, dest) => (dest ? t(lang, dest.verified ? "to" : "toUnverified", dest) : t(lang, "noDestination"));
 
-  const span_ = (r) => (r && typeof r === "object" && num(r.start) != null && num(r.end) != null && r.start >= 0 && r.end > r.start ? r : null);
-  const same_ = (a, b) => Math.abs(a - b) <= 1e-6;
-  const count_ = (v) => (num(v) != null && v >= 0 ? Math.round(v) : null);
-  /**
-   * What prepare says will be sent, checked field by field (QQ #326 item 1): the checked range, the picture's range
-   * (which holds the range), and the whole-video text's size. Anything missing or odd → null: the box can't say what
-   * goes, so nothing can be sent. Never filled in from the request or with 0.
-   */
-  function payloadOf(prep) {
-    const range = span_(prep && prep.range), ws = prep && prep.willSend;
-    if (!range || !ws || typeof ws !== "object") return null;
-    const video = span_(ws.video), text = ws.text && typeof ws.text === "object" ? ws.text : null;
-    if (!video || !text) return null;
-    const chars = count_(text.subtitleChars), cuts = count_(text.cutPoints);
-    if (chars == null || cuts == null || typeof text.truncated !== "boolean") return null;
-    let lead = null;
-    if (prep.lead != null) {
-      lead = span_(prep.lead);
-      if (!lead || !same_(lead.end, range.start)) return null;
-    }
-    // QQ #326 (5900512724 item 1): one shape only — the picture ends where the range ends and starts where the lead
-    // starts, or where the range starts when there is no lead. Anything else would send seconds the box doesn't name.
-    if (!same_(video.end, range.end) || !same_(video.start, lead ? lead.start : range.start)) return null;
-    return { range, video, chars, cuts, truncated: text.truncated, lead };
-  }
-
-  /** The confirm box. `canSend` is false without a full description of what is sent, a destination or a token. */
-  function confirmModel(prep, lang, statusDest, opts = {}) {
-    const pay = payloadOf(prep);
-    const range = pay ? pay.range : span_(prep && prep.range);
+  /** The confirm box. `canSend` needs a full description of what is sent, a confirmed destination and a token. */
+  function confirmModel(view, lang, opts = {}) {
+    const pay = payloadOf(view);
+    const range = pay ? pay.range : span_(view && view.range);
     const n = range ? spanOf(range) : SPAN;
-    const ws = (prep && prep.willSend) || {};
-    const dest = destinationOf(ws.destination) || destinationOf(statusDest);
-    const video = pay && pay.video, lead = pay && pay.lead;
+    const dest = destinationOf(view && view.willSend && view.willSend.to);
     const lines = [];
     if (opts.fellBack) lines.push(t(lang, "rangeTooLong", { n }));
     lines.push(t(lang, "intro", { n }));
+    if (opts.changed) lines.push(t(lang, "changedRecheck"));
     if (pay) {
-      // without a lead the picture is the checked stretch itself: its seconds are the same whole number as 「这 N 秒」
-      const sec = lead ? secs(video.end - video.start) : String(n);
-      // cut text: the line doesn't call {chars} the whole video's (JJ #326 recheck) — whether it counts before or after the cut is the engine's to say
-      lines.push(t(lang, pay.truncated ? "whatFullCut" : "whatFull", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec, chars: pay.chars, cuts: pay.cuts }));
-      if (pay.truncated) lines.push(t(lang, "truncatedBefore", { n }));
-      // 「只发这 10 秒」: the same picture and sound (the lead included — interface v0 has one willSend.video), no whole-video text
-      lines.push(t(lang, "whatWindow", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec }));
-      if (lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(lead.start), lead: fmtTime(lead.end), leadSec: secs(lead.end - lead.start) }));
+      const v = pay.video, sec = pay.lead ? secs(v.end - v.start) : String(n);
+      const at = { n, from: fmtTime(v.start), to: fmtTime(v.end), sec };
+      if (pay.scope === "full") lines.push(t(lang, "whatFull", at));
+      lines.push(t(lang, "whatWindow", at));
+      if (pay.lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(pay.lead.start), lead: fmtTime(pay.lead.end), leadSec: secs(pay.lead.end - pay.lead.start) }));
+      if (pay.taste) lines.push(t(lang, "whatTaste", { k: pay.taste }));
+      if (pay.requests > 1) lines.push(t(lang, "whatTwice", { k: pay.requests }));
       lines.push(t(lang, "whatDanmaku"));
     } else lines.push(t(lang, "noPayload"));
-    const canSend = !!(pay && dest && prep && typeof prep.reviewId === "string" && prep.reviewId && typeof prep.sendToken === "string" && prep.sendToken);
+    if (dest && !dest.verified) lines.push(t(lang, "unverifiedBlock"));
+    const token = view && typeof view.sendToken === "string" && view.sendToken ? view.sendToken : null;
+    const id = view && typeof view.reviewId === "string" && view.reviewId ? view.reviewId : null;
+    const canSend = !!(pay && dest && dest.verified && id && token && view.state === "ready");
     return {
       title: t(lang, "title", { n }), n, lines, payload: pay,
-      blocked: pay ? null : "noPayload",
-      to: dest ? t(lang, "to", dest) : t(lang, "noDestination"),
+      blocked: !pay ? "noPayload" : !dest ? "noDestination" : !dest.verified ? "unverified" : null,
+      to: toLine(lang, dest), warn: !dest || !dest.verified,
       training: t(lang, "training"),
       destination: dest, canSend,
       buttons: [
-        { id: "preview", label: t(lang, "previewBtn"), enabled: !!(prep && prep.reviewId) },
-        { id: "full", label: t(lang, "sendFull"), enabled: canSend },
+        { id: "preview", label: t(lang, "previewBtn"), enabled: !!(canSend && safePreviewSrc(view && view.previewSrc)) },
+        { id: "full", label: t(lang, "sendFull"), enabled: !!(canSend && pay.scope === "full") },
         { id: "window", label: t(lang, "sendWindow", { n }), enabled: canSend },
         { id: "cancel", label: t(lang, "cancel"), enabled: true },
       ],
     };
   }
 
-  /** The engine's answer, checked: three statuses only, findings with a time on the timeline, text cut to length. */
+  /** prepare refused because nobody confirmed where it goes (#328: 409 DESTINATION_UNVERIFIED): nothing was made, nothing goes. */
+  function unverifiedModel(dest, lang, range) {
+    const d = destinationOf(dest), n = range ? spanOf(range) : SPAN;
+    return { title: t(lang, "title", { n }), n, lines: [t(lang, "intro", { n }), t(lang, "unverifiedBlock")],
+      to: toLine(lang, d ? { ...d, verified: false } : null), warn: true, training: t(lang, "training"), destination: d, canSend: false,
+      buttons: [
+        { id: "preview", label: t(lang, "previewBtn"), enabled: false },
+        { id: "full", label: t(lang, "sendFull"), enabled: false },
+        { id: "window", label: t(lang, "sendWindow", { n }), enabled: false },
+        { id: "cancel", label: t(lang, "cancel"), enabled: true },
+      ] };
+  }
+
+  /** The engine's answer (#328 record), checked: three statuses, findings with a time on the timeline, four dimensions, text cut. */
   function cleanResult(r) {
-    if (!r || typeof r !== "object") return { status: "no_result", reason: "BAD_OUTPUT", findings: [] };
+    if (!r || typeof r !== "object") return { status: "no_result", reason: "BAD_OUTPUT", findings: [], dimensions: null, textAvailable: true };
     const status = STATUSES.includes(r.status) ? r.status : "no_result";
     const findings = (Array.isArray(r.findings) ? r.findings : []).slice(0, 50).map((f, i) => ({
       id: Number.isInteger(f && f.id) ? f.id : i,
@@ -272,20 +300,30 @@
       text: clip(f && f.text, 200), suggestion: clip(f && f.suggestion, 200),
       inLead: !!(f && f.inLead === true), mark: f && typeof f.mark === "string" ? clip(f.mark, 20) : null,
     })).filter((f) => f.t != null);
+    let dimensions = null;
+    if (r.dimensions && typeof r.dimensions === "object") {
+      dimensions = {};
+      for (const k of DIMENSIONS) {
+        const d = r.dimensions[k];
+        dimensions[k] = { state: d && DIM_STATES.includes(d.state) ? d.state : null, reason: clip(d && d.reason, 200) };
+      }
+    }
     return { reviewId: typeof r.reviewId === "string" ? r.reviewId : null, status, reason: typeof r.reason === "string" ? clip(r.reason, 30) : null,
-      scope: r.scope === "window" ? "window" : "full", contextTruncated: r.contextTruncated === true,
+      scope: r.scope === "window" ? "window" : "full", textAvailable: r.textAvailable !== false,
       range: r.range && num(r.range.start) != null && num(r.range.end) != null ? { start: r.range.start, end: r.range.end } : null,
-      summary: clip(r.summary, 600), findings };
+      summary: clip(r.summary, 600), findings, dimensions };
   }
 
-  /** What the result box says. A pass only when the engine said passed and nothing inside the checked stretch was found. */
+  /** What the result box says. A pass only when the engine said passed, all four dimensions passed and nothing inside the checked stretch was found. */
   function resultModel(raw, lang, n, opts = {}) {
     const r = cleanResult(raw);
     const span = n || (r.range ? spanOf(r.range) : SPAN);
     const main = r.findings.filter((f) => !f.inLead);
+    const dimIssue = !!(r.dimensions && DIMENSIONS.some((k) => r.dimensions[k].state === "issues"));
+    const allPassed = !!(r.dimensions && DIMENSIONS.every((k) => r.dimensions[k].state === "passed"));
     let status = r.status;
-    if (status === "passed" && main.length) status = "issues";
-    if (status === "issues" && !r.findings.length) status = "no_result";   // 「有问题」 with nothing to show is no answer
+    if (status === "passed" && (main.length || !allPassed)) status = main.length || dimIssue ? "issues" : "no_result";
+    if (status === "issues" && !r.findings.length && !dimIssue) status = "no_result";   // 「有问题」 with nothing to show is no answer
     const notes = opts.fellBack ? [t(lang, "rangeTooLong", { n: span })] : [];
     let headline;
     // a send that was called and failed may have reached the receiver: that comes first, whatever its code says (QQ #326 5900512724 item 2)
