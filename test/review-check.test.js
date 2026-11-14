@@ -581,28 +581,39 @@ test('JJ #326 6872083423 / 6872139855: the preview names a part with a short nam
 });
 
 test("Deja #326: the fixed standards and questions are shown, folded, exactly as willSend gives them — never written into the page; #328 tasteLost is said", async () => {
-  const fixedText = { standards: ['标准一', '标准二'], questions: ['问题一？', '问题二？'], ask: '每问一条回答。' };
-  const api = R.stubApi({ fixedText, taste: 1, tasteLost: 2 }), w = mountWith(api);
+  const standards = { rules: ['标准一', '标准二'], questions: ['问题一？', '问题二？'], ask: '每问一条回答。' };   // #328 a41b6bca willSend.standards
+  const api = R.stubApi({ standards, taste: 1, tasteLost: 2 }), w = mountWith(api);
   await settle(); w.button.click(); await settle();
   a.ok(w.byReview('to')[0], 'box open');
-  a.equal(w.byReview('fixed').length, 0, 'not in the main box');
+  a.equal(w.byReview('standards').length, 0, 'not in the main box');
   w.byReview('preview')[0].click(); await settle();
-  const d = w.byReview('fixed')[0];
+  const d = w.byReview('standards')[0];
   a.equal(d.tagName.toLowerCase(), 'details', 'folded');
   a.deepEqual(w.byReview('standard').map((n) => n.textContent), ['标准一', '标准二']);
   a.deepEqual(w.byReview('question').map((n) => n.textContent), ['问题一？', '问题二？']);
   a.equal(w.byReview('ask')[0].textContent, '每问一条回答。');
-  a.ok(w.text().includes('每次都会发给模型的固定问题'));
-  const m = R.confirmModel(await readyView({ fixedText, taste: 1, tasteLost: 2 }), 'zh-CN');
-  a.ok(m.lines.includes('有 2 条好坏例子的文字在重启后没了，这次不会发出去。'));
+  a.ok(w.text().includes('会一起发给 AI 的固定标准和问题'));
+  a.ok(w.text().includes('要 AI 回答的问题：'));
+  a.equal(w.byReview('fixedTwice').length, 0, 'one request: no note about parts');
+  const m = R.confirmModel(await readyView({ standards, taste: 1, tasteLost: 2 }), 'zh-CN');
+  a.ok(m.lines.includes('有 2 条好坏例子的文字在重启后没有保留，这次不会发出去；需要的话请重新填写。'));
+  // JJ 6872283674: sent in parts, the first part goes without them — said right under the folded title
+  const api3 = R.stubApi({ standards }); const st3 = api3.status;
+  api3.status = async (id) => { const v = await st3(id); if (v.willSend) v.willSend = { ...v.willSend, requests: 2, standards: { ...v.willSend.standards, carriedBy: 'second' } }; return v; };
+  const w3 = mountWith(api3); await settle(); w3.button.click(); await settle();
+  w3.byReview('preview')[0].click(); await settle();
+  const tw = w3.byReview('fixedTwice')[0];
+  a.equal(tw.textContent, '分次发出时，第一次不带，从后面几次起带上。');
+  const dd = w3.byReview('standards')[0]; a.equal(dd.children[0].tagName.toLowerCase(), 'summary'); a.equal(dd.children[1], tw, 'right under the folded title');
   // no fixed text from the engine: nothing shown, nothing made up
   const w2 = mountWith(R.stubApi()); await settle(); w2.button.click(); await settle();
   w2.byReview('preview')[0].click(); await settle();
-  a.equal(w2.byReview('fixed').length, 0);
+  a.equal(w2.byReview('standards').length, 0);
   // malformed: not a description
-  const v = await readyView({ fixedText });
-  for (const bad of [{ standards: 'x', questions: [], ask: '' }, { standards: [], questions: [1], ask: 'a' }, { standards: [], questions: [] }])
-    a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, fixedText: bad } }, 'zh-CN').canSend, false, JSON.stringify(bad));
+  const v = await readyView({ standards });
+  for (const bad of [{ rules: 'x', questions: [], ask: '', carriedBy: 'only' }, { rules: [], questions: [1], ask: 'a', carriedBy: 'only' }, { rules: [], questions: [], carriedBy: 'only' },
+    { ...standards, carriedBy: 'second' }, { ...standards, carriedBy: 'all' }, { ...standards }])   // 'second' with one request: carried by a request that is not there
+    a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, standards: bad } }, 'zh-CN').canSend, false, JSON.stringify(bad));
   a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, tasteLost: -1 } }, 'zh-CN').canSend, false);
   const src = read('review-check.js');
   a.ok(!src.includes('保留真实对话') && !src.includes('人物/事件/字幕哪里错了'), 'the standards and questions are not written into the page');
@@ -623,10 +634,10 @@ test("JJ #326: STORE_FAILED (#328: the clip may already have gone out, the recor
 test("#328 85d9e8d1: outside the desktop window no send token is shown — the box says so and nothing can be sent", async () => {
   const m = R.confirmModel(await readyView({ noPage: true }), 'zh-CN');
   a.equal(m.canSend, false);
-  a.ok(m.lines.includes('只能在 MontClip 桌面版的窗口里发送检查，这里只能看会发什么。'));
+  a.ok(m.lines.includes('这个页面不能发送检查，要发送请在 MontClip 桌面版的窗口里操作；这里只能先看会发什么。'));
   a.ok(m.buttons.filter((b) => b.id !== 'cancel').every((b) => !b.enabled));
   const ok = R.confirmModel(await readyView({}), 'zh-CN');
   a.equal(ok.canSend, true);
-  a.ok(!ok.lines.includes('只能在 MontClip 桌面版的窗口里发送检查，这里只能看会发什么。'));
-  a.ok(R.confirmModel(await readyView({ noPage: true }), 'en').lines.includes('A check can only be sent from the MontClip desktop window; here you can only see what would be sent.'));
+  a.ok(!ok.lines.includes('这个页面不能发送检查，要发送请在 MontClip 桌面版的窗口里操作；这里只能先看会发什么。'));
+  a.ok(R.confirmModel(await readyView({ noPage: true }), 'en').lines.includes("Checks can't be sent from this page. To send one, use the MontClip desktop window; here you can only see what would be sent first."));
 });
