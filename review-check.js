@@ -193,25 +193,30 @@
   }
 
   /** The confirm box. `canSend` is false without a full description of what is sent, a destination or a token. */
-  function confirmModel(prep, lang, statusDest) {
-    const range = prep && prep.range && num(prep.range.start) != null ? prep.range : null;
+  function confirmModel(prep, lang, statusDest, opts = {}) {
+    const pay = payloadOf(prep);
+    const range = pay ? pay.range : span_(prep && prep.range);
     const n = range ? spanOf(range) : SPAN;
     const ws = (prep && prep.willSend) || {};
     const dest = destinationOf(ws.destination) || destinationOf(statusDest);
-    const video = ws.video && num(ws.video.start) != null && num(ws.video.end) != null ? ws.video : range;
-    const textInfo = ws.text || {};
-    const lead = prep && prep.lead && num(prep.lead.start) != null && num(prep.lead.end) != null && prep.lead.end > prep.lead.start ? prep.lead : null;
-    const lines = [t(lang, "intro", { n })];
-    if (video) {
-      lines.push(t(lang, "whatFull", { from: fmtTime(video.start), to: fmtTime(video.end), sec: secs(video.end - video.start),
-        chars: Math.max(0, Math.round(num(textInfo.subtitleChars) || 0)), cuts: Math.max(0, Math.round(num(textInfo.cutPoints) || 0)) }));
+    const video = pay && pay.video, lead = pay && pay.lead;
+    const lines = [];
+    if (opts.fellBack) lines.push(t(lang, "rangeTooLong", { n }));
+    lines.push(t(lang, "intro", { n }));
+    if (pay) {
+      // without a lead the picture is the checked stretch itself: its seconds are the same whole number as 「这 N 秒」
+      const sec = lead ? secs(video.end - video.start) : String(n);
+      lines.push(t(lang, "whatFull", { from: fmtTime(video.start), to: fmtTime(video.end), sec, chars: pay.chars, cuts: pay.cuts }));
+      if (pay.truncated) lines.push(t(lang, "truncatedBefore", { n }));
+      // 「只发这 10 秒」: the same picture and sound (the lead included — interface v0 has one willSend.video), no whole-video text
+      lines.push(t(lang, "whatWindow", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec }));
       if (lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(lead.start), lead: fmtTime(lead.end), leadSec: secs(lead.end - lead.start) }));
-      // 「只发这 10 秒」: the same picture and sound (the lead included), no whole-video text
-      lines.push(t(lang, "whatWindow", { n, from: fmtTime(video.start), to: fmtTime(video.end), sec: secs(video.end - video.start) }));
-    }
-    const canSend = !!(dest && prep && prep.reviewId && prep.sendToken);
+      lines.push(t(lang, "whatDanmaku"));
+    } else lines.push(t(lang, "noPayload"));
+    const canSend = !!(pay && dest && prep && typeof prep.reviewId === "string" && prep.reviewId && typeof prep.sendToken === "string" && prep.sendToken);
     return {
-      title: t(lang, "title", { n }), n, lines,
+      title: t(lang, "title", { n }), n, lines, payload: pay,
+      blocked: pay ? null : "noPayload",
       to: dest ? t(lang, "to", dest) : t(lang, "noDestination"),
       training: t(lang, "training"),
       destination: dest, canSend,
