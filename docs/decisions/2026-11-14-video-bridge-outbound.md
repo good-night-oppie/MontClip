@@ -114,3 +114,9 @@ Successfully processed 1 files; Failed processing 0 files
 - `scope:"full"`：附带审美笔记，以及与小样区间相交的字幕条目——**整条发送**，可能包含片段前后的文字；`willSend.what` 明说这一点，`willSend.projectText` 给出实际文字，仍受长度上限约束；完全不相交的条目不发。
 - 有铺垫时 `willSend.leadIn = {from,to,seconds}`，`what` 写出铺垫的起止和时长；`seconds` 是含铺垫的总时长。
 - 目的地未核实：门禁不变（DESTINATION_UNVERIFIED，409 带 destination），由 QQ 另提方案。
+
+## 固定措辞、字段与上限（PG 决定，#321 6871936322）
+
+- 五条标准（`RUBRIC`）和五个问题（`QUESTIONS`）用已采用的原文逐字，测试用写在测试里的独立文字比对（不读回被测常量）；单轮检查和 two_pass 的第二遍都带标准、五问和固定要求「每问一条回答，带片内秒数和视听依据；缺上下文必须报 insufficient_evidence，不许编剧情」；两遍里的第一遍（盲看）不带这些。
+- 笔记 `aspect` 取 fact/subtitle/pacing/packaging（旧词 caption 归 subtitle）；positive 的 other、缺失、未知值拒绝；negative 可不指定。`textAvailable` 表示文字是否还在本进程内；每工程最多 30 条、每条 200，满额报 TASTE_FULL，不静默淘汰；只有 `textAvailable` 且 scope 为 full 的笔记才随请求发送。页面提示：「文字只在本次运行保留，重启后需重新填写」。**跨重启保留文字（V21）未实现，隐私方案待定**，本 PR 不新开持久路径。
+- 判决：`dimensions.{fact,subtitle,pacing,packaging}.{state,reason}`；有 `issues` 的维度必须有归属该维度的 finding（finding 的 `dimension` 由模型给出，或由类型推出；`other` 没给维度则不算任何维度的证据）。reason ≤100，observation ≤600，finding text/suggestion ≤200，summary ≤600，windowDigest ≤300，findings ≤20；字符上限按 UTF-16 code unit，先清控制字符再截，不留半个代理对。

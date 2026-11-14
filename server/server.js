@@ -1772,7 +1772,7 @@ async function handleRequest(req, res) {
        GET  /api/review/status?id= → the check now (result when done)         POST /api/review/cancel {id}
        GET  /api/review/records?limit= · /api/review/record?id=                POST /api/review/mark {id, finding?, mark: fixed|recheck_needed|note, note?}
        POST /api/review/correct {id, digest}                                   GET  /api/review/gate?start=&end= → {passed, recordId, …}
-       GET  /api/review/taste · POST /api/review/taste/add {kind: positive|negative, aspect (positive), text} · /taste/remove {id}
+       GET  /api/review/taste · POST /api/review/taste/add {kind: positive|negative, aspect (fact|subtitle|pacing|packaging; required for positive), text} · /taste/remove {id}
        prepare also takes mode: "single" (default) | "two_pass" (a blind first look, then the full check: the same clip is sent in 2 requests).
        An agent's send:true answers 403 AGENT_SEND_OFF unless MONTCLIP_REVIEW_AGENT_SEND=1.
        "passed" is only ever written by a check that passed; mark refuses it (400). */
@@ -1811,7 +1811,7 @@ async function handleRequest(req, res) {
       } else if (action === "correct" && req.method === "POST") {
         sendJSON(res, 200, store.correct(project, { id: String(body.id || ""), digest: body.digest }));
       } else if (action === "taste" && req.method === "GET") {
-        sendJSON(res, 200, { notes: store.tasteList(project) });
+        sendJSON(res, 200, { notes: store.tasteList(project), max: 30, textMax: 200, notice: "文字只在本次运行保留，重启后需重新填写" });
       } else if (action === "taste/add" && req.method === "POST") {
         sendJSON(res, 200, store.tasteAdd(project, { kind: body.kind, aspect: body.aspect, text: body.text }));
       } else if (action === "taste/remove" && req.method === "POST") {

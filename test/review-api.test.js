@@ -555,3 +555,37 @@ test("a lead-in is shown with its real range and length; the total is not called
   assert.equal(w.seconds, 8);
   assert.match(w.what, /lead-in of 3 s \(21\.00-24\.00 s\)/);
 });
+
+/* ---- PG #321 (6871936322): taste aspects, textAvailable, limits ---- */
+test("taste: aspect is fact/subtitle/pacing/packaging; 'caption' becomes subtitle; a positive without a real aspect (other, missing, unknown) is refused; a negative may have none", (t) => {
+  const s = createReviewStore({ dir: tmp(t) });
+  for (const bad of ["other", "", undefined, "overall", "Pacing "]) assert.throws(() => s.tasteAdd("p", { kind: "positive", aspect: bad, text: "x" }), (e) => e.status === 400 && e.code === "BAD_TASTE", String(bad));
+  assert.equal(s.tasteAdd("p", { kind: "positive", aspect: "caption", text: "one-word reaction" }).aspect, "subtitle");
+  assert.equal(s.tasteAdd("p", { kind: "positive", aspect: "fact", text: "names right" }).aspect, "fact");
+  assert.equal(s.tasteAdd("p", { kind: "negative", text: "no explaining" }).aspect, null);
+  assert.equal(s.tasteAdd("p", { kind: "negative", aspect: "packaging", text: "too many plates" }).aspect, "packaging");
+  assert.throws(() => s.tasteAdd("p", { kind: "negative", aspect: "vibes", text: "x" }), (e) => e.code === "BAD_TASTE");
+});
+
+test("taste: 30 per project and 200 UTF-16 units per note; a full list says so and drops nothing; after a restart the note is there without words and is not sent", (t) => {
+  const d = tmp(t), s = createReviewStore({ dir: d });
+  const n = s.tasteAdd("p", { kind: "negative", text: "😀".repeat(150) });
+  assert.ok(n.text.length <= 200 && !/[\ud800-\udbff]$/.test(n.text));
+  for (let i = 1; i < 30; i++) s.tasteAdd("p", { kind: "negative", text: "n" + i });
+  assert.throws(() => s.tasteAdd("p", { kind: "negative", text: "31st" }), (e) => e.status === 400 && e.code === "TASTE_FULL");
+  assert.equal(s.tasteList("p").length, 30, "nothing was dropped to make room");
+  const again = createReviewStore({ dir: d });          // a new process: the words are gone
+  assert.equal(again.tasteList("p").length, 30);
+  assert.ok(again.tasteList("p").every((x) => x.textAvailable === false && x.text === ""));
+  assert.deepEqual(again.tasteSendable("p"), [], "nothing without words is sent");
+  assert.ok(!fs.readFileSync(path.join(d, "p.json"), "utf8").includes("n1"), "the words are not on disk");
+});
+
+test("taste: what is sent counts only notes whose words are here and only in a full check; the page is told the words last for this run only", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  S.store.tasteAdd("p1", { kind: "negative", text: "NOTE-ONE" });
+  const v = S.svc.prepare({ start: 24, end: 29, scope: "full" });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const w = S.svc.status(v.reviewId).willSend;
+  assert.equal(w.tasteNotes, 1); assert.equal(w.tasteNotice, "文字只在本次运行保留，重启后需重新填写");
+});

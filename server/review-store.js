@@ -12,10 +12,14 @@ const path = require("node:path");
 const MAX_RECORDS = 200;
 const MARKS = Object.freeze(["fixed", "recheck_needed", "note"]);
 const TASTE_KINDS = Object.freeze(["positive", "negative"]);
-const TASTE_ASPECTS = Object.freeze(["pacing", "caption", "packaging", "fact", "subtitle", "other"]);
+const TASTE_ASPECTS = Object.freeze(["fact", "subtitle", "pacing", "packaging"]);
+/* the older word "caption" means subtitle; anything else is not an aspect */
+const aspectOf = (a) => { const x = a === "caption" ? "subtitle" : a; return TASTE_ASPECTS.includes(x) ? x : null; };
 const TASTE_MAX = 30;
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
-const clip = (s, n) => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+const clip = (s, n) => { let t = String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+  if (/[\ud800-\udbff]$/.test(t)) t = t.slice(0, -1);   // limits are UTF-16 code units; never half a pair
+  return t.trim(); };
 
 /** A stable text of any JSON value (sorted keys), so two saves of the same content give the same hash. */
 function canon(v) {
@@ -142,17 +146,19 @@ function createReviewStore({ dir, now = () => Date.now() }) {
     },
     /** The project's taste notes (PG #321 v4 B10): what the streamer approved and rejected before, so every check judges by the same
      *  measure. A positive example must say WHAT was approved (pacing, caption, ...), never "this whole clip is fine". */
-    tasteList(projectId) { return (read(projectId).taste || []).map((t) => { const w = tasteWords.get(memKey(projectId, t.id)); return { ...t, text: w || "", textAvailable: !!w }; }); },
+    tasteList(projectId) { return (read(projectId).taste || []).map((t) => { const w = tasteWords.get(memKey(projectId, t.id)); return { ...t, aspect: aspectOf(t.aspect), text: w || "", textAvailable: !!w }; }); },
     /** What a check may send: only the notes whose words are still here (they are not on disk, so a restart empties this). */
     tasteSendable(projectId) { return this.tasteList(projectId).filter((t) => t.textAvailable); },
     tasteAdd(projectId, { kind, aspect, text }) {
       if (!TASTE_KINDS.includes(kind)) throw httpError(400, "kind is positive or negative", { code: "BAD_TASTE" });
       const t = clip(text, 200);
       if (!t) throw httpError(400, "text is needed", { code: "BAD_TASTE" });
-      if (kind === "positive" && !TASTE_ASPECTS.includes(aspect)) throw httpError(400, "a positive example says what was approved: aspect is one of " + TASTE_ASPECTS.join(", "), { code: "BAD_TASTE" });
+      const asp = aspectOf(aspect);
+      if (kind === "positive" && !asp) throw httpError(400, "a positive example says what was approved: aspect is one of " + TASTE_ASPECTS.join(", "), { code: "BAD_TASTE" });
+      if (kind === "negative" && aspect != null && aspect !== "" && !asp) throw httpError(400, "aspect, when given, is one of " + TASTE_ASPECTS.join(", "), { code: "BAD_TASTE" });
       const doc = read(projectId); doc.taste = doc.taste || [];
       if (doc.taste.length >= TASTE_MAX) throw httpError(400, "at most " + TASTE_MAX + " notes; remove one first", { code: "TASTE_FULL" });
-      const e = { id: "t_" + crypto.randomBytes(4).toString("hex"), kind, aspect: kind === "positive" ? aspect : null, at: new Date(now()).toISOString() };
+      const e = { id: "t_" + crypto.randomBytes(4).toString("hex"), kind, aspect: asp, at: new Date(now()).toISOString() };
       doc.taste.push(e); write(projectId, doc);   // the file gets the kind and the aspect, never the words
       tasteWords.set(memKey(projectId, e.id), t);
       return { ...e, text: t, textAvailable: true };

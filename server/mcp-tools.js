@@ -386,7 +386,7 @@ const TOOLS = [
         action: { type: "string", enum: ["check", "prepare", "status", "cancel", "records", "record", "mark", "correct", "gate", "taste", "taste_add", "taste_remove"], description: "default check" },
         mode: { type: "string", enum: ["single", "two_pass"], description: "single (default): one request. two_pass: a blind first look at the clip (no names, no edit intent, no standards), then the full check with that observation — the same clip is sent in 2 requests; recommended for a deep review of a changed stretch" },
         kind: { type: "string", enum: ["positive", "negative"], description: "taste_add: an approved or a rejected example" },
-        aspect: { type: "string", enum: ["pacing", "caption", "packaging", "fact", "subtitle", "other"], description: "taste_add, for a positive example: WHAT was approved. Never mark a whole clip as a model to copy" },
+        aspect: { type: "string", enum: ["fact", "subtitle", "pacing", "packaging"], description: "taste_add, for a positive example: WHAT was approved. Never mark a whole clip as a model to copy" },
         text: { type: "string", description: "taste_add: the note, at most 200 characters. It is sent with every check and kept in memory only (never on disk, gone when the server restarts): no personal data, no viewer names" },
         start: { type: "number", minimum: 0, description: "Start of the stretch to judge, timeline seconds (check, prepare, gate)" },
         end: { type: "number", exclusiveMinimum: 0, description: "End of the stretch, timeline seconds; after start; at most 30 s apart" },
