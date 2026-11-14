@@ -100,7 +100,7 @@ test("a person's check: ready with what is sent and to whom, sent only with the 
   await until(() => S.svc.status(v.reviewId).state === "ready");
   const ready = S.svc.status(v.reviewId);
   assert.equal(ready.willSend.to.host, "daily-cloudcode-pa.googleapis.com");
-  assert.match(ready.willSend.what, /nothing else/);
+  assert.match(ready.willSend.what, /No subtitle text, edit points, or good\/bad examples are attached/);
   assert.equal(ready.sendToken, undefined, "the token is not in the shared view");
   assert.equal(ready.range.start, 24); assert.equal(ready.lead, 3);
   const token = S.svc.tokenFor(v.reviewId);
@@ -588,4 +588,26 @@ test("taste: what is sent counts only notes whose words are here and only in a f
   await until(() => S.svc.status(v.reviewId).state === "ready");
   const w = S.svc.status(v.reviewId).willSend;
   assert.equal(w.tasteNotes, 1); assert.equal(w.tasteNotice, "文字只在本次运行保留，重启后需重新填写");
+});
+
+/* ---- PG v4.1 (6871970875): the window wording is exact; how many notes lost their words is told ---- */
+test("window wording is the adopted sentence and matches the payload; the page is told how many notes lost their words at a restart", { skip }, async (t) => {
+  const S = setup(t, "pass"); S.setDoc(scopeDoc());
+  const v = S.svc.prepare({ start: 24, end: 26, lead: 2, scope: "window" });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const w = S.svc.status(v.reviewId).willSend;
+  assert.ok(w.what.includes("No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video."), w.what);
+  assert.equal(w.tasteLost, 0);
+  /* a note whose words a restart took away: kept as a record, not sent, and counted for the page */
+  const d = path.join(S.d, "reviews2"), first = createReviewStore({ dir: d });
+  first.tasteAdd("p1", { kind: "negative", text: "LOST-WORDS" });
+  const again = createReviewStore({ dir: d });
+  const svc2 = createReviewService({ store: again, bridge: VB, readProject: () => scopeDoc(), activeProject: () => "p1", pollMs: 20,
+    requestSample: () => ({ id: "x" }), getJob: () => ({ status: "done", progress: 1, src: "/previews/s.mp4" }), cancelJob() { }, sampleFile: () => makeSample(S.d),
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: envFor("pass", { report: S.report, calls: S.calls }) });
+  const f = svc2.prepare({ start: 24, end: 26, scope: "full" });
+  await until(() => svc2.status(f.reviewId).state === "ready");
+  const fw = svc2.status(f.reviewId).willSend;
+  assert.equal(fw.tasteNotes, 0); assert.equal(fw.tasteLost, 1);
+  assert.doesNotMatch(fw.what, /saved taste note/, "no note is announced that will not go");
 });

@@ -301,3 +301,10 @@ test("an issues dimension needs a finding of its own: another dimension's findin
   assert.equal(mk(D({ fact: "issues" }), [{ t: 1, type: "other", text: "x" }]), null, "'other' with no dimension speaks to none");
   assert.ok(mk(D({ fact: "issues" }), [{ t: 1, type: "other", dimension: "fact", text: "x" }]), "the model can say which one");
 });
+
+test("V20/V22 anchors: the adopted words hash to the values read back and verified from PG's decision 6871936322 (a fixed, offline fixture: CI needs no network and no comment can change it)", () => {
+  const h = (x) => require("node:crypto").createHash("sha256").update(x, "utf8").digest("hex");
+  assert.equal(h(VB.RUBRIC.join("\n")), "eacb76d38d4465c2d81d11bb0b17fc8d3e2081ec87f2b46a038d4aca0e01a58d");
+  assert.equal(h(VB.QUESTIONS.join("\n")), "db8b19fdb2882027e892ce439dbf71dde58c61565db02c492348a37e9b3ffac5");
+  assert.equal(h(VB.QUESTIONS_ASK), "871d39aaab27ec99492dc6cca3303d92fd1fe29063c590c3846ee9629103dc13");
+});

@@ -1811,7 +1811,7 @@ async function handleRequest(req, res) {
       } else if (action === "correct" && req.method === "POST") {
         sendJSON(res, 200, store.correct(project, { id: String(body.id || ""), digest: body.digest }));
       } else if (action === "taste" && req.method === "GET") {
-        sendJSON(res, 200, { notes: store.tasteList(project), max: 30, textMax: 200, notice: "文字只在本次运行保留，重启后需重新填写" });
+        sendJSON(res, 200, { notes: store.tasteList(project), lost: store.tasteList(project).filter((x) => !x.textAvailable).length, max: 30, textMax: 200, notice: "文字只在本次运行保留，重启后需重新填写" });
       } else if (action === "taste/add" && req.method === "POST") {
         sendJSON(res, 200, store.tasteAdd(project, { kind: body.kind, aspect: body.aspect, text: body.text }));
       } else if (action === "taste/remove" && req.method === "POST") {

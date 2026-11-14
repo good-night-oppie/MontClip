@@ -50,15 +50,15 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   const destination = () => ({ ...bridge.destination(env) });
   const sameDestination = (a, b) => a && b && a.service === b.service && a.host === b.host;
   const what = (r) => ["a short video clip (with its sound) of this stretch",
-    r.scope === "full" ? "plus the subtitles and cut points that touch it (a subtitle goes whole, so it may include text from before or after the clip)" : "and nothing else from the project (no subtitles, no saved notes)",
+    r.scope === "full" ? "plus the subtitles and cut points that touch it (a subtitle goes whole, so it may include text from before or after the clip)" : "No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.",
     r.lead > 0 ? `including a lead-in of ${r.lead} s (${(r.range.start - r.lead).toFixed(2)}-${r.range.start.toFixed(2)} s) before the part you chose` : "",
-    r.taste ? `plus your ${r.taste} saved taste note${r.taste === 1 ? "" : "s"} (what you approved or rejected before)` : "",
+    r.scope === "full" && r.taste ? `plus your ${r.taste} saved taste note${r.taste === 1 ? "" : "s"} (what you approved or rejected before)` : "",
     r.mode === "two_pass" ? "sent in 2 requests: a blind first look, then the full check" : ""].filter(Boolean).join("; ");
   const view = (r) => ({
     reviewId: r.id, state: r.state, project: r.project, range: r.range, lead: r.lead, scope: r.scope, mode: r.mode, revision: r.revision, progress: r.progress ?? null,
     willSend: r.state === "ready" ? { what: what(r), to: r.destination, requests: r.mode === "two_pass" ? 2 : 1, tasteNotes: r.taste,
       /* the words themselves, as they will go: the project's subtitles and cut points (scope full) and the taste notes */
-      projectText: r.ctx || "", tasteNotice: r.taste ? "文字只在本次运行保留，重启后需重新填写" : "", notes: (r.tasteSnap || []).map((t) => ({ kind: t.kind, aspect: t.aspect, text: t.text })),
+      projectText: r.ctx || "", tasteLost: r.tasteLost || 0, tasteNotice: r.taste || r.tasteLost ? "文字只在本次运行保留，重启后需重新填写" : "", notes: (r.tasteSnap || []).map((t) => ({ kind: t.kind, aspect: t.aspect, text: t.text })),
       leadIn: r.lead > 0 ? { from: +(r.range.start - r.lead).toFixed(2), to: r.range.start, seconds: r.lead } : null,
       seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: new Date(r.tokenExp).toISOString() } : undefined,
     previewSrc: r.file ? "/previews/" + encodeURIComponent(path.basename(r.file)) : undefined, result: r.result || undefined, reason: r.reason || undefined,
@@ -77,7 +77,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
         /* the sample was rendered from the project as it is now: the words, the notes and the key are taken from that same moment, shown as they are,
            and a later edit makes the picture stale (refused at send) */
         { const doc = readProject() || {}; r.key = store.contentKey(doc); r.revision = doc.revision ?? null;
-          r.ctx = r.scope === "full" ? skeleton(doc, Math.max(0, r.range.start - r.lead), r.range.end) : ""; r.tasteSnap = r.scope === "full" ? store.tasteSendable(r.project) : []; r.taste = r.tasteSnap.length; }
+          r.ctx = r.scope === "full" ? skeleton(doc, Math.max(0, r.range.start - r.lead), r.range.end) : ""; r.tasteSnap = r.scope === "full" ? store.tasteSendable(r.project) : []; r.taste = r.tasteSnap.length; r.tasteLost = r.scope === "full" ? store.tasteList(r.project).filter((x) => !x.textAvailable).length : 0; }
         r.file = file; r.state = "ready"; r.token = crypto.randomBytes(24).toString("hex"); r.tokenExp = now() + TOKEN_TTL_MS; r.progress = 1; break;
       }
       if (j.status === "failed" || j.status === "cancelled" || j.status === "error") { r.state = r.cancelled ? "cancelled" : "failed"; r.reason = r.cancelled ? "CANCELLED" : "RENDER_FAILED"; break; }

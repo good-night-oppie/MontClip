@@ -120,3 +120,10 @@ Successfully processed 1 files; Failed processing 0 files
 - 五条标准（`RUBRIC`）和五个问题（`QUESTIONS`）用已采用的原文逐字，测试用写在测试里的独立文字比对（不读回被测常量）；单轮检查和 two_pass 的第二遍都带标准、五问和固定要求「每问一条回答，带片内秒数和视听依据；缺上下文必须报 insufficient_evidence，不许编剧情」；两遍里的第一遍（盲看）不带这些。
 - 笔记 `aspect` 取 fact/subtitle/pacing/packaging（旧词 caption 归 subtitle）；positive 的 other、缺失、未知值拒绝；negative 可不指定。`textAvailable` 表示文字是否还在本进程内；每工程最多 30 条、每条 200，满额报 TASTE_FULL，不静默淘汰；只有 `textAvailable` 且 scope 为 full 的笔记才随请求发送。页面提示：「文字只在本次运行保留，重启后需重新填写」。**跨重启保留文字（V21）未实现，隐私方案待定**，本 PR 不新开持久路径。
 - 判决：`dimensions.{fact,subtitle,pacing,packaging}.{state,reason}`；有 `issues` 的维度必须有归属该维度的 finding（finding 的 `dimension` 由模型给出，或由类型推出；`other` 没给维度则不算任何维度的证据）。reason ≤100，observation ≤600，finding text/suggestion ≤200，summary ≤600，windowDigest ≤300，findings ≤20；字符上限按 UTF-16 code unit，先清控制字符再截，不留半个代理对。
+
+## v4.1（PG 采用，#321 6871970875）
+
+- 五条标准、五问、固定要求的期望值：已读回核对，并把三个 sha256 锚点（`eacb76d3…`、`db8b19fd…`、`871d39aa…`）固定在 `test/video-bridge.test.js` 里，离线运行，CI 不联网，评论改了也不会悄悄改期望值。
+- 「只发这几秒」的文案固定为：`No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.`；发送内容与之一致（`willSend.what`），并仍显示实际起止和总时长。「好坏例子」一句只在这次真的会发出有效笔记时才出现，条数取这次发送的快照。
+- 重启后有几条笔记没了文字：`willSend.tasteLost`（scope=full）和 `GET /api/review/taste` 的 `lost`；页面据此写句子，不猜数字。
+- **未完成，不算通过：** V21f（跨重启保留文字，隐私方案待定）；笔记的 source/note 字段（未实现，不伪造来源）。
