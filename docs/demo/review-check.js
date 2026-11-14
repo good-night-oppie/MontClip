@@ -27,7 +27,8 @@
   // zh-CN: JJ's passes on #326 (6868600043, 6869383846; all passed on 82b09f82). 「10」 is {n}: a marked IN–OUT of 1–30 s
   // is checked as it is. Lines marked 「draft (#328)」 are new or changed for Cindy's step-1 interface (#328) and wait for JJ:
   // what is sent is now this stretch's subtitles (not the whole video's), there are no counts, taste notes go with both
-  // buttons, an unconfirmed domain says 「未验证」, and the result has four dimensions.
+  // buttons, an unconfirmed domain says 「未验证」, and the result has four dimensions. JJ's first pass on these
+  // (6871754149 on 1678c837) is applied; intro and whatFull wait on what #328 sends besides this stretch's text.
   // en: Rea's review on #326 (6869597666, 6869664676); lines marked 「draft (#328)」 wait for Rea.
   const text = {
     "zh-CN": {
@@ -39,19 +40,19 @@
       cancelPrep: "取消",                                           // JJ #326: the button while preparing
       // v3.1 §3 with one change (draft #328): the engine sends this stretch's subtitles and cut points, not the whole video's
       intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有这一段里的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",
-      whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段里的字幕文字、剪辑时间点。",   // draft (#328): no counts from the engine
+      whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段里的字幕文字、剪辑时间点。",   // JJ #326 6871754149 passed: no counts from the engine
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
-      whatWindow: "点「只发这 {n} 秒」只发出去：{from}–{to} 的画面和声音（{sec} 秒），不带字幕文字和剪辑时间点。",   // draft (#328)
-      whatTaste: "两个按钮都会带上你记下的 {k} 条审美笔记（你以前认可或不认可的例子）。",   // draft (#328): willSend.tasteNotes
-      whatTwice: "同一段会分 {k} 次发出去。",                              // draft (#328): willSend.requests > 1
+      whatWindow: "点「只发这 {n} 秒」只发出去：{from}–{to} 的画面和声音（{sec} 秒），不发字幕文字和剪辑时间点。",   // JJ #326 6871754149
+      whatTaste: "两个按钮都会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // JJ #326 6871754149: willSend.tasteNotes
+      whatTwice: "同一段会分 {k} 次发出去。",                              // JJ #326 6871754149 passed: willSend.requests > 1
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
       to: "发给：{service}（{host}）",                             // Deja 6867787475; JJ #326: kept
       toUnverified: "发给：{service}（{host}，未验证）",            // Deja (#328): an unconfirmed domain is never shown as confirmed
-      unverifiedBlock: "这个地址还没有人确认过，所以先不发。",        // draft (#328): the engine refuses until the owner confirms it
+      unverifiedBlock: "这个地址还没有人确认过，所以先不发。请等有人确认后再试。",        // JJ #326 6871754149: the engine refuses until the owner confirms it
       training: "对方可能用这段内容训练模型",                       // Deja 6867787475; JJ #326: kept
       noDestination: "不知道这次会发到哪里，所以先不发。",           // JJ #326: kept
       noPayload: "说不清这次具体会发出去什么，所以先不发。",           // JJ #326 recheck: passed
-      changedRecheck: "要发的内容和刚才说的不一样了，请再看一遍再决定。",   // draft (#328): 「只发这 10 秒」 made a clip that differs
+      changedRecheck: "要发的内容和刚才说的不一样了，请再看一遍再决定。",   // JJ #326 6871754149 passed: 「只发这 10 秒」 made a clip that differs
       previewBtn: "先看要发的内容",                                 // v3 §5
       sendFull: "发送检查",                                         // v3 §5
       sendWindow: "只发这 {n} 秒",                                  // v3 §5
@@ -63,22 +64,22 @@
       issues: "检查完了，发现 {count} 处可能有问题。",               // v2 §6
       passed: "这 {n} 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。",   // JJ #326 (v2 §6, reworded by JJ)
       noResult: "这次没有检查出结果。这不代表没问题。",               // v2 §6
-      insufficient: "这次有的方面看不出来，没有检查出结果。这不代表没问题。",   // draft (#328): no_result INSUFFICIENT_EVIDENCE
+      insufficient: "这次有的方面没法判断，没有检查出结果。这不代表没问题。",   // JJ #326 6871754149: no_result INSUFFICIENT_EVIDENCE
       prepareFailed: "这 {n} 秒没能在这台电脑上准备好，什么都没有发出去。",   // JJ #326
       sendFailed: "检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。",   // JJ #326
       rangeTooLong: "你标的范围超过 30 秒，这次检查的是播放头附近的 {n} 秒。",   // JJ #326
-      windowOnly: "这次只检查了这 {n} 秒，没有结合字幕文字。",          // draft (#328): window scope sends no subtitles
-      textGone: "这条记录的原话没有保存，只剩时间和类别。",             // draft (#328): textAvailable:false after a restart
-      dimLine: "{label}：{state}",                                   // draft (#328): the four dimensions
+      windowOnly: "这次只检查了这 {n} 秒，没有结合字幕文字。",          // JJ #326 6871754149 passed: window scope sends no subtitles
+      textGone: "这条记录的原话没有保存，只剩时间和类别。",             // JJ #326 6871754149 passed: textAvailable:false after a restart
+      dimLine: "{label}：{state}",                                   // JJ #326 6871754149 passed: the four dimensions
       dimReason: "。{text}",
-      dim_fact: "人和事",                                           // draft (#328): fact — who is who, what was said
-      dim_subtitle: "字幕",                                          // draft (#328)
-      dim_pacing: "节奏",                                            // draft (#328)
-      dim_packaging: "包装（花字、名牌）",                              // draft (#328)
-      dimState_passed: "没发现问题",                                  // draft (#328)
-      dimState_issues: "有问题",                                     // draft (#328)
-      dimState_insufficient_evidence: "看不出来",                     // draft (#328)
-      dimState_unknown: "没给结论",                                   // draft (#328): a dimension the answer left out
+      dim_fact: "人和事",                                           // JJ #326 6871754149 passed: fact — who is who, what was said
+      dim_subtitle: "字幕",                                          // JJ #326 6871754149 passed
+      dim_pacing: "节奏",                                            // JJ #326 6871754149 passed
+      dim_packaging: "包装（花字、名牌）",                              // JJ #326 6871754149 passed
+      dimState_passed: "没发现问题",                                  // JJ #326 6871754149 passed
+      dimState_issues: "可能有问题",                                 // JJ #326 6871754149
+      dimState_insufficient_evidence: "没法判断",                     // JJ #326 6871754149
+      dimState_unknown: "没有结论",                                   // JJ #326 6871754149: a dimension the answer left out
       inLead: "（在前面多带的那几秒里）",                              // JJ #326
       jump: "跳到这里",                                             // v2 §6
       fixed: "已修好",                                              // v2 §6
@@ -91,9 +92,9 @@
       type_subtitle_mismatch: "字幕和说的话可能对不上",              // JJ #326: kept
       type_audio: "声音可能有问题",                                  // JJ #326: kept
       type_continuity: "前后两段可能接不上",                         // JJ #326
-      type_over_explained_caption: "花字可能解释得太多了",            // draft (#328)
-      type_punchline_spoiled: "笑点可能被提前说破了",                  // draft (#328)
-      type_protected_region_occluded: "可能挡住了不该挡的地方",          // draft (#328)
+      type_over_explained_caption: "这里的花字可能说得太多了（画面和声音已经讲清楚了）",   // JJ #326 6871754149
+      type_punchline_spoiled: "笑点可能被提前说破了",                  // JJ #326 6871754149 passed
+      type_protected_region_occluded: "可能挡住了不该挡的内容（比如公屏弹幕）",   // JJ #326 6871754149
       type_other: "这里可能有问题",                                  // JJ #326: kept
     },
     en: {
