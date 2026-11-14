@@ -7,8 +7,8 @@
 // went with the assistant's reframe). Substitute transport, no network.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const P=require('../app/chat-proposal'),L=require('../app/agent-limits'),F=require('../agent-format'),V=require('../app/agent-conversation');
-const S=require('../desktop/agent-service'),View=require('../ui-preferences'),Cap=require('../capabilities');
+const P=require('../app/chat-proposal'),L=require('../app/agent-limits'),F=require('../shared/agent-format'),V=require('../app/agent-conversation');
+const S=require('../desktop/agent-service'),View=require('../shared/ui-preferences'),Cap=require('../shared/capabilities');
 
 const ctx={projectId:'p',sequenceId:'main',generation:0,revision:1};
 const doc=(clips)=>({fps:30,media:[{id:'m',kind:'video',duration:600}],clips:clips||[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:100,duration:50,props:{}}]});
@@ -116,7 +116,7 @@ test('a mixed message, with a substitute transport: the format note sent carries
  a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t,options\.limitNames\?\.\(\)\|\|\{\}\):'';/);
  a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
  a.match(read('app/cindy-official.js'),/data-host-limit/);
- a.match(read('index.html'),/<script src="app\/agent-limits\.js"><\/script>/);
+ a.match(read('app/index.html'),/<script src="app\/agent-limits\.js"><\/script>/);
 });
 
 test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set with the options',()=>{
@@ -125,7 +125,7 @@ test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set wit
   a.equal(sel.getAttribute('aria-label'),View.text[lang]['own.ef-label']);
  }
  a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
- a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
+ a.match(read('shared/ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
  const app=read('app/app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
  a.match(refresh,/syncExportFrameSel\(\);/,'a language switch rebuilds it');
  // the format note names no option words (no Reel / IG, JJ 2026-11-05)
@@ -160,7 +160,7 @@ test('the manual way names what the drop-down shows: its label and the 16:9 opti
 
 // Deja (2026-11-06): 「改成 9:16」 gets the reframe proposal, asked first; 「把 4:16 到 5:30 剪掉」 is a cut, never a reframe.
 test('「改成 9:16」: no host sentence, the reframe reply is accepted and asked first; 「把 4:16 到 5:30 剪掉」 does not touch reframe',()=>{
- const Policy=require('../agent-policy');
+ const Policy=require('../shared/agent-policy');
  a.equal(L.note('改成 9:16',{limitReframeAspect:'x',limitReframeAny:'y'}),'');
  const d={fps:30,width:1920,height:1080,media:[{id:'m',kind:'video',duration:60,width:1920,height:1080}],clips:[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:30,props:{}}]};
  const p=P.prepare({type:'reframe',aspect:'9:16'},{doc:d,context:ctx});

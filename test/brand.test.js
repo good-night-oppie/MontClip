@@ -57,7 +57,7 @@ test('not published: private package, no registry entry, no install command anyw
 test('editor, server, CLI and MCP descriptions name MontClip where a person reads them',()=>{
  const strings=src=>[...src.matchAll(/(["'`])((?:\\.|(?!\1)[^\\])*)\1/g)].map(m=>m[2]);
  const out=[];
- for(const f of ['app/app.js','server/server.js','server/cli.js','server/mcp-server.js','index.html'])for(const s of f.endsWith('.html')?[read(f).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<!--[\s\S]*?-->/g,'')]:strings(read(f)))out.push(...hits(s,f));
+ for(const f of ['app/app.js','server/server.js','server/cli.js','server/mcp-server.js','app/index.html'])for(const s of f.endsWith('.html')?[read(f).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<!--[\s\S]*?-->/g,'')]:strings(read(f)))out.push(...hits(s,f));
  a.deepEqual(out,[]);
 });
 

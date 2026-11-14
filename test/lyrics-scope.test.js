@@ -10,7 +10,7 @@
 // The scene QQ found: A 0.00–1.80 「天空好想下雨」 picked, B 2.50–4.00 「谢谢老板」 not, C 4.50–6.60 「我好想住你隔壁」 picked,
 // lyrics with all three lines. Before: words from A to C, A and C removed, a new 2.50–3.70 「谢谢老板」 on top of B.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const L=require('../lyrics-align');
+const L=require('../shared/lyrics-align');
 
 const said=(text,t0,step=0.3)=>[...text].map((w,i)=>({w,s:+(t0+i*step).toFixed(3),e:+(t0+i*step+0.25).toFixed(3)}));
 const WORDS=[...said('天空好想下雨',0),...said('谢谢老板',2.5),...said('我好想住你隔壁',4.5)];

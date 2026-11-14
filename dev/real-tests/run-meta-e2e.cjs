@@ -20,7 +20,7 @@ const KEY=found.key,MODEL=process.env.MONTCLIP_E2E_MODEL||S.DEFAULT_MODELS.meta;
 const scrub=s=>{let t=String(s).split(KEY).join('<key>');for(let n=Math.min(KEY.length-1,16);n>=6;n--){t=t.split(KEY.slice(0,n)).join('<key-part>').split(KEY.slice(-n)).join('<key-part>');}return t.replaceAll(root,'<repo>').replaceAll(os.homedir(),'<user>');};
 const out=path.join(root,'docs','validation','real-model-e2e-meta');
 const payload=()=>({version:1,requestId:'e2e'+Date.now(),projectId:'p_e2e',sequenceId:'main',revision:1,gen:0,messages:[{role:'user',content:'hi'}]});
-async function code(config){const t0=Date.now();try{await S.httpsRequest(config,{...payload(),messages:require('../../agent-format').withFormat(payload().messages)},AbortSignal.timeout(60000));return{code:'OK',ms:Date.now()-t0};}catch(e){return{code:e.message,ms:Date.now()-t0};}}
+async function code(config){const t0=Date.now();try{await S.httpsRequest(config,{...payload(),messages:require('../../shared/agent-format').withFormat(payload().messages)},AbortSignal.timeout(60000));return{code:'OK',ms:Date.now()-t0};}catch(e){return{code:e.message,ms:Date.now()-t0};}}
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
  const checks={};

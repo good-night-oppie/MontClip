@@ -4,7 +4,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const T = require("../transcribe.js");
+const T = require("../shared/transcribe.js");
 const ProjectOps = require("../server/project-ops.js");
 
 // Whisper's model, language, joinChunks, plan and quiet went with it (#70, Deja 2026-11-03): the model and the language

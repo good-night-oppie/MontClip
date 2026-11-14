@@ -203,7 +203,7 @@ test('call sites: the checkbox asks; nothing else builds the CDN address; the pa
  a.match(SRC,/k === "bgRemove"[\s\S]{0,200}requestBgRemove\(/,'the inspector checkbox asks');
  // every https:// address the editor page could reach: Google Fonts (#151) and MediaPipe, both behind a box.
  // transcribe.js runs the local server's Paraformer (#70): no Whisper, no CDN.
- const files=['app/app.js','transcribe.js','index.html','ui-preferences.js','ui-terms.js'];
+ const files=['app/app.js','shared/transcribe.js','app/index.html','shared/ui-preferences.js','shared/ui-terms.js'];
  for(const f of files){
   const src=fs.readFileSync(path.join(ROOT,f),'utf8');
   const hosts=[...src.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map(m=>m[1].toLowerCase())
@@ -211,6 +211,6 @@ test('call sites: the checkbox asks; nothing else builds the CDN address; the pa
   const allowed=f==='app/app.js'?['fonts.googleapis.com','cdn.jsdelivr.net']:[];
   for(const h of hosts)a.ok(allowed.includes(h),`${f}: ${h} is not a known, gated host`);
  }
- const tx=fs.readFileSync(path.join(ROOT,'transcribe.js'),'utf8');
+ const tx=fs.readFileSync(path.join(ROOT,'shared/transcribe.js'),'utf8');
  a.ok(!/import\(|importScripts|new Worker|fetch\(\s*["'`]https?:/.test(tx),'transcribe.js loads no code or model from outside');
 });

@@ -2,7 +2,7 @@
 // #212 (JJ's final words): the mode the streamer sees as 「Yolo」 is called 全自动 / Full auto. Only the words she sees change;
 // the internal ids (mode 'yolo', modeYolo, yoloOn, ap-yolo-on, confirmYolo, mcYoloMark, .mc-yolo-mark) stay as they were.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const View = require('../ui-preferences'), P = require('../agent-policy'), { yoloText } = require('../desktop/agent-mode-text');
+const View = require('../shared/ui-preferences'), P = require('../shared/agent-policy'), { yoloText } = require('../desktop/agent-mode-text');
 const own = require('../agent-ui/montclip-strings.json');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const T = (l, k) => View.text[l]['officialPane_' + k];
@@ -34,7 +34,7 @@ test('every line in #212, word for word, zh-CN and en', () => {
   a.equal(label('en'), 'Full auto');
   a.match(read('app/cindy-official.js'), /bypassPermissions:\{label:"Full auto"/, 'the bundle was rebuilt');
   // the top bar's mark before the page fills in its words, and the playground copy
-  for (const f of ['index.html', 'docs/demo/index.html'])
+  for (const f of ['app/index.html', 'docs/demo/index.html'])
     a.match(read(f), /<span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own\.ap-yolo-on">全自动开着<\/span>/, f);
   // ap-applied's {mode} takes the mode's name: 「全自动模式」 / "Full auto mode"
   a.equal(P.modeLabel('yolo', 'zh-CN'), '全自动');
@@ -50,7 +50,7 @@ test('no 「Yolo」, in any casing, in the words the streamer sees, zh-CN and en
     a.doesNotMatch(JSON.stringify(yoloText(l === 'en' ? 'en' : 'zh-CN')), /yolo/i, 'agent-mode-text.js ' + l);
     for (const m of P.MODES) a.doesNotMatch(P.modeLabel(m, l), /yolo/i, 'agent-policy.js ' + l + ' ' + m);
   }
-  const shown = read('index.html').replace(/<[^>]*>/g, ' ');
+  const shown = read('app/index.html').replace(/<[^>]*>/g, ' ');
   a.doesNotMatch(shown, /yolo/i, 'index.html text');
 });
 

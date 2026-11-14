@@ -3,7 +3,7 @@
 // line and 自动出切片's end page all say JJ v2's export sentence h264Refuse — never Settings' h264None* sentence and
 // never the last row errOther. The precheck and /api/export/begin refusals carry the code EXPORT_NO_H264 for that.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 const fn = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}\n', i) + 3); };
 const line = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n', i) + 1); };

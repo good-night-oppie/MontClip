@@ -3,7 +3,7 @@
 // the AI and MCP. Each capability has a schema, a risk level fixed in the program (the page and the AI cannot change it)
 // and one plain sentence in Chinese and English. Unknown names are refused, never treated as harmless.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const Cap=require('../capabilities'),TOOLS=require('../server/mcp-tools');
+const Cap=require('../shared/capabilities'),TOOLS=require('../server/mcp-tools');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
 test('every MCP tool, both proposal shapes, the host’s three sends and the two card edits are in the table, nothing else',()=>{
@@ -48,7 +48,7 @@ test('unknown names are blocked; the table cannot be changed from outside',()=>{
 });
 test('the desktop main process holds the table and gives the page a read-only copy',()=>{
  const main=read('desktop/main.js'),pre=read('desktop/view-preload.js');
- a.match(main,/require\(["']\.\.\/capabilities["']\)/);
+ a.match(main,/require\(["']\.\.\/shared\/capabilities["']\)/);
  a.match(main,/montclip:capabilities:get/);
  a.match(pre,/montclipCapabilities/);
  a.ok(!/montclip:capabilities:set/.test(main+pre),'no way to change it');

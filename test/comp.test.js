@@ -4,8 +4,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const C = require("../comp.js");
-const M = require("../motion.js");
+const C = require("../shared/comp.js");
+const M = require("../shared/motion.js");
 const { makeDataDir, readProject, startMcp } = require("./helpers");
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);
@@ -72,7 +72,7 @@ test("precompose moves clips into a new comp and leaves a comp clip in their pla
 });
 
 test("trims treat a comp clip's in as a window into its comp", () => {
-  const E = require("../edit-ops.js");
+  const E = require("../shared/edit-ops.js");
   const mk = () => ({ media: [], tracks: [{ id: "V1", kind: "video" }], comps: [{ id: "q", name: "Q", width: 640, height: 360, duration: 6, clips: [] }],
     clips: [{ id: "k", kind: "comp", compId: "q", track: "V1", start: 2, in: 1, duration: 3, props: { speed: 3 } }] });
   let doc = mk(), ed = E.forDoc(doc), k = doc.clips[0];

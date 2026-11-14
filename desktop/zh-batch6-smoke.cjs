@@ -34,7 +34,7 @@ const HELP = [
   ['h3:Tracking', 'Tracking', '跟踪'], ['h3:Transcript', 'Transcript', '文稿'],
 ];
 const ZH_ENC = { h264_nvenc: '显卡编码（NVIDIA）', h264_mf: 'Windows 自带编码', h264_qsv: '显卡编码（Intel）', h264_amf: '显卡编码（AMD）' };
-const Delivery = require('../delivery');
+const Delivery = require('../shared/delivery');
 
 // Everything the page shows that this batch is about, read from the DOM (one language at a time).
 const READ = String.raw`(async () => {

@@ -42,7 +42,7 @@ test("prepareMedia refuses with FLV_ENCODER_MISSING when no H.264 encoder works,
 });
 
 test("the page says FLV_ENCODER_MISSING in plain words, in both languages", () => {
-  const view = require("../ui-preferences");
+  const view = require("../shared/ui-preferences");
   for (const l of ["zh-CN", "en"]) {
     const s = view.flvImportMessage(l, "FLV_ENCODER_MISSING");
     a.ok(s && s !== view.flvImportMessage(l, "SOMETHING_ELSE"), l + ": its own message, not the generic failure");

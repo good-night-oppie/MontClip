@@ -5,7 +5,7 @@
 // dialog's own rule from taking it away again. desktop/dialogs-smoke.cjs measures and captures each one in a real window.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const css=read('style.css').replace(/\/\*[\s\S]*?\*\//g,'');
+const css=read('app/style.css').replace(/\/\*[\s\S]*?\*\//g,'');
 // top-level rules only (no @media bodies): [selector, body]
 const rules=[];{let depth=0,start=0,sel='';for(let i=0;i<css.length;i++){const c=css[i];
  if(c==='{'){if(depth===0){sel=css.slice(start,i).trim();start=i+1;}depth++;}
@@ -30,7 +30,7 @@ test('no box is taller than the window; the tall ones scroll their middle, not t
  for(const sel of ['.dialog.settings','.asr-setup[open]'])
   a.ok(rules.some(([s,b])=>s.split(',').map(x=>x.trim()).includes(sel)&&/display:\s*flex/.test(b)&&/flex-direction:\s*column/.test(b)),sel+' is a column');
  const body=rules.find(([s])=>/\.dialog-body/.test(s));a.ok(body);a.match(body[1],/overflow:\s*auto/);a.match(body[1],/min-height:\s*0/);
- a.match(read('index.html'),/<h2 id="settingsTitle"[^>]*>[^<]*<\/h2>\s*<div class="dialog-body">[\s\S]*?<\/div>\s*<div class="dialog-actions"><button class="btn primary" id="btnCloseSettings"/);
+ a.match(read('app/index.html'),/<h2 id="settingsTitle"[^>]*>[^<]*<\/h2>\s*<div class="dialog-body">[\s\S]*?<\/div>\s*<div class="dialog-actions"><button class="btn primary" id="btnCloseSettings"/);
  const app=read('app/app.js');
  a.match(app,/function wrapDialogBody\(dialog\)/);a.match(app,/asrSetup\.dialog\.innerHTML = html;\s*wrapDialogBody\(asrSetup\.dialog\);/);
 });

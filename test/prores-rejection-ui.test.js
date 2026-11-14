@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const app=fs.readFileSync(path.join(__dirname,'../app/app.js'),'utf8');
 const EN="Export didn't run: MontClip can't guarantee the custom audio or filter settings in this preset. So that the exported sound doesn't differ from what you set, no file was made. Remove the custom audio and filter settings from the preset, or pick another preset, then listen to the result to check the sound is what you want.";
 const ZH="导出没有进行：这个预设里自定义的声音或滤镜设置，MontClip 没法保证照做。为了不让导出的声音和你设的不一样，没有生成文件。请去掉预设里自定义的声音和滤镜设置，或者换一个预设，导出后再听一下声音是不是你要的。";
-const prefs=fs.readFileSync(path.join(__dirname,"../ui-preferences.js"),"utf8");
+const prefs=fs.readFileSync(path.join(__dirname,"../shared/ui-preferences.js"),"utf8");
 test("JJ final rejection copy is locked word for word (#190)",()=>{
   assert.ok(prefs.includes('"export-profile-unsupported": ['+JSON.stringify(EN)+', '+JSON.stringify(ZH)+']'));
   for(const s of [EN,ZH])assert.ok(!s.includes("PROFILE_"));

@@ -4,7 +4,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const T = require("../tracker.js");
+const T = require("../shared/tracker.js");
 
 /** Smooth value noise, deterministic. */
 function noise(seed) {

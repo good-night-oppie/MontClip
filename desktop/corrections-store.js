@@ -9,7 +9,7 @@
    One file per MontClip profile (Deja, 2026-11-03): a MontClip on a computer is one streamer's, so the corrections are not
    split by folder or anything else. */
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
-const Corrections = require('../corrections');
+const Corrections = require('../shared/corrections');
 
 function create({ dir, max = 5000, ...rest } = {}) {
   if (!dir) throw Error('dir is required');

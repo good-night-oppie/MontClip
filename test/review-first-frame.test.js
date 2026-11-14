@@ -5,7 +5,7 @@
 // is committed. In the real window: desktop/review-count-smoke.cjs (REVIEW_COUNT_PASS reads the box at the moment it opens).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
-const V=require('../ui-preferences');
+const V=require('../shared/ui-preferences');
 
 test('the review box opens only after its review is rendered, never a microtask after setReview',()=>{
  const pane=read('agent-ui/pane.tsx');

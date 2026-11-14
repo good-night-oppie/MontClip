@@ -2,7 +2,7 @@
 // keep_ranges (Deja, 2026-11-03): the assistant may propose ranges by source seconds, not only quoted sentences.
 // Model output is data: every field is checked and nothing in it is run. Synthetic documents only; no network.
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const C=require('../captions'),P=require('../app/chat-proposal'),R=require('../range-plan'),V=require('../app/agent-conversation'),F=require('../agent-format'),Facts=require('../app/agent-facts');
+const C=require('../shared/captions'),P=require('../app/chat-proposal'),R=require('../shared/range-plan'),V=require('../app/agent-conversation'),F=require('../shared/agent-format'),Facts=require('../app/agent-facts');
 
 // One 600 s recording; the timeline shows source 100–400 s from timeline 0, with its sound on A1 and a caption on V2.
 function fixture(){
@@ -86,7 +86,7 @@ test('the card summary reads keep_ranges without the project (count, length, mod
  assert.equal(V.proposalSummary(JSON.stringify({...fixture().response,extra:1}),[]),null);
 });
 test('slice file names: label and number through fileSafeName, a fallback without a label',()=>{
- const D=require('../delivery');
+ const D=require('../shared/delivery');
  assert.deepEqual(P.sliceNames(['第一首','a/b:c',undefined],'直播 回放',D.fileSafeName),['第一首-01','a-b：c-02','直播 回放-03']);
  assert.deepEqual(P.sliceNames(['‮',null],'',D.fileSafeName),['切片-01','切片-02']);
 });

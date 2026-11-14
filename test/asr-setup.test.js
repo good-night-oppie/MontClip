@@ -6,7 +6,7 @@
 // gone, no room, a file that failed its check. 「（我们的测试电脑上大约 {n} 分钟）」 stays hidden until Deja gives the number.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const V = require('../ui-preferences'), zh = (k, v) => V.t('zh-CN', 'own.' + k, v), en = (k, v) => V.t('en', 'own.' + k, v);
+const V = require('../shared/ui-preferences'), zh = (k, v) => V.t('zh-CN', 'own.' + k, v), en = (k, v) => V.t('en', 'own.' + k, v);
 
 test('JJ v2, section one, word for word', () => {
   a.equal(zh('setup-title'), '要不要自动出字幕？');
@@ -48,7 +48,7 @@ test('the page: three states of the choice and five of the download, from the sa
   a.match(app, /function maybeOpenAsrSetup\(\) \{/);
 });
 test('Settings › 听写: the state, and 〔去装〕 opens the page', () => {
-  const html = read('index.html'), app = read('app/app.js');
+  const html = read('app/index.html'), app = read('app/app.js');
   a.match(html, /<div class="settings-section hidden" id="setAsr">/);
   a.match(app, /\$\("btnAsrSetup"\)\.addEventListener\("click", \(\) => openAsrSetup\(\)\)/);
   a.equal(zh('setup-settings-title'), '听写'); a.equal(zh('asr-go-install'), '去装'); a.equal(zh('asr-not-installed'), '还没装听写');

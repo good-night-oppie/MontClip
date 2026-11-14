@@ -4,9 +4,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const SeqLib = require("../sequences");
+const SeqLib = require("../shared/sequences");
 const ProjectOps = require("../server/project-ops");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { diffDocs } = require("../server/history");
 const { makeDataDir, readProject, seedProject, startServer, startMcp } = require("./helpers");
 

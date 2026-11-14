@@ -6,7 +6,7 @@
 // and the corner toast are gone: the strip replaces them. English strings JJ did not give are drafts (marked in the table).
 // The real window (strip, dialog, export reminder and a silent export) is desktop/offline-media-smoke.cjs.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 const t = (l, k, v) => V.t(l, 'own.' + k, v), tp = (l, k, c, v) => V.tp(l, 'own.' + k, c, v);
 const ENGLISH = /offline|relink|media offline|\bshow\b/i;
@@ -46,7 +46,7 @@ test('JJ\'s English, word for word (“ ” quotes, JJ\'s rule); the drafts as t
   a.equal(t('en', 'off-finding-k', { file: 'tone-c.mp4', k: 1, n: 1 }), 'Looking for “tone-c.mp4” (1 of 1)');
   a.equal(t('en', 'off-export-one'), '1 media file can\'t be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.');
   // settled: no longer marked as a draft in the table
-  const row = fs.readFileSync(path.join(__dirname, '..', 'ui-preferences.js'), 'utf8').split('\n').find((l) => l.includes('"off-export-one"'));
+  const row = fs.readFileSync(path.join(__dirname, '..', 'shared/ui-preferences.js'), 'utf8').split('\n').find((l) => l.includes('"off-export-one"'));
   a.doesNotMatch(row, /draft|草稿/);
   a.equal(t('en', 'off-replace-title'), 'Swap in a different recording; every clip that uses it changes too.');
   // drafts (草稿，待 JJ 定稿)
@@ -128,7 +128,7 @@ test('the bin\'s two other English lines (VV), JJ\'s wording', () => {
   a.equal(V.t('en', 'own.bin-dbl-hint'), 'Double-click to preview it, or drag it onto the timeline.');
   a.ok(app.includes('root.textContent = uiText("own.bin-drop-root");'));
   a.ok(!app.includes('"Drop here to move to root"'));
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8');
   a.ok(html.includes('<p class="hint" data-i18n="own.bin-dbl-hint">Double-click to preview it, or drag it onto the timeline.</p>'));
 });
 
@@ -172,7 +172,7 @@ function mixHarness(clips, offline, decode) {
     getMedia: id => ({ id, audioChannels: 2 }), isMediaOffline: id => offline.has(id),
     exportAudioSource: decode, uiText: k => k,
     // the clip-naming helpers (#231): the page's own language and time writing
-    mcView: { get: () => ({ language: 'zh-CN' }) }, MontClipAutoSlices: require('../auto-slices'),
+    mcView: { get: () => ({ language: 'zh-CN' }) }, MontClipAutoSlices: require('../shared/auto-slices'),
     OfflineAudioContext: function () { throw rendered; },
   };
   const run = vm.runInNewContext(failures + '\n' + mix + '\nrenderAudioMix', context);

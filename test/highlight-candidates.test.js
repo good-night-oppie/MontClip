@@ -81,7 +81,7 @@ test('every reason is traceable: a signal name, a number and the window it was m
 test('the editor wires the cards to local signals, the playhead and the range engine', () => {
   const fs = require('node:fs'), path = require('node:path'), read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   const app = read('app/app.js');
-  a.match(read('index.html'), /<script src="app\/highlight-candidates\.js"><\/script>/);
+  a.match(read('app/index.html'), /<script src="app\/highlight-candidates\.js"><\/script>/);
   a.match(read('docs/demo/sync.js'), /"app\/highlight-candidates\.js"/);
   a.match(app, /q\("\[data-tr-highlights\]"\)\.addEventListener\("click", \(\) => showHighlightCandidates\(\)\);/);
   const at = app.indexOf('async function showHighlightCandidates('), body = app.slice(at, app.indexOf('\n}\n', at));

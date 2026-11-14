@@ -8,8 +8,8 @@
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawnSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const P=require('../app/chat-proposal'),V=require('../app/agent-conversation'),Cap=require('../capabilities'),Policy=require('../agent-policy');
-const Plan=require('../app/agent-plan'),F=require('../agent-format'),L=require('../app/agent-limits'),View=require('../ui-preferences'),R=require('../reframe');
+const P=require('../app/chat-proposal'),V=require('../app/agent-conversation'),Cap=require('../shared/capabilities'),Policy=require('../shared/agent-policy');
+const Plan=require('../app/agent-plan'),F=require('../shared/agent-format'),L=require('../app/agent-limits'),View=require('../shared/ui-preferences'),R=require('../shared/reframe');
 const FF=require('../server/ffmpeg-path');
 
 const ctx={projectId:'p',sequenceId:'main',generation:0,revision:1};
@@ -41,7 +41,7 @@ test('the reply: only {type, aspect}, only 9:16, 1:1 or 4:5; anything else is re
 
 test('sensitive, with the reason written; asked every time in every mode, Yolo and 自动 too, never 「都批准」',()=>{
  a.equal(Cap.riskOf('reframe'),'sensitive');a.equal(Cap.riskOf('fablecut_reframe'),'sensitive');
- a.match(read('capabilities.js'),/sensitive, not undoable \(Deja, 2026-11-05\): with an aspect it makes a new sequence and opens it — it switches what is\n\s*\/\/ open/);
+ a.match(read('shared/capabilities.js'),/sensitive, not undoable \(Deja, 2026-11-05\): with an aspect it makes a new sequence and opens it — it switches what is\n\s*\/\/ open/);
  a.ok(Cap.confirmEveryTime('reframe'));a.ok(!Cap.confirmEveryTime('keep_ranges'));
  for(const mode of ['manual','auto','yolo'])for(const approved of [false,true]){
   const d=Policy.decide({mode,capability:'reframe',language:'zh-CN',approved});
@@ -144,5 +144,5 @@ test('the editor and fablecut_reframe both read the clip\'s last frame (reframe.
  a.match(app,/await sampleClipFrames\(c, w, h, onFrame, \(f\) => pic\.push\(f\), \{ fps: Highlights\.PIC_FPS, cancelled \}\);/);
  // MCP's source-frame selection is exercised with real CFR/VFR files in reframe-source-tail.test.js.
  a.match(mcp,/samples = R\.subjectTrack\(s\.frames, w, h, s\.times \? \{ times: s\.times \} : \{\}\);/);
- a.ok(!/extrapolat/i.test(read('reframe.js').replace(/Not an[\s*]+extrapolation/,'')),'read, not extrapolated');
+ a.ok(!/extrapolat/i.test(read('shared/reframe.js').replace(/Not an[\s*]+extrapolation/,'')),'read, not extrapolated');
 });

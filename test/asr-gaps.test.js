@@ -10,7 +10,7 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const ROOT=path.join(__dirname,'..');
 const {manifest}=require('../server/asr-models');
 const {wav}=require('./songs-synth');
-const T=require('../transcribe'),C=require('../captions');
+const T=require('../shared/transcribe'),C=require('../shared/captions');
 
 const RATE=16000;
 /** A stand-in for sherpa-onnx-node: the VAD cuts the sound into segments of the given lengths (samples); the recognizer
@@ -105,7 +105,7 @@ test('subtitles made from a partial transcript have nothing in a gap: no cue sta
 });
 
 test('the page: partial is never told as done; the gaps are listed and can be jumped to (words for JJ: placeholders)',()=>{
- const V=require('../ui-preferences');
+ const V=require('../shared/ui-preferences');
  for(const k of ['tr-gaps-toast','tr-gaps-note','tr-gaps-more'])for(const l of ['zh-CN','en'])a.ok(V.t(l,'own.'+k,{n:2,dur:'31 秒',more:3}),k+' '+l);
  const app=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8');
  a.match(app,/data-tr-gaps/);a.match(app,/own\.tr-gaps-toast/);
@@ -141,14 +141,14 @@ test('after a segment fails, the next one is decoded on a new stream, never the 
 
 // JJ's final words (Deja, 2026-11-03); the tab they name is the right panel's own tab, read from its key (term.transcript)
 test("JJ's words for a partial transcription; the tab named is the right panel's own",()=>{
- const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
+ const V=require('../shared/ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
  const tabZh=V.t('zh-CN','term.transcript'),tabEn=V.t('en','term.transcript');
  a.equal(zh('tr-gaps-toast',{n:2,dur:'31 秒'}),`听写完了，但有 2 段没听写出来（共 31 秒），这几段没有字幕。可以在右边「${tabZh}」里点时间跳过去看，需要的话自己补上字幕。`);
  a.equal(en('tr-gaps-toast',{n:2,dur:'31 s'}),`Transcription finished, but 2 part(s) (31 s in all) couldn't be transcribed and have no subtitles. Click a time under “${tabEn}” on the right to jump there, and add subtitles yourself if you need them.`);
  a.equal(zh('tr-gaps-note',{n:2,dur:'31 秒'}),'有 2 段没听写出来（共 31 秒），这几段没有字幕。点时间可以跳过去：');
  a.equal(en('tr-gaps-note',{n:2,dur:'31 s'}),"2 part(s) (31 s in all) couldn't be transcribed and have no subtitles. Click a time to jump there:");
  // the tab really is called that on screen
- a.match(fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),/data-side="transcript"[^>]*data-i18n="term\.transcript"/);
+ a.match(fs.readFileSync(path.join(ROOT,'app/index.html'),'utf8'),/data-side="transcript"[^>]*data-i18n="term\.transcript"/);
 });
 
 // VV on #95 d95ab21 (Deja, 2026-11-03): the gaps' times read like the 自动出切片 cards' (0:15–0:22, MontClipAutoSlices.hms),
@@ -158,6 +158,6 @@ test('the gaps list: the cards\' time format, each time a button',()=>{
  a.match(body,/<button type="button" class="tr-gap-go" data-t="\$\{x\.t\}">\$\{escapeHtml\(MontClipAutoSlices\.hms\(x\.t\)\)\}–\$\{escapeHtml\(MontClipAutoSlices\.hms\(x\.u\)\)\}<\/button>/);
  a.ok(!/class="tr-tc"/.test(body),'no grey span');
  a.match(app,/const gap = e\.target\.closest\("\.tr-gap-go"\);\s*if \(gap\) goToTranscriptTime\(\+gap\.dataset\.t\);/);
- a.match(fs.readFileSync(path.join(ROOT,'style.css'),'utf8'),/\.tr-gap-go \{[^}]*text-decoration: underline;[^}]*cursor: pointer;/);
- const S=require('../auto-slices');a.equal(S.hms(15)+'–'+S.hms(22),'0:15–0:22');
+ a.match(fs.readFileSync(path.join(ROOT,'app/style.css'),'utf8'),/\.tr-gap-go \{[^}]*text-decoration: underline;[^}]*cursor: pointer;/);
+ const S=require('../shared/auto-slices');a.equal(S.hms(15)+'–'+S.hms(22),'0:15–0:22');
 });

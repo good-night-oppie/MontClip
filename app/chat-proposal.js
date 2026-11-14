@@ -2,7 +2,7 @@
    keep_sentences — only quoted whole sentences (the user's own references);
    keep_ranges    — source-second ranges of a media clip, one file or one slice per range.
    Every key and value is checked here; the cut itself is the existing range engine. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../captions'),require('../range-plan'),require('./agent-events'));else root.MontClipProposal=factory(root.MontClipCaptions,root.MontClipRangePlan,root.MontClipEvents);})(typeof self!=='undefined'?self:this,function(C,R,Events){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shared/captions'),require('../shared/range-plan'),require('./agent-events'));else root.MontClipProposal=factory(root.MontClipCaptions,root.MontClipRangePlan,root.MontClipEvents);})(typeof self!=='undefined'?self:this,function(C,R,Events){
 'use strict';
 const MAX_RANGES=100,MIN_RANGE=0.5,MAX_JSON=32768,MAX_LABEL=80,MODES=['one_file','per_range'];
 const fail=code=>{throw Error(code);};

@@ -61,7 +61,7 @@ const languageOf = (read) => (read && read.value && read.value.language === 'en'
 // officialPane_removeConnection), so they are always the names on screen. JJ's final copy, 2026-11-05; Chinese button
 // names in 〔〕.
 {
-  const ui = require('../ui-preferences').text, zh = ui['zh-CN'], en = ui.en;
+  const ui = require('../shared/ui-preferences').text, zh = ui['zh-CN'], en = ui.en;
   const zhConfig = '〔' + zh.officialPane_config + '〕', zhRemove = '〔' + zh.officialPane_removeConnection + '〕';
   const enConfig = '“' + en.officialPane_config + '”', enRemove = '“' + en.officialPane_removeConnection + '”';
   Object.assign(TEXT["zh-CN"], { seedOk: "好", seedConflictTitle: "AI 先停用了",

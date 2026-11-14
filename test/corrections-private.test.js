@@ -10,7 +10,7 @@ const read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 // the only files that may name them: their own modules, the main process that keeps them, the preload that reaches them,
 // and the two local evaluations (off unless asked). The page joins this list when the search uses them (interface, v12) —
 // and only its search may then read them.
-const OWN=new Set(['corrections.js','app/segment-edits.js','desktop/corrections-store.js','desktop/main.js','desktop/view-preload.js',
+const OWN=new Set(['shared/corrections.js','app/segment-edits.js','desktop/corrections-store.js','desktop/main.js','desktop/view-preload.js',
  'dev/real-tests/songs-golden.cjs','dev/real-tests/corrections-loso.cjs','desktop/corrections-smoke.cjs',
  // v12: the page's 自动出切片 search and its 记住我的剪辑习惯 block (one block: test/corrections-ui.test.js), and its smoke
  'app/app.js','desktop/corrections-ui-smoke.cjs']);
@@ -20,9 +20,9 @@ test('no other code names them — the assistant, its context and its request bu
  const files=[];
  const walk=(dir)=>{for(const n of fs.readdirSync(path.join(ROOT,dir))){const rel=dir?dir+'/'+n:n;
   if(/^(node_modules|vendor|docs|test|\.git|media|exports|analysis|projects|library|agent-ui)$/.test(n))continue;
-  const st=fs.statSync(path.join(ROOT,rel));if(st.isDirectory()){if(['desktop','dev','dev/real-tests','server','app'].includes(rel))walk(rel);}else if(/\.(c?js|tsx?)$/.test(n))files.push(rel);}};
+  const st=fs.statSync(path.join(ROOT,rel));if(st.isDirectory()){if(['desktop','dev','dev/real-tests','server','app','shared'].includes(rel))walk(rel);}else if(/\.(c?js|tsx?)$/.test(n))files.push(rel);}};
  walk('');
- for(const must of ['app/agent-facts.js','agent-format.js','app/agent-conversation.js','app/agent-pane.js','app/chat-proposal.js','desktop/agent-service.js','server/mcp-server.js','server/mcp-tools.js','server/server.js','app/app.js','app/cindy-official.js'])
+ for(const must of ['app/agent-facts.js','shared/agent-format.js','app/agent-conversation.js','app/agent-pane.js','app/chat-proposal.js','desktop/agent-service.js','server/mcp-server.js','server/mcp-tools.js','server/server.js','app/app.js','app/cindy-official.js'])
   a.ok(files.includes(must),'scanned: '+must);
  // the code, not its comments: event-bounds.js (#93) says in a comment that it runs after the habit shift of corrections.js,
  // and reads nothing of them
@@ -39,7 +39,7 @@ test('a request built as the assistant builds it holds none of their fields, wit
  const s=Store.create({dir});
  for(let i=0;i<5;i++)s.append({type:'trim',kind:'song',startShift:-4,endShift:3,duration:3600});
  s.append({type:'kind',from:'song',to:'other',duration:3600,features:{len:120,level:-25,pause:0.05}});
- const Facts=require('../app/agent-facts'),Format=require('../agent-format');
+ const Facts=require('../app/agent-facts'),Format=require('../shared/agent-format');
  const doc={media:[{id:'m1',src:'/media/a.mp4',kind:'video',duration:600}],clips:[{id:'c1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:600,props:{}}]};
  const facts=Facts.build(doc,{highlights:[{from:10,to:40,score:0.7}]});
  const body=Format.body('m',Format.withFormat([{role:'user',content:'把我唱歌的部分剪出来\n\n'+JSON.stringify({references:[],facts})}]));
@@ -50,6 +50,6 @@ test('a request built as the assistant builds it holds none of their fields, wit
 
 // Deja (2026-11-03): neither the assistant's context nor the outgoing preview (the review box, its raw request) shows them
 test('the outgoing preview never names them: the review box, its bundle and the pane store',()=>{
- for(const f of ['agent-ui/pane.tsx','app/cindy-official.js','app/agent-pane.js','app/agent-conversation.js','app/agent-facts.js','agent-format.js'])
+ for(const f of ['agent-ui/pane.tsx','app/cindy-official.js','app/agent-pane.js','app/agent-conversation.js','app/agent-facts.js','shared/agent-format.js'])
   a.ok(!FIELDS.test(read(f)),f);
 });

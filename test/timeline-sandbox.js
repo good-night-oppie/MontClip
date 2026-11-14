@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const fs = require("node:fs");
 const { ROOT } = require("./helpers");
-const MontClipEdit = require("../edit-ops.js");
+const MontClipEdit = require("../shared/edit-ops.js");
 
 const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
 

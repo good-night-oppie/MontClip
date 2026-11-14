@@ -25,25 +25,25 @@ const {
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
 const { prepareMedia } = require("./prepare-media");
-const MediaLib = require("../media-lib");
-const Danmaku = require("../danmaku");
+const MediaLib = require("../shared/media-lib");
+const Danmaku = require("../shared/danmaku");
 const { readDanmakuFile } = require("./danmaku-file");
-const FX = require("../audio-fx");
-const EditOps = require("../edit-ops");
+const FX = require("../shared/audio-fx");
+const EditOps = require("../shared/edit-ops");
 const ProjectOps = require("./project-ops");
 const Denoise = require("./denoise");
 const MakeEditable = require("./make-editable");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
-const Color = require("../color");
+const Color = require("../shared/color");
 const FrameStats = require("./frame-stats");
-const Mask = require("../mask");
-const Tracker = require("../tracker");
-const Motion = require("../motion");
-const CompLib = require("../comp");
-const SeqLib = require("../sequences");
-const Templates = require("../templates");
-const Delivery = require("../delivery");
+const Mask = require("../shared/mask");
+const Tracker = require("../shared/tracker");
+const Motion = require("../shared/motion");
+const CompLib = require("../shared/comp");
+const SeqLib = require("../shared/sequences");
+const Templates = require("../shared/templates");
+const Delivery = require("../shared/delivery");
 const { probeFile, infoForEntry } = require("./media-probe");
 const { findProxies } = require("./proxy");
 /** The user's saved presets / templates (library/presets, library/templates), validated; bad files skipped. */
@@ -400,7 +400,7 @@ function streamClipAudio(proj, c0, onStart, onChunk, { analysis = false } = {}) 
 }
 /** Measure clips that play together (one linked group: same file + window). */
 async function measureClipGroup(proj, clips) {
-  const L = require("../loudness.js");
+  const L = require("../shared/loudness.js");
   let meter = null;
   await streamClipAudio(proj, clips[0], (nCh) => {
     const routedCount = clips.reduce((n, c) =>
@@ -412,7 +412,7 @@ async function measureClipGroup(proj, clips) {
 }
 /** Timeline spans with sound on these voice clips (ducking.js pipeline). */
 async function voiceRegions(proj, voices, threshold, minLen, heard, { analysis = false } = {}) {
-  const L = require("../loudness.js"), D = require("../ducking.js");
+  const L = require("../shared/loudness.js"), D = require("../shared/ducking.js");
   const lists = [];
   for (const v of voices) {
     let env = null;
@@ -446,7 +446,7 @@ const fmtClock = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5,
 const fmtDur = (s) => { const t = Math.round(s); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 /* fablecut_silence: silence.js on the clips' sound, then (cut:true) its extract ops. */
 async function silenceTool(args) {
-  const S = require("../silence.js");
+  const S = require("../shared/silence.js");
   const ids = Array.isArray(args.clipIds) ? args.clipIds.map(String) : [];
   if (!ids.length) throw new Error("`clipIds` must list the speech clip(s) to listen to");
   const opts = S.options(args);
@@ -499,7 +499,7 @@ async function silenceTool(args) {
 /* fablecut_songs (P2 「找出每首歌」): song-scan.js reads each file in segments (kept as read, so a stopped call carries
    on), songs.js finds the songs; they are kept in the project (setSongs, one revision). */
 async function songsTool(args) {
-  const Songs = require("../songs"), scanner = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
+  const Songs = require("../shared/songs"), scanner = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
   const doc = readProject(), readRev = doc.revision || 0;
   const wanted = Array.isArray(args.mediaIds) ? args.mediaIds.map(String)
     : [...new Set(doc.clips.filter((c) => c.kind === "video" || c.kind === "audio").map((c) => c.mediaId))];
@@ -537,7 +537,7 @@ async function songsTool(args) {
 /* fablecut_beats: beats.js on the music clip's sound, then its ops (markers, snap, retime). */
 const BEATS_MAX_SECS = 20 * 60;
 async function beatsTool(args) {
-  const Bt = require("../beats.js");
+  const Bt = require("../shared/beats.js");
   const doc = readProject();
   const readRev = doc.revision || 0;
   const clip = doc.clips.find((c) => c.id === String(args.clipId || ""));
@@ -580,7 +580,7 @@ async function beatsTool(args) {
 const REFRAME_MAX_SECS = 15 * 60;
 /** → {frames, times}: SAMPLE_FPS a second, then the clip's last frame (reframe.js sampleTimes), read once more. */
 function sampleFrames(file, c, w, h, fps = 30) {
-  const R = require("../reframe.js");
+  const R = require("../shared/reframe.js");
   const sp = Math.min(8, Math.max(0.1, +c.props?.speed || 1));
   const len = Math.min(REFRAME_MAX_SECS, c.duration * sp);
   if (!(len > 0)) throw new Error('reframe requires a positive clip duration');
@@ -621,7 +621,7 @@ function sampleTimeoutMs(len) {
   return Math.ceil(Math.max(120000, len * 2000));
 }
 async function reframeTool(args) {
-  const R = require("../reframe.js");
+  const R = require("../shared/reframe.js");
   const doc = readProject();
   const readRev = doc.revision || 0;
   const smooth = args.smooth == null ? 0.5 : +args.smooth;
@@ -686,7 +686,7 @@ async function reframeTool(args) {
 /* fablecut_highlights: highlights.js on the frames and sound ffmpeg streams from each source
    (frame by frame, without holding the server), then a new sequence holding the best moments. */
 function streamPicture(file, from, len, w, h, push) {
-  const H = require("../highlights.js");
+  const H = require("../shared/highlights.js");
   return new Promise((resolve, reject) => {
     const proc = spawn(FF.path("ffmpeg"), ["-v", "error", "-ss", String(Math.max(0, from)), "-t", String(Math.max(0.1, len)), "-i", file, "-an",
       "-vf", `fps=${H.PIC_FPS},scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
@@ -705,11 +705,11 @@ function streamPicture(file, from, len, w, h, push) {
   });
 }
 async function highlightsTool(args) {
-  const H = require("../highlights.js"), Bt = require("../beats.js");
+  const H = require("../shared/highlights.js"), Bt = require("../shared/beats.js");
   const opts = H.options(args);
   const doc = readProject();
   const readRev = doc.revision || 0;
-  const canvas = args.aspect ? require("../reframe.js").canvasFor(args.aspect, doc.width, doc.height) : {};   // a bad shape refuses before any reading
+  const canvas = args.aspect ? require("../shared/reframe.js").canvasFor(args.aspect, doc.width, doc.height) : {};   // a bad shape refuses before any reading
   const srcs = [];
   let skip = [];
   if (Array.isArray(args.mediaIds) && args.mediaIds.length) {
@@ -791,7 +791,7 @@ const LONG_FILE_S = 600;
    transcript yet as a job in an open tab, else headless, then lays the words out. Shared by
    fablecut_transcribe and fablecut_captions. */
 async function speechWords(args, fileMode) {
-  const T = require("../transcribe.js");
+  const T = require("../shared/transcribe.js");
   const model = T.model(args.model), language = T.language(args.language);
   const doc = readProject();
   const readRev = doc.revision || 0;
@@ -899,7 +899,7 @@ async function speechWords(args, fileMode) {
 }
 /* fablecut_transcribe: transcripts from the editor (a job), read on the timeline, found, cut. */
 async function transcribeTool(args) {
-  const T = require("../transcribe.js");
+  const T = require("../shared/transcribe.js");
   const model = T.model(args.model), language = T.language(args.language);
   const finds = (args.find == null ? [] : Array.isArray(args.find) ? args.find : [args.find]).map(String).filter((q) => T.norm(q));
   if (args.find != null && !finds.length) throw new Error("find needs a word or phrase with letters or digits in it");
@@ -958,7 +958,7 @@ async function transcribeTool(args) {
 }
 /* fablecut_captions: caption clips from the transcripts (captions.js), subtitle files out and in. */
 async function captionsTool(args) {
-  const C = require("../captions.js");
+  const C = require("../shared/captions.js");
   const st = C.style(args.style);
   const ownLocks = (proj, c) => c.locked === true || (Array.isArray(proj.lockedTracks) && proj.lockedTracks.includes(c.track));
   if (args.keepIds != null || args.keepRanges != null) {
@@ -972,7 +972,7 @@ async function captionsTool(args) {
       if (!c) throw new Error("Unknown caption: " + id);
       return { from: c.start, to: c.start+c.duration };
     });
-    const plan = require("../range-plan").create(proj, ranges);
+    const plan = require("../shared/range-plan").create(proj, ranges);
     Object.assign(proj, plan.project);
     const history = createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) });
     history.beforeAgent("Before joining caption sentences", callScope.getStore()?.projectId);
@@ -1612,11 +1612,11 @@ async function trackTool(args) {
    in analysis/lyrics-proposals/ (the newest 50), so the apply can come from another session. */
 const LYRICS_DIR = path.join(ANALYSIS_DIR, "lyrics-proposals");
 function lyricsMessage(key, v) {
-  const View = require("../ui-preferences.js");
+  const View = require("../shared/ui-preferences.js");
   return { "zh-CN": View.t("zh-CN", "own." + key, v), en: View.t("en", "own." + key, v) };
 }
 function lyricsReply(p, extra = {}) {
-  const LT = require("../lyrics-track.js");
+  const LT = require("../shared/lyrics-track.js");
   const body = { ...extra, ...LT.forAgent(p) };
   if (!p.ok) body.code = p.code;
   body.message = lyricsMessage(LT.messageKey(p), p.ok ? { k: p.k, n: p.n, m: p.m } : {});
@@ -1624,7 +1624,7 @@ function lyricsReply(p, extra = {}) {
   return JSON.stringify(body, null, 1);
 }
 async function lyricsTool(args) {
-  const LT = require("../lyrics-track.js"), LA = require("../lyrics-align.js");
+  const LT = require("../shared/lyrics-track.js"), LA = require("../shared/lyrics-align.js");
   if (typeof args.lyrics !== "string") throw new Error("lyrics must be the pasted lyrics, one line per line of the song");
   if (!LA.lines(args.lyrics).length) return lyricsReply({ ok: false, code: "NO_LYRICS" });
   let r;
@@ -1649,7 +1649,7 @@ async function lyricsTool(args) {
   return lyricsReply(p, { proposalId: id });
 }
 async function lyricsApplyTool(args) {
-  const LT = require("../lyrics-track.js");
+  const LT = require("../shared/lyrics-track.js");
   const id = String(args.proposalId || "");
   if (!/^ly_[a-z0-9]{6,40}$/.test(id)) throw new Error("proposalId must be the id fablecut_lyrics returned");
   let p;
@@ -1916,7 +1916,7 @@ async function runTool(name, args, attempt = 0) {
       const target = Number.isFinite(args.target) ? args.target : mode === "peak" ? -1 : -14;
       if (mode === "lufs" && (target < -60 || target > 0)) throw new Error("target LUFS must be -60…0");
       if (mode === "peak" && (target < -60 || target > 0)) throw new Error("target peak must be -60…0 dBFS");
-      const L = require("../loudness.js");
+      const L = require("../shared/loudness.js");
       const groups = normalizeGroups(readProject(), ids);
       const measured = [];
       for (const g of groups) measured.push({ ids: g.map((c) => c.id), m: await measureClipGroup(readProject(), g) });
@@ -1955,7 +1955,7 @@ async function runTool(name, args, attempt = 0) {
       const threshold = args.threshold == null ? -40 : +args.threshold;
       const attack = args.attack == null ? 0.3 : Math.max(0, +args.attack || 0);
       const release = args.release == null ? 0.6 : Math.max(0, +args.release || 0);
-      const D = require("../ducking.js");
+      const D = require("../shared/ducking.js");
       const doc = readProject();
       const musicGroups = [];
       const seen = new Set();

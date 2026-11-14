@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const C = require("../captions");
+const C = require("../shared/captions");
 const Ops = require("../server/project-ops");
 function project() {
   return { revision: 1, fps: 30, width: 1280, height: 720,

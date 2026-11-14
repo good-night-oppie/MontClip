@@ -20,7 +20,7 @@ const shotsDir=process.env.MONTCLIP_SHOTS_OUT||null;if(shotsDir&&!require('node:
 // evidence for the PR (Deja): MONTCLIP_SHOTS_OUT=<absolute folder> saves the hidden offscreen window's own page as PNGs (capturePage of
 // this window only; nothing on the desktop is captured)
 const shotOf=(win)=>async(name)=>{if(!shotsDir)return;await new Promise(r=>setTimeout(r,150));require('node:fs').writeFileSync(require('node:path').join(shotsDir,name+'.png'),(await win.webContents.capturePage()).toPNG());};
-const Cap=require('../capabilities');
+const Cap=require('../shared/capabilities');
 const out=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v)+'\n');
 delete process.env.MONTCLIP_SMOKE_YOLO_CONSENT;
 // the mock model: a keep_ranges proposal on the video clip as the page has it now, 5 s shorter each time

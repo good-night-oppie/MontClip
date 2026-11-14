@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
-const C = require("../captions"), R = require("../range-plan");
+const C = require("../shared/captions"), R = require("../shared/range-plan");
 const truth = require("./fixtures/m0/time-truth.json");
 function fixture() {
   return { revision: 1, fps: 30, media: [{ id: "m", src: "/media/bilingual-source.mp4", duration: 16 }], clips: [

@@ -2,8 +2,8 @@
 // 中文第五批 (Deja, 2026-11-03): the ripple-delete button's tooltip was still English in the Chinese interface (it had no
 // data-i18n-title). It now has its own term row; simple mode still strips its (⇧Del) the way #55 does, in both languages.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences');
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const V = require('../shared/ui-preferences');
+const html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8');
 const EN = 'Ripple delete (⇧Del): delete the selected clips; later clips on the same track move up to close the gap.';
 const ZH = '波纹删除（⇧Del）：删掉选中的片段，同一条轨道上后面的片段自动往前挪，不留空隙。';
 

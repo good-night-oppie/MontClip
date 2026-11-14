@@ -87,7 +87,7 @@ function filesHolding(appDir, files, key) {
 // every module it requires
 const ROOT_FILES = (list) => list.filter((f) => !f.includes('/') && /\.(js|html|css|svg|json)$/.test(f)
   && !/^(package(-lock)?\.json|project\.json|glama\.json|manifest\.json)$/.test(f) && !/^github-result-/.test(f));
-const ROOT_DIRS = ['server/', 'app/', 'icons/', 'library/elements/', 'library/fonts/', 'library/svg/'];
+const ROOT_DIRS = ['server/', 'app/', 'shared/', 'icons/', 'library/elements/', 'library/fonts/', 'library/svg/'];
 const ROOT_EXTRA = ['CLAUDE.md', 'LICENSE', 'LICENSES.md', 'encoding-profiles.json', 'library/README.md', 'library/sfx/README.md',
   'agent-ui/upstream/LICENSE', 'agent-ui/upstream/NOTICE', 'agent-ui/SOURCES.json', 'agent-ui/THIRD-PARTY-NOTICES.txt',
   'licenses/mediapipe/LICENSE', 'licenses/mediapipe/README.md'];

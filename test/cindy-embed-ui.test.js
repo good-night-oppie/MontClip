@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT } = require("./helpers");
-const Host = require("../host-embed");
+const Host = require("../shared/host-embed");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 
 const PARENT = "https://plugin.cindy.example";
@@ -98,15 +98,15 @@ test("the framing page's origin: ancestorOrigins, else the referrer; none, opaqu
 });
 
 test("the page loads host-embed.js before app.js, and the playground copies it", () => {
-  const html = read("index.html");
+  const html = read("app/index.html");
   const at = (f) => html.indexOf(`<script src="${f}"></script>`);
-  assert.ok(at("host-embed.js") >= 0 && at("host-embed.js") < at("app/app.js"));
-  assert.match(read("docs/demo/sync.js"), /"host-embed\.js"/);
-  assert.equal(read("docs/demo/host-embed.js"), read("host-embed.js"), "the playground's copy is current");
+  assert.ok(at("shared/host-embed.js") >= 0 && at("shared/host-embed.js") < at("app/app.js"));
+  assert.match(read("docs/demo/sync.js"), /"shared\/host-embed\.js"/);
+  assert.equal(read("docs/demo/shared/host-embed.js"), read("shared/host-embed.js"), "the playground's copy is current");
 });
 
 test("embedded: the built-in assistant is hidden and cannot be opened; light theme re-maps every surface colour", () => {
-  const css = read("style.css");
+  const css = read("app/style.css");
   for (const id of ["mcAssistant", "mcAssistantTab", "mcAssistantPanel"])
     assert.match(css, new RegExp(`html\\[data-host\\] #${id}[^{]*\\{ display: none !important; \\}`));
   const rootVars = (block) => new Set([...block.matchAll(/(--[a-z0-9-]+):\s*#/g)].map((m) => m[1]));

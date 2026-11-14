@@ -17,7 +17,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const T = require("../transcribe.js");
+const T = require("../shared/transcribe.js");
 
 const RATE = 16000;
 const ffmpeg = () => require("../server/ffmpeg-path").path("ffmpeg");

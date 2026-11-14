@@ -5,7 +5,7 @@
 // The page itself: desktop/agent-modes-smoke.cjs, agent-plan-smoke.cjs and agent-narrow-smoke.cjs (630×460 and 1280×820).
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const Approval = require('../app/agent-approval'), View = require('../ui-preferences'), Host = require('../desktop/agent-policy-host');
+const Approval = require('../app/agent-approval'), View = require('../shared/ui-preferences'), Host = require('../desktop/agent-policy-host');
 const say = (lang) => (k, v) => View.t(lang, k, v);
 const decision = (over = {}) => ({ action: 'ask', ticket: 't1', label: '按时间保留几段录像', risk: 'project', choices: ['once', 'session', 'deny'], ...over });
 const settled = async (p) => { let v = 'pending'; p.then((x) => { v = x; }); await new Promise((r) => setImmediate(r)); return v; };
@@ -175,7 +175,7 @@ test('the card: Cindy\'s card shell and buttons; focus lands on the card itself,
   a.ok(!pane.slice(log, end).includes('cindy-plan') && !pane.slice(log, end).includes('<HostCard '), 'not inside the live log');
   // the Tailwind classes it uses are generated, inside the parts' scope; MontClip's pane rules leave its paragraphs and buttons alone
   a.match(read('agent-ui/styles.cjs'), /path\.join\(__dirname, 'HostCard\.tsx'\)\]/);
-  const css = read('style.css');
+  const css = read('app/style.css');
   a.match(css, /\.cindy-thread \{flex:1 1 0;min-height:0;overflow:auto;/);
   a.match(css, /\.cindy-port \{display:flex;flex-direction:column;min-height:0;height:100%;gap:4px;overflow:hidden;/);
   a.match(css, /the plan and the approval card sit in \.cindy-thread/);
@@ -184,7 +184,7 @@ test('the card: Cindy\'s card shell and buttons; focus lands on the card itself,
   // while a card waits, the proposal and reference rows step aside so the card fits the stream whole
   a.ok(css.includes('#mcAgentContent .cindy-port:has([data-host-card="approval"]) > :is(.cindy-proposal-actions, .cindy-ref-actions, .cindy-references) { display: none; }'));
   a.match(read('app/cindy-official.js'), /data-host-card/, 'the bundle was rebuilt');
-  a.ok(read('index.html').indexOf('app/agent-approval.js') < read('index.html').indexOf('app/app.js'));
+  a.ok(read('app/index.html').indexOf('app/agent-approval.js') < read('app/index.html').indexOf('app/app.js'));
 });
 
 // #120 merged with #175 (DD, 2026-11-06): a card is drawn under the reply it belongs to (ask(d,{result})). The reframe flow

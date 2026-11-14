@@ -357,9 +357,19 @@ test("the app shell and its assets are served", async (t) => {
   assert.match(js.headers.get("content-type"), /javascript/);
   await js.text();
 
-  const missing = await fetch(base + "/nope.js");
+  const missing = await fetch(base + "/app/nope.js");
   assert.equal(missing.status, 404);
   await missing.text();
+  // #281 stage 3: nothing at the root is a page file any more, so a root name is refused before it is looked up
+  const root = await fetch(base + "/nope.js");
+  assert.equal(root.status, 403);
+  await root.text();
+  const page = await fetch(base + "/index.html");
+  assert.equal(page.status, 200, "the page keeps its old name");
+  await page.text();
+  const shared = await fetch(base + "/shared/captions.js");
+  assert.equal(shared.status, 200);
+  await shared.text();
 });
 
 test("requests from a foreign Host or Origin are refused (DNS-rebinding guard)", async (t) => {

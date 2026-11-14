@@ -4,7 +4,7 @@
 // and 〔帮我转〕〔先不转〕, and afterwards JJ's 「已经转好了…」; a refusal or failure is a dialog that waits for an answer
 // (VV saw the reason flash past in a toast). The page code runs here on a small fake DOM.
 const test = require("node:test"), assert = require("node:assert/strict"), vm = require("node:vm"), fs = require("node:fs"), path = require("node:path");
-const V = require("../ui-preferences");
+const V = require("../shared/ui-preferences");
 const source = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
 
 function el(tag) {

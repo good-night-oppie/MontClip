@@ -4,7 +4,7 @@
 // from an FFmpeg the user picked in Settings and that passed a check. That program is
 // never found on PATH and never used for preview, decoding or any other export.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const Delivery=require('../delivery'),X=require('../server/external-ffmpeg');
+const Delivery=require('../shared/delivery'),X=require('../server/external-ffmpeg');
 const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server/server.js'),'utf8');
 const pick=(avail,extra={})=>Delivery.normalize({preset:'youtube',...extra},{available:new Set(avail)}).spec.video.encoder;
 
@@ -115,5 +115,5 @@ test('desktop: the path comes only from the main-process file dialog and is stor
  a.ok(main.includes('dialog.showOpenDialog(win, {')&&main.includes('properties: ["openFile"]'),'file dialog only');
  a.match(main,/MONTCLIP_EXTERNAL_FFMPEG_SETTINGS/);
  a.match(app,/montclipExternalFfmpeg/);a.match(app,/\/api\/export\/h264/);
- const ui=require('../ui-preferences').text;for(const l of ['zh-CN','en'])for(const k of ['h264Title','h264Choose','h264Clear','h264Using','h264None','h264External'])a.ok(ui[l][k],l+' '+k);
+ const ui=require('../shared/ui-preferences').text;for(const l of ['zh-CN','en'])for(const k of ['h264Title','h264Choose','h264Clear','h264Using','h264None','h264External'])a.ok(ui[l][k],l+' '+k);
 });

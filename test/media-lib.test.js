@@ -4,7 +4,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const M = require("../media-lib");
+const M = require("../shared/media-lib");
 const ProjectOps = require("../server/project-ops");
 
 const PROBE = {

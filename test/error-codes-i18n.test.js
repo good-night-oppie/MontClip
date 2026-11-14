@@ -2,7 +2,7 @@
 // The export-job and offline-import refusals were "中文 / English" lines. The server now answers in English
 // (agents and logs read it) with a reason code; the page says the code in the interface language.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences'), J = require('../server/export-jobs');
+const V = require('../shared/ui-preferences'), J = require('../server/export-jobs');
 const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
 const CODES = { NETWORK_DISABLED: 'err-offline', HEADLESS_DISABLED: 'err-headless-disabled', EDITOR_NOT_READY: 'err-editor-not-ready', EDITOR_DID_NOT_ACCEPT: 'err-editor-no-accept' };
 

@@ -3,7 +3,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const D = require("../ducking.js");
+const D = require("../shared/ducking.js");
 
 const FS = 48000;
 /** A clip of silence with tone bursts at [from, to] seconds (amplitude a). */

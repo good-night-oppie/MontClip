@@ -28,7 +28,7 @@ test("package.json exposes the command and ships the files it runs from", () => 
   assert.equal(pkg.bin.fablecut, "server/cli.js");
   assert.match(fs.readFileSync(path.join(ROOT, "server/cli.js"), "utf8"), /^#!\/usr\/bin\/env node/);
   // every script the editor page loads must match a `files` entry
-  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const html = fs.readFileSync(path.join(ROOT, "app/index.html"), "utf8");
   const shipped = (f) => pkg.files.some((p) => p === f || (p === "*.js" && /^[^/]+\.js$/.test(f)) ||
     (p.endsWith("/") && f.startsWith(p)));
   for (const [, f] of html.matchAll(/(?:src|href)="\/?([^"#:?]+)"/g))

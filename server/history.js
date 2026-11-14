@@ -18,7 +18,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const SeqLib = require("../sequences");
+const SeqLib = require("../shared/sequences");
 
 const KINDS = ["manual", "auto", "agent", "restore"];
 const MAX_NAME = 120, MAX_NOTE = 2000;

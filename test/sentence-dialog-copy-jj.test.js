@@ -3,7 +3,7 @@
 // its refusals and the server error codes. sd-busy / sd-busy-save from the file's last section. English passes as it was,
 // except the title, which takes the button's name (Select sentences).
 const test = require('node:test'), a = require('node:assert/strict');
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 const zh = (k) => V.text['zh-CN']['own.' + k], en = (k) => V.text.en['own.' + k];
 
 test("JJ's final Chinese for the sentence dialog", () => {

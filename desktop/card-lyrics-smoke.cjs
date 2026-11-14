@@ -16,7 +16,7 @@ const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const shots=process.env.MONTCLIP_SHOTS_OUT||null;if(shots&&!path.isAbsolute(shots))throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
 const {wav}=require('../test/songs-synth');
-const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v);
+const V=require('../shared/ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v);
 const asrEmpty=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'montclip-noasr-'));process.env.MONTCLIP_ASR_DIR=asrEmpty;
 const PLAN=[['talk',60],['song',140],['talk',80],['song',150],['talk',50]];
 // what the transcript heard (recording seconds): talking, the first song (misheard), the second song (misheard)

@@ -4,7 +4,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const MontClipEdit = require("../edit-ops.js");
+const MontClipEdit = require("../shared/edit-ops.js");
 const { SRC } = require("./timeline-sandbox");
 
 function slice(start, end) {

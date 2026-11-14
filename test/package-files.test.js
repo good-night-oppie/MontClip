@@ -30,7 +30,7 @@ test('the shipped app and generated tester notes make no unsupported AI naming c
 });
 
 test('the package list is what package-win.cjs takes, and the program starts from it',()=>{
- for(const f of ['desktop/main.js','desktop/view-preload.js','server/server.js','app/app.js','index.html','server/asr-models.js'])a.ok(inPackage(f),f);
+ for(const f of ['desktop/main.js','desktop/view-preload.js','server/server.js','app/app.js','app/index.html','server/asr-models.js'])a.ok(inPackage(f),f);
  a.ok(!files.some((f)=>f.startsWith('test/')),'no tests');
 });
 

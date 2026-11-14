@@ -40,7 +40,7 @@ function world({ tracks = [{ id: "A1", kind: "audio" }, { id: "A2", kind: "audio
   const TRACKS = [];
   const project = { master, media };
   const env = {
-    TRACKS, project, TRACK_IDS: new Set(), MontClipFx: require("../audio-fx.js"),
+    TRACKS, project, TRACK_IDS: new Set(), MontClipFx: require("../shared/audio-fx.js"),
     clamp: (v, a, b) => Math.min(b, Math.max(a, v)),
     applyTrackHeights() {}, syncTrackIds() {},
     getMedia: (id) => media.find((m) => m.id === id),

@@ -1,6 +1,6 @@
 "use strict";
 const { test } = require("node:test"), assert = require("node:assert/strict");
-const View = require("../ui-preferences");
+const View = require("../shared/ui-preferences");
 test("view mode/language persist independently of editor data", () => {
   const data = new Map([["project", "keep project bytes"], ["draft", "聊天草稿"]]);
   const storage = { getItem: k => data.get(k), setItem: (k, v) => data.set(k, v) };

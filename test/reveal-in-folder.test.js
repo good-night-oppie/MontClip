@@ -44,7 +44,7 @@ test('the media right-click menu shows 在文件夹里显示, disabled (with the
 });
 
 test('the visible words are bilingual drafts in the own-wording table (草稿，待 JJ 定稿)', () => {
-  const prefs = read('ui-preferences.js');
+  const prefs = read('shared/ui-preferences.js');
   for (const [key, en, zh] of [
     ['q-reveal', 'Show in folder', '在文件夹里显示'],
     ['reveal-in-folder', 'Show in folder', '在文件夹里显示'],

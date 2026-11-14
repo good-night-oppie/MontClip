@@ -11,8 +11,8 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const Songs = require("../../songs");
-const Corrections = require("../../corrections");
+const Songs = require("../../shared/songs");
+const Corrections = require("../../shared/corrections");
 // The streamer's corrections (corrections.js) are off here unless a file of records is named: they come from the same
 // streamer as the golden recordings, so using them by default would leak the answers into the score. Never what the
 // app kept on this computer; a file given by hand only. The number of records is printed, never the file's name.

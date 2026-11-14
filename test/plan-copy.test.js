@@ -3,7 +3,7 @@
 // English by the number of steps — through the interface's plural forms (MontClipView.tp, Intl.PluralRules: _one / _other),
 // never a string put together in code.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const View = require('../ui-preferences');
+const View = require('../shared/ui-preferences');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
 test('the help ends with JJ\'s sentence about the mode', () => {

@@ -166,7 +166,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
   a.ok(pane.includes("const confirm=async()=>{dialog.current?.close();"), 'and it is the review box\'s 〔发送〕');
   a.ok(pane.includes('<p>{DOMAIN[provider]||DOMAIN.openai} · {cfg?.model}</p>'), 'the review names where it goes');
   a.ok(pane.indexOf("const read=await W.montclipAgentService?.noticeGet?.();if(!read?.accepted)") < pane.indexOf('setReview(conversation.prepare())'), 'the notice comes before the review');
-  const T0 = (lang) => (k) => require('../ui-preferences').text[lang]['officialPane_' + k];
+  const T0 = (lang) => (k) => require('../shared/ui-preferences').text[lang]['officialPane_' + k];
   // 「AI 生成」 (Deja, 2026-11-04): one line at the top of the panel, always there; no label on each reply
   a.ok(pane.includes(' <p className="cindy-ai-line" data-ai-replies-line>{t.aiRepliesLine}</p>\n <div className="agent-toolbar">'));
   a.doesNotMatch(pane, /m\.role!=='user'&&<span className="cindy-ai-label"/, 'no label on each reply');
@@ -184,7 +184,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
   // JJ定稿 (2026-11-05, via Deja): 「发了什么」 also names the singing parts and the loudness, ending 「声音本身不发。」 as the review box.
   // JJ's v3, word for word (europa ~/montclip-labels/jj/2026-11-04-AI数据说明-DeepSeek私下包-v3-JJ.md, sha256 98da6840…,
   // QQ passed; Deja, 2026-11-04: v3 is the one): each line as it shows, a bold label followed by its text
-  const V = require('../ui-preferences'), T = (lang) => (k) => V.text[lang]['officialPane_' + k];
+  const V = require('../shared/ui-preferences'), T = (lang) => (k) => V.text[lang]['officialPane_' + k];
   const lines = (t) => [t('dataNoticeTitle'), t('dataNoticeWhatLabel') + t('dataNoticeWhat'), t('dataNoticeWhoLabel') + t('dataNoticeWho'),
     t('dataNoticeUseLabel') + t('dataNoticeUse'), t('dataNoticeSo'), t('dataNoticeOffLabel') + t('dataNoticeOff'), t('dataNoticeAiLabel') + t('dataNoticeAi'),
     t('dataNoticeBasis'), t('dataNoticeOk')];

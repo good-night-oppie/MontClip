@@ -9,7 +9,7 @@ if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke requir
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out=process.env.MONTCLIP_ERRORS_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_ERRORS_OUT must be an absolute folder');
-const View=require('../ui-preferences');
+const View=require('../shared/ui-preferences');
 let answer=null,sent=0;
 globalThis.fetch=async(url)=>{sent++;if(!/^https:\/\/(openrouter\.ai|api\.deepseek\.com|api\.openai\.com)\//.test(String(url)))throw Error('unexpected '+url);
  return {ok:false,status:answer.status,body:(async function*(){yield Buffer.from(answer.body);})()};};

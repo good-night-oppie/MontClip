@@ -11,14 +11,14 @@ const read=(f)=>{try{return fs.readFileSync(path.join(ROOT,f),'utf8');}catch{ret
 const QUOTE=/[「」]/;
 
 test('every English value of the interface\'s tables quotes with “ ”, never 「」',()=>{
- const V=require('../ui-preferences'),bad=[];
+ const V=require('../shared/ui-preferences'),bad=[];
  for(const [k,v] of Object.entries(V.text.en||{}))if(typeof v==='string'&&QUOTE.test(v))bad.push('ui-preferences '+k);
  // the other tables in ui-preferences (each {en, zh} or [en, zh]): their English halves
  const walk=(o,at)=>{if(!o||typeof o!=='object')return;for(const [k,v] of Object.entries(o)){
   if(k==='en'&&v&&typeof v==='object')for(const [kk,vv] of Object.entries(v)){if(typeof vv==='string'&&QUOTE.test(vv))bad.push(at+'.en.'+kk);}
   else if(v&&typeof v==='object'&&k!=='zh'&&k!=='zh-CN'&&at.split('.').length<4)walk(v,at+'.'+k);}};
  walk(V,'ui-preferences');
- const T=require('../ui-terms');const terms=T.TERMS||T.terms||{};
+ const T=require('../shared/ui-terms');const terms=T.TERMS||T.terms||{};
  for(const [k,v] of Object.entries(terms))if(Array.isArray(v)&&QUOTE.test(v[0]))bad.push('ui-terms '+k);
  if(read('desktop/native-text.js')){const N=require('../desktop/native-text');const en=(N.TEXT||N.text||N).en||{};
   for(const [k,v] of Object.entries(en))if(QUOTE.test(JSON.stringify(v)))bad.push('native-text '+k);}
@@ -26,7 +26,7 @@ test('every English value of the interface\'s tables quotes with “ ”, never 
 });
 
 test('every English string the interface shows quotes with “ ”, never 「」',()=>{
- const FILES=['ui-preferences.js','ui-terms.js','app/app.js','index.html','server/server.js','server/export-jobs.js','desktop/main.js','desktop/native-text.js','agent-ui/src/pane.tsx','app/cindy-official.js'];
+ const FILES=['shared/ui-preferences.js','shared/ui-terms.js','app/app.js','app/index.html','server/server.js','server/export-jobs.js','desktop/main.js','desktop/native-text.js','agent-ui/src/pane.tsx','app/cindy-official.js'];
  const LIT=/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g,bad=[];
  for(const f of FILES){const src=read(f);if(src==null)continue;
   // comments are not shown (blanked out, so line numbers stay)
@@ -40,5 +40,5 @@ test('every English string the interface shows quotes with “ ”, never 「」
 test('the check finds what it is for, and leaves Chinese and the AI\'s descriptions alone',()=>{
  const english=(t)=>{const o=t.replace(/「[^」]*」/g,'');return QUOTE.test(t)&&!/[一-鿿]/.test(o)&&/[A-Za-z]{3,}/.test(o);};
  a.ok(english('"Took out 「{name}」"'));a.ok(!english('"已拿掉「{name}」"'));a.ok(!english('"Took out “{name}”"'));
- a.ok(!/fablecut_|mcp/.test(['ui-preferences.js','app/app.js'].join()),'the AI\'s descriptions are not in the scope');
+ a.ok(!/fablecut_|mcp/.test(['shared/ui-preferences.js','app/app.js'].join()),'the AI\'s descriptions are not in the scope');
 });

@@ -11,9 +11,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const MontClipEdit = require("../edit-ops.js");
+const MontClipEdit = require("../shared/edit-ops.js");
 const ProjectOps = require("../server/project-ops.js");
-const Delivery = require("../delivery.js");
+const Delivery = require("../shared/delivery.js");
 const { SRC } = require("./timeline-sandbox");
 const { makeDataDir, seedProject, startServer, startMcp } = require("./helpers");
 
@@ -274,7 +274,7 @@ test("the export report: a warning that keeps the file, unless the timeline put 
   assert.ok(!Delivery.verify(spec, monoOut, { ...ctx, channelLevels: [-9.2] }).checks.some((x) => x.code), "a mono file has no sides");
 });
 
-const UI = require("../ui-preferences.js");
+const UI = require("../shared/ui-preferences.js");
 const zh = (k, v) => UI.t("zh-CN", "own." + k, v), en = (k, v) => UI.t("en", "own." + k, v);
 
 test("JJ定稿, word for word: the open-project question and its buttons", () => {
@@ -282,7 +282,7 @@ test("JJ定稿, word for word: the open-project question and its buttons", () =>
   assert.equal(en("mono-left", { n: 2 }), "2 sounds in this project only play in the left ear. Make them play in both?");
   assert.deepEqual([zh("mono-left-centre"), zh("mono-left-keep")], ["改成两边都有", "不用"]);
   assert.deepEqual([en("mono-left-centre"), en("mono-left-keep")], ["Play in both", "Not now"]);
-  const SRC_UI = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const SRC_UI = fs.readFileSync(path.join(__dirname, "..", "shared/ui-preferences.js"), "utf8");
   assert.match(SRC_UI, /JJ定稿 \(2026-11-05, via Deja\)[^\n]*\n\s*"mono-left"/);
   assert.match(SRC_UI, /JJ定稿 \(2026-11-05, via Deja\)[^\n]*\n[^\n]*\n[^\n]*\n\s*"export-one-sided-left-fix"/);
 });
@@ -300,7 +300,7 @@ test("JJ定稿, word for word: the export warnings, left and right, with and wit
   // the 〔复制问题信息〕 half: JJ定稿 in both languages, the button's name from its key
   assert.equal(zh("export-one-sided-copy-tail", { button: zh("export-one-sided-copy-button") }), "如果不是你故意的，点〔复制问题信息〕发给我们。");
   assert.equal(en("export-one-sided-copy-tail", { button: en("export-one-sided-copy-button") }), "If you didn't mean it, click “Copy problem details” and send it to us.");
-  const SRC_UI = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const SRC_UI = fs.readFileSync(path.join(__dirname, "..", "shared/ui-preferences.js"), "utf8");
   assert.match(SRC_UI, /JJ定稿 \(2026-11-05, via Deja; zh and en\)[^\n]*\n[^\n]*\n[^\n]*\n\s*"export-one-sided-copy-tail"/);
   for (const k of ["export-one-sided-left-fix", "export-one-sided-right-fix", "export-one-sided-left", "export-one-sided-right"])
     assert.doesNotMatch(zh(k) + en(k), /dB|\{/, k);

@@ -3,7 +3,7 @@
 // "1 句只保留了一部分声音" — a false alarm. Times are floats and land on frames, so
 // "the same boundary" must allow for float error and for frame rounding.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const Plan = require('../range-plan');
+const Plan = require('../shared/range-plan');
 const FPS = 30, f = (n) => n / FPS;   // frame n in seconds, as the editor places captions
 
 // a video and its audio under three captions that sit on frame boundaries
@@ -41,7 +41,7 @@ test('a second pass over captions that already carry provenance stays exact too'
     const plan = Plan.create(first, [exact(first, c.id)]);
     a.deepEqual(flagged(plan), [], c.id + ': ' + JSON.stringify(plan.captions.map((x) => [x.intersection, x.original])));
     // the ms-rounded caption overlaps the next media by a fraction of a millisecond: dropped, never a sliver
-    a.ok(plan.project.clips.every((x) => x.duration >= require('../edit-ops').MIN_DUR - 1e-9), JSON.stringify(plan.project.clips.map((x) => [x.id, x.duration])));
+    a.ok(plan.project.clips.every((x) => x.duration >= require('../shared/edit-ops').MIN_DUR - 1e-9), JSON.stringify(plan.project.clips.map((x) => [x.id, x.duration])));
   }
 });
 

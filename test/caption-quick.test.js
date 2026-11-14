@@ -5,7 +5,7 @@
 // the undo compared clip by clip, is desktop/caption-quick-smoke.cjs.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const Q = require('../app/caption-quick'), V = require('../ui-preferences');
+const Q = require('../app/caption-quick'), V = require('../shared/ui-preferences');
 const zh = (k, v) => V.t('zh-CN', 'own.' + k, v), en = (k, v) => V.t('en', 'own.' + k, v);
 const cap = (id, fontSize, y, extra = {}) => ({ id, kind: 'text', track: 'V3', start: 0, duration: 2, mediaId: null,
   props: { caption: true, text: '合成 ' + id, fontSize, y, x: 0, wordTimes: [[0, 1]], ...extra } });
@@ -71,7 +71,7 @@ test('two entries, one operation: 〔字幕大小〕 beside the style menu (all 
   a.ok(!/MontClipCaptions\.(cues|clip)\(|addCaptionsFromTranscript/.test(fn), 'nothing generated again');
   a.match(fn, /MontClipCaptionQuick\.apply\(/);
   a.match(app, /function captionQuickTargets\(scope\) \{[\s\S]{0,400}!isClipLocked\(c\)/, 'locked captions are left alone');
-  a.match(read('index.html'), /<script src="app\/caption-quick\.js"><\/script>/);
+  a.match(read('app/index.html'), /<script src="app\/caption-quick\.js"><\/script>/);
   a.match(read('docs/demo/sync.js'), /"app\/caption-quick\.js"/);
 });
 

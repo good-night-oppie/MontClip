@@ -8,7 +8,7 @@ const fs = require('node:fs'), path = require('node:path');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
 test("JJ's wording, zh and en, word for word", () => {
-  const ui = read('ui-preferences.js');
+  const ui = read('shared/ui-preferences.js');
   for (const line of [
     '"q-save": ["Save", "保存"]',
     '"q-list": ["Export queue", "导出队列"]',
@@ -32,7 +32,7 @@ test('main and preload: one fixed channel each way, plain values only', () => {
 });
 
 test('the queue: its button, Save on each item and Saved come from the interface language; no English left in them', () => {
-  const app = read('app/app.js'), html = read('index.html');
+  const app = read('app/app.js'), html = read('app/index.html');
   a.doesNotMatch(app, /download>Open<\/a>/, 'no hard-coded Open');
   a.doesNotMatch(app, /`Queue · \$\{/, 'no hard-coded Queue · n');
   a.match(app, /btnOpen\.textContent = exportQueue\.length \? uiText\("own\.q-list-n", \{ n: pending \|\| exportQueue\.length \}\) : uiText\("own\.q-list"\);/);
@@ -73,7 +73,7 @@ test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved 
 });
 
 test('VV on 2333c24: Save is greyed while any save of that export is open, with the reason; a refused one says so', () => {
-  const app = read('app/app.js'), ui = read('ui-preferences.js');
+  const app = read('app/app.js'), ui = read('shared/ui-preferences.js');
   a.ok(ui.includes('"save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"]'));
   a.match(app, /if \(exportFile\) \{ window\.montclipDownloads\.expect\(name\); pendingExports\.add\(name\); for \(const q of exportQueue\) if \(q\.file === name\) q\.saving = true; renderQueue\(\); \}/, 'the export flow\'s own save greys the row too');
   a.match(app, /if \(state === "refused"\) \{ toast\(uiText\("own\.save-busy"\)\); return; \}/);

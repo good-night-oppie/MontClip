@@ -23,6 +23,8 @@ const vendorSkip = HAS_VENDOR ? false : `bundled FFmpeg not fetched for ${PLAT} 
 
 test("no production code runs ffmpeg or ffprobe by bare name (that would search PATH)", () => {
   const files = fs.readdirSync(ROOT).filter((f) => f.endsWith(".js")).map((f) => path.join(ROOT, f))
+    // the scripts the page and the server share were at the root until #281 stage 3: still read, in shared/
+    .concat(fs.readdirSync(path.join(ROOT, "shared")).filter((f) => f.endsWith(".js")).map((f) => path.join(ROOT, "shared", f)))
     .concat(fs.readdirSync(path.join(ROOT, "desktop")).filter((f) => /\.c?js$/.test(f) && f !== "fetch-ffmpeg.cjs")
       .map((f) => path.join(ROOT, "desktop", f)));
   const bad = [];

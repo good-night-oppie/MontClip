@@ -8,7 +8,7 @@
 // Key only from ~/.meta-montclip, mode 600 (dev/real-tests/meta-key-file.cjs). Writes docs/validation/meta-format-stability.json.
 // Exit 0 = every reply usable, 1 = some were not (the report says which and why), 2 = skipped.
 const path=require('node:path'),fs=require('node:fs');
-const S=require('../../desktop/agent-service'),F=require('../../agent-format'),V=require('../../app/agent-conversation'),P=require('../../app/chat-proposal'),C=require('../../captions'),K=require('./meta-key-file.cjs');
+const S=require('../../desktop/agent-service'),F=require('../../shared/agent-format'),V=require('../../app/agent-conversation'),P=require('../../app/chat-proposal'),C=require('../../shared/captions'),K=require('./meta-key-file.cjs');
 if(process.env.MONTCLIP_REAL_MODELS!=='1'){console.log('STABILITY SKIPPED: real-model tests are off (set MONTCLIP_REAL_MODELS=1)');process.exit(2);}
 const found=K.readKey();if(!found.key){console.log('STABILITY SKIPPED: '+found.skip);process.exit(2);}
 const KEY=found.key,hide=K.scrubber(KEY),MODEL=process.env.MONTCLIP_E2E_MODEL||S.DEFAULT_MODELS.meta,RUNS=Math.max(1,Math.min(20,Number(process.env.MONTCLIP_STABILITY_RUNS)||5));

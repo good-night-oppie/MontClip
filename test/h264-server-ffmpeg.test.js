@@ -6,7 +6,7 @@
 //   2. the bundled one has none, the named one has x264 → libx264 from the named FFmpeg;
 //   3. neither                                          → refused, and the reason names what exists in this mode.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const Delivery=require('../delivery'),X=require('../server/external-ffmpeg'),V=require('../ui-preferences');
+const Delivery=require('../shared/delivery'),X=require('../server/external-ffmpeg'),V=require('../shared/ui-preferences');
 
 function tmp(t){const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-srvx264-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
 const withX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V....D libx264              libx264 H.264 / AVC\n'}:{code:0,stdout:'ffmpeg version 5.1.8-0+deb12u1\n'};

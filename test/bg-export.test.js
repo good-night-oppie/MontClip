@@ -6,9 +6,9 @@ const test = require("node:test"), a = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
-const app = read("app/app.js"), html = read("index.html");
+const app = read("app/app.js"), html = read("app/index.html");
 const BgExport = require("../app/bg-export");
-const view = require("../ui-preferences");
+const view = require("../shared/ui-preferences");
 
 const doc0 = () => ({ name: "p", revision: 3, fps: 30, clips: [{ id: "c1", start: 0, duration: 5 }, { id: "c2", start: 5, duration: 5 }], media: [] });
 
@@ -295,7 +295,7 @@ test("the notes say what each engine does: only an engine that runs in the backg
   a.match(zh(here), /请别关掉 MontClip/);
   a.equal(BgExport.noteKey("fast", null), "term.engine-fast-note");
   // the old promise is gone everywhere
-  for (const f of ["ui-terms.js", "ui-preferences.js", "index.html", "app/app.js"]) {
+  for (const f of ["shared/ui-terms.js", "shared/ui-preferences.js", "app/index.html", "app/app.js"]) {
     a.doesNotMatch(read(f), /切到别的页面也不影响|切到别的页面也会继续导出|Keeps rendering if you switch tabs/, f);
   }
 });
@@ -336,6 +336,6 @@ test("English completion also omits the version when unchanged and separates war
   w.fromPage({ bgExport: 1, id: j.id, type: "done", result: { outputs: [{ ...output, report: { ok: false, checks: [] } }] } });
   a.match(w.said.at(-1), /^report\nExported p.mp4\. This file is how things were at \d{2}:\d{2}, when you clicked Export\. Edits made after that are not in it\. To include them, export again\.$/);
   a.equal(w.said.at(-1), "report\n" + w.queue[1].note);
-  a.match(read("style.css"), /#toast\s*\{\s*white-space: pre-line;/);
+  a.match(read("app/style.css"), /#toast\s*\{\s*white-space: pre-line;/);
   a.ok(app.indexOf('(q.report ? `<span class="xq-report') < app.indexOf('(q.note ? `<span class="xq-note'), "queue warning precedes completion");
 });

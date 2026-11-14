@@ -4,7 +4,7 @@
 // sentence), failures that say what to do next (as-found-none, as-run-failed, as-busy), as-no-lane, and kind
 // hints that never mention danmaku when the recordings have none.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const zh = (k) => V.text['zh-CN']['own.' + k], en = (k) => V.text.en['own.' + k];
 const CJK = /[　-〿㐀-鿿＀-￯]/;

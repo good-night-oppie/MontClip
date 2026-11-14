@@ -8,7 +8,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const { ROOT } = require("./helpers");
-const F = require("../audio-fx.js");
+const F = require("../shared/audio-fx.js");
 
 test("normalizeFx fills defaults, clamps ranges and keeps bypass", () => {
   const [eq] = F.normalizeFx([{ type: "eq", lowGain: 99, on: false }]);

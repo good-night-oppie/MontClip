@@ -4,7 +4,7 @@
 // for the technically minded. The dead first copy of `format` in ui-preferences.js (overwritten by a later
 // Object.assign) is gone, so what the pane renders is the one written down.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const zh = (k) => V.text['zh-CN']['officialPane_' + k], en = (k) => V.text.en['officialPane_' + k];
 const JSON_FORMAT = '{"type":"keep_sentences","ranges":[{"clipId":"…","sourceCaptionId":"…","from":0,"to":1}]}';
@@ -48,7 +48,7 @@ test('renaming the buttons renames them in the body too', () => {
 });
 
 test('one copy of the format text: the dead first definition is gone', () => {
-  const src = read('ui-preferences.js');
+  const src = read('shared/ui-preferences.js');
   a.equal((src.match(/[{,]\s*"?format"?\s*:/g) || []).length, 2, 'format: one per language');
   a.equal((src.match(/[{,]\s*"?formatTitle"?\s*:/g) || []).length, 2, 'formatTitle: one per language');
   a.doesNotMatch(src, /剪辑提案可要求返回 JSON/);
@@ -59,5 +59,5 @@ test('the pane renders the body with the quote button\'s own text, then the tech
   a.match(pane, /<details data-format-help><summary>\{t\.formatTitle\}<\/summary><p data-format-body>\{W\.MontClipView\.formatBody\(language\)\}<\/p><p className="dim" data-format-tech>\{t\.formatTech\}<\/p>/);
   // P4 (JJ, 5d360cd7): then the plan's small print, still inside the collapsible
   a.match(pane, /data-format-tech>\{t\.formatTech\}<\/p><p className="dim" data-format-plan-tech>[\s\S]*?<\/pre><\/details>/);
-  a.ok(!/查看剪辑提案|Review editing proposal|如何提出剪辑建议/.test(read('ui-preferences.js')), 'no old wording left');
+  a.ok(!/查看剪辑提案|Review editing proposal|如何提出剪辑建议/.test(read('shared/ui-preferences.js')), 'no old wording left');
 });

@@ -3,7 +3,7 @@
 // Now 「已在 {track} 加了 {n} 句字幕」 / 「Added {n} captions on {track}」, the track and the count from variables; when it replaces
 // captions already there it says how many (wording for JJ).
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const View = require('../ui-preferences');
+const View = require('../shared/ui-preferences');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
 test('the words, in both languages, with the track and the count filled in; English by number (JJ, 2026-11-04)', () => {

@@ -1,6 +1,6 @@
 'use strict';
 // The look of the Cindy parts (助手面板 v7.2, the second change): Cindy's own styles, generated at build time from the files
-// copied unchanged at 43001ea, with MontClip's colours laid over them.   node agent-ui/styles.cjs   → ../cindy-parts.css
+// copied unchanged at 43001ea, with MontClip's colours laid over them.   node agent-ui/styles.cjs   → ../app/cindy-parts.css
 //  1. Tailwind 3.4.19 with Cindy's tailwind.config.ts, over the parts' own files only (the copied components, hooks and lib,
 //     the stand-ins and parts.tsx). Tailwind's preflight (its reset of every element) applies inside the parts only: MontClip's
 //     own page keeps its look. tokens.css (Cindy's sizes, fonts, motion) and button.css (Cindy's button face) as they are.
@@ -20,7 +20,7 @@ const SKIP = ['__tests__'];
 // a part's box (parts.tsx), Radix popovers and tooltips, Cindy's MorphPopover panel, its confirm dialog and that dialog's scrim
 const SCOPE = ':where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)';
 // the variables MontClip's own page uses or sets
-const OWN = ['style.css', 'app/app.js', 'index.html', 'agent-ui/pane.tsx'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
+const OWN = ['app/style.css', 'app/app.js', 'app/index.html', 'agent-ui/pane.tsx'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 const montclipNames = () => new Set(OWN.flatMap((t) => [...t.matchAll(/var\(\s*--([\w-]+)|(?:^|[{;\s'"])--([\w-]+)\s*:|setProperty\(\s*['"]--([\w-]+)/g)].map((m) => m[1] || m[2] || m[3])));
 // where a selector's first compound ends (at a combinator or a pseudo-element), so SCOPE can go on that element itself
 function firstCompoundEnd(s) {
@@ -120,7 +120,7 @@ export const colors = exportThemeColors(theme as any); export const id = (theme 
    (Apache-2.0, Copyright 2026 XD Inc.; tailwind.config.ts, tokens.css, button.css and the cindy-dark theme, unchanged in
    agent-ui/cindy-43001ea), built with Tailwind CSS 3.4.19 (MIT; its preflight, scoped to the parts); then MontClip's colours (agent-ui/montclip-theme.css).
    Do not edit: run node agent-ui/styles.cjs. */\n`;
-  fs.writeFileSync(path.join(__dirname, '../cindy-parts.css'), `${banner}\n/* Cindy's cindy-dark theme (themes/theme-service.ts exportThemeColors) first, then Tailwind, then MontClip's colours.
+  fs.writeFileSync(path.join(__dirname, '../app/cindy-parts.css'), `${banner}\n/* Cindy's cindy-dark theme (themes/theme-service.ts exportThemeColors) first, then Tailwind, then MontClip's colours.
    Every rule applies inside the parts only (SCOPE); MontClip's own variable names as --cindy-…: ${renamed.map((c) => '--' + c).join(' ')} */\n${all.toString()}\n`);
   // the npm packages whose code is in cindy-parts.css (Tailwind's preflight and generated rules), for licenses.cjs
   fs.writeFileSync(path.join(__dirname, 'STYLE-PACKAGES.json'), JSON.stringify(['tailwindcss'], null, 1) + '\n');

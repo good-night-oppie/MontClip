@@ -11,7 +11,7 @@
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), crypto = require("node:crypto"), cp = require("node:child_process");
 const FF = require("../server/ffmpeg-path");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
@@ -102,7 +102,7 @@ test("fablecut_status is not held up by slow probes: they run side by side and f
 });
 
 test("a sound file nothing can read the length of: not called a video, no 〔帮我修好〕 button (it repairs videos)", () => {
-  const V = require("../ui-preferences");
+  const V = require("../shared/ui-preferences");
   for (const k of ["own.media-incomplete-audio", "own.media-duration-unknown-audio", "own.media-duration-unknown-n-mixed"]) {
     const zh = V.t("zh-CN", k, { name: "录音.m4a", n: 3 }), en = V.t("en", k, { name: "rec.m4a", n: 3 });
     a.doesNotMatch(zh, /视频|帮我修好|undefined/, k);

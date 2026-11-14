@@ -6,8 +6,8 @@
    name, account, key and token on purpose; the copy must hold none of them. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path");
-const R = require("../problem-redact");
-const V = require("../ui-preferences");
+const R = require("../shared/problem-redact");
+const V = require("../shared/ui-preferences");
 const { makeDataDir, seedProject, startServer } = require("./helpers");
 
 // a computer user "someone"; her files, account, keys and tokens, in a raw error with a call stack
@@ -72,7 +72,7 @@ test("JJ 1: what happened in plain words — not what to do, no raw error, call 
 });
 
 test("what happened: each failure sentence has its part (never cut mid-sentence), and none asks for the button", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "shared/ui-preferences.js"), "utf8");
   // every sentence errorText can say has its entry: ERROR_TEXT's, the FLV reasons', the export / FFmpeg rows', v2's last row
   const keys = new Set(["errOther", "errDiskFullSize"]);
   for (const m of /const ERROR_TEXT = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
@@ -182,7 +182,7 @@ test("JJ's words for what happened, word for word; the screen's sentences unchan
    or not, now and added later. */
 const REASSURANCE = /原片没有改动|原有设置不变|原来的不动|原有.{0,6}不变|没有改动|\bunchanged\b|\buntouched\b|\bnot (been )?changed\b|\bstill there\b/i;
 test("what is copied never reassures — 原片没有改动, 原有设置不变, unchanged — for any failure sentence", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "shared/ui-preferences.js"), "utf8");
   const keys = new Set(["errOther", "errDiskFull", "errDiskFullSize"]);
   for (const m of /const ERROR_TEXT = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
   for (const m of /const FLV_REASONS = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
@@ -216,7 +216,7 @@ const EXEMPT_MAX = 2;
 const ZH_DO = /请|再.{0,6}一次|重新/;
 const EN_DO = /\bplease\b|\btry again\b|(^|[.!?;:]\s+)(import|select|choose|click|export|open|use|free|make|switch|reinstall|wait|check|try|pick|turn|set|restart|close|save|drag|add|remove|delete|stop|go|enter|type|see|look|tap|press|run|install|update|start|clear)\b/i;
 test("what happened never says what to do — every failure sentence, now and added later; the exemptions only shrink", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "shared/ui-preferences.js"), "utf8");
   const keys = new Set(["errOther", "errDiskFull", "errDiskFullSize"]);
   for (const m of /const ERROR_TEXT = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
   for (const m of /const FLV_REASONS = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);

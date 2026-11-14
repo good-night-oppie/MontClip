@@ -5,7 +5,7 @@
 // PAUSE 0.12, PAUSE_DB 14, W 30, MERGE 8, SPLIT_MIN 150, MIN_SONG 90. Each song carries how likely it is: 「估的」 where a
 // boundary or a join was guessed. Synthetic signals only: a held level is singing, a level with pauses is talk.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const S=require('../songs');
+const S=require('../shared/songs');
 const {track}=require('./songs-synth');
 
 test('the parameters are the prototype grid2 result, entropy unused',()=>{
@@ -81,7 +81,7 @@ test('two levels only, 「估的」 and 「比较可能」 (Deja: the measured p
  const read=f=>require('node:fs').readFileSync(require('node:path').join(__dirname,'..',f),'utf8');
  const tool=require('../server/mcp-tools').find(t=>t.name==='fablecut_songs').description;
  a.ok(!/\bsure\b/.test(tool)&&/likely/.test(tool),'the MCP description says likely, never sure');
- a.ok(!/准/.test(require('../capabilities').get('fablecut_songs').summary['zh-CN']));
+ a.ok(!/准/.test(require('../shared/capabilities').get('fablecut_songs').summary['zh-CN']));
  const doc=read('CLAUDE.md');const sec=doc.slice(doc.indexOf('### Songs in a recording'),doc.indexOf('\n## ',doc.indexOf('### Songs in a recording')));
  a.ok(sec.length>100&&!/`sure`/.test(sec)&&/`likely`/.test(sec)&&/「比较可能」/.test(sec)&&!/「较可能」/.test(sec),'JJ final: 比较可能');
  a.ok(/「比较可能」/.test(tool)&&!/「较可能」/.test(tool),'the MCP description in JJ final words too');
@@ -90,7 +90,7 @@ test('two levels only, 「估的」 and 「比较可能」 (Deja: the measured p
 // JJ / Deja (2026-11-03, review of #75): the table says 「可能在唱歌」 like the cards, and the AI is told to talk that way
 // too: the AI repeats the words of its tool description to the streamer.
 test('the capability says 可能在唱歌, and the AI is told to say 可能在唱歌的段落, never song numbers or names, until the gate', () => {
-  const Cap = require('../capabilities'), c = Cap.get('fablecut_songs');
+  const Cap = require('../shared/capabilities'), c = Cap.get('fablecut_songs');
   a.equal(c.summary['zh-CN'], '找出录像里可能在唱歌的段落，标出估的地方');
   a.equal(c.summary.en, 'Find the parts of a recording that are possibly singing, marking the guessed spots');
   const tool = require('../server/mcp-tools').find((t) => t.name === 'fablecut_songs').description;

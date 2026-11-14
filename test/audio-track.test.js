@@ -10,7 +10,7 @@ const test=require('node:test'),a=require('node:assert/strict'),fs=require('node
 const {spawnSync}=require('node:child_process');
 const {makeDataDir,seedProject,startServer,startMcp,readProject}=require('./helpers');
 const {manifest}=require('../server/asr-models');
-const FF=require('../server/ffmpeg-path'),MediaLib=require('../media-lib'),AW=require('../server/audio-window');
+const FF=require('../server/ffmpeg-path'),MediaLib=require('../shared/media-lib'),AW=require('../server/audio-window');
 const skip=!FF.resolveTool('ffmpeg').ok&&"MontClip's ffmpeg is not in vendor/ (node desktop/fetch-ffmpeg.cjs)";
 const ffmpeg=()=>FF.path('ffmpeg');
 const LEN=240,SING=[60,180];
@@ -55,7 +55,7 @@ test('audioTrackOf: the picked track when the file has it, else 0 (a relinked fi
 test('track 1 picked: songs find 60–180 s, and loudness, the export window and the transcript all read track 1',{skip},async(t)=>{
  const d=tmp(t),file=synth(path.join(d,'分轨 录像.mkv'));
  // songs: track 1 is the microphone singing 60–180 s; track 0 is the game, one tone the whole time
- const scan=require('../server/song-scan').createSongScan({dir:path.join(d,'songs')}),Songs=require('../songs');
+ const scan=require('../server/song-scan').createSongScan({dir:path.join(d,'songs')}),Songs=require('../shared/songs');
  const s1=Songs.find((await scan.scan(file,{track:1})).rows.map(x=>x[0]),{complete:true});
  a.equal(s1.length,1,JSON.stringify(s1));a.ok(Math.abs(s1[0].from-SING[0])<=2&&Math.abs(s1[0].to-SING[1])<=2,JSON.stringify(s1));
  const s0=Songs.find((await scan.scan(file)).rows.map(x=>x[0]),{complete:true});
@@ -162,13 +162,13 @@ test('MCP fablecut_audio_track: lists the tracks, cuts a few seconds of each to 
  a.equal(set.isError,false,set.text);
  const doc=readProject(dir);a.equal(doc.media[0].audioTrack,1);a.equal(doc.media[0].audioTracks.length,3);a.equal(doc.revision,2);
  const bad=await mcp.callTool('fablecut_audio_track',{mediaId:'m_r',track:5});a.equal(bad.isError,true);
- const Cap=require('../capabilities');a.equal(Cap.riskOf('fablecut_audio_track'),'undoable');
+ const Cap=require('../shared/capabilities');a.equal(Cap.riskOf('fablecut_audio_track'),'undoable');
 });
 test('one audio track: nothing to choose, and every reader reads it as before',{skip},async(t)=>{
  const d=tmp(t),file=synth(path.join(d,'one.mp4'),{tracks:1});
  const info=await require('../server/media-probe').probeFile(file);a.equal(info.audioTracks,undefined);a.equal(info.audioChannels,1);
  const sig=require('../server/signals').createSignals({dir:path.join(d,'sig')});a.ok(isMic((await sig.loudness(file)).values));
- const Songs=require('../songs'),scan=require('../server/song-scan').createSongScan({dir:path.join(d,'songs')});
+ const Songs=require('../shared/songs'),scan=require('../server/song-scan').createSongScan({dir:path.join(d,'songs')});
  const s=Songs.find((await scan.scan(file)).rows.map(x=>x[0]),{complete:true});a.equal(s.length,1);a.ok(Math.abs(s[0].from-SING[0])<=2);
 });
 test('the editor: the media info lists the tracks with 试听, picking one is an undo step, analysis follows it and the exported sound does not',()=>{
@@ -190,7 +190,7 @@ test('the editor: the media info lists the tracks with 试听, picking one is an
  a.match(app,/uiText\("own\.at-captions-edited", \{ n: track \+ 1, button: uiText\("own\.at-captions-redo"\) \}\)/,'the button name is the button\'s own');
 });
 test('JJ定稿 wording (2026-11-05), word for word in both languages; menu and button names come from their own keys',()=>{
- const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
+ const V=require('../shared/ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
  const menuZh=zh('mm-info'),menuEn=en('mm-info'),btnZh=zh('at-captions-redo'),btnEn=en('at-captions-redo');
  a.equal(menuZh,'素材信息…');a.equal(menuEn,'Media info…');
  a.equal(zh('at-title'),'主播的声音在哪条轨');a.equal(en('at-title'),"Which track is the streamer's voice");
@@ -216,12 +216,12 @@ test('JJ定稿 wording (2026-11-05), word for word in both languages; menu and b
  a.equal(am.zh,'选音轨…');a.equal(am.en,'Choose audio track…');
  a.equal(zh('at-stop'),'■ 停止');a.equal(en('at-stop'),'■ Stop');
  a.equal(zh('at-undone',{n:1}),'已改回第 1 轨。');a.equal(en('at-undone',{n:1}),'Back to track 1.');
- a.equal(require('../capabilities').get('fablecut_audio_track').summary['zh-CN'],'分轨录像里，选哪条音轨是主播的声音');
- const src=fs.readFileSync(path.join(__dirname,'..','ui-preferences.js'),'utf8');
+ a.equal(require('../shared/capabilities').get('fablecut_audio_track').summary['zh-CN'],'分轨录像里，选哪条音轨是主播的声音');
+ const src=fs.readFileSync(path.join(__dirname,'..','shared/ui-preferences.js'),'utf8');
  a.ok(!/Media info…”|〔素材信息…〕|Redo subtitles from this track”|〔按这条轨重做字幕〕|〔去选〕|〔选音轨…〕|“Choose”|“Choose audio track…”/.test(src),'menu and button names are never written into these sentences by hand');
 });
 test('captions say which text they were made with, so an edited one is told apart and never redone without asking',()=>{
- const C=require('../captions');
+ const C=require('../shared/captions');
  const c=C.clip({start:1,end:2,text:'你好 世界',words:[{s:1,e:1.4},{s:1.5,e:2}]},{style:'subtitle',width:1920,height:1080});
  a.equal(c.props.captionMade,'你好 世界');a.ok(Array.isArray(c.props.wordTimes));
  const app=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
@@ -285,7 +285,7 @@ test('VV on #177: a badge, a notice that stays with 〔去选〕, 「选音轨�
  a.match(app,/if \(typeof stopTrackListen === "function"\) stopTrackListen\(\);/,'closing the picker (Esc too) stops it');
  a.match(app,/<div class="tr-row tr-capredo" data-tr-capredo role="status" hidden><\/div>/,'by 〔听写所选〕');
  a.match(app,/toast\(uiText\("own\.at-undone", \{ n: MediaLib\.audioTrackOf\(back\) \+ 1 \}\)\)/);
- const V=require('../ui-preferences');
+ const V=require('../shared/ui-preferences');
  for(const k of ['at-badge','at-badge-busy','at-go','at-menu','at-stop','at-undone','at-dismiss']){const zh=V.t('zh-CN','own.'+k,{n:3,k:1});a.ok(zh&&!zh.startsWith('own.'),k);a.ok(!/我/.test(zh),k);}
  a.equal(V.t('zh-CN','own.at-badge',{n:3,k:2}),'3 条音轨 · 用第 2 条');
 });

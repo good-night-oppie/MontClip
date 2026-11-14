@@ -10,8 +10,8 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { spawnSync } = require("node:child_process");
 const { ROOT, makeDataDir, readProject, seedProject, startMcp, startServer } = require("./helpers");
-const FX = require("../audio-fx.js");
-const EditOps = require("../edit-ops.js");
+const FX = require("../shared/audio-fx.js");
+const EditOps = require("../shared/edit-ops.js");
 
 let HAS_FFMPEG = false;
 try { HAS_FFMPEG = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch {}

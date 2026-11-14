@@ -8,9 +8,9 @@
    string is the existing term, checked against Rea's table. */
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
-const view = require('../ui-preferences');
+const view = require('../shared/ui-preferences');
 const Z = require('./zh-shown');
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8');
 const help = html.slice(html.indexOf('id="helpKeys"'), html.indexOf('id="helpEmpty"'));
 
 // [Rea #, where (the row's own.help-N key, or "h3:" + the heading's English), term key, Rea's English, Rea's Chinese]
@@ -94,7 +94,7 @@ test('the help layer shows those 41 in Chinese, left column and headings include
 test('englishShown() now looks at the help layer\'s first column and its headings', () => {
   // an untranslated left cell and an untranslated heading are reported (第 1 批 translated the real ones, so a copy of
   // the page with one of each put back in English is the proof)
-  const page = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')
+  const page = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8')
     .replace('<td data-i18n="own.help-l-56">☰ in the bin</td>', '<td>☰ in the bin</td>')
     .replace('<h3 data-i18n="own.help-h-editing">Editing</h3>', '<h3>Editing</h3>');
   const planted = Z.englishShown(page);
@@ -125,7 +125,7 @@ test('display names: the stored defaults Main / Title read as 主序列 / 标题
 });
 
 test('export encoders: the Chinese names ui-preferences already has; English keeps delivery.js\'s labels', () => {
-  const Delivery = require('../delivery');
+  const Delivery = require('../shared/delivery');
   a.equal(typeof view.encoderLabel, 'function');
   a.equal(view.encoderLabel('zh-CN', 'h264_nvenc', Delivery.ENCODERS.h264_nvenc.label), '显卡编码（NVIDIA）');
   a.equal(view.encoderLabel('en', 'h264_nvenc', Delivery.ENCODERS.h264_nvenc.label), 'NVIDIA NVENC');

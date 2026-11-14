@@ -9,7 +9,7 @@
 //   caption clips over the placed slices only, in the same undo step. Behaviour: desktop/auto-slices-smoke.cjs.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const V = require('../ui-preferences'), zh = (k, v) => V.t('zh-CN', 'own.' + k, v);
+const V = require('../shared/ui-preferences'), zh = (k, v) => V.t('zh-CN', 'own.' + k, v);
 
 test('JJ v2 section two, word for word', () => {
   a.equal(zh('as-subs'), '字幕');

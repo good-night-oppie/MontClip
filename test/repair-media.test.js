@@ -6,7 +6,7 @@
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process"), crypto = require("node:crypto");
 const FF = require("../server/ffmpeg-path");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
@@ -114,7 +114,7 @@ test("MediaLib.swapMedia: the new entry takes the old one's place everywhere —
 /* JJ 定稿 (2026-11-05, via Deja): one button, 〔帮我修好〕 / "Fix it for me", for every repair and conversion — the
    old 〔修复成可以剪的视频〕 and 〔帮我转成可以剪的视频〕 are gone. */
 test("the words: JJ's, word for word (the English of the mark and the progress lines are drafts)", () => {
-  const V = require("../ui-preferences");
+  const V = require("../shared/ui-preferences");
   a.equal(V.t("zh-CN", "own.repair-button"), "帮我修好");
   a.equal(V.t("en", "own.repair-button"), "Fix it for me");
   a.equal(V.t("zh-CN", "own.repair-menu"), "帮我修好…");
@@ -133,7 +133,7 @@ test("the words: JJ's, word for word (the English of the mark and the progress l
     a.doesNotMatch(V.t("en", k, { n: 40, name: "x" }), /[一-鿿]|undefined/, k);
     a.doesNotMatch(V.t("zh-CN", k, { n: 40, name: "x" }), /undefined|NaN/, k);
   }
-  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "shared/ui-preferences.js"), "utf8");
   for (const old of ["修复成可以剪的视频", "帮我转成可以剪的视频", "Repair into a video", "Convert to a video you can cut", "own.convert-menu"])
     a.ok(!app.includes(old) && !ui.includes(old), "the old name is gone: " + old);
   const line = (s) => app.split("\n").filter((l) => l.includes(s));

@@ -3,7 +3,7 @@
 // model in the real page).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const View=require('../ui-preferences'),F=require('../agent-format');
+const View=require('../shared/ui-preferences'),F=require('../shared/agent-format');
 
 test('the format note tells the model the plan shape: steps of the two edits, at most 30, no example numbers',()=>{
  a.match(F.FORMAT_NOTE,/\{"type":"plan","steps":\[\{"capability":"<keep_sentences or keep_ranges>","args":/);
@@ -36,9 +36,9 @@ test('the list shows what each step changes, the plain sentence and the state in
 });
 
 test('the page reads the tool list from the main process before capabilities.js, read-only',()=>{
- const html=read('index.html'),page=read('app/capabilities-page.js');
- a.ok(html.indexOf('app/capabilities-page.js')<html.indexOf('"capabilities.js"'));
- a.ok(html.indexOf('"capabilities.js"')<html.indexOf('app/agent-plan.js'));
+ const html=read('app/index.html'),page=read('app/capabilities-page.js');
+ a.ok(html.indexOf('app/capabilities-page.js')<html.indexOf('"shared/capabilities.js"'));
+ a.ok(html.indexOf('"shared/capabilities.js"')<html.indexOf('app/agent-plan.js'));
  a.match(page,/window\.montclipCapabilities\.get\(\)/);
  a.ok(!/risk/.test(page.replace(/\/\*[\s\S]*?\*\//,'')),'risks are not taken from it');
 });
@@ -62,7 +62,7 @@ test('JJ’s final words (5d360cd7); the help’s body has no internal names, th
  a.equal(zh('formatPlan'),'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。');/* JJ, 2026-11-04 */
  a.equal(zh('formatPlanTech'),'以下是给 AI 的格式说明，不用看。');
  for(const l of ['zh-CN','en']){const body=View.formatBody(l);a.ok(body.endsWith(View.text[l].officialPane_formatPlan),l);a.ok(!/keep_sentences|keep_ranges|fablecut_/.test(body),l+': no internal names in the body');}
- const F=require('../agent-format');
+ const F=require('../shared/agent-format');
  for(const line of F.PLAN_LINES)a.ok(F.FORMAT_NOTE.includes(line),'the small print is the note’s own lines');
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/<p className="dim" data-format-plan-tech>\{t\.formatPlanTech\}<\/p><pre className="dim" data-format-plan>\{MontClipFormat\.PLAN_LINES\.join\('\\n'\)\}<\/pre><\/details>/);
@@ -72,7 +72,7 @@ test('JJ’s final words (5d360cd7); the help’s body has no internal names, th
 test('v7.2 (说明第 39 行): each step has its mark — ○, a spinner while 进行中, ✓ and the text struck through when 完成, ✕ — in the list',()=>{
  a.match(read('agent-ui/pane.tsx'),/data-step-mark aria-hidden="true">\{st\.mark\}/);
  a.match(read('app/app.js'),/mark:MontClipPlan\.stateMark\(s\.state\)/);
- const css=read('style.css');
+ const css=read('app/style.css');
  a.match(css,/\.cindy-plan li\[data-step-state="done"\] \[data-step-label\] \{[^}]*text-decoration: line-through/);
  a.match(css,/\.cindy-plan li\[data-step-state="doing"\] \[data-step-mark\][^{]*\{[^}]*animation:/);
  a.match(read('app/cindy-official.js'),/data-step-mark/,'the bundle was rebuilt');

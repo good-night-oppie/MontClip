@@ -3,7 +3,7 @@
 // with parameters, and the page says them in the interface language. No English sentence in the
 // Chinese interface; the English reasons stay for agents, logs and development only.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const V=require('../ui-preferences'),X=require('../server/external-ffmpeg'),FF=require('../server/ffmpeg-path');
+const V=require('../shared/ui-preferences'),X=require('../server/external-ffmpeg'),FF=require('../server/ffmpeg-path');
 const ROOT=path.join(__dirname,'..'),server=fs.readFileSync(path.join(ROOT,'server/server.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8');
 const zh=V.text['zh-CN'],en=V.text.en;
 
@@ -46,7 +46,7 @@ test('encoders get plain names in Chinese and their technical names in English',
  a.equal(V.h264Encoder('zh-CN','h264_qsv'),'显卡编码（Intel）');
  a.equal(V.h264Encoder('zh-CN','h264_amf'),'显卡编码（AMD）');
  a.equal(V.h264Encoder('zh-CN','libx264'),'你选的 FFmpeg（x264）');
- const D=require('../delivery');for(const e of ENCODERS)a.equal(V.h264Encoder('en',e),D.ENCODERS[e].label,e);
+ const D=require('../shared/delivery');for(const e of ENCODERS)a.equal(V.h264Encoder('en',e),D.ENCODERS[e].label,e);
 });
 
 test('every reason code reads in the interface language; zh-CN has no English sentence',()=>{

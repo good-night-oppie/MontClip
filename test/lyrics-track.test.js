@@ -5,8 +5,8 @@
 // no singing, no lyrics; the proposal changes nothing; applied, one new caption track, the old captions as they were, one
 // undo step; the agent's result {text, start, end, matched, confidence} with n and k; JJ's copy word for word.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const T=require('../lyrics-track'),L=require('../lyrics-align'),C=require('../captions'),View=require('../ui-preferences');
-const Cap=require('../capabilities'),TOOLS=require('../server/mcp-tools');
+const T=require('../shared/lyrics-track'),L=require('../shared/lyrics-align'),C=require('../shared/captions'),View=require('../shared/ui-preferences');
+const Cap=require('../shared/capabilities'),TOOLS=require('../server/mcp-tools');
 const {SONGS,sing,text}=require('./lyrics-synth');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 const FAKE=['这一句根本没有唱过','风筝飞过了十二座山','橙色的列车开往北极'];
@@ -74,7 +74,7 @@ test('no singing in the part: NO_VOCALS; no lyrics: NO_LYRICS (said first, the p
 });
 
 test('one aligner: the proposal is lyrics-align.js align, not a second implementation',()=>{
- const src=read('lyrics-track.js');
+ const src=read('shared/lyrics-track.js');
  a.match(src,/L\.align\(heard, lyrics\)/);a.match(src,/L\.lines\(lyrics\)/);
  a.ok(!/edit distance\s*,?\s*with the path/i.test(src)&&!/new Uint32Array/.test(src),'no edit distance of its own');
  const words=sing(SONGS.harbour,{err:0.2,seed:4}),p=T.propose(words,text(SONGS.harbour)),r=L.align(words,text(SONGS.harbour));
@@ -214,8 +214,8 @@ test('JJ’s copy, word for word, in both languages; the P8 sentence holds its k
  a.equal(en('lt-asr-unavailable'),"Transcription can't run right now, so the lyrics can't be lined up. The editor may not be open, or transcription may not be installed yet.");
  a.equal(en('lt-place'),'Add to the timeline');a.equal(en('lt-not-now'),'Not now');
  a.equal(zh('lt-not-placed'),'没有放到时间线上，什么都没改。');a.equal(en('lt-not-placed'),'Not added. Nothing changed.');
- a.ok(!/DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"lt-/.test(read('ui-preferences.js')),'no lt- key left as DRAFT');
- a.ok(!/TODO\(P8\)/.test(read('ui-preferences.js')),'no TODO(P8) placeholder left');
+ a.ok(!/DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"lt-/.test(read('shared/ui-preferences.js')),'no lt- key left as DRAFT');
+ a.ok(!/TODO\(P8\)/.test(read('shared/ui-preferences.js')),'no TODO(P8) placeholder left');
  const keys={OK:'lt-preview',TOO_FEW:'lt-too-few',NO_VOCALS:'lt-no-vocals',NO_LYRICS:'lt-no-lyrics',ASR_UNAVAILABLE:'lt-asr-unavailable'};
  for(const [code,key] of Object.entries(keys))a.equal(T.messageKey({ok:code==='OK',code}),key);
 });
@@ -225,7 +225,7 @@ test('nothing here recognises a song: no song names in the copy, the tools or th
  for(const s of copy)a.ok(!/识别|歌名|identif|recogni|song title|song name/i.test(s),s);
  const tool=TOOLS.find(t=>t.name==='fablecut_lyrics');
  a.match(tool.description,/never names or recognises a song/);
- a.ok(!/song_lookup|lookup/.test(read('lyrics-track.js')));
+ a.ok(!/song_lookup|lookup/.test(read('shared/lyrics-track.js')));
 });
 
 test('capabilities: the proposal only reads; applying is undoable (one Ctrl+Z), and the card asks whatever the mode',()=>{
@@ -237,8 +237,8 @@ test('capabilities: the proposal only reads; applying is undoable (one Ctrl+Z), 
 });
 
 test('the page loads the module before app.js, and the server queues the card for an open tab only',()=>{
- const html=read('index.html');
- a.ok(html.indexOf('lyrics-track.js')>html.indexOf('lyrics-align.js')&&html.indexOf('lyrics-track.js')<html.indexOf('"app/app.js"'));
+ const html=read('app/index.html');
+ a.ok(html.indexOf('shared/lyrics-track.js')>html.indexOf('shared/lyrics-align.js')&&html.indexOf('shared/lyrics-track.js')<html.indexOf('"app/app.js"'));
  const Jobs=require('../server/export-jobs');
  const jobs=Jobs.createExportJobs({editors:()=>0,broadcast:()=>{},url:()=>''});
  a.throws(()=>jobs.request({kind:'lyrics',where:'auto',lyrics:{}}),/needs one/);
@@ -251,8 +251,8 @@ test('the page loads the module before app.js, and the server queues the card fo
 /* Deja, 2026-11-07, merging main (#120): the lyrics card stays its own box (a step from MCP has no reply for #120's card to
    sit under, it asks in every mode, and its buttons and grey lines are JJ's), but never under the old approval box's class. */
 test('the lyrics card is its own lt-card, never the old approval box, and keeps JJ\'s buttons',()=>{
- const app=read('app/app.js'),css=read('style.css');
- for(const f of ['app/app.js','index.html','docs/demo/app/app.js','docs/demo/index.html']){
+ const app=read('app/app.js'),css=read('app/style.css');
+ for(const f of ['app/app.js','app/index.html','docs/demo/app/app.js','docs/demo/index.html']){
   const s=read(f);
   a.ok(!/class(Name)?\s*=\s*(["'])agent-approval\2/.test(s),f+': the old box (class "agent-approval") is gone');
  }
@@ -265,7 +265,7 @@ test('the lyrics card is its own lt-card, never the old approval box, and keeps 
 });
 
 test('the grey (unmatched) lyric lines are not faded further: no opacity on .lt-grey (VV on #164: 2.76 with it, 5.57 without)', () => {
-  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'style.css'), 'utf8');
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app/style.css'), 'utf8');
   const rule = /\.lt-lines \.lt-grey\s*\{([^}]*)\}/.exec(css);
   require('node:assert/strict').ok(rule, '.lt-lines .lt-grey rule exists');
   require('node:assert/strict').doesNotMatch(rule[1], /opacity/);

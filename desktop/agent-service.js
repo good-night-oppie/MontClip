@@ -5,7 +5,7 @@ const ENDPOINTS=Object.freeze({openai:'https://api.openai.com/v1/chat/completion
  // /chat/completions, a Bearer key made at dev.meta.ai/api-keys. Checked 2026-11-04 against dev.meta.ai/resources/blog/
  // build-with-muse-spark, docs.litellm.ai/docs/providers/meta and promptfoo.dev/docs/providers/meta.
  meta:'https://api.meta.ai/v1/chat/completions'});
-const Format=require('../agent-format');
+const Format=require('../shared/agent-format');
 // Who may be chosen. The owner (2026-11-02, relayed by Deja): OpenRouter with DeepSeek's Flash model is the
 // default and listed first; DeepSeek and OpenAI follow. (Until then OpenRouter was for tests only, #26; the
 // test switch below remains but no longer changes the list.) The page cannot change the list.

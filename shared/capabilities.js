@@ -8,7 +8,7 @@
      external  — sends something to, or fetches from, the network
    Names not in the table are blocked. BLOCKED lists what no mode may ever allow. */
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./server/mcp-tools"));
+  if (typeof module === "object" && module.exports) module.exports = factory(require("../server/mcp-tools"));
   else root.MontClipCapabilities = factory(root.MontClipMcpTools || []);
 })(typeof globalThis !== "undefined" ? globalThis : this, function (TOOLS) {
   "use strict";

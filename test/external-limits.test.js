@@ -5,7 +5,7 @@
 //   audio (cloud transcription, later): 25 MiB a send (one part), 2 GiB a project while it is open — the field only, not wired.
 // Over a cap: refused, saying by how much; never cut down and sent anyway.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const Cap=require('../capabilities'),P=require('../agent-policy'),{createPolicyHost}=require('../desktop/agent-policy-host');
+const Cap=require('../shared/capabilities'),P=require('../shared/agent-policy'),{createPolicyHost}=require('../desktop/agent-policy-host');
 
 const KiB=1024,MiB=1024*KiB,GiB=1024*MiB;
 
@@ -61,7 +61,7 @@ test('the page gets the caps read-only with the table',()=>{
 });
 
 test('the refusal says by how much, in both languages; the page never shortens what it sends',()=>{
- const View=require('../ui-preferences'),src=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','app/app.js'),'utf8');
+ const View=require('../shared/ui-preferences'),src=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','app/app.js'),'utf8');
  const i=src.indexOf('function byteText'),body=src.slice(i,src.indexOf('/** The plain summary of a proposal',i));
  const run=new Function('uiText',body+'return {byteText,agentRefusalText};')((k,v)=>View.t('zh-CN',k,v));
  a.equal(run.byteText(131072),'128 KB');a.equal(run.byteText(4194304),'4 MB');a.equal(run.byteText(26214400),'25 MB');a.equal(run.byteText(10),'1 KB');

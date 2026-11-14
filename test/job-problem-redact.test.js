@@ -9,8 +9,8 @@ const a = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const V = require("../ui-preferences");
-const R = require("../problem-redact");
+const V = require("../shared/ui-preferences");
+const R = require("../shared/problem-redact");
 const J = require("../server/export-jobs");
 const { makeDataDir, startServer } = require("./helpers");
 
@@ -130,7 +130,7 @@ test("through the server: POST /api/problem-details masks viewers and this compu
 test("#132 keeps no scrub of its own", () => {
   a.equal(fs.existsSync(path.join(ROOT, "problem-details.js")), false);
   a.ok(!/MontClipProblem|showProblem|codeText\(/.test(app));
-  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const html = fs.readFileSync(path.join(ROOT, "app/index.html"), "utf8");
   a.ok(!html.includes("problem-details.js"));
-  a.ok(html.indexOf('src="problem-redact.js"') > 0 && html.indexOf('src="problem-redact.js"') < html.indexOf('src="app/app.js"'));
+  a.ok(html.indexOf('src="shared/problem-redact.js"') > 0 && html.indexOf('src="shared/problem-redact.js"') < html.indexOf('src="app/app.js"'));
 });

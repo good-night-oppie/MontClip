@@ -58,7 +58,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     factsNamed:!r.facts||r.factsNote,
     factsExpand:!!r.facts&&!!r.factsOpen&&r.factsOpen.closed&&r.factsOpen.open&&r.factsOpen.visible&&r.factsOpen.text===JSON.stringify(r.facts,null,2),
     // JJ's words: the title, and the explanation above the facts once opened
-    factsWords:!!r.factsOpen&&r.factsOpen.title===require("../ui-preferences").text[language].officialPane_factsTitle&&r.factsOpen.explain===require("../ui-preferences").text[language].officialPane_factsExplain&&r.factsOpen.explainFirst,
+    factsWords:!!r.factsOpen&&r.factsOpen.title===require("../shared/ui-preferences").text[language].officialPane_factsTitle&&r.factsOpen.explain===require("../shared/ui-preferences").text[language].officialPane_factsExplain&&r.factsOpen.explainFirst,
     // Deja (on #87): the two left-out clips are counted in the box, in JJ's words, outside the fold; their ids are not sent
     omittedShown:!!r.omitted&&r.omitted.visible&&!r.omitted.inFold&&r.omitted.text===OMITTED[language].two,
     omittedNotSent:!/example.com|片段二|直播/.test(r.rawText)&&!/example.com|片段二/.test(JSON.stringify(r.facts)),
@@ -67,7 +67,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     rawFields:JSON.stringify(Object.keys(r.raw).sort())==='["max_tokens","messages","model","stream"]'&&r.raw.model==='vendor/model-x:free'&&r.raw.stream===false&&r.raw.max_tokens===2048,
     noKeyShown:!JSON.stringify(r).includes('sk-dummy'),
     // JJ 2026-11-02: an explanation above the note, the note itself folded by default
-    explainAboveFoldedNote:!!r.explain&&r.explain.visible&&r.explain.text===require("../ui-preferences").text[language].officialPane_formatNoteExplain&&r.folded,
+    explainAboveFoldedNote:!!r.explain&&r.explain.visible&&r.explain.text===require("../shared/ui-preferences").text[language].officialPane_formatNoteExplain&&r.folded,
    };
    result[language]={summary:r.summary,sections:r.sections.map(s=>s.label),checks};
    process.stdout.write('REVIEW '+language+' '+JSON.stringify(checks)+'\n');

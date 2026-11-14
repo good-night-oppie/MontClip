@@ -6,7 +6,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { SRC } = require("./timeline-sandbox");
-const UI = require("../ui-preferences");
+const UI = require("../shared/ui-preferences");
 
 function slice(a, b) {
   const i = SRC.indexOf(a), j = SRC.indexOf(b, i);

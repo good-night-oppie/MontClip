@@ -3,7 +3,7 @@
 // locks it: the facts are numbers, short clip ids and the clip's kind, whatever the project holds.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const Facts=require('../app/agent-facts'),View=require('../ui-preferences');
+const Facts=require('../app/agent-facts'),View=require('../shared/ui-preferences');
 
 // a project full of what must never be sent: file names, paths, subtitle and danmaku text, clip names
 const SECRETS=['我的直播 11月2日.mp4','/media/私密/录像.mp4','C:\\Users\\主播\\Videos\\a.flv','天空好想下雨','谢谢老板的火箭','开场白'];
@@ -94,7 +94,7 @@ test('nothing left out: no count; only clips that would have been sent count (ca
 });
 test('the facts and the proposals check ids by the same rule',()=>{
  a.equal(Facts.SHORT_ID.source,'^[A-Za-z0-9_-]{1,128}$');
- a.match(read('capabilities.js'),/clipId: \{ type: "string", pattern: "\^\[A-Za-z0-9_-\]\{1,128\}\$" \}/);
+ a.match(read('shared/capabilities.js'),/clipId: \{ type: "string", pattern: "\^\[A-Za-z0-9_-\]\{1,128\}\$" \}/);
  a.ok(read('app/chat-proposal.js').includes('/'+Facts.SHORT_ID.source+'/.test(v)'),'chat-proposal.js identity()');
 });
 

@@ -3,7 +3,7 @@
 // plain words, 录播 → 录像 like the rest of the interface (录播姬, the recorder's name, stays), and dm-bad says which file
 // to pick.
 const test = require('node:test'), a = require('node:assert/strict');
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 const zh = (k) => V.t('zh-CN', 'own.' + k), en = (k) => V.t('en', 'own.' + k);
 
 test("JJ (8 PRs): the three danmaku sentences", () => {

@@ -17,7 +17,7 @@ const { execFileSync } = require("node:child_process");
 const FF = require("../server/ffmpeg-path");
 const { accumulator, scanReadableRange } = require("../server/flv-readable-range");
 const P = require("../server/prepare-media");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { make, probe, samplesAV, withSound } = require("./flv-fixtures");
 const REA = path.join(__dirname, "fixtures", "flv-truth-v2");
 const available = () => FF.available("ffmpeg") && FF.available("ffprobe");
@@ -205,7 +205,7 @@ test("⑥ export: a decoder error on damaged bytes stops the export with a plain
   const at = app.indexOf("async function exportDecodeFrame("), body = app.slice(at, app.indexOf("\nasync function seekVideosTo(", at));
   assert.match(body, /e\.name === "EncodingError"[\s\S]*?throw Object\.assign\(new Error\(MontClipView\.t\(mcView\.get\(\)\.language, "exportSourceDamaged"/);
   assert.ok(body.indexOf('"EncodingError"') < body.indexOf("falls back to its element"), "checked before the fallback");
-  const V2 = require("../ui-preferences");
+  const V2 = require("../shared/ui-preferences");
   assert.match(V2.t("zh-CN", "exportSourceDamaged", { name: "早早晴.flv", at: "00:12:03" }), /^这次没导出来：「早早晴\.flv」在 00:12:03 附近有一段画面坏了/);
 });
 
@@ -254,7 +254,7 @@ test("Rea on 064306bd: a big break with drift — the drift is returned with the
   const r = await P.prepareMedia(file, { fixGaps: true, acceptReadable: true, allowTranscode: true });
   assert.equal(r.gapsHeld, true);
   assert.ok(r.drift > 0.04, `drift returned: ${r.drift}`);
-  const said = require("../ui-preferences").flvConvertedMessage("zh-CN", r.gaps, r.drift);
+  const said = require("../shared/ui-preferences").flvConvertedMessage("zh-CN", r.gaps, r.drift);
   assert.doesNotMatch(said, /前后的时间是对的/, said);
 });
 

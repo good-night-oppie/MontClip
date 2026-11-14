@@ -6,7 +6,7 @@
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawnSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const Facts=require('../app/agent-facts'),Cap=require('../capabilities'),F=require('../agent-format'),View=require('../ui-preferences');
+const Facts=require('../app/agent-facts'),Cap=require('../shared/capabilities'),F=require('../shared/agent-format'),View=require('../shared/ui-preferences');
 const FF=require('../server/ffmpeg-path');
 
 const SECRETS=['我的直播 11月5日.mp4','/media/私密/唱歌.mp4','C:\\Users\\主播\\Videos\\a.flv','天空好想下雨'];
@@ -102,7 +102,7 @@ test('the format note: what singing and loudness are, and the way out the stream
  a.match(F.FORMAT_NOTE,/do not guess and do not ask the user for the seconds/);
  a.ok(!/"from"\s*:\s*\d|"to"\s*:\s*\d/.test(F.FORMAT_NOTE));
  // the names as the interface shows them (ui-preferences.js), in 〔〕 / 「」 in Chinese and “ ” in English
- const T=read('ui-preferences.js'),pair=k=>JSON.parse('['+new RegExp('"'+k+'": \\[("[^"]*"), ("[^"]*")\\]').exec(T).slice(1,3).join(',')+']');
+ const T=read('shared/ui-preferences.js'),pair=k=>JSON.parse('['+new RegExp('"'+k+'": \\[("[^"]*"), ("[^"]*")\\]').exec(T).slice(1,3).join(',')+']');
  const [openEn,openZh]=pair('as-open'),[kindEn,kindZh]=pair('as-kind-title'),[singEn,singZh]=pair('as-kind-sing'),[goEn,goZh]=pair('as-go');
  a.deepEqual([openZh,kindZh,singZh,goZh],['✨ 自动出切片','这场主要在干什么？','唱歌','开始找高光']);
  a.ok(F.FORMAT_NOTE.includes(`点〔${openZh}〕，在「${kindZh}」里选「${singZh}」，点〔${goZh}〕`));
@@ -122,7 +122,7 @@ test('synthetic sound (3 s silence + 5 s sine, made by ffmpeg): the singing part
  const scan=await require('../server/song-scan').createSongScan({dir:path.join(d,'songs')}).scan(file);
  a.equal(L.values.length,16);
  // songs.js as the 「唱歌」 scan runs it, with its windows shrunk for an 8 s file (its defaults look for songs of 90 s and more)
- const songs=require('../songs').find(scan.rows.map(x=>x[0]),{complete:true,W:2,MIN_SONG:3,EDGE:1,MERGE:1});
+ const songs=require('../shared/songs').find(scan.rows.map(x=>x[0]),{complete:true,W:2,MIN_SONG:3,EDGE:1,MERGE:1});
  a.deepEqual(songs.map(s=>[s.from,s.to]),[[3,8]]);
  const media={id:'m1',src:'/media/a.wav',kind:'audio',duration:8};
  const whole=Facts.build({media:[media],clips:[{id:'c_a',kind:'audio',mediaId:'m1',track:'A1',start:0,in:0,duration:8,props:{}}]},

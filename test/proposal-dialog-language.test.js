@@ -5,7 +5,7 @@
 // desktop/keep-ranges-smoke.cjs (the dialog opened in both languages).
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const root = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
-const View = require('../ui-preferences'), Plan = require('../range-plan');
+const View = require('../shared/ui-preferences'), Plan = require('../shared/range-plan');
 const CJK = /[　-〿㐀-鿿＀-￯]/;
 // English words in a Chinese string: anything but the placeholders, SRT and AI (main's own.sd-busy-save says 「AI 的建议」)
 const latin = (s) => s.replace(/\{\w+\}/g, '').replace(/\b(SRT|AI)\b/g, '').match(/[A-Za-z]{2,}/g);

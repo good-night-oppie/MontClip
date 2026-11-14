@@ -15,7 +15,7 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { createEmbed, TASK_TICKET_MS } = require("../server/embed");
 const { toolError } = require("../server/tool-error");
-const { redactProblem } = require("../problem-redact");
+const { redactProblem } = require("../shared/problem-redact");
 const { makeDataDir, freePort, endTree } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");

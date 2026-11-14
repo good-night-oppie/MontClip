@@ -8,7 +8,7 @@
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
 const FF = require("../server/ffmpeg-path");
 const MediaProbe = require("../server/media-probe");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { makeDataDir, seedProject, startMcp, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
@@ -145,7 +145,7 @@ test("no length in the header: from the earliest start to the latest end, across
 
 /* JJ rule 1: what happened, then what she can do now, and that the original is unchanged. Drafts, for JJ. */
 test("the hint for a file with no length, both languages, plain words with the next step (drafts for JJ)", () => {
-  const V = require("../ui-preferences");
+  const V = require("../shared/ui-preferences");
   // JJ's final wording (2026-11-05): word for word in test/jj-length-strings.test.js
   a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。");
   for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n", "own.media-incomplete", "own.media-cannot-cut"]) {

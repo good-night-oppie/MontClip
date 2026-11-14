@@ -135,10 +135,11 @@ server/server.js  zero-dependency HTTP server: static hosting, REST API, SSE,
                  ffmpeg export pipeline
 app/app.js       the editor: timeline UI, compositor, keyframes, text engine,
                  SVG rasterizer, chroma key, exporters
-app/             the rest of the page's own scripts (agent pane, workers,
-                 mp4 demuxer ...); files the server also loads stay at the root
-index.html       single-page UI
-style.css        dark editor theme
+app/             the rest of the page: index.html (single-page UI, served at /),
+                 style.css (dark editor theme) and its own scripts (agent pane,
+                 workers, mp4 demuxer ...)
+shared/          scripts both the page and the server load (captions, edit-ops,
+                 mask, ui-terms ...)
 server/mcp-server.js
                  stdio MCP server exposing the editor to AI agents
 analyze.js       reference-video analyzer: shots, beats/BPM, energy, drop,

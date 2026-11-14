@@ -5,7 +5,7 @@
    song's lyrics. Prints k/n for each case (min / mean / max over the seeds) and how many proposals came out OK, then the
    lowest share of the right ones and the highest of the wrong ones.
      node scripts/lyrics-threshold.cjs            (20 seeds per case; exit 1 when the threshold doesn't separate them) */
-const T = require('../lyrics-track');
+const T = require('../shared/lyrics-track');
 const { SONGS, sing, text } = require('../test/lyrics-synth');
 const FAKE = ['这一句根本没有唱过', '风筝飞过了十二座山', '橙色的列车开往北极'];
 const names = Object.keys(SONGS), seeds = Array.from({ length: 20 }, (_, i) => i + 1);

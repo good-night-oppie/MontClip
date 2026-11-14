@@ -248,7 +248,7 @@ function editorWorld({ clips, stack = null, sequence = "main" }) {
     return { json: async () => ({ stack }) };
   };
   const env = {
-    project, runtime, state, fetch, toast: (m) => toasts.push(m), uiText: (k) => require("../ui-preferences").t("zh-CN", k), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
+    project, runtime, state, fetch, toast: (m) => toasts.push(m), uiText: (k) => require("../shared/ui-preferences").t("zh-CN", k), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
     SeqLib: { others: () => [], activeId: () => sequence, find: () => null }, seqRoot: () => project,
     reloadMediaSource() {}, renderBin() {}, scheduleOfflineCheck() {},
     setTime: (t) => { state.time = t; }, projDur: () => 600,
@@ -329,7 +329,7 @@ test("editor: ui commands run the tab's own undo and answer with its state", asy
    the picture to its audio stems with fresh linkGroup ids (edit-ops.js relinkClips), so the timeline the stack was
    kept for looked "changed from outside": the reload added an empty undo step with an English toast. */
 function recordingWorld() {
-  const EditOps = require("../edit-ops");
+  const EditOps = require("../shared/edit-ops");
   const clips = [
     { id: "v1", mediaId: "m1", kind: "video", track: "V1", start: 0, in: 0, duration: 120, props: { volume: 0 } },
     { id: "a1", mediaId: "m1", kind: "audio", track: "A1", start: 0, in: 0, duration: 120, props: { audioChannel: 0, pan: -1 } },
@@ -355,7 +355,7 @@ function reload({ w, ops }, change) {
   const fresh = editorWorld({ clips: saved, stack: kept });
   fresh.project.media = w.project.media;
   if (change) { change(fresh.project); fresh.project.revision = kept.revision + 1; }
-  require("../edit-ops").forDoc(fresh.project, { uid: () => "r" + Math.random().toString(36).slice(2, 8) }).relinkClips();
+  require("../shared/edit-ops").forDoc(fresh.project, { uid: () => "r" + Math.random().toString(36).slice(2, 8) }).relinkClips();
   return { fresh, kept };
 }
 
@@ -392,7 +392,7 @@ test("an outside write that only relinks the stems (new linkGroup ids) is not an
 });
 
 test("the outside-edit toast: JJ's final words, in both languages", () => {
-  const UI = require("../ui-preferences");
+  const UI = require("../shared/ui-preferences");
   assert.equal(UI.t("zh-CN", "own.undo-outside"), "撤销的这一步是 AI 或另一个窗口改的，不是你在这里改的。撤错了，点「重做」就能改回来。");
   assert.equal(UI.t("en", "own.undo-outside"), "Undid a change made by the AI or in another window, not here. If that was a mistake, click Redo to bring it back.");
   assert.doesNotMatch(require("node:fs").readFileSync(require("node:path").join(ROOT, "app/app.js"), "utf8"), /Undid a change made outside this tab/);

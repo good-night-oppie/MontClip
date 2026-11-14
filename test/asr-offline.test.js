@@ -9,7 +9,7 @@ const { startServer, makeDataDir } = require('./helpers');
 test('Whisper, transformers.js and the browser worker are gone; the editor asks the local server to transcribe', () => {
   a.ok(!fs.existsSync(path.join(ROOT, 'transcribe-worker.js')), 'no browser worker');
   a.ok(!fs.existsSync(path.join(ROOT, 'desktop', 'transcribe-manifest.json')) && !fs.existsSync(path.join(ROOT, 'desktop', 'fetch-transcribe.cjs')));
-  for (const f of ['app/app.js', 'transcribe.js', 'index.html', 'server/server.js']) {
+  for (const f of ['app/app.js', 'shared/transcribe.js', 'app/index.html', 'server/server.js']) {
     const s = read(f);
     a.ok(!/whisper|transformers\.min|onnxruntime-web|transcribe-worker|transcribe-assets|jsdelivr\.net\/npm\/@huggingface/i.test(s), f + ' still mentions the old browser path');
   }
@@ -18,7 +18,7 @@ test('Whisper, transformers.js and the browser worker are gone; the editor asks 
   a.ok(!/new Worker\(/.test(app.slice(app.indexOf('async function transcribeFile('), app.indexOf('async function transcribeSrcs('))));
 });
 test('transcribe.js knows one model, Paraformer zh, and Mandarin (with some English)', () => {
-  const T = require('../transcribe');
+  const T = require('../shared/transcribe');
   a.equal(T.DEFAULT_MODEL, 'paraformer-zh'); a.equal(T.model(), 'paraformer-zh'); a.equal(T.model('paraformer-zh'), 'paraformer-zh');
   a.throws(() => T.model('base'), /paraformer-zh/);
   a.equal(T.language(), 'zh'); a.equal(T.language('auto'), 'zh'); a.equal(T.language('ZH'), 'zh');
@@ -110,7 +110,7 @@ test('the real engine on the model\'s own public test sentence (only where deskt
 // Transcript tab, the download states and the empty panel. The first-run page with three choices, the cloud choice and
 // 设置 › 听写 are not in #70.
 test('JJ v2: the download states and the empty panel, word for word', () => {
-  const V = require('../ui-preferences'), zh = (k, v) => V.t('zh-CN', 'own.' + k, v);
+  const V = require('../shared/ui-preferences'), zh = (k, v) => V.t('zh-CN', 'own.' + k, v);
   a.equal(zh('asr-missing'), '第一次要联网下载一个听写模型，大约 230 MB，只下载这一次。下载完以后，听写全程在这台电脑上做，声音不会发出去。');
   a.equal(zh('asr-download'), '下载并使用（约 230 MB）');
   a.equal(zh('asr-downloading', { got: '12 MB' }), '正在下载听写模型：12 MB / 约 230 MB。可以先去剪辑，下载完会告诉你。');

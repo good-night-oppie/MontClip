@@ -3,7 +3,7 @@
 // per-chat external totals live here, in memory only — a restart is back to 手动 with nothing approved. The page asks
 // "what happens to this step?" and answers the host's approval box through a ticket; it cannot set a risk, approve
 // without a ticket, or switch to Yolo without the streamer's yes in the host's own box (confirmYolo).
-const Policy = require('../agent-policy');
+const Policy = require('../shared/agent-policy');
 
 const SESSION = /^[A-Za-z0-9_-]{1,128}$/;
 const MAX_TICKETS = 64, MAX_APPROVALS = 1000, MAX_SESSIONS = 200;

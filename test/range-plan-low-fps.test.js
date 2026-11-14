@@ -4,7 +4,7 @@
 // at fps 5, keeping 0–0.04 s of a video whose audio starts at 0.03 s returned no clips at all. At fps 1 a caption
 // cut by 0.4 s was not marked truncated. The tolerance now stops at 1/48 s (under MIN_DUR) whatever the frame rate.
 const test = require('node:test'), a = require('node:assert/strict');
-const Plan = require('../range-plan'), Edit = require('../edit-ops');
+const Plan = require('../shared/range-plan'), Edit = require('../shared/edit-ops');
 
 function doc(fps, audioStart = 0.03) {
   return {

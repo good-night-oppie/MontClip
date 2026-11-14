@@ -4,7 +4,7 @@
 // produce that event shape already: {id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}.
 // Only checked values go into args; the model's reply text never does.
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const C=require('../captions'),P=require('../app/chat-proposal');
+const C=require('../shared/captions'),P=require('../app/chat-proposal');
 const KEYS=['actor','args','at','capability','id','revisionAfter','revisionBefore','risk','runId','state','step'];
 function fixture(){
  const doc={revision:7,fps:30,media:[{id:'m',duration:600}],clips:[{id:'v',kind:'video',mediaId:'m',track:'V1',start:0,in:100,duration:300}]};

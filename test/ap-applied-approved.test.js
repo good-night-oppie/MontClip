@@ -5,7 +5,7 @@
 // (3) run by 自动 / Yolo without asking (the old line). onAgentReply itself runs here, from app.js, with stand-ins around
 // it; the reason comes from the real policy host (desktop/agent-policy-host.js).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const View=require('../ui-preferences'),{createPolicyHost}=require('../desktop/agent-policy-host');
+const View=require('../shared/ui-preferences'),{createPolicyHost}=require('../desktop/agent-policy-host');
 const src=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
 function fn(name){const s=src.indexOf('async function '+name+'(');a.ok(s>=0,name);return src.slice(s,src.indexOf('\n}',s)+2);}
 
@@ -18,7 +18,7 @@ async function reply(host,{mode,choice='once',language='zh-CN'}){
  const ctx={
   window:{montclipAgentPolicy:{decide:async(v)=>host.decide(v),answer:async(v)=>host.answer({...v,choice})}},
   MontClipConversation:{parseProposal:()=>({type:'keep_sentences',ranges:[]}),proposalSummary:()=>({count:2})},
-  MontClipPolicy:{MODES:['plan','manual','auto','yolo'],modeLabel:require('../agent-policy').modeLabel},
+  MontClipPolicy:{MODES:['plan','manual','auto','yolo'],modeLabel:require('../shared/agent-policy').modeLabel},
   MontClipPlan:{stepDetail:()=>''},MontClipProposal:{current:()=>true},MontClipRangePlan:{create:()=>({})},
   agentPolicy:{mode},paintAgentMode(){},runtime:{projectId:'p_1'},project:{revision:3},
   agentProposalUnchanged:()=>null,agentProposalStep:()=>({proposal:{type:'keep_sentences',keep:[{from:0,to:3}]},ev:null,c:{projectId:'p_1',sequenceId:'main',gen:1},version:null}),
@@ -69,7 +69,7 @@ test('the words, exactly as JJ wrote them; the policy says when a step ran becau
  a.equal(View.t('zh-CN','own.ap-applied-approved'),APPROVED.zh);a.equal(View.t('en','own.ap-applied-approved'),APPROVED.en);
  a.equal(View.t('zh-CN','own.ap-applied-allowed'),ALLOWED.zh);a.equal(View.t('en','own.ap-applied-allowed'),ALLOWED.en);
  a.equal(View.t('zh-CN','own.ap-applied',{mode:'手动'}),'已按 AI 的建议改好，没有问你（手动模式）。可以撤销。','the old line is unchanged');
- const P=require('../agent-policy'),cap='keep_sentences';
+ const P=require('../shared/agent-policy'),cap='keep_sentences';
  a.equal(P.decide({mode:'manual',capability:cap,approved:true}).byApproval,true);
  a.equal(P.decide({mode:'auto',capability:cap}).byApproval,undefined,'自动 runs an undoable step by itself');
  a.equal(P.decide({mode:'yolo',capability:cap,approved:true}).byApproval,undefined,'Yolo runs it by itself');

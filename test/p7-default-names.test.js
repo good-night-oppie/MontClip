@@ -7,7 +7,7 @@
    2. The empty Inspector, in English: "Select a clip to edit its picture, effects and audio." (Chinese unchanged).
    The page itself is rendered in desktop/zh-batch7-smoke.cjs. */
 const test = require('node:test'), a = require('node:assert/strict');
-const V = require('../ui-preferences'), D = require('../delivery');
+const V = require('../shared/ui-preferences'), D = require('../shared/delivery');
 
 test('the default names: Untitled project (lower-case p) for a new English project; all three read as defaults', () => {
   a.equal(V.defaultProjectName('en'), 'Untitled project');

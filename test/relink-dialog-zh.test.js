@@ -5,8 +5,8 @@
 // /media/… path) and gives the length as h:mm:ss, or m:ss under an hour (no frames) — only in this dialog.
 // Synthetic names and numbers only. Not run here: the real window, the English interface, a real failed copy.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences');
-const MediaLib = require('../media-lib');
+const V = require('../shared/ui-preferences');
+const MediaLib = require('../shared/media-lib');
 const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 const t = (l, k, v) => V.t(l, 'own.' + k, v);
 const KEYS = ['rl-title', 'rl-intro-many', 'rl-intro-one', 'rl-folder', 'rl-folder-title', 'rl-pre', 'rl-folder-none', 'rl-copying-k',

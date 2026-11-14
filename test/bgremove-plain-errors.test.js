@@ -3,7 +3,7 @@
 // plain-words table says JJ's #154 sentence for it, as it is, and no export path pops an alert for it. Fast and WebCodecs
 // say "this clip's AI background removal isn't ready"; realtime recording says it can't do AI background removal.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
-const V = require('../ui-preferences.js');
+const V = require('../shared/ui-preferences.js');
 const app = fs.readFileSync(path.join(__dirname, '../app/app.js'), 'utf8');
 const slice = (from, to) => { const i = app.indexOf(from), j = app.indexOf(to, i); a.ok(i >= 0 && j > i, from); return app.slice(i, j); };
 const errorFn = slice('function bgRemoveExportError(', '/* A fresh/headless page');

@@ -5,7 +5,7 @@
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const View = require("../ui-preferences");
+const View = require("../shared/ui-preferences");
 
 test("the sentence button has its own key, one language at a time", () => {
   assert.equal(View.t("zh-CN", "own.tr-sentences"), "按句选段");
@@ -17,9 +17,9 @@ test("the sentence button has its own key, one language at a time", () => {
 });
 
 test("the desktop app hides + URL; the page decides by the desktop preload, the service still refuses", () => {
-  const app = read("app/app.js"), server = read("server/server.js"), css = read("style.css");
+  const app = read("app/app.js"), server = read("server/server.js"), css = read("app/style.css");
   assert.match(app, /if \(window\.montclipViewSettings\) \{ const urlButton = \$\("btnImportUrl"\); if \(urlButton\) urlButton\.hidden = true; \}/);
   assert.match(css, /#btnImportUrl\[hidden\] \{ ?display: ?none;? ?\}/, ".btn would otherwise win over [hidden]");
   assert.match(server, /if \(DESKTOP\) \{\s*sendJSON\(res, 403, \{ code: "NETWORK_DISABLED"/, "the desktop service refuses URL imports as before");
-  assert.match(read("index.html"), /id="btnImportUrl"/, "the web demo keeps the button");
+  assert.match(read("app/index.html"), /id="btnImportUrl"/, "the web demo keeps the button");
 });

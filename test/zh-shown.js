@@ -4,7 +4,7 @@
 // Key caps (<kbd>) and code samples are left out. Used by test/error-text.test.js to find English left in the zh-CN
 // interface (Deja, 2026-11-04).
 const fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 const VOID = new Set(['input', 'br', 'img', 'meta', 'link', 'hr', 'source', 'wbr', 'col', 'area', 'base', 'embed', 'track', 'param']);
 const SKIP = new Set(['script', 'style', 'kbd', 'code', 'template', 'svg']);
 const TOKEN = /<!--[\s\S]*?-->|<![^>]*>|<(\/?)([a-zA-Z][\w-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>|[^<]+/g;
@@ -62,7 +62,7 @@ function wrongCase(text) {
  *  help layer, one row each, both columns; {"help-head:<n>": words} for its section headings; {"html:<id>": words} for
  *  the rest of index.html, by the nearest element with an id. (Until 2026-11-05 the first column and the headings were
  *  left out, so 41 left cells Rea's second scan found were never reported.) */
-function englishShown(html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')) {
+function englishShown(html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8')) {
   const found = {};
   const a = html.indexOf('id="helpKeys"'), b = html.indexOf('id="helpEmpty"');
   const help = html.slice(a, b);

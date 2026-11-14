@@ -5,7 +5,7 @@
 const {test}=require('node:test');
 const a=require('node:assert/strict');
 const crypto=require('node:crypto');
-const Edit=require('../edit-ops');
+const Edit=require('../shared/edit-ops');
 const MP4=require('../app/mp4-demux');
 const Events=require('../app/agent-events');
 const {SRC}=require('./timeline-sandbox');

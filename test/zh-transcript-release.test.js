@@ -6,7 +6,7 @@
 //     development build, or the main process's own switch, turns it back on;
 // (c) the Chinese says 听写 everywhere, never 转写.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
-const V = require('../ui-preferences'), F = require('../desktop/features');
+const V = require('../shared/ui-preferences'), F = require('../desktop/features');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const app = read('app/app.js'), zh = V.text['zh-CN'], en = V.text.en;
 
@@ -61,7 +61,7 @@ test('(b) one path to the speech engine, behind the switch; downloads only throu
 test('(c) 听写 everywhere in Chinese, never 转写', () => {
   for (const [k, v] of Object.entries(zh)) a.ok(!/转写/.test(v), k + ': ' + v);
   a.match(zh['own.transcribe'], /听写/);
-  for (const f of ['app/app.js', 'index.html', 'ui-terms.js', 'desktop/main.js']) a.ok(!/转写/.test(read(f)), f);
+  for (const f of ['app/app.js', 'app/index.html', 'shared/ui-terms.js', 'desktop/main.js']) a.ok(!/转写/.test(read(f)), f);
 });
 
 // #70 (Deja, 2026-11-03): this release carries transcription, so the package turns it on; a test can still turn it off

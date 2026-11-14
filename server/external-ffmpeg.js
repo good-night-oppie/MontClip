@@ -32,7 +32,7 @@ const { execFile } = require("child_process");
 /* A path can carry the user's name (C:\Users\<name>\…). What reaches the page, an export note
    or a log says %USERPROFILE% (Windows) or ~ instead; only the main process keeps the real path. The rule is shared with
    the page's 〔复制问题信息〕 (problem-redact.js). */
-const Redact = require("../problem-redact");
+const Redact = require("../shared/problem-redact");
 const maskUserPath = (s) => Redact.maskUserPath(s, { home: os.homedir(), platform: process.platform });
 /** A check result as the page may see it: ok, the reason code, and the path masked; no English reason. */
 function forPage(r) {
@@ -177,7 +177,7 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
     async available(bundled, { ownX264 = false } = {}) {
       const set = new Set([...bundled].filter((e) => e !== "libx264"));
       // the same test export uses: an h264_* MontClip never selects (h264_omx, h264_v4l2m2m …) is no encoder here
-      pathAllowed = !require("../delivery").encodersFor("h264", set).length;
+      pathAllowed = !require("../shared/delivery").encodersFor("h264", set).length;
       if (ownX264 || (await current({ allowPath: pathAllowed })).ok) set.add("libx264");
       return set;
     },

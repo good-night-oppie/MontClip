@@ -4,7 +4,7 @@
 // [text, start, end] in file seconds, adds the punctuation model's marks to the words they follow, and joins words for
 // reading: no space between Chinese characters, a space between English words.
 const { test } = require('node:test'), a = require('node:assert/strict');
-const W = require('../server/asr-words'), T = require('../transcribe'), C = require('../captions');
+const W = require('../server/asr-words'), T = require('../shared/transcribe'), C = require('../shared/captions');
 
 test('Chinese characters become words in file seconds, each ending where the next starts (at most half a second)', () => {
   const r = { text: '今天天气不错', tokens: ['今', '天', '天', '气', '不', '错'], timestamps: [0.1, 0.3, 0.5, 0.7, 2.0, 2.2] };

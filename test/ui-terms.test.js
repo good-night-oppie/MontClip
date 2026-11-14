@@ -3,8 +3,8 @@
 // MontClipView text system: zh-CN default, en switchable, keyed lookups only.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..');
-const view=require('../ui-preferences'),terms=require('../ui-terms');
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app/app.js'),'utf8');
+const view=require('../shared/ui-preferences'),terms=require('../shared/ui-terms');
+const html=fs.readFileSync(path.join(root,'app/index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app/app.js'),'utf8');
 
 test('every term has both languages and the keyed lookup falls back to English, never to a key',()=>{
  for(const [k,[en,zh]] of Object.entries(terms.rows)){a.ok(en&&zh,k);a.equal(view.t('zh-CN','term.'+k),zh);a.equal(view.t('en','term.'+k),en);}
@@ -20,7 +20,7 @@ test('default stays zh-CN and the language is still the one existing preference'
  const v=view.create(s);a.equal(v.get().language,'zh-CN');v.set({language:'en'});a.equal(view.create(s).get().language,'en');
  a.deepEqual([...store.keys()],[view.KEY],'no second language key');
  a.equal((html.match(/id="mcLanguage"/g)||[]).length,1,'one language switch');
- const added=fs.readFileSync(path.join(root,'ui-terms.js'),'utf8')+view.applyI18n.toString()+view.t.toString();
+ const added=fs.readFileSync(path.join(root,'shared/ui-terms.js'),'utf8')+view.applyI18n.toString()+view.t.toString();
  a.ok(!/localStorage/.test(added),'terms and lookup never touch localStorage');
 });
 

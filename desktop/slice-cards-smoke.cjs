@@ -17,7 +17,7 @@ const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const shots=process.env.MONTCLIP_SHOTS_OUT||null;if(shots&&!path.isAbsolute(shots))throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
 const {wav}=require('../test/songs-synth');
-const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v);
+const V=require('../shared/ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v);
 const asrEmpty=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'montclip-noasr-'));process.env.MONTCLIP_ASR_DIR=asrEmpty;
 const PLAN=[['talk',60],['song',140],['talk',80],['song',150],['talk',50]];
 const out=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v)+'\n');
@@ -121,7 +121,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
     const r={all:b.length>0&&b.every(Boolean),text:b[0]&&b[0].textContent,title:b[0]&&b[0].title,disabled:!!b[0]&&b[0].disabled};
     autoLyricsAvailable=keep;autoRender('review');r.goneAgain=document.querySelectorAll('[data-as-lyrics]').length===0;return r;})()`);
   report.lyrics=lyr;
-  assert.deepEqual([lyr.all,lyr.text,lyr.title.includes(zh(require('../auto-slices').songsTrusted()?'as-lyrics':'as-lyrics-maybe')),lyr.disabled,lyr.goneAgain],[true,zh('as-lyrics'),true,false,true]);
+  assert.deepEqual([lyr.all,lyr.text,lyr.title.includes(zh(require('../shared/auto-slices').songsTrusted()?'as-lyrics':'as-lyrics-maybe')),lyr.disabled,lyr.goneAgain],[true,zh('as-lyrics'),true,false,true]);
   // every disabled button of the dialog looks disabled: greyed, no hand cursor (nothing ticked: 放到时间线上 / 直接导出)
   const dis=await read(`(()=>{const st=autoState(),keep=st.clips.map(c=>c.on);st.clips.forEach(c=>c.on=false);autoRender('review');
     const d=document.querySelector('dialog.auto-slices'),out=[...d.querySelectorAll('button:disabled')].map(b=>{const s=getComputedStyle(b);return{name:b.dataset.asAct||b.textContent.trim().slice(0,12),opacity:+s.opacity,cursor:s.cursor};});

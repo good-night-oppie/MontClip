@@ -78,10 +78,10 @@ test('a clip whose sound cannot be decoded stops the export, said in plain words
   const head = 'function exportAudioHeard(', end = 'async function exportAudioSource(';
   const src = app.slice(app.indexOf(head), app.indexOf(end));
   a.ok(src.length > 50, 'helpers found');
-  const V = require('../ui-preferences');
+  const V = require('../shared/ui-preferences');
   for (const language of ['zh-CN', 'en']) {
     const uiText = (k, v) => V.t(language, k, v);
-    const { exportAudioHeard, exportMixFailure } = new Function('uiText', 'mcView', 'MontClipAutoSlices', src + '\nreturn { exportAudioHeard, exportMixFailure };')(uiText, { get: () => ({ language }) }, require('../auto-slices'));
+    const { exportAudioHeard, exportMixFailure } = new Function('uiText', 'mcView', 'MontClipAutoSlices', src + '\nreturn { exportAudioHeard, exportMixFailure };')(uiText, { get: () => ({ language }) }, require('../shared/auto-slices'));
     const vid = { kind: 'video', props: {} }, pic = { kind: 'video', props: { volume: 0 } }, aud = { kind: 'audio', name: '直播录像', props: {} };
     a.equal(exportAudioHeard(aud, { audioChannels: 2 }), true);
     a.equal(exportAudioHeard(vid, { audioChannels: 2 }), true);
@@ -105,7 +105,7 @@ test('a clip whose sound cannot be decoded stops the export, said in plain words
    veryfast instead of the master preset's slow — frame phase 67 s → 36 s on europa, CRF unchanged. A graphics-card
    encoder, or a preset the user (or the project) chose, is left as it is. */
 test('auto-slice default: libx264 only → veryfast, same CRF; a graphics card or a chosen preset is left alone', () => {
-  const Delivery = require('../delivery');
+  const Delivery = require('../shared/delivery');
   const src = app.slice(app.indexOf('function sliceDeliverySpec('), app.indexOf('function queueSlices('));
   const run = (choice, encoders) => new Function('exportChoice', 'deliveryInfo', 'Delivery', 'normalizeDelivery',
     src + '\nreturn sliceDeliverySpec();')(() => choice, { encoders }, Delivery, (x) => Delivery.normalize(x, { available: encoders ? new Set(encoders) : null }));

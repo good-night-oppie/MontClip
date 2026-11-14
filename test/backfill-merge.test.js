@@ -8,7 +8,7 @@
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm"), http = require("node:http");
 const FF = require("../server/ffmpeg-path");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { makeDataDir, seedProject, startServer, startMcp, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");

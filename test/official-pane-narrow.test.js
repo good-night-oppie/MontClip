@@ -45,7 +45,7 @@ test('a pending switch ("?") is never reloaded from the assistant',async()=>{
  a.equal(w.runtime.projectId,'?');a.deepEqual(w.calls,[],'nothing fetched, saved or reloaded');
 });
 test('when the id cannot be adopted the user is told nothing was lost',()=>{
- const v=require('../ui-preferences').text;a.match(v['zh-CN'].officialPane_projectNotReady,/你的剪辑都还在/);a.match(v.en.officialPane_projectNotReady,/Your edits are still here/);
+ const v=require('../shared/ui-preferences').text;a.match(v['zh-CN'].officialPane_projectNotReady,/你的剪辑都还在/);a.match(v.en.officialPane_projectNotReady,/Your edits are still here/);
 });
 
 test('send and reference buttons ensure the project id before using it',()=>{
@@ -61,11 +61,11 @@ test('reference buttons leave the message scroller; notes and sessions fold into
  for(const part of ['type="search"','state.list(query)','{t.local}</p>','t.formatTitle'])a.ok(pane.indexOf(part)>more&&pane.indexOf(part)<moreEnd,part+' belongs in More');
  a.ok(!pane.slice(thread,threadEnd).includes('getReferences'),'no reference button inside the scroller');
  a.ok(pane.slice(more,more+300).includes('compact'),'More starts folded on short panes');
- for(const l of ['zh-CN','en'])a.ok(require('../ui-preferences').text[l].officialPane_more);
+ for(const l of ['zh-CN','en'])a.ok(require('../shared/ui-preferences').text[l].officialPane_more);
 });
 
 test('VV 630x452: More cannot push the composer out, Esc folds More before hiding, reopen starts folded',()=>{
- const css=fs.readFileSync(require.resolve('../style.css'),'utf8');
+ const css=fs.readFileSync(require.resolve('../app/style.css'),'utf8');
  const rule=sel=>css.split(/\r?\n/).filter(l=>l.startsWith(sel+' {')).join(' ');
  a.match(rule('.cindy-more'),/flex:0 1 auto/);a.match(rule('.cindy-more'),/min-height:0/);
  a.match(rule('.cindy-references'),/flex:0 1 auto/);a.match(rule('.cindy-thread'),/min-height:0/);
@@ -74,7 +74,7 @@ test('VV 630x452: More cannot push the composer out, Esc folds More before hidin
 });
 
 test('VV 2026-11-02: the session list in More scrolls by whole rows, so no row is shown cut in half',()=>{
- const css=fs.readFileSync(require.resolve('../style.css'),'utf8'),pane=fs.readFileSync(require.resolve('../agent-ui/pane.tsx'),'utf8');
+ const css=fs.readFileSync(require.resolve('../app/style.css'),'utf8'),pane=fs.readFileSync(require.resolve('../agent-ui/pane.tsx'),'utf8');
  a.match(pane,/className="agent-toolbar cindy-session-list" data-session-list/);
  a.ok(!/\.cindy-more\s*\{[^}]*max-height:\s*\d+%/.test(css),'no percentage cap: at 630 its edge cut a row and the storage note');
  a.match(css,/\.cindy-more > p\s*\{[^}]*white-space:\s*nowrap[^}]*text-overflow:\s*ellipsis/,'the storage note stays one line');

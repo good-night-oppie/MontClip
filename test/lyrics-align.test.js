@@ -4,7 +4,7 @@
 // transcript's; only the wrong characters become the lyrics' ones; one lyric line is one caption. A line that aligns poorly
 // is marked 「可能不对」 and is not changed unless the streamer picks it.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const L=require('../lyrics-align');
+const L=require('../shared/lyrics-align');
 
 // a synthetic transcript: each character a word, 0.3 s apart (as the local engine gives Chinese)
 const words=(text,t0=10,step=0.3)=>[...text].map((w,i)=>({w,s:+(t0+i*step).toFixed(3),e:+(t0+i*step+0.25).toFixed(3)}));

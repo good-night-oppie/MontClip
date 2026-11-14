@@ -15,7 +15,7 @@ const path = require("node:path");
 const http = require("node:http");
 const { execFileSync } = require("node:child_process");
 const { makeDataDir, seedProject, startServer, startMcp } = require("./helpers");
-const T = require("../transcribe.js");
+const T = require("../shared/transcribe.js");
 
 const ROOT = path.join(__dirname, "..");
 const RATE = 16000;
@@ -177,6 +177,9 @@ test("a copy of the engine without desktop/asr-manifest.json (the plugin's): /ap
   for (const f of fs.readdirSync(ROOT)) if (/\.(js|html|css|json)$/.test(f) && f !== "project.json") fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
   fs.mkdirSync(path.join(app, "server"), { recursive: true });
   for (const f of fs.readdirSync(path.join(ROOT, "server"))) if (/\.(js|json)$/.test(f)) fs.copyFileSync(path.join(ROOT, "server", f), path.join(app, "server", f));
+  // #281 stage 3: the scripts the page and the server share are in shared/
+  fs.mkdirSync(path.join(app, "shared"), { recursive: true });
+  for (const f of fs.readdirSync(path.join(ROOT, "shared"))) fs.copyFileSync(path.join(ROOT, "shared", f), path.join(app, "shared", f));
   fs.mkdirSync(path.join(app, "desktop"));
   for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
   const dataDir = makeDataDir(t);

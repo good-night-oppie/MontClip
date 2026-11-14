@@ -6,9 +6,9 @@
    does it (test/zh-shown.js), in both languages; the menus are rendered for real in desktop/zh-batch7-smoke.cjs. */
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
-const view = require('../ui-preferences');
+const view = require('../shared/ui-preferences');
 const Z = require('./zh-shown');
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8');
 const help = html.slice(html.indexOf('id="helpKeys"'), html.indexOf('id="helpEmpty"'));
 const shown = (markup, language) => Z.shown(markup, language).map((x) => x.text).join(' ');
 const leftCell = (rowKey) => {

@@ -3,8 +3,8 @@
 // item for item, the body actually sent (key and headers masked); pin the OpenRouter
 // destination, redirect policy and response cap; and count the format note in what is sent.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const S=require('../desktop/agent-service'),F=require('../agent-format');
-const pane=fs.readFileSync(path.join(__dirname,'../agent-ui/pane.tsx'),'utf8'),view=require('../ui-preferences').text;
+const S=require('../desktop/agent-service'),F=require('../shared/agent-format');
+const pane=fs.readFileSync(path.join(__dirname,'../agent-ui/pane.tsx'),'utf8'),view=require('../shared/ui-preferences').text;
 const KEY='sk-or-v1-test-secret-0123456789';
 const pageMessages=[{role:'user',content:'第一句留下'},{role:'assistant',content:'好的'},{role:'user',content:'只保留这两句\n\n'+JSON.stringify({references:[{type:'caption',projectId:'p',sequenceId:'s',revision:3,gen:0,clipId:'c1',sourceCaptionId:'c1',text:'今天我们来看三个剪辑技巧。',start:1,end:3.2}]})}];
 const payload={version:1,requestId:'rb1',projectId:'p',sequenceId:'s',revision:3,gen:0,messages:pageMessages};

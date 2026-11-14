@@ -5,7 +5,7 @@
 // codes and English go to the log only; 〔复制问题信息〕 copies that line with viewers, keys and user folders taken out.
 // The rows this PR owns are locked word for word. (FLV gaps / conversion rows: #130; the export "no encoder" row: #125.)
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences'), R = require('../problem-redact'), X = require('../server/external-ffmpeg');
+const V = require('../shared/ui-preferences'), R = require('../shared/problem-redact'), X = require('../server/external-ffmpeg');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const app = read('app/app.js');
 const CJK = /[　-〿㐀-鿿＀-￯]/;
@@ -83,7 +83,7 @@ test('JJ (2026-11-04): three more rows — the timeline changed, a picture too s
   a.equal(V.errorText('zh-CN', { code: 'frameTooSmall', params: { w: 120, h: 40, n: 145 } }).text, '画面太小，导不出来：宽和高都至少要 145 像素。把画面大小改大一点再导出。原片没有改动。');
   a.equal(V.errorText('en', { code: 'frameTooSmall', params: { w: 120, h: 40, n: 145 } }).text, 'The picture is too small to export: width and height must each be at least 145 pixels. Make it larger and export again. The original is unchanged.');
   a.match(read('server/server.js'), /code: "frameTooSmall",[^]{0,200}params: \{ w: frame\.outW, h: frame\.outH, n: Math\.max\(\.\.\.\[\.\.\.available\]\.map\(\(e\) => Delivery\.ENCODERS\[e\]\?\.min \|\| \[\]\)\.flat\(\)\) \}/);
-  a.deepEqual(require('../delivery').ENCODERS.h264_nvenc.min, [145, 49]);
+  a.deepEqual(require('../shared/delivery').ENCODERS.h264_nvenc.min, [145, 49]);
   // the FFmpeg chosen in Settings, whichever way it fails
   for (const code of ['extGone', 'extNotFfmpeg', 'extNoX264', 'extSettingBad', 'extNotFullPath']) {
     a.equal(V.errorText('zh-CN', { code }).text, '设置里选的 FFmpeg 用不了，这次没有做完。在设置里改回 MontClip 自带的，或者重新选一个。原片没有改动。', code);
@@ -144,7 +144,7 @@ test('a reason in a batch is only one of v2\'s sentences; anything else is its l
     a.equal(V.h264Message(l, { code: 'h264NoneWin', featurePack: true }), V.h264Message(l, { code: 'h264NoneWin' }));
     for (const v of Object.values(V.text[l])) if (typeof v === 'string') a.ok(!/Media Feature Pack|媒体功能包|N 版/.test(v), v);
   }
-  a.ok(!/h264NeedFeaturePack/.test(app) && !/h264NeedFeaturePack/.test(read('ui-preferences.js')));
+  a.ok(!/h264NeedFeaturePack/.test(app) && !/h264NeedFeaturePack/.test(read('shared/ui-preferences.js')));
   a.ok(!/Media Feature Pack/.test(X.noH264Reason({ platform: 'win32', mediaFoundation: false })));
   // the other unverified sentence JJ took out of v2 (the recorder's other files for the same stream) is in no row
   for (const l of ['zh-CN', 'en']) for (const v of Object.values(V.text[l])) if (typeof v === 'string') a.ok(!/录播姬.{0,12}分成|同一场.{0,8}几个文件|same stream/.test(v), v);
@@ -273,7 +273,7 @@ test('the page: nothing raw on screen; the copy button with its small print; the
   a.match(server, /p === "\/api\/problem-details"/);
   // #161: the plain sentence, the files as type and size, the code — with the user name too (test/problem-details.test.js)
   a.match(server, /Redact\.problemDetails\(p, \{ home: os\.homedir\(\), platform: process\.platform, user: userName\(\), language: body\.language \}\)/);
-  a.match(read('index.html'), /<script src="problem-redact\.js"><\/script>/);
+  a.match(read('app/index.html'), /<script src="shared\/problem-redact\.js"><\/script>/);
 });
 
 test('the auto-slices page keeps its state when the project only now gets an id (VV: 「导出好了，0 条」 after a failed export)', () => {

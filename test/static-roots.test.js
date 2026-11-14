@@ -1,4 +1,5 @@
-// #281 stage 2 (A2.2, AS.1, AS.2): the editor page's own files moved to app/. Every file the page loads (index.html's
+// #281 stage 2 (A2.2, AS.1, AS.2): the editor page's own files moved to app/; stage 3 (A3.2): index.html, its styles and
+// favicon followed, and the scripts the page and the server share moved to shared/. Every file the page loads (index.html's
 // <script src> / <link href>, and the workers app.js starts by name) is served with its bytes, and the local service's
 // own code (server/) is never handed to the page, however the path is spelled.
 const test = require("node:test");
@@ -12,22 +13,24 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 
 /** What the editor page asks the static route for: index.html's local src/href and app.js's workers (page-relative). */
 function pageFiles() {
-  const html = read("index.html"), out = new Set();
+  const html = read("app/index.html"), out = new Set();
   for (const [, f] of html.matchAll(/(?:src|href)="\/?([^"#:?]+)"/g)) if (!/^https?:/.test(f)) out.add(f);
   for (const [, f] of read("app/app.js").matchAll(/(?:addModule|new Worker)\(\s*["']\/?([^"'?]+\.js)(?:\?[^"']*)?["']/g)) out.add(f);
   return [...out];
 }
 
-test("the page's files sit where index.html and app.js ask for them (app/ for the page's own code)", () => {
+test("the page's files sit where index.html and app.js ask for them (app/ for the page's own code, shared/ for the shared)", () => {
   const files = pageFiles();
-  const scripts = [...read("index.html").matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+  const scripts = [...read("app/index.html").matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
   assert.equal(scripts.length, 54, "index.html loads 54 scripts");
   assert.equal(scripts.filter((s) => s.startsWith("app/")).length, 20, "20 of them are the page's own, in app/");
+  assert.equal(scripts.filter((s) => s.startsWith("shared/")).length, 34, "34 are the ones the server uses too, in shared/");
+  assert.deepEqual(scripts.filter((s) => !/^(app|shared)\//.test(s)), [], "none is loaded from the root any more (#281 stage 3)");
   for (const w of ["app/ruler-worker.js", "app/fx-worklet.js", "app/meter-worklet.js"]) assert.ok(files.includes(w), w + " is started by name");
   const missing = files.filter((f) => !fs.existsSync(path.join(ROOT, f)));
   assert.deepEqual(missing, [], "every file the page loads exists");
-  // nothing the page loads is under server/ (AS.1: the page's prefixes are the root, app/, icons/)
-  assert.deepEqual(files.filter((f) => /^server\//.test(f)), []);
+  // AS.1 (#281 stage 3): the page's prefixes are app/, shared/ and icons/ — nothing from the root, nothing under server/
+  assert.deepEqual(files.filter((f) => !/^(app|shared|icons)\//.test(f)), [], "every page file is in app/, shared/ or icons/");
 });
 
 test("the static route serves every page file with its own bytes, and refuses server/ in any spelling", async (t) => {
@@ -41,12 +44,18 @@ test("the static route serves every page file with its own bytes, and refuses se
     assert.equal(res.status, 200, `/${f} → ${res.status}`);
     if (/\.(js|css)$/.test(f)) assert.equal(res.body, read(f), `/${f} is the file's own content`);
   }
-  const index = await rawGet(port, "/", host);
-  assert.equal(index.status, 200);
-  assert.equal(index.body, read("index.html"));
+  // the page keeps its address and its old name: "/" and "/index.html" are app/index.html
+  for (const p of ["/", "/index.html"]) {
+    const index = await rawGet(port, p, host);
+    assert.equal(index.status, 200, p);
+    assert.equal(index.body, read("app/index.html"), p);
+  }
 
-  // the files that moved are no longer at the root
-  for (const f of ["app.js", "agent-pane.js", "ruler-worker.js"]) assert.equal((await rawGet(port, "/" + f, host)).status, 404, "/" + f);
+  // the files that moved are no longer at the root, and the root is not a page folder any more (#281 stage 3): refused
+  for (const f of ["app.js", "agent-pane.js", "ruler-worker.js", "captions.js", "host-embed.js", "style.css", "cindy-parts.css", "favicon.svg",
+    "asr-download.js", "event-bounds.js"]) assert.equal((await rawGet(port, "/" + f, host)).status, 403, "/" + f);
+  // a missing file inside a page folder is still a plain 404
+  assert.equal((await rawGet(port, "/shared/nope.js", host)).status, 404);
 
   // AS.2: the local service's code is never a page file
   const refused = ["/server/server.js", "/server/paths.js", "/server/", "/SERVER/server.js", "/Server/mcp-server.js",
@@ -69,8 +78,8 @@ test("the static route serves every page file with its own bytes, and refuses se
     assert.doesNotMatch(res.body, /createServer|APP_DIR/, `${p} leaked server code`);
   }
 
-  // allow-list: only the page's folders (app/, icons/, the plugin's cindy/) and the root's own page files
-  // (.html .js .css .svg .png .ico). Config, docs, tests, the desktop shell and a dev checkout's project.json are refused.
+  // allow-list: only the page's folders (app/, shared/, icons/, the plugin's cindy/) and the page's address ("/", "/index.html").
+  // Config, docs, tests, the desktop shell, root scripts and a dev checkout's project.json are refused.
   for (const p of ["/package.json", "/manifest.json", "/encoding-profiles.json", "/CLAUDE.md", "/README.md", "/LICENSE",
     "/desktop/main.js", "/test/helpers.js", "/dev/real-tests/event-bounds-golden.cjs", "/scripts/pr-sop/policy.json", "/docs/demo/index.html",
     "/project.json", "/exports/x.mp4.part"]) {
@@ -79,8 +88,8 @@ test("the static route serves every page file with its own bytes, and refuses se
   }
   assert.equal((await rawGet(port, "/package.json", host)).status, 403);
   assert.equal((await rawGet(port, "/desktop/main.js", host)).status, 403);
-  // and the page's own folders and root files still are
-  for (const p of ["/index.html", "/style.css", "/favicon.svg", "/icons/favicon-32.png", "/app/app.js", "/host-embed.js"])
+  // and the page's own folders still are
+  for (const p of ["/index.html", "/app/style.css", "/app/favicon.svg", "/icons/favicon-32.png", "/app/app.js", "/shared/host-embed.js"])
     assert.equal((await rawGet(port, p, host)).status, 200, p);
 });
 
@@ -92,5 +101,8 @@ test("reverse check: the static route refuses what is off its allow-list, and an
   assert.match(section, /if \(!pageFile\) \{ res\.writeHead\(403\)/, "anything off the allow-list is refused before serveFile");
   assert.ok(section.indexOf("if (!pageFile)") < section.indexOf("serveFile("), "the refusal comes before the file is served");
   assert.doesNotMatch(src.match(/const PAGE_DIRS = [^;]+;/)[0], /server/, "server/ is not a page folder");
+  // #281 stage 3: no rule hands out root files by their extension any more; the page's address is the one exception
+  assert.doesNotMatch(src, /PAGE_ROOT_EXT/, "no root-file rule");
+  assert.match(src.match(/const PAGE_ADDRESSES = [^;]+;/)[0], /new Set\(\["\/", "\/index\.html"\]\)/, "only the page's address");
   assert.match(src, /if \(p\.includes\(":"\)\) \{ res\.writeHead\(403\)/, "a \":\" in the decoded path is refused (NTFS streams)");
 });

@@ -87,13 +87,13 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.equal(report.styles.yolo, 'rgb(255, 107, 112)', "Yolo's text in the AA-passing tint #ff6b70 (QQ on #109; icons keep #e5484d)");
     assert.equal(report.styles.partButtonBg, 'rgba(0, 0, 0, 0)', "a part's button has no browser face (preflight, inside the parts)");
     // MontClip's own page with cindy-parts.css on and off: the same (a few of its controls, measured both ways)
-    report.ownPage = await read(`(()=>{const link=document.querySelector('link[href="cindy-parts.css"]'),ids=['mcUndo','btnExport','btnPlay','projectName','sideTabs'];
+    report.ownPage = await read(`(()=>{const link=document.querySelector('link[href="app/cindy-parts.css"]'),ids=['mcUndo','btnExport','btnPlay','projectName','sideTabs'];
       const props=['backgroundColor','backgroundImage','color','borderTopWidth','borderTopStyle','borderTopLeftRadius','paddingTop','paddingLeft','fontSize','fontFamily','lineHeight','boxSizing','width','height'];
       const take=()=>ids.map(id=>{const s=getComputedStyle(document.getElementById(id));return id+' '+props.map(p=>s[p]).join('|');});
       const on=take();link.disabled=true;const off=take();link.disabled=false;return{on,off};})()`);
     assert.deepEqual(report.ownPage.on, report.ownPage.off, "MontClip's own controls look the same with Cindy's styles loaded");
     // VV's grey texts (var(--muted, #9a9aaa)) and MontClip classes Cindy has too, on elements of MontClip's: the same on and off
-    report.ownProbes = await read(`(()=>{const link=document.querySelector('link[href="cindy-parts.css"]'),host=document.createElement('div');host.style.cssText='position:fixed;left:0;top:0;width:300px';
+    report.ownProbes = await read(`(()=>{const link=document.querySelector('link[href="app/cindy-parts.css"]'),host=document.createElement('div');host.style.cssText='position:fixed;left:0;top:0;width:300px';
       host.innerHTML='<ul class="xq-list"><li><div class="xq-sub">a</div></li></ul><div class="dlv-wh-in"><span>b</span></div><div class="cindy-plan-what">c</div><div class="dlv-batch-list"><div class="bo-empty">d</div></div><div class="grid">e</div><div class="block">f</div><div class="fixed">g</div><div class="sr-only">h</div><div class="filter">i</div>';
       document.body.appendChild(host);const els=[...host.querySelectorAll('div,span')].filter(e=>!e.children.length);
       const take=()=>els.map(e=>[e.className||e.parentNode.className+' span',getComputedStyle(e).color,getComputedStyle(e).display,getComputedStyle(e).position,getComputedStyle(e).width].join('|'));

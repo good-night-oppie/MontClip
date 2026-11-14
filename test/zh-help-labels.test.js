@@ -6,8 +6,8 @@
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..');
-const view = require('../ui-preferences');
-const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const view = require('../shared/ui-preferences');
+const html = fs.readFileSync(path.join(ROOT, 'app/index.html'), 'utf8');
 const app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8');
 const strip = (s) => s.replace(/<\/?(?:kbd|code)>/g, '').replace(/[⟨⟩]/g, '');
 

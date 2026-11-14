@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const V=require('../ui-preferences'),N=require('../desktop/native-text').TEXT;
+const V=require('../shared/ui-preferences'),N=require('../desktop/native-text').TEXT;
 // JJ's corrected final copy, 2026-11-05; actual button names verified against the UI.
 const expected={
   "zh-CN": {
@@ -33,7 +33,7 @@ test("both dialogs take their button names from the buttons' own text keys, so t
  for(const lang of ['zh-CN','en'])for(const key of ['config','removeConnection'])a.ok(!src.includes(own[lang](V.text[lang]['officialPane_'+key])),lang+' '+key+' typed out');
  a.ok(src.includes('zh.officialPane_config')&&src.includes('zh.officialPane_removeConnection')&&src.includes('en.officialPane_config')&&src.includes('en.officialPane_removeConnection'));
  // and a renamed button renames the dialogs' words with it
- const ui=require('../ui-preferences').text,keep=[ui['zh-CN'].officialPane_removeConnection,ui.en.officialPane_removeConnection];
+ const ui=require('../shared/ui-preferences').text,keep=[ui['zh-CN'].officialPane_removeConnection,ui.en.officialPane_removeConnection];
  try{ui['zh-CN'].officialPane_removeConnection='删掉它';ui.en.officialPane_removeConnection='Drop it';
   delete require.cache[require.resolve('../desktop/native-text')];const M=require('../desktop/native-text').TEXT;
   a.ok(M['zh-CN'].seedSealFailed.includes('〔删掉它〕')&&M['zh-CN'].seedConflict.includes('〔删掉它〕'));a.ok(M.en.seedSealFailed.includes('“Drop it”')&&M.en.seedConflict.includes('“Drop it”'));}

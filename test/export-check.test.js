@@ -13,7 +13,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const app = read('app/app.js');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i) + 2); };
-const V = require('../ui-preferences'), FF = require('../server/ffmpeg-path'), C = require('../server/export-check');
+const V = require('../shared/ui-preferences'), FF = require('../server/ffmpeg-path'), C = require('../server/export-check');
 const noFf = !FF.available('ffmpeg') && 'bundled ffmpeg not installed';
 
 function fragmentedQuiet(file, seconds = 600) {
@@ -28,7 +28,7 @@ function tmp(t, name) {
 /** The page's exportCheckText, run outside the browser in one language. */
 const checkText = (language) => new Function('uiText', 'mcView', 'MontClipAutoSlices', 'oneSidedWarning',
   [body(app, 'function exportClipWords('), body(app, 'function exportCheckText(')].join('\n') + '\nreturn exportCheckText;')(
-  (k, v) => V.t(language, k, v), { get: () => ({ language }) }, require('../auto-slices'), null);
+  (k, v) => V.t(language, k, v), { get: () => ({ language }) }, require('../shared/auto-slices'), null);
 
 test('the two new sentences (JJ 定稿, #238): number and time for a piece with a picture, time only for a sound on its own', () => {
   const v = { n: 3, time: '1:12:04' };
@@ -36,8 +36,8 @@ test('the two new sentences (JJ 定稿, #238): number and time for a piece with 
   a.equal(V.t('zh-CN', 'own.export-clip-unchecked-track', v), '时间线 1:12:04 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');
   a.equal(V.t('en', 'own.export-clip-unchecked', v), "Clip 3 (at 1:12:04 on the timeline) has no sound in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.");
   a.equal(V.t('en', 'own.export-clip-unchecked-track', v), "The sound at 1:12:04 on the timeline is silent in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.");
-  a.match(read('ui-preferences.js'), /JJ 定稿 \(2026-11-08, #238 issuecomment-6716851239\)[\s\S]{0,400}"export-clip-unchecked":/, 'marked as final');
-  a.doesNotMatch(read('ui-preferences.js'), /DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"(?:own\.)?export-clip-unchecked/, 'no longer a draft');
+  a.match(read('shared/ui-preferences.js'), /JJ 定稿 \(2026-11-08, #238 issuecomment-6716851239\)[\s\S]{0,400}"export-clip-unchecked":/, 'marked as final');
+  a.doesNotMatch(read('shared/ui-preferences.js'), /DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"(?:own\.)?export-clip-unchecked/, 'no longer a draft');
   // registered like the other texts with a code: errorText says it; no number → the -track sentence
   a.ok(V.ERROR_CODES.includes('EXPORT_CLIP_UNCHECKED'));
   a.equal(V.errorText('zh-CN', { code: 'EXPORT_CLIP_UNCHECKED', params: { n: '2', time: '0:10' } }).text, '第 2 段（时间线 0:10 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。');

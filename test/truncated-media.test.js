@@ -11,7 +11,7 @@
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
 const FF = require("../server/ffmpeg-path");
 const MediaProbe = require("../server/media-probe");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
@@ -192,7 +192,7 @@ test("no editor open: an entry with no length gets it from ffprobe when the agen
 
 /* JJ's words on a file that can't be cut (2026-11-05, final in Chinese; the English is a draft for JJ). */
 test("the mark on a file that can't be cut: JJ's sentence, shown on it in the bin", () => {
-  const V = require("../ui-preferences");
+  const V = require("../shared/ui-preferences");
   a.equal(V.t("zh-CN", "own.media-incomplete"), "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
   a.doesNotMatch(V.t("en", "own.media-incomplete"), /[一-鿿]/);
   const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");

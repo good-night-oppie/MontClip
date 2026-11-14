@@ -15,8 +15,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT, makeDataDir, startServer, seedProject } = require("./helpers");
 const Approval = require("../app/agent-approval");
-const Host = require("../host-embed");
-const View = require("../ui-preferences");
+const Host = require("../shared/host-embed");
+const View = require("../shared/ui-preferences");
 const { withPage } = require("./browser-contrast");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 const browser = (() => { try { return require("../server/export-jobs").findBrowser(); } catch { return null; } })();
@@ -80,7 +80,7 @@ test("the editor shows her line when ask() is denied inside Cindy — held like 
   const held = app.slice(app.indexOf("function toastHeld("), app.indexOf("function toast(msg)"));
   assert.match(held, /toastHold = holdToast\(els\.toast, hideHeldToast\)/, "the pointer on it stops the time");
   assert.match(held, /toastHold\.start\(\)/);
-  assert.match(read("style.css"), /#toast\.held \{ pointer-events: auto; \}/, "the pointer can rest on it");
+  assert.match(read("app/style.css"), /#toast\.held \{ pointer-events: auto; \}/, "the pointer can rest on it");
 });
 
 test("the desktop: no assistant service for an embedded page, and the main process refuses its requests", () => {

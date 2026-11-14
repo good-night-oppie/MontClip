@@ -4,7 +4,7 @@
 // (highlight-candidates.js). Pure: no page, no server. Every song card is 「估的」 at both ends (Deja: songs.js is not
 // accurate enough to call anything 准); a highlight's ends follow its sentences or silences.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const A=require('../auto-slices');
+const A=require('../shared/auto-slices');
 
 const flat=(dur,db=-30)=>({step:0.5,values:new Array(Math.round(dur/0.5)).fill(db)});
 function loud(dur,spans){const l=flat(dur);for(const [f,t,db] of spans)for(let i=Math.round(f/0.5);i<Math.round(t/0.5);i++)l.values[i]=db;return l;}

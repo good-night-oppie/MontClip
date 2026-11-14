@@ -13,7 +13,7 @@
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
 const FF = require("../server/ffmpeg-path");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const MediaProbe = require("../server/media-probe");
 const ExportCheck = require("../server/export-check");
 const Measure = require("../desktop/av-sync-measure.cjs");
@@ -211,7 +211,7 @@ const BLANK = {
 const CODES = { "export-blank-picture": "EXPORT_BLANK_PICTURE", "export-blank-sound": "EXPORT_BLANK_SOUND", "export-blank-both": "EXPORT_BLANK_BOTH" };
 
 test("the self-check's words: JJ's, word for word, for each case, said with the copy button and nothing before them", () => {
-  const V = require("../ui-preferences");
+  const V = require("../shared/ui-preferences");
   for (const [k, [en, zh]] of Object.entries(BLANK)) {
     a.equal(V.t("zh-CN", "own." + k), zh, k);
     a.equal(V.t("en", "own." + k), en, k);
@@ -225,7 +225,7 @@ test("the self-check's words: JJ's, word for word, for each case, said with the 
 });
 
 test("the button named in the sentences is the button on screen: zh", () => {
-  const V = require("../ui-preferences"), btn = V.t("zh-CN", "btnCopyProblem");
+  const V = require("../shared/ui-preferences"), btn = V.t("zh-CN", "btnCopyProblem");
   a.equal(btn, "复制问题信息");
   for (const k of Object.keys(BLANK)) a.ok(V.t("zh-CN", "own." + k).includes(`〔${btn}〕`), k);
 });
@@ -233,7 +233,7 @@ test("the button named in the sentences is the button on screen: zh", () => {
 // JJ's rule: a sentence names a button by its real name on screen. The English sentences said “Copy problem info”; the
 // button (#129's btnCopyProblem) says "Copy problem details", so the sentences use that (Deja, #161).
 test("the button named in the sentences is the button on screen: en", () => {
-  const V = require("../ui-preferences"), btn = V.t("en", "btnCopyProblem");
+  const V = require("../shared/ui-preferences"), btn = V.t("en", "btnCopyProblem");
   a.equal(btn, "Copy problem details");
   for (const k of Object.keys(BLANK)) {
     a.ok(V.t("en", "own." + k).includes(`click “${btn}” and send it to us.`), `${k}: the sentence names “${btn}”`);
@@ -241,7 +241,7 @@ test("the button named in the sentences is the button on screen: en", () => {
   }
 });
 test("a black / silent export: the queue row says the sentence with 〔复制问题信息〕 and 〔重试这条〕 — no 完成, no 保存 or open", () => {
-  const V = require("../ui-preferences");
+  const V = require("../shared/ui-preferences");
   const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const src = app.slice(app.indexOf("function renderQueue() {"), app.indexOf("function renderQueueProgress() {"));
   a.ok(src.length > 100, "renderQueue found");
@@ -271,7 +271,7 @@ test("a black / silent export: the queue row says the sentence with 〔复制问
 });
 
 test("after 〔复制问题信息〕: JJ's sentence, word for word, with the mailbox to select — and no second copy button", () => {
-  const V = require("../ui-preferences");
+  const V = require("../shared/ui-preferences");
   a.equal(V.PROBLEM_EMAIL, "etang.build.bot@gmail.com");
   const said = (l) => V.t(l, "own.copy-problem-sent", { email: V.PROBLEM_EMAIL });
   a.equal(said("zh-CN"), "复制好了（文件路径和账号已经去掉）。把它发到 etang.build.bot@gmail.com，我们会尽快看。");
@@ -294,7 +294,7 @@ test("after 〔复制问题信息〕: JJ's sentence, word for word, with the mai
     a.ok(!all.some((n) => n.tag === "button"), "no button: a second copy would overwrite the problem details");
     a.ok(toast.classList.contains("show") && toast.classList.contains("has-action") && held === 1, "it stays while held, so it can be selected");
   }
-  const css = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
+  const css = fs.readFileSync(path.join(__dirname, "..", "app/style.css"), "utf8");
   a.match(css, /#toast \.toast-email \{ user-select: all;/, "one click selects the whole address");
   a.match(app, /navigator\.clipboard\.writeText\(out\); toastProblemSent\(\);/);
   a.doesNotMatch(src, /clipboard/, "the toast never writes the clipboard");

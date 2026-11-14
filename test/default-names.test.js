@@ -3,7 +3,7 @@
 // nothing usable for a file name (all slashes), a Chinese export is called 直播切片 {月-日} instead of "export".
 const test = require("node:test"), a = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path"), os = require("node:os");
-const V = require("../ui-preferences"), D = require("../delivery");
+const V = require("../shared/ui-preferences"), D = require("../shared/delivery");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 test("the default project name follows the language", () => {

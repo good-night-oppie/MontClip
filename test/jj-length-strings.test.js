@@ -3,7 +3,7 @@
    on the condition that they never show in the interface — locked here. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path");
-const V = require("../ui-preferences");
+const V = require("../shared/ui-preferences");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 // once 〔帮我修好〕 is there (#157), the two toasts end with JJ's 「点〔帮我修好〕试试。」 / "Click “Fix it for me” to try."
@@ -28,7 +28,7 @@ test("the agent's import notes never reach the interface", () => {
   const said = [...body.matchAll(/(?:"|`)(Note: [^"`$]{12,60})/g)].map((m) => m[1]);
   a.ok(said.length >= 4, "found the notes: " + said.length);
   // where the interface's words live: none of them holds one of these
-  for (const f of ["app/app.js", "index.html", "ui-preferences.js", "ui-terms.js", "capabilities.js", "app/capabilities-page.js"]) {
+  for (const f of ["app/app.js", "app/index.html", "shared/ui-preferences.js", "shared/ui-terms.js", "shared/capabilities.js", "app/capabilities-page.js"]) {
     if (!fs.existsSync(path.join(__dirname, "..", f))) continue;
     const text = read(f);
     for (const s of said) a.ok(!text.includes(s.slice(0, 40)), `${f} shows an agent note: ${s}`);

@@ -7,7 +7,7 @@
 // and the settings say so until it is installed. The licence is in LICENSES.md and licenses/asr/.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const V = require('../ui-preferences'), { asrDownloadText } = require('../desktop/asr-text');
+const V = require('../shared/ui-preferences'), { asrDownloadText } = require('../desktop/asr-text');
 const zh = (k, v) => V.t('zh-CN', 'own.' + k, v), en = (k, v) => V.t('en', 'own.' + k, v);
 const CJK = /[　-〿㐀-鿿＀-￯]/;
 const GH = 'release-assets.githubusercontent.com、objects.githubusercontent.com', GH_EN = 'release-assets.githubusercontent.com, objects.githubusercontent.com';
@@ -56,7 +56,7 @@ test('3. punctuation (Apache branch): the sentence, shown only while the model i
   a.match(paint, /const punctOpen = ready && !asrPunctReady\(\);/);
   a.match(paint, /\$\("setAsrPunct"\)\.hidden = !punctOpen;/);
   a.match(app, /async function asrGetPunct\(\) \{[\s\S]{0,600}window\.montclipAsr\.download\("punct"\)/);
-  const html = read('index.html');
+  const html = read('app/index.html');
   a.match(html, /id="setAsrPunct"[^>]*>[\s\S]{0,400}id="btnAsrPunct"/);
   for (const k of ['asr-punct-get', 'asr-punct-getting', 'asr-punct-ready']) a.ok(zh(k) && en(k) && !CJK.test(en(k)), k);
   // the 完整版 keeps every model under vendor/asr/models, punctuation included

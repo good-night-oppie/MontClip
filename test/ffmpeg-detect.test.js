@@ -107,7 +107,7 @@ test('Windows keeps 「选择 ffmpeg.exe」; Linux has the copyable command; not
 });
 
 test('the page builds the card from the model, gates export, and re-detects without a reload', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8'), html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8'), html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8');
   a.match(html, /<script src="app\/ffmpeg-card\.js"><\/script>/); a.match(html, /id="ffmpegCard"/);
   const body = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}', i)); };
   const render = body('function renderFfmpegCard(');
@@ -322,7 +322,7 @@ test('the bundled build is used for everything; another FFmpeg only for H.264, o
   const loud = server.slice(server.indexOf('async function measureLoudness('), server.indexOf('function ffprobeJSON('));
   a.match(loud, /runFfmpeg\(Delivery\.LOUDNESS_ARGS\(file\), timeout\)/); a.ok(!/measurePath|pickFfmpeg|FF\.use\(/.test(server));
   a.ok(FF.GATE_ARGS.join(' ').includes('ebur128=peak=true:framelog=quiet'), 'the gate runs the ebur128 options measuring uses');
-  a.equal(require('../delivery').LOUDNESS_ARGS('x').find((v) => /ebur128/.test(v)), 'ebur128=peak=true:framelog=quiet', 'the gate matches what is measured');
+  a.equal(require('../shared/delivery').LOUDNESS_ARGS('x').find((v) => /ebur128/.test(v)), 'ebur128=peak=true:framelog=quiet', 'the gate matches what is measured');
 });
 
 test('server: bundled build + a full FFmpeg on PATH → bundled for everything, libx264 from PATH for H.264', async (t) => {

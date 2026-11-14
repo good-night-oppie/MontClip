@@ -13,7 +13,7 @@ function world({ media, clips, comps = [], others = [] }) {
   const calls = { undo: [], saved: 0, toasts: [] };
   const ctx = {
     project, state: { connected: true }, runtime: {},
-    MediaLib: require("../media-lib"),
+    MediaLib: require("../shared/media-lib"),
     isLocalSrc: (s) => /^\/media\//.test(s || ""),
     fetch: async (_url, opts) => {
       const srcs = JSON.parse(opts.body).srcs, info = {};

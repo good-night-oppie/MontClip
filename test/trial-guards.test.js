@@ -59,7 +59,7 @@ test("fablecut_songs on made-up singing between talk: finds them, and says no mo
   // what the agent is told the tool does: possibly singing
   const tool = require("../server/mcp-tools").find((x) => x.name === "fablecut_songs");
   a.match(tool.description, /possibly|may be|likely/i);
-  a.match(require("../capabilities").get("fablecut_songs").summary["zh-CN"], /可能在唱歌/);
+  a.match(require("../shared/capabilities").get("fablecut_songs").summary["zh-CN"], /可能在唱歌/);
 });
 
 /** A kick drum at `bpm` from `at` seconds: a 60 Hz thump decaying over ~0.1 s, as 16-bit mono WAV. */

@@ -5,7 +5,7 @@
 // file on and off, is checked by desktop/cindy-parts-smoke.cjs.
 const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const css = read('cindy-parts.css'), sources = require('../agent-ui/SOURCES.json');
+const css = read('app/cindy-parts.css'), sources = require('../agent-ui/SOURCES.json');
 const { STYLE_ENTRIES, STYLE_FILES } = require('../agent-ui/cindy-resolve.cjs');
 // the rules of a CSS file, outside comments: [selector, body]
 const rules = (text) => [...text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}@;]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]]);
@@ -14,18 +14,18 @@ const split = (s) => s.split(/,(?![^(]*\))/).map((x) => x.trim());
 // every selector of a rule, outside @keyframes (from / to / n%)
 const selectors = () => rules(css).flatMap(([s]) => split(s)).filter((s) => !/^(from|to|[\d.]+%)$/.test(s));
 // the variable names MontClip's own page uses or sets
-const OWN = ['style.css', 'app/app.js', 'index.html', 'agent-ui/pane.tsx'].map(read).join('\n');
+const OWN = ['app/style.css', 'app/app.js', 'app/index.html', 'agent-ui/pane.tsx'].map(read).join('\n');
 const mine = new Set([...OWN.matchAll(/var\(\s*--([\w-]+)|(?:^|[{;\s'"])--([\w-]+)\s*:|setProperty\(\s*['"]--([\w-]+)/g)].map((m) => m[1] || m[2] || m[3]));
 const esc = (n) => n.replace(/[-]/g, '\\-');
 
 test('the page loads it before its own style.css; it is generated, and says from what', () => {
-  const html = read('index.html');
-  assert.ok(html.indexOf('<link rel="stylesheet" href="cindy-parts.css">') >= 0);
-  assert.ok(html.indexOf('href="cindy-parts.css"') < html.indexOf('href="style.css"'), "MontClip's own rules come after Cindy's");
+  const html = read('app/index.html');
+  assert.ok(html.indexOf('<link rel="stylesheet" href="app/cindy-parts.css">') >= 0);
+  assert.ok(html.indexOf('href="app/cindy-parts.css"') < html.indexOf('href="app/style.css"'), "MontClip's own rules come after Cindy's");
   assert.match(css.slice(0, 600), /MontClip generated, agent-ui\/styles\.cjs/);
   assert.match(css.slice(0, 600), /43001eaaa31ef322de9ae148c4051087277d6198/);
   assert.match(css.slice(0, 600), /Tailwind CSS 3\.4\.19 \(MIT/);
-  assert.ok(require('../package.json').files.includes('cindy-parts.css'), 'in the npm package');
+  assert.ok(require('../package.json').files.includes('app/'), 'in the npm package (with the page in app/, #281 stage 3)');
 });
 
 test("what it is made from was copied unchanged at 43001ea (SOURCES.json parts): Cindy's Tailwind config, tokens and theme", () => {
@@ -40,7 +40,7 @@ test("Cindy's variables are set inside the parts only, and none of MontClip's na
   // nothing on :root, html or the page's elements: every rule that sets a variable is inside the parts
   for (const [s, b] of rules(css)) if (/(^|[;{\s])--[\w-]+\s*:/.test(b)) for (const x of split(s)) assert.ok(x.includes(SCOPE), 'a variable set outside the parts: ' + x);
   // style.css's own var(--x) names, as Deja asked: none is set by this file, anywhere; nor read, so a part uses Cindy's copy
-  const used = [...read('style.css').matchAll(/var\(\s*--([\w-]+)/g)].map((m) => m[1]);
+  const used = [...read('app/style.css').matchAll(/var\(\s*--([\w-]+)/g)].map((m) => m[1]);
   assert.ok(used.includes('muted') && used.includes('accent') && used.includes('border'));
   for (const n of new Set([...used, ...mine])) {
     assert.doesNotMatch(css, new RegExp('(^|[;{\\s])--' + esc(n) + '\\s*:'), '--' + n + " is MontClip's: set here");
@@ -91,7 +91,7 @@ test("MontClip's colours come last (v7.2 §1): its accent #7b6cff for the focus 
   // white on #6a5bf0 is 4.81:1; white on the old #7b6cff was 3.87
   assert.equal(v('confirm-btn-primary-bg'), '#6a5bf0');
   assert.equal(v('accent-cta-bg-pure'), '#6a5bf0');
-  assert.match(read('style.css'), /--accent: #7b6cff;/, "MontClip's accent is that one");
+  assert.match(read('app/style.css'), /--accent: #7b6cff;/, "MontClip's accent is that one");
 });
 
 test('the mode menu has a surface (QQ on #109): --menu-panel-surface on the parts, opaque; the panel rule present', () => {

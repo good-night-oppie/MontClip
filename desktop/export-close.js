@@ -2,7 +2,7 @@
 // Closing MontClip during an export asks first (Deja, 2026-11-03; VV's spec §5, §7 items 10–11; JJ's 「追加 3」).
 // × and Alt+F4 are the same window close, so both ask; when nothing is exporting the window closes without asking.
 // The text comes from the shared table (ui-preferences.js, the page's uiText keys), in the language the user chose.
-const View = require('../ui-preferences');
+const View = require('../shared/ui-preferences');
 
 const STOP = 0, KEEP = 1;
 const UNSAVED = { DELETE: 0, KEEP: 1, SAVE: 2 }, FAILED = { RETRY: 0, GIVE_UP: 1 };

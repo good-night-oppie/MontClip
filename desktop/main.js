@@ -9,8 +9,8 @@ const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-fail
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../server/external-ffmpeg");
-const Capabilities = require("../capabilities");
-const HostEmbed = require("../host-embed");   // ?host=cindy: the built-in assistant's requests are refused   // risk levels are fixed here; the page gets a read-only copy
+const Capabilities = require("../shared/capabilities");
+const HostEmbed = require("../shared/host-embed");   // ?host=cindy: the built-in assistant's requests are refused   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
 let worker, win, stopping = false, closing = false, workerExited = false, flvImports = null, flvShutdown = null;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
@@ -252,7 +252,7 @@ async function start() {
   // only; the words come from the shared table in the chosen language. Web notification permission stays denied.
   ipcMain.on("montclip:notify:found", (event, found) => {
     if (!settingsAllowed(event, win, origin) || !Number.isSafeInteger(found) || found < 0 || found > 1000 || !Notification.isSupported()) return;
-    const View = require("../ui-preferences"), language = languageOf(settings.get());
+    const View = require("../shared/ui-preferences"), language = languageOf(settings.get());
     // a smoke never puts anything on the desktop: it reports what it would show
     if (smoke) { process.stdout.write("MONTCLIP_NOTIFY " + JSON.stringify({ title: View.t(language, "own.as-notify-title"), found }) + "\n"); return; }
     const note = new Notification({ title: View.t(language, "own.as-notify-title"), body: View.t(language, "own.as-notify-body", { found }), silent: false });

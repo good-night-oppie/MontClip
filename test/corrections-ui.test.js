@@ -5,7 +5,7 @@
 // corrections (never the assistant's context or request).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
+const V=require('../shared/ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
 
 test("v12's words on the card, the line and 补一段",()=>{
  a.equal(zh('as-not-song'),'这段不是唱歌');a.equal(zh('as-is-song'),'这段是唱歌');a.equal(zh('as-tag-changed'),'你改的');a.equal(zh('as-tag-added'),'你补的');
@@ -39,8 +39,8 @@ test("v12's words on the page 「记住我的剪辑习惯」 and in 设置 › �
  a.ok(!/默认不勾|不默认勾|弹幕/.test(all),'no unticking promise, no danmaku numbers');
 });
 test('the page loads corrections.js and segment-edits.js; settings has 自动出切片 after 听写',()=>{
- const html=read('index.html');
- a.ok(html.indexOf('<script src="corrections.js">')>0&&html.indexOf('<script src="app/segment-edits.js">')>0);
+ const html=read('app/index.html');
+ a.ok(html.indexOf('<script src="shared/corrections.js">')>0&&html.indexOf('<script src="app/segment-edits.js">')>0);
  a.ok(html.indexOf('id="setSlices"')>html.indexOf('id="setAsr"'),'after 听写');
 });
 test('inside the page only the 自动出切片 code reads the corrections — never the assistant',()=>{
@@ -48,7 +48,7 @@ test('inside the page only the 自动出切片 code reads the corrections — ne
  a.ok(from>0&&to>from,'one block');
  const outside=app.slice(0,from)+app.slice(to);
  a.deepEqual(outside.match(/.*(montclipCorrections|MontClipCorrections).*/g)||[],[],'only the block names them; the rest calls its functions');
- for(const f of ['app/agent-facts.js','app/agent-conversation.js','agent-format.js','app/agent-pane.js','app/cindy-official.js'])a.ok(!/orrections/.test(read(f)),f);
+ for(const f of ['app/agent-facts.js','app/agent-conversation.js','shared/agent-format.js','app/agent-pane.js','app/cindy-official.js'])a.ok(!/orrections/.test(read(f)),f);
 });
 
 // JJ's final copy for 12f4f21 (Deja, 2026-11-03), as written
@@ -93,7 +93,7 @@ test("this interface's English follows #89's rule: “ ”, never 「」, never 
 // VV on 12f4f21 / Deja: a disabled button looks disabled — one rule at the root for every .btn (.btn:disabled and
 // .btn[disabled]): faded (opacity ≤ 0.5), no hand cursor; no rule for one button at a time
 test('one root rule: every disabled .btn is faded, with no hand cursor; no per-button rules',()=>{
- const css=read('style.css').replace(/\/\*[\s\S]*?\*\//g,'');
+ const css=read('app/style.css').replace(/\/\*[\s\S]*?\*\//g,'');
  const rules=[...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(m=>({sel:m[1].split(',').map(x=>x.trim()),body:m[2]}));
  const root=rules.find(r=>r.sel.includes('.btn:disabled')&&r.sel.includes('.btn[disabled]'));
  a.ok(root,'a rule for .btn:disabled and .btn[disabled]');
@@ -125,7 +125,7 @@ test("JJ's words for the reason on a part marked 不是唱歌 that comes back",(
 // VV on b76bbe3: a card made another kind than 唱歌 shows no reason that only holds for singing (一直在唱，几乎没有停顿);
 // the sound and danmaku reasons stay; made a song again, it comes back (auto-slices.js cardReasons)
 test('a card that is no longer a song shows no singing-only reason; a song again, it shows it',()=>{
- const S=require('../auto-slices'),r=[{signal:'singing',window:[0,1]},{signal:'loudness',value:5,window:[0,1]},{signal:'danmaku',value:3,count:40,window:[0,1]}];
+ const S=require('../shared/auto-slices'),r=[{signal:'singing',window:[0,1]},{signal:'loudness',value:5,window:[0,1]},{signal:'danmaku',value:3,count:40,window:[0,1]}];
  a.deepEqual(S.cardReasons({kind:'song',reasons:r}).map(x=>x.signal),['singing','loudness','danmaku']);
  for(const k of ['moment','interaction','chat','stunt','other'])a.deepEqual(S.cardReasons({kind:k,reasons:r}).map(x=>x.signal),['loudness','danmaku'],k);
  a.deepEqual(S.cardReasons({kind:'moment'}),[]);

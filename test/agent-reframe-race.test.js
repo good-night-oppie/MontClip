@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const R=require('../reframe'),Seq=require('../sequences');
+const R=require('../shared/reframe'),Seq=require('../shared/sequences');
 function harness(){
  const project={width:1920,height:1080,fps:30,media:[{id:'m',src:'/media/synthetic.mp4',width:1920,height:1080}],clips:[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:2,props:{}}]};
  let release,reading;const waiting=new Promise(r=>reading=r),gate=new Promise(r=>release=r),calls={sample:0,undo:0};

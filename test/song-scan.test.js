@@ -25,7 +25,7 @@ test('ffmpeg reads one set of features every 0.5 s (astats + aspectralstats); ea
  a.ok(r.rows.every(x=>x.length===5),'five numbers a row');
  a.ok(Math.abs(r.rows[200][0]-(-18))<=2.5,'the sung level reads as it was made: '+r.rows[200][0]);
  a.ok(r.rows[3][0]<-60,'a talk pause reads quiet: '+r.rows[3][0]);
- near(require('../songs').find(r.rows.map(x=>x[0]),{complete:true}),SONGS);
+ near(require('../shared/songs').find(r.rows.map(x=>x[0]),{complete:true}),SONGS);
 });
 test('stopped after the first segment, the next scan carries on from the second, and ends where one whole scan ends',{skip},async(t)=>{
  const d=tmp(t),file=path.join(d,'a.wav');fs.writeFileSync(file,wav(PLAN));
@@ -85,10 +85,10 @@ test('the editor keeps project.songs when it loads a project and when it saves (
  a.match(read('app/app.js'),/MontClipSongs\.clean\(project\.songs, out\.media\)/);
  const load=read('app/app.js').match(/function applyProject\([\s\S]*?\n  \}\);/);
  a.ok(load&&/\n    songs: /.test(load[0]),'applyProject keeps songs (it copies only the fields it knows)');
- const html=read('index.html');a.ok(html.indexOf('songs.js')>0&&html.indexOf('songs.js')<html.indexOf('app/app.js'));
+ const html=read('app/index.html');a.ok(html.indexOf('shared/songs.js')>0&&html.indexOf('shared/songs.js')<html.indexOf('app/app.js'));
 });
 test('the capability table has fablecut_songs: it changes the project and can be undone',()=>{
- const Cap=require('../capabilities');a.equal(Cap.riskOf('fablecut_songs'),'undoable');
+ const Cap=require('../shared/capabilities');a.equal(Cap.riskOf('fablecut_songs'),'undoable');
  a.ok(Cap.get('fablecut_songs').summary['zh-CN'].includes('歌'));
 });
 test('the golden-set evaluation prints numbers only: no titles, no labels, no file names',()=>{

@@ -38,7 +38,7 @@ test("English has its own copy and no Chinese; both languages go through the sha
   const o = Close.dialogOptions("en", 2);
   a.doesNotMatch([o.message, o.detail, ...o.buttons].join(" "), /[一-鿿]/);
   a.match(o.detail, /\b2\b/);
-  const prefs = read("ui-preferences.js");
+  const prefs = read("shared/ui-preferences.js");
   for (const k of ["export-close-title", "export-close-body", "export-close-unsaved-1", "export-close-unsaved-n", "export-close-stop", "export-close-keep"])
     a.match(prefs, new RegExp(`"${k}": \\[`), k);
 });
@@ -340,7 +340,7 @@ test("the cleanup log and stderr show no user name: paths are masked", () => {
 
 // JJ (2026-11-03, review of #66): "not yet saved where you choose" reads oddly; "saved to a place you chose".
 test("the unsaved-export sentence says 'saved to a place you chose'", () => {
-  const View = require("../ui-preferences");
+  const View = require("../shared/ui-preferences");
   for (const k of ["own.export-unsaved-body-1", "own.export-unsaved-body-n"]) {
     a.match(View.text.en[k], /not yet saved to a place you chose\./, k);
     a.ok(!/where you choose/.test(View.text.en[k]), k);

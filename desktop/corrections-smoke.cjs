@@ -21,7 +21,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // undoing an edit takes its record back (v11)
   const added=await C(`c.append({type:'add',kind:'interaction',duration:3600})`);assert.deepEqual(await C(`c.undo(${JSON.stringify(added.id)})`),{ok:true});
   // 「不是唱歌」 with which recording (a hash, never a path) and the part: kept; a path in its place: refused
-  assert.equal((await C(`c.append({type:'kind',from:'song',to:'interaction',duration:3600,rec:${JSON.stringify(require('../corrections').recordingKey(3600,{step:0.5,values:[-20,-21,-30]}))},s:100,e:220})`)).ok,true);
+  assert.equal((await C(`c.append({type:'kind',from:'song',to:'interaction',duration:3600,rec:${JSON.stringify(require('../shared/corrections').recordingKey(3600,{step:0.5,values:[-20,-21,-30]}))},s:100,e:220})`)).ok,true);
   assert.equal((await C(`c.append({type:'kind',from:'song',to:'other',duration:3600,rec:'C:/录像/a.flv',s:100,e:220})`)).code,'CORRECTION_INVALID');
   assert.equal((await C(`c.append({type:'trim',kind:'song',startShift:-4,endShift:3,duration:3600,name:'我的直播.mp4'})`)).code,'CORRECTION_INVALID');
   assert.equal((await C(`c.append('C:/录像/a.flv')`)).code,'CORRECTION_INVALID');

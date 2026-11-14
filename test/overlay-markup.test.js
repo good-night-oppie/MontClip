@@ -5,7 +5,7 @@
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 
 test('the overlays are not nested in one another, and every div is closed', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8');
   const re = /<(\/?)div\b[^>]*>/g, overlays = [];
   let depth = 0, m;
   while ((m = re.exec(html))) {

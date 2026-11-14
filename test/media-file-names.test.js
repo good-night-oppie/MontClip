@@ -5,7 +5,7 @@
 // what Windows refuses changed, the extension kept whole.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {makeDataDir,seedProject,startServer,startMcp,readProject}=require('./helpers');
-const Delivery=require('../delivery');
+const Delivery=require('../shared/delivery');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
 test('mediaFileName: Chinese kept, Windows-refused characters made full-width, the extension kept whole',()=>{

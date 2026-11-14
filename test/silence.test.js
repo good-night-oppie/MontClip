@@ -4,7 +4,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const S = require("../silence.js");
+const S = require("../shared/silence.js");
 const ProjectOps = require("../server/project-ops.js");
 
 test("options default, and refuse values out of range", () => {

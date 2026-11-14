@@ -2,7 +2,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const R = require("../reframe");
+const R = require("../shared/reframe");
 
 /** Frames of a dark picture with a bright square whose centre moves along `xs` (fractions of the width). */
 function frames(xs, w = 96, h = 54, side = 10) {

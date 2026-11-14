@@ -2,7 +2,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const B = require("../beats");
+const B = require("../shared/beats");
 
 /** A kick-drum track: a 60 Hz thump decaying over ~0.1 s at `at + k·60/bpm`, mono at `sr`. */
 function clicks({ bpm = 120, at = 0.3, secs = 20, sr = B.SR } = {}) {

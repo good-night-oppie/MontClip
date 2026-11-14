@@ -3,7 +3,7 @@
 // the recording's average (avg_frame_rate) snapped to a standard rate, 30 when none is near; the size is the recording's
 // own (never scaled up or down). A canvas the streamer chose, and a project that already has something in it, stay.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), os = require('node:os');
-const M = require('../media-lib');
+const M = require('../shared/media-lib');
 
 test('the average frame rate snaps to the nearest standard rate within 3 %, else nothing', () => {
   for (const [avg, want] of [[60, 60], [59.94, 59.94], [59.92, 59.94], [59.9375, 59.94], [58.7, 59.94], [60.5, 60], [30, 30],
@@ -72,11 +72,11 @@ test('an agent setting the canvas or the rate is a choice too', () => {
 // JJ's final words (Deja, on #97), whole sentences in both languages; the odd one points at the frame rate menu above the
 // preview (#fpsSel in the program monitor's head, which sets the project's frame rate: checked in source-follow-smoke)
 test('the two toasts in JJ\'s words', () => {
-  const V = require('../ui-preferences');
+  const V = require('../shared/ui-preferences');
   a.equal(V.t('zh-CN', 'own.canvas-follow', { w: 1920, h: 1080, fps: 60 }), '已按这场录像设置画面大小和帧率：1920×1080，每秒 60 帧。');
   a.equal(V.t('en', 'own.canvas-follow', { w: 1920, h: 1080, fps: 60 }), 'Video size and frame rate set from this recording: 1920×1080, 60 fps.');
   a.equal(V.t('zh-CN', 'own.canvas-follow-odd', { w: 640, h: 360, src: 45 }), '已按这场录像设置画面大小：640×360。它的帧率（约每秒 45 帧）不常见，先用每秒 30 帧；想改的话，在预览上方的帧率那里改。');
   a.equal(V.t('en', 'own.canvas-follow-odd', { w: 640, h: 360, src: 45 }), 'Video size set from this recording: 640×360. Its frame rate (about 45 fps) is unusual, so 30 fps is used for now; you can change it in the frame rate menu above the preview.');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'app/index.html'), 'utf8');
   a.match(html, /<select[^>]*id="fpsSel"[^>]*title="Project frame rate"/);
 });

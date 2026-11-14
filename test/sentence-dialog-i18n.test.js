@@ -4,7 +4,7 @@
 // The range planner's errors keep their bilingual message for agents and MCP, and carry a code the
 // dialog says in the interface language.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences'), Plan = require('../range-plan');
+const V = require('../shared/ui-preferences'), Plan = require('../shared/range-plan');
 const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 const at = app.indexOf('async function showSentenceSelection('), body = app.slice(at, app.indexOf('\n}\n', at));
 const KEYS = ['sd-busy', 'sd-busy-save', 'sd-no-captions', 'sd-title', 'sd-intro', 'sd-ranges', 'sd-preview', 'sd-apply', 'sd-cancel', 'sd-range-line',

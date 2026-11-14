@@ -115,7 +115,7 @@ test('the page cannot delete by itself: one fixed, guarded IPC with no argument,
 // JJ (2026-11-02 release notes, "落地前必须确认" item 1): the button and the confirmation, word for word.
 // QQ (#49): the confirmation also says the chat history stays (the sessions are a separate store); wording for JJ.
 test('the button and the confirmation use JJ\'s wording in both languages',()=>{
- const view=require('../ui-preferences');
+ const view=require('../shared/ui-preferences');
  const want={'zh-CN':{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响，聊天记录也还在。'},
   en:{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected, and your chat history stays.'}};
  for(const l of ['zh-CN','en']){for(const [k,v] of Object.entries(want[l]))assert.equal(view.text[l]['officialPane_'+k],v,l+' '+k);

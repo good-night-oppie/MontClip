@@ -4,7 +4,7 @@
 // every mode, Yolo too. Importing a file from this computer changes the project and can be undone: undoable. The host
 // tells them apart from the arguments; a call it cannot read is blocked (fail closed).
 const {test}=require('node:test'),a=require('node:assert/strict');
-const Cap=require('../capabilities'),P=require('../agent-policy'),E=require('../app/agent-events');
+const Cap=require('../shared/capabilities'),P=require('../shared/agent-policy'),E=require('../app/agent-events');
 const {createPolicyHost}=require('../desktop/agent-policy-host');
 
 const URLS=['https://example.com/a.mp4','http://example.com/a.mp4','HTTPS://EXAMPLE.COM/a','ftp://x/y','file://C:/a.mp4','//server/share/a.mp4','\\\\server\\share\\a.mp4'];

@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const J = require("../server/export-jobs");
-const V = require("../ui-preferences");
+const V = require("../shared/ui-preferences");
 const { makeDataDir, seedProject, startServer, startMcp } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");

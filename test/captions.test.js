@@ -3,7 +3,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const C = require("../captions.js");
+const C = require("../shared/captions.js");
 const ProjectOps = require("../server/project-ops.js");
 
 const W = (list) => list.map(([w, s, e]) => ({ w, s, e }));

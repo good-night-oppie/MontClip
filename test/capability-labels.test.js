@@ -4,7 +4,7 @@
 // the plan list come later (docs/decisions/2026-11-03-unified-backend-architecture.md); Capabilities.label() is what
 // they show, and it only ever gives the table's sentence.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const Cap = require('../capabilities'), View = require('../ui-preferences');
+const Cap = require('../shared/capabilities'), View = require('../shared/ui-preferences');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const INTERNAL = /fablecut_|\b[a-z]+_[a-z_]+\b/;
 

@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const D = require("../delivery");
+const D = require("../shared/delivery");
 const ProjectOps = require("../server/project-ops");
 const { makeDataDir, seedProject, startServer } = require("./helpers");
 

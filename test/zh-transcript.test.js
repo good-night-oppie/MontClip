@@ -5,7 +5,7 @@
 // Chinese transcripts carry sentence times only, so no Chinese text may suggest cutting word by word.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
-const V=require('../ui-preferences'),zh=V.text['zh-CN'],en=V.text.en;
+const V=require('../shared/ui-preferences'),zh=V.text['zh-CN'],en=V.text.en;
 const OWN=['transcribe','transcribe-selected','transcribe-file','transcribe-files','found','cut-all','cut-n','copy','select-sentences','mapping',
  'caption-last','tr-empty','tr-missing','tr-more','loading','tr-no-words','tr-module-missing','tr-downloading-model','tr-transcribing','tr-transcribing-of',
  'tr-selection','tr-selection-one','connected','local-session'];

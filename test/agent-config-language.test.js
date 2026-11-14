@@ -81,7 +81,7 @@ test('settings lists: the AI service list uses the provider id as its value; eve
  assert.deepEqual(options,['<option key={p} value={p}>'],'the provider list: value = the provider id from the service');
  assert.match(pane,/\(cfg\?\.providers\|\|\['openrouter','meta','deepseek','openai'\]\)\.map\(\(p:string\)=><option key=\{p\} value=\{p\}>/);
  assert.match(pane,/configure\(\{provider,model,apiKey:key\}\)/,'save sends the chosen id, not the shown text');
- const html=read('index.html'),all=html.match(/<option\b[^>]*>/g)||[];
+ const html=read('app/index.html'),all=html.match(/<option\b[^>]*>/g)||[];
  assert.ok(all.length>20);
  for(const o of all)assert.match(o,/\bvalue="[^"]*"/,'an option without a value takes its shown (translated) text as value: '+o);
 });
@@ -89,7 +89,7 @@ test('settings lists: the AI service list uses the provider id as its value; eve
 // Deja (2026-11-05, after #166): a failed save says which thing is wrong. Each code the service returns has its own
 // notice; any other code still falls back to 「配置未保存，原有设置保留。」.
 test('each save failure code shows its own notice; an unknown code falls back to "not saved"',()=>{
- const pane=read('agent-ui/pane.tsx'),view=require('../ui-preferences');
+ const pane=read('agent-ui/pane.tsx'),view=require('../shared/ui-preferences');
  const m=pane.match(/setNotice\(result\?\.ok\?'saved':\(\(m:Record<string,string>,c:string\)=>Object\.hasOwn\(m,c\)\?m\[c\]:'configFailed'\)\((\{[^}]*\}),String\(result\?\.code\)\)\);/);
  assert.ok(m,'the save button maps the code to a notice');
  const map=Function('return '+m[1])();
@@ -113,7 +113,7 @@ test('each save failure code shows its own notice; an unknown code falls back to
  for(const l of ['zh-CN','en']){const t=view.text[l],label=t.officialPane_key;
   assert.equal(t.officialPane_configKeyRequired,(l==='en'?'Fill in “{field}” first, then save.':'请先在「{field}」一栏填好密钥，再保存。').replace('{field}',label),l);}
  assert.match(pane,/<label>\{t\.key\}<SettingsTextInput type="password"/,'the key field is labelled with officialPane_key');
- assert.match(read('ui-preferences.js'),/officialPane_configKeyRequired=officialPaneText\[language\]\.configKeyRequired\.split\('\{field\}'\)\.join\(officialPaneText\[language\]\.key\)/,'filled from the key field\'s own text, not a copy');
+ assert.match(read('shared/ui-preferences.js'),/officialPane_configKeyRequired=officialPaneText\[language\]\.configKeyRequired\.split\('\{field\}'\)\.join\(officialPaneText\[language\]\.key\)/,'filled from the key field\'s own text, not a copy');
  // the 〔复制问题信息〕 fragment is not shown anywhere until that button is on the panel
  for(const l of ['zh-CN','en'])for(const k of ['configKeyStore','configWriteFailed'])assert.ok(!view.text[l]['officialPane_'+k].includes(view.text[l].officialPane_configCopyDetails),l+' '+k);
  assert.doesNotMatch(pane,/configCopyDetails/,'not wired yet (#161)');

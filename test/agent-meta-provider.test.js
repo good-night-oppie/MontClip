@@ -4,7 +4,7 @@
 // its reply (a keep_ranges edit: "delete 3–5 s") is checked and applied by the editor's own code and is one undo step.
 // A wrong key (401) and a wrong model name are told in plain words. No real key and no network beyond 127.0.0.1.
 const {test}=require('node:test'),a=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),crypto=require('node:crypto');
-const S=require('../desktop/agent-service'),F=require('../agent-format'),V=require('../app/agent-conversation'),P=require('../app/chat-proposal'),R=require('../range-plan'),E=require('../app/agent-events'),U=require('../ui-preferences');
+const S=require('../desktop/agent-service'),F=require('../shared/agent-format'),V=require('../app/agent-conversation'),P=require('../app/chat-proposal'),R=require('../shared/range-plan'),E=require('../app/agent-events'),U=require('../shared/ui-preferences');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 const FAKE_KEY='test-only-not-a-real-key';
 
@@ -67,7 +67,7 @@ test('Yolo\'s outgoing allowlist and the external target include api.meta.ai (fr
  a.match(main,/allowlist: Object\.values\(AgentService\.ENDPOINTS\)/);
  a.ok(Object.values(S.ENDPOINTS).includes('https://api.meta.ai/v1/chat/completions'));
  const h=require('../desktop/agent-policy-host').createPolicyHost({confirmYolo:async()=>true,external:()=>({enabled:true,allowlist:Object.values(S.ENDPOINTS)}),language:()=>'zh-CN'});
- const EXT=require('../capabilities').list().find(c=>c.risk==='external').name;
+ const EXT=require('../shared/capabilities').list().find(c=>c.risk==='external').name;
  const d=h.decide({sessionId:'s1',capability:EXT,target:{kind:'origin',value:'https://api.meta.ai/v1/chat/completions'},bytes:100});
  a.equal(d.target,'api.meta.ai');
 });
@@ -108,7 +108,7 @@ test('"把 3 到 5 秒删掉": the request goes to /v1/chat/completions with the
 // The product's main path (Deja, 2026-11-04): subtitles quoted on the timeline, 「只保留这两句」 → keep_sentences → applied
 // (one undo step) → undone. The request carries the quoted subtitles as references, as the pane sends them.
 test('quoted subtitles, 「只保留这两句」: keep_sentences from the fake api.meta.ai is applied as one undo step and undone',async()=>{
- const C=require('../captions');
+ const C=require('../shared/captions');
  const doc=fixture();
  doc.clips.push(...C.parse('1\n00:00:00,000 --> 00:00:03,000\n大家好，今天讲三个剪辑技巧。\n\n2\n00:00:03,000 --> 00:00:05,000\n嗯，这句我说错了，不要。\n\n3\n00:00:05,000 --> 00:00:10,000\n第一个技巧是删掉停顿。\n').map((c,i)=>C.clip(c,{id:'c'+i,track:'V2'})));
  const quoted=doc.clips.filter(c=>c.id==='c0'||c.id==='c2').map(c=>({type:'caption',projectId:'p',sequenceId:'main',revision:1,gen:1,clipId:c.id,sourceCaptionId:c.id,text:c.props.text,start:c.start,end:c.start+c.duration}));

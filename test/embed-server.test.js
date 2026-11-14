@@ -269,7 +269,9 @@ test("the cookie's attributes are written in one place: COOKIE_ATTRS in embed.js
   const fs = require("fs"), path = require("path");
   const root = path.join(__dirname, "..");
   const files = [...fs.readdirSync(root).filter((f) => /\.(c|m)?js$/.test(f)).map((f) => f),
-    ...fs.readdirSync(path.join(root, "server")).filter((f) => /\.(c|m)?js$/.test(f)).map((f) => "server/" + f)];
+    ...fs.readdirSync(path.join(root, "server")).filter((f) => /\.(c|m)?js$/.test(f)).map((f) => "server/" + f),
+    // the scripts the page and the server share (#281 stage 3) were at the root and are still read
+    ...fs.readdirSync(path.join(root, "shared")).filter((f) => /\.(c|m)?js$/.test(f)).map((f) => "shared/" + f)];
   const writers = files.filter((f) => /SameSite\s*=|Partitioned/i.test(fs.readFileSync(path.join(root, f), "utf8")));
   assert.deepEqual(writers, ["server/embed.js"], "only embed.js names the cookie's attributes");
   const src = fs.readFileSync(path.join(root, "server/embed.js"), "utf8");

@@ -6,7 +6,7 @@
 const test = require("node:test"), a = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const D = require("../delivery");
+const D = require("../shared/delivery");
 const { makeDataDir, startServer } = require("./helpers");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
@@ -128,7 +128,7 @@ test("「- -」 (only -, spaces and dots) is empty too", () => {
 });
 
 test("the delivery template names files by the same rule (one rule, written once)", () => {
-  const src = read("delivery.js");
+  const src = read("shared/delivery.js");
   a.equal((src.match(/function fileSafeName\(/g) || []).length, 1, "one rule");
   a.equal((src.match(/＊/g) || []).length, 1, "the full-width forms are listed in one place");
   const spec = D.normalize("master").spec;

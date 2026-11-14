@@ -3,7 +3,7 @@
 // 1–11): four modes, 计划 / 手动 / 自动 / Yolo, default 手动. The host decides from "the capability's fixed risk × the mode";
 // nothing the AI writes counts. External sends always show their content and where they go, in every mode, Yolo too.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const P=require('../agent-policy'),Cap=require('../capabilities');
+const P=require('../shared/agent-policy'),Cap=require('../shared/capabilities');
 
 const base={approved:false,external:{enabled:true,allowlisted:true},bytes:0,scopeBytes:0};
 const d=(mode,capability,o={})=>P.decide({...base,mode,capability,...o});

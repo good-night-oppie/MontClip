@@ -4,7 +4,7 @@
 // language switch. JJ定稿 (2026-11-05), English included: no platform names (Reel, IG) any more.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const View=require('../ui-preferences');
+const View=require('../shared/ui-preferences');
 
 const KEYS=['ef-full-canvas','ef-9-16','ef-16-9','ef-4-5','ef-1-1'];
 test('JJ定稿, word for word: every option, the custom size and the tooltip, in both languages',()=>{

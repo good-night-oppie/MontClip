@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert");
-const H = require("../highlights.js");
+const H = require("../shared/highlights.js");
 
 const W = 64, Hh = 36;
 // a frame: flat grey of `level`, with a bright square at (x, 10) when x is given, plus a texture so it isn't blank

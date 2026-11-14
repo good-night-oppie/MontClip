@@ -32,7 +32,8 @@ recommended) **ffmpeg on PATH** for fast export and upload remuxing.
 | --- | --- |
 | `server.js` | HTTP server: static hosting, REST API, SSE, ffmpeg export pipeline |
 | `app/app.js` | The editor — timeline UI, compositor, keyframes, text engine, SVG rasterizer, chroma key, exporters |
-| `index.html` / `style.css` | Single-page UI + dark theme |
+| `app/index.html` / `app/style.css` | Single-page UI + dark theme (served at `/`) |
+| `shared/` | Scripts both the page and the server load (`captions.js`, `edit-ops.js`, `mask.js` …) |
 | `mcp-server.js` | stdio MCP server exposing the editor to AI agents |
 | `CLAUDE.md` | The agent manual — schema, semantics, recipes. **Keep this in sync with any schema change.** |
 
@@ -78,12 +79,12 @@ does, so a feature is done when all of these agree. CI's **Release readiness** j
 - A new clip kind also needs: the media-free kinds in `mcp-server.js` (`addClip`
   and `fablecut_set_project`), a timeline label and colour, its Inspector
   sections, and the Source monitor's "no source media" message.
-- A new shared module (UMD, like `color.js` or `mask.js`) is loaded in
-  `index.html` in dependency order and added to the copy list in
-  `docs/demo/sync.js`. Root `*.js` files ship in the npm package automatically. ★
+- A new shared module (UMD, like `shared/color.js` or `shared/mask.js`) goes in
+  `shared/`, is loaded in `app/index.html` in dependency order and added to the copy
+  list in `docs/demo/sync.js`. Everything in `shared/` ships in the npm package. ★
 - No runtime dependencies, and nothing fetched at load time.
 - A new keyboard shortcut or monitor gesture gets a row in the Keyboard shortcuts
-  dialog (`#helpOverlay` in `index.html`). `test/shortcuts.test.js` checks the
+  dialog (`#helpOverlay` in `app/index.html`). `test/shortcuts.test.js` checks the
   keys ★; mouse gestures you check yourself.
 - `npm test` passes; add tests for anything an agent or the REST API can reach.
   Some tests run editor functions in a sandbox (`test/keyframes.test.js`):

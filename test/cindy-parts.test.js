@@ -87,7 +87,7 @@ test("the strings: Cindy's own for zh-CN and en, at 43001ea, the same keys in bo
 });
 
 test("the mode capsule says each mode in JJ's final words (c604fd65 MODES): word for word the mode tips, zh-CN and en (Deja, 2026-11-04)", () => {
-  const own = require('../agent-ui/montclip-strings.json'), View = require('../ui-preferences');
+  const own = require('../agent-ui/montclip-strings.json'), View = require('../shared/ui-preferences');
   const desc = (l, id) => own[l].newChat.permissionSelector.modes['claude-code'][id].description;
   // the same four sentences as the mode buttons' tips (ui-preferences.js officialPane_mode*Tip, #110). Change one, this fails.
   for (const l of ['zh-CN', 'en']) {

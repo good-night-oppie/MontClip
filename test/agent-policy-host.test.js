@@ -3,7 +3,7 @@
 // 手动 with nothing approved; Yolo only after the streamer's own yes in the host's box; 「都批准」 for one chat, one
 // capability and one target; risk levels from the table in the main process, whatever the page sends.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const {createPolicyHost}=require('../desktop/agent-policy-host'),Cap=require('../capabilities');
+const {createPolicyHost}=require('../desktop/agent-policy-host'),Cap=require('../shared/capabilities');
 
 const ALLOW=['https://openrouter.ai','https://api.deepseek.com'];
 const make=(o={})=>{let asked=0;const h=createPolicyHost({confirmYolo:async()=>{asked++;return o.yes??true;},external:()=>({enabled:o.enabled??true,allowlist:o.allowlist??ALLOW}),language:()=>'zh-CN'});return{h,get asked(){return asked;}};};

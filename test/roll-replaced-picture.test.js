@@ -2,7 +2,7 @@
 // #285: synthetic 60 s A/B sources, 25 fps (one frame = exactly .04 s).
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const Edit = require("../edit-ops");
+const Edit = require("../shared/edit-ops");
 const Project = require("../server/project-ops");
 
 function fixture(replace = "none", linked = true) {

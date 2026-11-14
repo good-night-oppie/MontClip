@@ -4,7 +4,7 @@
 // page says it in the interface language, one key per reason: timing, disk full, upload failed (and the
 // others below), and "needs the desktop app" when no editor service runs.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences'), P = require('../server/prepare-media');
+const V = require('../shared/ui-preferences'), P = require('../server/prepare-media');
 const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 
 // JJ v2, 2026-11-04: europa ~/montclip-labels/jj/2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256
@@ -146,7 +146,7 @@ test("JJ's drift sentences, verbatim; drift / no drift × one break / several br
   }
 });
 test("JJ's drift sentences are final (JJ agreed to dropping {ms}, 2026-11-06): no pending mark, no {ms}", () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'ui-preferences.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'shared/ui-preferences.js'), 'utf8');
   a.ok(!src.includes('待 JJ 确认删减'), 'the pending mark is gone');
   for (const lang of ['zh-CN', 'en']) for (const k of ['flvConvertedDrift', 'flvConvertedDriftMany']) a.ok(!/\{ms\}/.test(V.text[lang][k]), lang + ' ' + k);
 });

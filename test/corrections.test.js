@@ -9,7 +9,7 @@
 //   bar   — 「不是唱歌」 raises the singing bar, 「是唱歌」 lowers it (songs.js PAUSE), at most half its first value either way.
 // Every card says which rule touched it. Off (or nothing kept) gives exactly what the search gave.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const C=require('../corrections'),Songs=require('../songs');
+const C=require('../shared/corrections'),Songs=require('../shared/songs');
 
 const loud=(values,step=0.5)=>({step,values});
 const talk=Array.from({length:120},(_,i)=>i%4===0?-60:-25),sing=Array.from({length:120},()=>-20);

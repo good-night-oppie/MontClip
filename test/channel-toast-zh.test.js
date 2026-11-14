@@ -9,8 +9,8 @@ const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8');
-const View = require('../ui-preferences.js');
-const MontClipEdit = require('../edit-ops.js');
+const View = require('../shared/ui-preferences.js');
+const MontClipEdit = require('../shared/edit-ops.js');
 
 // JJ's final wording (europa ~/montclip-labels/jj/2026-11-06-PR139-声道提示定稿-JJ.md; English one/other and the quoted
 // "{name}" per JJ's #139 comment 6689166488, 2026-11-06). Chinese has one form; the English key without a form is the other.

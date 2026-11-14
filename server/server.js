@@ -30,7 +30,7 @@ const X = require("./external-ffmpeg");
    web / server mode and the Cindy plugin keep a choice across restarts too (JJ P1). */
 if (!process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS)
   process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(require("./paths").DATA_DIR, "external-ffmpeg.json");
-const Redact = require("../problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
+const Redact = require("../shared/problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
 const ProblemFiles = require("./problem-files");   // 〔复制问题信息〕: a named file's size, by its name only (#161)
 /* A local FFmpeg with libx264 for H.264 export (external-ffmpeg.js): the user's choice, the server's variable, or PATH. */
 const externalFfmpeg = X.createExternal();
@@ -70,14 +70,14 @@ try {
     try { if (fs.statSync(file).mtimeMs < stale) fs.rmSync(file, { force: true }); } catch {}
   }
 } catch {}
-const Templates = require("../templates");
+const Templates = require("../shared/templates");
 const { probeFile, infoForEntry } = require("./media-probe");
 const MakeEditable = require("./make-editable");
 const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 const { createProxies, PROXY_H264 } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
-const Delivery = require("../delivery");
+const Delivery = require("../shared/delivery");
 const ExportCleanup = require("./export-cleanup");
 const { createPreviewStore } = require("./preview-store");
 const ExportCheck = require("./export-check");
@@ -88,11 +88,12 @@ const { createEmbed, sameSecret, TASK_ID_RE } = require("./embed");
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
 const ROOT = APP_DIR;
-/** What the static route hands out (#281 AS.1): the editor page's own code (app/), its icons, the Cindy plugin's pages
- *  (cindy/, copied in by its build), and files at the root with a page file's extension (index.html, style.css, the
- *  scripts the page and the server share, favicon.svg). Media, library, exports and proxies have their own routes. */
-const PAGE_DIRS = new Set(["app", "icons", "cindy"]);
-const PAGE_ROOT_EXT = new Set([".html", ".js", ".css", ".svg", ".png", ".ico"]);
+/** What the static route hands out (#281 AS.1): the editor page (app/: index.html, its styles and its own code), the
+ *  scripts the page and the server share (shared/), its icons and the Cindy plugin's pages (cindy/, copied in by its
+ *  build). Nothing at the root is a page file any more; "/" and "/index.html" are the page's address and name
+ *  app/index.html. Media, library, exports and proxies have their own routes. */
+const PAGE_DIRS = new Set(["app", "shared", "icons", "cindy"]);
+const PAGE_ADDRESSES = new Set(["/", "/index.html"]);
 const PORT = process.env.PORT || 7777;
 const HOST = process.env.HOST || "127.0.0.1";
 const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
@@ -274,7 +275,7 @@ const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcript
 // P2 highlight signals: each file's loudness, read once by ffmpeg as a stream and cached per file version
 const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: () => FF.path("ffmpeg") });
 // P2 songs: each file read in segments, each kept as it is read (analysis/songs/), so a stopped scan carries on
-const Songs = require("../songs");
+const Songs = require("../shared/songs");
 const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: () => FF.path("ffmpeg") });
 const songJobs = new Map();   // src (+ "|a<track>" for another audio stream) → {state, done, total, ctrl, error, code}
 /* Which audio stream of a file is analysed — songs, loudness, the transcript: `given` (a request's
@@ -1515,7 +1516,7 @@ async function handleRequest(req, res) {
       }
       const missing = t.srcs.find((x) => !resolveSrc(x));
       if (missing) { sendJSON(res, 404, { error: "no such file: " + missing }); return; }
-      const TR = require("../transcribe.js");
+      const TR = require("../shared/transcribe.js");
       let spec;
       try {
         spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true };
@@ -2584,7 +2585,7 @@ async function handleRequest(req, res) {
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
     let last = 0;
     try {
-      const TR = require("../transcribe.js");
+      const TR = require("../shared/transcribe.js");
       // the parts of the ranges this file's transcript (of this audio track, #177) has not listened to yet (all of them with again:true), read with a
       // pad either side; only each part's core is kept (Rea on #165: no lead-in doubled a word cut at the border)
       const had = ranges ? transcripts.get(src, track) || null : null;
@@ -2630,17 +2631,17 @@ async function handleRequest(req, res) {
     return;
   }
 
-  /* Static app files: an allow-list (#281 AS.2). Only the page's own folders and the root's page files are handed out;
-     the local service's code (server/), config, docs, tests, the desktop shell and, in a checkout whose data folder is
-     the install folder, project.json and the rest of the user's files are not. */
-  let file = p === "/" ? "/index.html" : p;
+  /* Static app files: an allow-list (#281 AS.2). Only the page's own folders are handed out; the local service's code
+     (server/), config, docs, tests, the desktop shell and, in a checkout whose data folder is the install folder,
+     project.json and the rest of the user's files are not. The page keeps its address: "/" and "/index.html". */
+  let file = PAGE_ADDRESSES.has(p) ? "/app/index.html" : p;
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
   /* run from a clone, the data folder is the app folder: what this server keeps there is never served as an app file */
   if (["reviews", "previews"].includes(path.relative(ROOT, file).split(path.sep)[0])) { res.writeHead(404); res.end(); return; }
   // the path as the file system reads it (Windows: any case, trailing dots and spaces of a name dropped)
   const parts = path.relative(ROOT, file).split(path.sep).map((s) => s.toLowerCase().replace(/[. ]+$/, ""));
-  const pageFile = parts.length > 1 ? PAGE_DIRS.has(parts[0]) : PAGE_ROOT_EXT.has(path.extname(parts[0]));
+  const pageFile = parts.length > 1 && PAGE_DIRS.has(parts[0]);
   if (!pageFile) { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
 }

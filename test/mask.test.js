@@ -7,7 +7,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
 const path = require("node:path");
-const M = require("../mask.js");
+const M = require("../shared/mask.js");
 const { makeDataDir, readProject, seedProject, startServer, startMcp } = require("./helpers");
 
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: expected ${b}, got ${a}`);

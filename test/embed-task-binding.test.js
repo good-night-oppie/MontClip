@@ -12,9 +12,9 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { createEmbed, TASK_TICKET_MS } = require("../server/embed");
-const Host = require("../host-embed");
+const Host = require("../shared/host-embed");
 const { toolError } = require("../server/tool-error");
-const { redactProblem } = require("../problem-redact");
+const { redactProblem } = require("../shared/problem-redact");
 const { makeDataDir, freePort, endTree } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");
@@ -236,7 +236,7 @@ test("A/B: two task editors on one engine and port — B's commands and export t
 test("the ticket stays out of logs, error text and Referer: no-referrer on every editor page, nothing printed", async (t) => {
   const s = await engine(t);
   const ticket = await ticketFor(s, "A");
-  for (const p of ["/?host=cindy&ticket=" + ticket, "/index.html?ticket=" + ticket, "/app/app.js", "/host-embed.js", "/style.css"]) {
+  for (const p of ["/?host=cindy&ticket=" + ticket, "/index.html?ticket=" + ticket, "/app/app.js", "/shared/host-embed.js", "/app/style.css"]) {
     const r = await fetch(s.base + p, { headers: s.page });
     assert.equal(r.status, 200, p);
     assert.equal(r.headers.get("referrer-policy"), "no-referrer", p);

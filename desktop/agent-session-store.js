@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{randomUUID,createHash}=require('node:crypto');
-const {valid,MAX}=require('../agent-session-schema');
+const {valid,MAX}=require('../shared/agent-session-schema');
 const digest=s=>createHash('sha256').update(s).digest('hex');
 function createStore(root,{io=fs}={}){
  const file=path.join(root,'agent-sessions-v1.json');

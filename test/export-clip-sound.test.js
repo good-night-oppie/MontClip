@@ -13,7 +13,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const app = read('app/app.js');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i) + 2); };
-const V = require('../ui-preferences');
+const V = require('../shared/ui-preferences');
 
 /** The page's pure export-sound helpers, run outside the browser. */
 function helpers(language = 'zh-CN') {
@@ -21,7 +21,7 @@ function helpers(language = 'zh-CN') {
     'function exportWindowShort(', 'function exportSilentSegments(', 'function exportClipWords('].map((h) => body(app, h)).join('\n');
   a.match(app, /const EXPORT_QUIET_DB = -50;/);
   return new Function('uiText', 'EXPORT_QUIET_DB', 'mcView', 'MontClipAutoSlices', src + '\nreturn { exportAudioHeard, exportMixFailure, exportSegmentNumbers, exportClipPeak, exportWindowShort, exportSilentSegments, exportClipWords };')(
-    (k, v) => V.t(language, k, v), -50, { get: () => ({ language }) }, require('../auto-slices'));
+    (k, v) => V.t(language, k, v), -50, { get: () => ({ language }) }, require('../shared/auto-slices'));
 }
 /** A stand-in AudioBuffer: channels of Float32Array at 48 kHz. */
 const buffer = (channels, rate = 48000) => ({ sampleRate: rate, numberOfChannels: channels.length, length: channels[0].length,
@@ -158,7 +158,7 @@ test('server check: each silent clip is measured at its source — silent there 
   a.match(report.line, /⚠ clip 2 \(at 0:10\) is silent/);
   // the page says each one in the interface language, with the same numbers and times
   const text = new Function('uiText', 'mcView', 'MontClipAutoSlices', 'oneSidedWarning', [body(app, 'function exportClipWords('), body(app, 'function exportCheckText(')].join('\n') + '\nreturn exportCheckText;')(
-    (k, v) => V.t('zh-CN', k, v), { get: () => ({ language: 'zh-CN' }) }, require('../auto-slices'), null);
+    (k, v) => V.t('zh-CN', k, v), { get: () => ({ language: 'zh-CN' }) }, require('../shared/auto-slices'), null);
   a.equal(text(report.checks[1]), '第 2 段（时间线 0:10 处）是无声的，请确认是不是你想要的。');
   a.equal(text(report.checks[2]), '时间线 1:12:12 处的声音是无声的，请确认是不是你想要的。');
   // the page heard nothing where the file has sound (the MC-14 export): lost, the export fails with the clip's number
@@ -169,7 +169,7 @@ test('server check: each silent clip is measured at its source — silent there 
   a.match(C.failText(r2), /clip 3, 5 \(at 1:12, 1:30\)/);
   // the page turns the server's list into JJ's sentence: 「第 3、5 段（时间线 1:12、1:30 处）」
   const endErr = new Function('mcView', 'MontClipAutoSlices', [body(app, 'function exportClipWords('), body(app, 'function exportEndError(')].join('\n') + '\nreturn exportEndError;')(
-    { get: () => ({ language: 'zh-CN' }) }, require('../auto-slices'));
+    { get: () => ({ language: 'zh-CN' }) }, require('../shared/auto-slices'));
   const e = endErr({ error: C.failText(r2), code: 'EXPORT_AUDIO_FAILED', params: C.failParams(r2) }, 'x');
   a.equal(V.errorText('zh-CN', e).text, '第 3、5 段（时间线 1:12、1:30 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
   // the server deletes that file instead of handing it over
@@ -195,7 +195,7 @@ test('reading only the used span: 16 s of a 2-hour file decodes about 16 s (byte
 });
 
 test('MC-11: captions for 16 s of a 2-hour file read that part only (ffmpeg -ss / -t, about 16 s out)', (t) => {
-  const T = require('../transcribe.js'), FF = require('../server/ffmpeg-path');
+  const T = require('../shared/transcribe.js'), FF = require('../server/ffmpeg-path');
   const rs = T.clipRanges([{ in: 3600, duration: 16, props: {} }], { duration: null });
   a.deepEqual(rs, [[3598.5, 3617.5]]);
   // a file whose length the project doesn't know yet is read in its clips' windows too, never whole

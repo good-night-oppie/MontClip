@@ -34,24 +34,24 @@ test('the timeline never takes the room the preview and player need',()=>{
  a.ok(L.TIMELINE_MIN<=140,'timeline can give way to the preview on short windows');
 });
 test('the toolbar marks how tools collapse; Snap last; nothing shrinks under its neighbour',()=>{
- const html=read('index.html'),bar=html.match(/<div class="timeline-toolbar">([\s\S]*?)\n    <\/div>\n    <div class="timeline">/)[1];
+ const html=read('app/index.html'),bar=html.match(/<div class="timeline-toolbar">([\s\S]*?)\n    <\/div>\n    <div class="timeline">/)[1];
  const ranks=[...bar.matchAll(/data-more-rank="(\d+)"/g)].map(m=>+m[1]);a.ok(ranks.length>=10,'ranked tools: '+ranks.length);
  const snap=+bar.match(/class="snap-seg"[^>]*data-more-rank="(\d+)"/)[1];a.equal(snap,Math.min(...ranks),'Snap collapses last');
  a.match(bar,/id="btnTlMore"/);a.match(bar,/id="tlMoreMenu"/);
- const css=read('style.css');a.match(css,/\.timeline-toolbar > \*[^{]*\{[^}]*flex-shrink:\s*0/,'toolbar items keep their width');
- a.match(read('index.html'),/<script src="app\/narrow-layout\.js/);
+ const css=read('app/style.css');a.match(css,/\.timeline-toolbar > \*[^{]*\{[^}]*flex-shrink:\s*0/,'toolbar items keep their width');
+ a.match(read('app/index.html'),/<script src="app\/narrow-layout\.js/);
 });
 test('the monitor header keeps one row; its controls collapse into its own More menu',()=>{
- const html=read('index.html');a.match(html,/id="btnMonMore"/);a.match(html,/id="monMoreMenu"/);
+ const html=read('app/index.html');a.match(html,/id="btnMonMore"/);a.match(html,/id="monMoreMenu"/);
  const head=html.match(/<section class="panel monitor" id="monitorPanel">[\s\S]*?<div class="monitor-stage"/)[0];
  a.ok([...head.matchAll(/data-more-rank="\d+"/g)].length>=5,'monitor header controls ranked');
 });
 test('narrow windows give the monitor room: side panels shrink below 1100px',()=>{
- const css=read('style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];
+ const css=read('app/style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];
  a.match(m,/--side-panel-w:\s*clamp\(/);
 });
 test('More labels are in both languages',()=>{
- const v=require('../ui-preferences').text;for(const l of ['zh-CN','en'])a.ok(v[l]['own.more']||v[l].more,l);
+ const v=require('../shared/ui-preferences').text;for(const l of ['zh-CN','en'])a.ok(v[l]['own.more']||v[l].more,l);
 });
 
 test('the upper area keeps the monitor header, the player and a 90px picture',()=>{
@@ -60,29 +60,29 @@ test('the upper area keeps the monitor header, the player and a 90px picture',()
  a.match(read('app/app.js'),/upperMin:\s*MontClipNarrow\.upperNeed\(/,'the timeline budget uses it');
 });
 test('the top bar stays one row on narrow windows: its right-hand tools collapse, Export never does',()=>{
- const html=read('index.html'),right=html.match(/<div class="topbar-right">([\s\S]*?)\n    <\/div>\n  <\/header>/)[1];
+ const html=read('app/index.html'),right=html.match(/<div class="topbar-right">([\s\S]*?)\n    <\/div>\n  <\/header>/)[1];
  a.match(right,/id="btnTopMore"/);a.match(right,/id="topMoreMenu"/);
  a.ok(!/id="btnExport"[^>]*data-more-rank|data-more-rank[^>]*id="btnExport"/.test(right),'Export is pinned');
  a.ok([...right.matchAll(/data-more-rank="\d+"/g)].length>=4);
- const css=read('style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];a.ok(!/\.topbar[^{]*\{[^}]*flex-wrap:\s*wrap/.test(m),'no wrapping top bar');
+ const css=read('app/style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];a.ok(!/\.topbar[^{]*\{[^}]*flex-wrap:\s*wrap/.test(m),'no wrapping top bar');
  a.match(read('app/app.js'),/attach\(document\.querySelector\("\.topbar-right"\)/);
 });
 test('a narrow monitor puts the player on two rows instead of cutting buttons off',()=>{
- const css=read('style.css');a.match(css,/container-type:\s*inline-size/);a.match(css,/@container monitor \(max-width: 540px\)/);
+ const css=read('app/style.css');a.match(css,/container-type:\s*inline-size/);a.match(css,/@container monitor \(max-width: 540px\)/);
 });
 test('a bar whose width follows its content cannot re-plan itself in a loop',()=>{
  a.match(read('app/narrow-layout.js'),/lastWidth/);
 });
 test('narrow side panels: tab strips scroll instead of cutting tabs off; the bin header collapses into More (Import stays)',()=>{
- const css=read('style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];
+ const css=read('app/style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];
  a.match(m,/\.bin-tabs\s*\{[^}]*overflow-x:\s*auto/);a.match(m,/\.bin-tabs button\s*\{[^}]*flex:\s*1 0 auto/);
- const html=read('index.html'),head=html.match(/<span class="panel-head-actions bin-actions">([\s\S]*?)<\/span>\n      <\/div>/)[1];
+ const html=read('app/index.html'),head=html.match(/<span class="panel-head-actions bin-actions">([\s\S]*?)<\/span>\n      <\/div>/)[1];
  a.match(head,/id="btnBinMore"/);a.match(head,/id="binMoreMenu"/);a.ok(!/data-more-rank[^>]*id="btnImport"|id="btnImport"[^>]*data-more-rank/.test(head),'Import is pinned');
  a.match(read('app/app.js'),/attach\(document\.querySelector\("\.bin-actions"\)/);
  a.match(read('app/app.js'),/\.bin-tabs[\s\S]{0,200}wheel/,'a mouse wheel scrolls a tab strip');
 });
 test('the top bar tightens its spacing on very narrow windows so Export stays in reach',()=>{
- a.match(read('style.css'),/@media \(max-width: 700px\) \{[^@]*\.app > \.topbar\s*\{[^}]*gap:\s*6px/);
+ a.match(read('app/style.css'),/@media \(max-width: 700px\) \{[^@]*\.app > \.topbar\s*\{[^}]*gap:\s*6px/);
 });
 test('the static demo ships narrow-layout.js (app.js needs it at start-up)',()=>{
  a.match(read('docs/demo/sync.js'),/"app\/narrow-layout\.js"/);
@@ -91,7 +91,7 @@ test('the static demo ships narrow-layout.js (app.js needs it at start-up)',()=>
 // VV (#33 b9b8ddb, 804 and 630): the monitor's More menu sat under #preview, and the transcript's caption row was cut off.
 test('the monitor More menu floats in <body> above the panels; the transcript tools scroll and the sentence row stands alone', () => {
   const read = (f) => require('node:fs').readFileSync(require('node:path').join(__dirname, '..', f), 'utf8');
-  const lib = read('app/narrow-layout.js'), app = read('app/app.js'), css = read('style.css');
+  const lib = read('app/narrow-layout.js'), app = read('app/app.js'), css = read('app/style.css');
   a.match(lib, /function attach\(bar, button, menu, \{ onChange, floating = false \} = \{\}\)/);
   a.match(lib, /if \(floating\) \{ doc\.body\.appendChild\(menu\); menu\.classList\.add\("more-menu-floating"\); \}/);
   a.match(lib, /function open\(\) \{ menu\.hidden = false; button\.setAttribute\("aria-expanded", "true"\); place\(\); \}/);
@@ -106,12 +106,12 @@ test('the monitor More menu floats in <body> above the panels; the transcript to
 // VV on b4a733e: at 804 and 630 the top bar's Layout and S/M/L were gone with no More button (a rule hid them below 1100px,
 // and More only collects what is drawn); at 1270 the bin's + Adjust was squeezed under + Import (its buttons shrank).
 test('nothing in a bar with a More menu is hidden by width: it goes into More instead', () => {
-  const css = read('style.css');
+  const css = read('app/style.css');
   for (const block of css.match(/@media\s*\(max-width:\s*\d+px\)\s*\{[\s\S]*?\n\}/g) || [])
     a.ok(!/\.layout-tools\s*\{[^}]*display:\s*none/.test(block), 'the layout tools are not hidden on narrow windows');
 });
 test('the bin header buttons keep their labels at every width: they never shrink, they move into More', () => {
-  const css = read('style.css'), outside = css.replace(/@media[^{]*\{[\s\S]*?\n\}/g, '');
+  const css = read('app/style.css'), outside = css.replace(/@media[^{]*\{[\s\S]*?\n\}/g, '');
   a.match(outside, /\.panel-head > \.panel-head-actions\.bin-actions > \.btn \{[^}]*flex: 1 0 auto/);
 });
 test('the bin More menu floats above the panels (at 1270 its items were drawn inside the bin and could not be clicked)', () => {
@@ -122,7 +122,7 @@ test('the bin More menu floats above the panels (at 1270 its items were drawn in
 // direction 487→513). Where the two columns cannot fit, the open bin takes the whole width; the window check (360 and
 // 630, zh-CN and en, every control inside the page) is desktop/narrow-media-smoke.cjs.
 test('a narrow window opens 素材 across the whole width, not half off the page beside the player', () => {
-  const css = read('style.css'), m = css.match(/@media\s*\(max-width:\s*(\d+)px\)\s*\{[^{}]*\.app\.media-open \.upper[^{]*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[\s\S]*?\n\}/);
+  const css = read('app/style.css'), m = css.match(/@media\s*\(max-width:\s*(\d+)px\)\s*\{[^{}]*\.app\.media-open \.upper[^{]*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[\s\S]*?\n\}/);
   a.ok(m, 'one column for the open bin');
   a.ok(+m[1] >= 260 + 250 + 6 + 12, 'it starts where the monitor (260) and the bin (250) no longer fit side by side: ' + m[1]);
   a.ok(+m[1] < 630, 'at 630 the bin still sits beside the player');
@@ -137,7 +137,7 @@ test('a narrow window opens 素材 across the whole width, not half off the page
 // VV on #162 (bcdceed9): at ≤560 px the open bin covers the player, so a double-click that loaded Source looked like nothing
 // happened, and the button still said 素材. Measured edge: 559 and 560 hide the player, 561 and 630 sit side by side.
 test('≤560 px: 素材 says 返回播放器 while open, with aria-expanded; the edge is the same number in CSS and JS', () => {
-  const css = read('style.css'), app = read('app/app.js'), prefs = read('ui-preferences.js');
+  const css = read('app/style.css'), app = read('app/app.js'), prefs = read('shared/ui-preferences.js');
   const edge = +css.match(/@media\s*\(max-width:\s*(\d+)px\)\s*\{[^{}]*\.app\.media-open \.upper/)[1];
   a.equal(edge, 560, 'the bin takes the whole width at ≤560 px');
   a.ok(app.includes('matchMedia("(max-width:' + edge + 'px)")'), 'app.js narrows at the same width');
@@ -166,4 +166,4 @@ test('≤560 px: a double-click that loads Source puts the bin away; click, star
   a.match(smoke, /if\(!after\.open\)\{tog\.click\(\)/, 'reopens the bin after the double-click');
   a.match(smoke, /sameFiles:ids\(\)===before\.ids/, 'and the files are all still there');
 });
-function MontClipT(lang, key) { return require('../ui-preferences').t(lang, key); }
+function MontClipT(lang, key) { return require('../shared/ui-preferences').t(lang, key); }

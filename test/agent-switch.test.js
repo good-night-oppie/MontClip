@@ -43,7 +43,7 @@ test('the main process: off, every send is refused before the service; DeepSeek 
 });
 
 test('the pane: switched off, no review box and a line that says so; the settings section and its notice button',()=>{
- const pane=fs.readFileSync(path.join(__dirname,'..','agent-ui','pane.tsx'),'utf8'),html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),app=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
+ const pane=fs.readFileSync(path.join(__dirname,'..','agent-ui','pane.tsx'),'utf8'),html=fs.readFileSync(path.join(__dirname,'..','app/index.html'),'utf8'),app=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
  a.ok(pane.indexOf("if(sw&&!sw.enabled){setNotice('aiOff');return;}")<pane.indexOf('setReview(conversation.prepare())'),'off: the review box is not even prepared');
  a.ok(pane.includes('{!aiOn&&<p className="agent-ai-off" data-ai-off>{t.aiOff}</p>}'));
  a.match(html,/<div class="settings-section hidden" id="setAi">[\s\S]*?id="setAiEnabled"[\s\S]*?data-i18n="own\.ai-set-enabled"[\s\S]*?id="btnAiNotice"[^>]*data-i18n="own\.ai-set-notice"/);

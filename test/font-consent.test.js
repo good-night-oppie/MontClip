@@ -114,7 +114,7 @@ test('browser mode: after Yes, only fonts.googleapis.com / fonts.gstatic.com, an
  a.ok(p.links.length>=1);
  for(const l of p.links){a.match(l.href,/^blob:/,'the sheet comes from this page');a.equal(l.referrerPolicy,'no-referrer');}
  // and the page as a whole says no Referer (Deja, on #151: the document-level policy as well)
- a.match(fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),/<meta name="referrer" content="no-referrer">/);
+ a.match(fs.readFileSync(path.join(__dirname,'..','app/index.html'),'utf8'),/<meta name="referrer" content="no-referrer">/);
  // the same font again: no box this session; another font: the box again
  const n=p.requests.length;
  a.equal(await p.api.requestFonts(['Lobster']),true);a.equal(p.dialog(),undefined,'not asked twice for one font');
@@ -159,7 +159,7 @@ test('every call site that reaches Google Fonts on a click goes through requestF
 // JJ (on #151): sentences 1–7 and 9 as drafted; 8, 10 and 11 say first which fonts are missing, then what happens.
 // JJ's last round (on 488ae6c): the export hint reworded; in English "this text", and "Download" for "Load".
 test('the copy JJ settled, both languages',()=>{
- const V=require('../ui-preferences.js'),t=(l,k,v)=>V.t(l,'own.'+k,v);
+ const V=require('../shared/ui-preferences.js'),t=(l,k,v)=>V.t(l,'own.'+k,v);
  const zh={
   'font-net-title':'要联网下载字体吗？','font-net-fonts':'要下载的字体：{names}','font-net-hosts':'会连接 Google 字体的网站：{hosts}。',
   'font-net-sent':'发出去的只有字体名，加上浏览器联网时都会带的基本信息，比如你的 IP 地址。项目、录像和字幕都不会发出去。',

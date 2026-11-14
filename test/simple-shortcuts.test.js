@@ -4,7 +4,7 @@
 // selection tool (V) without touching the project, the selection or the history. Advanced mode is unchanged.
 const test = require("node:test"), assert = require("node:assert/strict");
 const { SRC } = require("./timeline-sandbox");
-const View = require("../ui-preferences");
+const View = require("../shared/ui-preferences");
 
 const START = 'window.addEventListener("keydown", (e) => {\n  const k = e.key;';
 const start = SRC.indexOf(START), end = SRC.indexOf('window.addEventListener("resize",', start);
@@ -160,7 +160,7 @@ test("stripBlockedHints drops only the blocked hints from a tooltip", () => {
     assert.equal(s(keep), keep);
 });
 test("every tooltip of the page, in both languages, keeps no blocked shortcut once stripped", () => {
-  const fs = require("node:fs"), path = require("node:path"), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const fs = require("node:fs"), path = require("node:path"), html = fs.readFileSync(path.join(__dirname, "..", "app/index.html"), "utf8");
   const titles = [...html.matchAll(/\stitle="([^"]*)"/g)].map((m) => m[1]);
   for (const m of html.matchAll(/data-i18n-title="([^"]+)"/g)) for (const l of ["en", "zh-CN"]) { const t = View.t(l, m[1]); if (t) titles.push(t); }
   assert.ok(titles.includes("Trim clips to IN/OUT (⇧T)") && titles.includes("裁剪片段到入点 / 出点（⇧T）"), "btnTrimIO in both languages");

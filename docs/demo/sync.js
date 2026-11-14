@@ -10,7 +10,7 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const OUT = __dirname;
 
 /* index.html: same markup, plus the shim ahead of app.js */
-let html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+let html = fs.readFileSync(path.join(ROOT, "app", "index.html"), "utf8");   // the page lives in app/ (#281 stage 3)
 html = html
   .replace(/<title>[^<]*<\/title>/, "<title>MontClip playground</title>")
   .replace('<script src="app/app.js"></script>',
@@ -20,14 +20,15 @@ if (!html.includes("static-shim.js")) {
   process.exit(1);
 }
 fs.writeFileSync(path.join(OUT, "index.html"), html);
-fs.copyFileSync(path.join(ROOT, "range-plan.js"), path.join(OUT, "range-plan.js"));
+fs.mkdirSync(path.join(OUT, "shared"), { recursive: true });
+fs.copyFileSync(path.join(ROOT, "shared", "range-plan.js"), path.join(OUT, "shared", "range-plan.js"));
 
 /* app.js and style.css are copied verbatim. Some of these only exist on
    branches that add them, so a missing one is skipped rather than fatal. */
-for (const f of ["app/app.js", "host-embed.js", "app/bgremove-assets.js", "app/narrow-layout.js", "loudness.js", "ducking.js", "silence.js", "beats.js", "transcribe.js", "captions.js", "audio-fx.js", "mask.js", "tracker.js", "reframe.js", "highlights.js", "app/highlight-candidates.js", "app/caption-quick.js", "lyrics-align.js", "lyrics-track.js", "songs.js", "auto-slices.js", "corrections.js", "app/segment-edits.js", "danmaku.js", "motion.js", "color.js", "edit-ops.js", "comp.js", "sequences.js", "templates.js", "app/mp4-demux.js", "media-lib.js", "delivery.js", "app/bg-export.js", "app/fx-worklet.js", "style.css", "favicon.svg", "app/ruler-worker.js", "app/meter-worklet.js", "svg-sanitize.js", "credits.js", "ui-preferences.js", "ui-terms.js", "problem-redact.js", "app/ffmpeg-card.js"]) {
+for (const f of ["app/app.js", "shared/host-embed.js", "app/bgremove-assets.js", "app/narrow-layout.js", "shared/loudness.js", "shared/ducking.js", "shared/silence.js", "shared/beats.js", "shared/transcribe.js", "shared/captions.js", "shared/audio-fx.js", "shared/mask.js", "shared/tracker.js", "shared/reframe.js", "shared/highlights.js", "app/highlight-candidates.js", "app/caption-quick.js", "shared/lyrics-align.js", "shared/lyrics-track.js", "shared/songs.js", "shared/auto-slices.js", "shared/corrections.js", "app/segment-edits.js", "shared/danmaku.js", "shared/motion.js", "shared/color.js", "shared/edit-ops.js", "shared/comp.js", "shared/sequences.js", "shared/templates.js", "app/mp4-demux.js", "shared/media-lib.js", "shared/delivery.js", "app/bg-export.js", "app/fx-worklet.js", "app/style.css", "app/favicon.svg", "app/ruler-worker.js", "app/meter-worklet.js", "svg-sanitize.js", "credits.js", "shared/ui-preferences.js", "shared/ui-terms.js", "shared/problem-redact.js", "app/ffmpeg-card.js"]) {
   const from = path.join(ROOT, f);
   if (!fs.existsSync(from)) continue;
-  fs.mkdirSync(path.dirname(path.join(OUT, f)), { recursive: true });   // the editor's own page code sits in app/ (#281 stage 2)
+  fs.mkdirSync(path.dirname(path.join(OUT, f)), { recursive: true });   // page code in app/, scripts it shares with the server in shared/ (#281 stages 2-3)
   fs.copyFileSync(from, path.join(OUT, f));
 }
 

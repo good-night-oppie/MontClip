@@ -15,7 +15,7 @@ const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const shots=process.env.MONTCLIP_SHOTS_OUT||null;if(shots&&!path.isAbsolute(shots))throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
 const {wav}=require('../test/songs-synth');
-const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v);
+const V=require('../shared/ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v);
 const out=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v)+'\n');
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){

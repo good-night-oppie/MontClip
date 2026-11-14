@@ -4,7 +4,7 @@
 // that once per slice. ADR 2026-11-02 point 3 / Deja C: clicking export refuses at once, in plain words, before any
 // audio mix or frame is rendered. Exports that don't use H.264 still go out.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const V = require('../ui-preferences'), X = require('../server/external-ffmpeg');
+const V = require('../shared/ui-preferences'), X = require('../server/external-ffmpeg');
 const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i)); };
 

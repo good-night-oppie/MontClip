@@ -4,11 +4,11 @@
 // desktop/auto-slices-smoke.cjs; this file checks the pieces that must be there and the words JJ approved.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const V=require('../ui-preferences');
+const V=require('../shared/ui-preferences');
 const zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
 
 test('two entries: the top bar right of 项目, and the transcript tab beside 高光候选 (which stays)',()=>{
- const html=read('index.html'),i=html.indexOf('id="btnProjectsDash"'),j=html.indexOf('id="btnAutoSlices"');
+ const html=read('app/index.html'),i=html.indexOf('id="btnProjectsDash"'),j=html.indexOf('id="btnAutoSlices"');
  a.ok(i>0&&j>i&&html.indexOf('id="projectName"')>j,'right after 项目, before the project name');
  a.match(html,/id="btnAutoSlices"[^>]*data-i18n="own\.as-open"/);
  const app=read('app/app.js'),row=app.slice(app.indexOf('<div class="tr-row tr-entries">'),app.indexOf('</div>',app.indexOf('<div class="tr-row tr-entries">')));
@@ -25,7 +25,7 @@ test("JJ's words for the bottom bar and what placing says",()=>{
  a.equal(zh('as-found-head',{found:5,on:3}),'找到 5 条，先帮你勾了最好的 3 条');
 });
 test('every 自动出切片 string has English too, and the English is not the Chinese',()=>{
- const src=read('ui-preferences.js'),keys=[...src.matchAll(/"(as-[a-z0-9-]+)":/g)].map(m=>m[1]);
+ const src=read('shared/ui-preferences.js'),keys=[...src.matchAll(/"(as-[a-z0-9-]+)":/g)].map(m=>m[1]);
  a.ok(keys.length>=40,'the dialog has its own strings: '+keys.length);
  for(const k of keys){const e=en(k,{n:2,found:2,on:1,count:5,name:'x',time:'1:00',dur:'1 min',total:'1 min'}),c=zh(k,{n:2,found:2,on:1,count:5,name:'x',time:'1:00',dur:'1 min',total:'1 min'});
   a.ok(e&&c&&e!==c&&!/[一-鿿]/.test(e.replace(/[「」]/g,'')),k+': '+e);}
@@ -43,7 +43,7 @@ test('placing is one undo step for the whole batch, an editor event like any oth
  a.match(fn,/EDIT\.overwriteAt\(/);a.ok(!/"V1"/.test(fn),'the track is wherever it lands, never V1 by name');
 });
 test('the module loads in the page before app.js',()=>{
- const html=read('index.html');a.ok(html.indexOf('src="auto-slices.js"')>0&&html.indexOf('src="auto-slices.js"')<html.indexOf('src="app/app.js"'));
+ const html=read('app/index.html');a.ok(html.indexOf('src="shared/auto-slices.js"')>0&&html.indexOf('src="shared/auto-slices.js"')<html.indexOf('src="app/app.js"'));
 });
 test('desktop: the notification comes from the main process over one fixed channel that takes a count only (web permissions stay denied)',()=>{
  const main=read('desktop/main.js'),pre=read('desktop/view-preload.js');
@@ -59,7 +59,7 @@ test("Deja's song-card words until JJ's final copy: a time, 可能在唱歌, thr
  a.deepEqual(['as-tag-estimated','as-tag-likely','as-tag-adjusted'].map(k=>zh(k)),['估的','比较可能','你调过']);
  a.equal(zh('as-lyrics'),'按歌词校准字幕');a.equal(zh('as-lyrics-maybe'),'如果这段是唱歌，可以按歌词校准字幕');
  const app=read('app/app.js');a.match(app,/MontClipAutoSlices\.title\(c\)/);a.ok(!/uiText\("own\.as-song-name"/.test(app),'第 n 首歌 only through the gate');
- a.ok(!/"own\.as-a-song"/.test(app)&&!/as-a-song/.test(read('ui-preferences.js')),'no 一首歌 · length');
+ a.ok(!/"own\.as-a-song"/.test(app)&&!/as-a-song/.test(read('shared/ui-preferences.js')),'no 一首歌 · length');
 });
 test('v8 (frozen, JJ-approved): a level beside each start and end time; the likely hint; 你调过 grey with no hint; 不确定, not 拿不准',()=>{
  a.equal(zh('as-likely-start'),'开头比较可能在这里，还是点「▶ 听开头」听一下再定。');a.equal(zh('as-likely-end'),'结尾比较可能在这里，还是点「▶ 听结尾」听一下再定。');
@@ -99,7 +99,7 @@ test("JJ's v11 visual review: the 估的 note once, above the cards; the cards k
 // v12 (frozen: 原型-v12.html d289ff06…, 交互说明-v12.md d59748f7…): the card layout; the real window is checked by
 // desktop/slice-cards-smoke.cjs
 test('v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics button in the button row with the subtitle line as its tooltip',()=>{
- const css=read('style.css'),app=read('app/app.js');
+ const css=read('app/style.css'),app=read('app/app.js');
  a.match(css,/\.auto-slices \.as-clip-title:hover::after \{[^}]*content: "✎"/);
  a.match(css,/\.auto-slices \.as-play \{[^}]*font-weight: 600/);
  const card=app.slice(app.indexOf('function autoCardHtml'),app.indexOf('function autoFooter'));
@@ -116,7 +116,7 @@ test('no wording the streamer sees mentions laughter (笑声)',()=>{
  const walk=(v,out)=>{if(typeof v==='string')out.push(v);else if(v&&typeof v==='object')for(const x of Object.values(v))walk(x,out);return out;};
  const strings=walk(V.text,[]);a.ok(strings.length>500,'the whole string table');
  a.deepEqual(strings.filter(x=>/笑声|laugh/i.test(x)),[]);
- for(const f of ['index.html','app/app.js','auto-slices.js','app/highlight-candidates.js','app/cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
+ for(const f of ['app/index.html','app/app.js','shared/auto-slices.js','app/highlight-candidates.js','app/cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
 });
 // Deja (2026-11-03): nor what the AI reads — an AI told "a laugh" might tell the streamer it found laughter; the software only
 // hears loudness. Every MCP tool's description (and the descriptions inside its arguments), and the manual fablecut_docs serves
@@ -157,7 +157,7 @@ test('the name hint and the name tooltip in JJ\'s English; "in the video", never
 // (the Transcript tab can, #85; the card is not wired to it), there is no button; once it can, the button says only
 // 按歌词校准字幕 and the long sentence is its tooltip. In this dialog nothing disabled looks pressable.
 test('the card\'s lyrics button: none until the card can use it; then short, the long sentence in its tooltip; disabled looks disabled',()=>{
- const app=read('app/app.js'),css=read('style.css');
+ const app=read('app/app.js'),css=read('app/style.css');
  // the card is wired now (card-lyrics.test.js): only a song card with transcript words in its part
  a.match(app,/function autoLyricsAvailable\(c\) \{\s*return !!c && c\.kind === "song" && autoLyricWords\(c\)\.length > 0;/);
  a.equal(zh('as-lyrics'),'按歌词校准字幕');
@@ -176,7 +176,7 @@ test('the review\'s title: JJ\'s words, and the ticked set against the search\'s
  a.equal(zh('as-found-ticked',{found:5,on:2}),'找到 5 条，勾了 2 条');a.equal(en('as-found-ticked',{found:5,on:2}),'Found 5, 2 ticked');
  a.equal(zh('as-found-head',{found:5,on:3}),'找到 5 条，先帮你勾了最好的 3 条','as before');
  a.equal(zh('as-go-why-none'),'先在上面勾一场录像');a.equal(en('as-go-why-none'),'Tick a recording above first');
- const S=require('../auto-slices'),h=S.reviewHead,c=(id,picked,on)=>({id,picked,on});
+ const S=require('../shared/auto-slices'),h=S.reviewHead,c=(id,picked,on)=>({id,picked,on});
  a.deepEqual(h([],[]),{key:'none',found:0,on:0});
  a.deepEqual(h([],[c('a',true,false),c('b',false,false)]),{key:'all-out',found:2,on:0});
  a.deepEqual(h([c('a',true,false),c('b',false,false)],[]),{key:'none-ticked',found:2,on:0});
@@ -186,14 +186,14 @@ test('the review\'s title: JJ\'s words, and the ticked set against the search\'s
  a.deepEqual(h([c('a',true,true)],[c('b',true,false)]),{key:'ticked',found:2,on:1},'one the search ticked taken out: still found 2 (VV on e31d808)');
  a.deepEqual(h([c('a',true,true),c('x',false,true)],[]),{key:'ticked',found:2,on:2},'all ticked, but not as the search did');
  // the search's own cards say which it ticked
- a.match(fs.readFileSync(require('path').join(__dirname,'..','auto-slices.js'),'utf8'),/on: i < checked, picked: i < checked/);
+ a.match(fs.readFileSync(require('path').join(__dirname,'..','shared/auto-slices.js'),'utf8'),/on: i < checked, picked: i < checked/);
 });
 
 // VV on #96 e31d808 (Deja): 「找到 N 条」 and 「圈出 N 段」 are what this search found — the cards taken out included, as
 // 「找到 2 条，你都拿掉了」 already says — so taking one out or putting one back never changes N. A part you added yourself
 // (补一段) was not found by the search: it is not counted in the title (the footer counts what goes out).
 test('found and 圈出 count every card the search found, the ones taken out too; zh and en',()=>{
- const S=require('../auto-slices'),c=(id,picked,on)=>({id,picked,on}),en=(k,v)=>V.t('en','own.'+k,v);
+ const S=require('../shared/auto-slices'),c=(id,picked,on)=>({id,picked,on}),en=(k,v)=>V.t('en','own.'+k,v);
  const KEY={none:'as-found-none','all-out':'as-found-all-out','none-ticked':'as-found-none-ticked',all:'as-found-all',head:'as-found-head',ticked:'as-found-ticked'};
  const title=(lang,clips,dropped)=>{const h=S.reviewHead(clips,dropped);return V.t(lang,'own.'+KEY[h.key],h);};
  // found 2, one taken out
@@ -229,7 +229,7 @@ test('the footer: the empty states in JJ\'s words, the short words for a narrow 
 test('设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑习惯〕',()=>{
  const en=(k,v)=>V.t('en','own.'+k,v);
  a.deepEqual([zh('as-learn-state-on'),zh('as-learn-state-off'),en('as-learn-state-on'),en('as-learn-state-off')],['开着','关着','On','Off']);
- a.match(read('index.html'),/id="setSlices"[\s\S]*?data-learn-open[\s\S]*?data-learn-state/);
+ a.match(read('app/index.html'),/id="setSlices"[\s\S]*?data-learn-open[\s\S]*?data-learn-state/);
 });
 
 // JJ's final words for the line under 「全拿掉」 (Deja, 2026-11-03): the names it quotes are the screen's own words, read from

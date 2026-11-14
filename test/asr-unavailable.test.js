@@ -37,6 +37,9 @@ test("no desktop/asr-manifest.json (the plugin's package): ASR_MANIFEST_MISSING,
   // #281: the server code lives in server/ now, so the copy must keep that folder
   fs.mkdirSync(path.join(app, "server"), { recursive: true });
   for (const f of fs.readdirSync(path.join(ROOT, "server"))) if (/\.(js|json)$/.test(f)) fs.copyFileSync(path.join(ROOT, "server", f), path.join(app, "server", f));
+  // #281 stage 3: the scripts the page and the server share are in shared/
+  fs.mkdirSync(path.join(app, "shared"), { recursive: true });
+  for (const f of fs.readdirSync(path.join(ROOT, "shared"))) fs.copyFileSync(path.join(ROOT, "shared", f), path.join(app, "shared", f));
   fs.mkdirSync(path.join(app, "desktop"));
   for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
   const r = await ask(t, (d) => ({ MONTCLIP_ASR_DIR: path.join(d, "asr") }), { serverJs: path.join(app, "server/server.js") });
@@ -159,6 +162,9 @@ test("no manifest: status and the 409 name no path on this computer", async (t) 
   // #281: the server code lives in server/ now, so the copy must keep that folder
   fs.mkdirSync(path.join(app, "server"), { recursive: true });
   for (const f of fs.readdirSync(path.join(ROOT, "server"))) if (/\.(js|json)$/.test(f)) fs.copyFileSync(path.join(ROOT, "server", f), path.join(app, "server", f));
+  // #281 stage 3: the scripts the page and the server share are in shared/
+  fs.mkdirSync(path.join(app, "shared"), { recursive: true });
+  for (const f of fs.readdirSync(path.join(ROOT, "shared"))) fs.copyFileSync(path.join(ROOT, "shared", f), path.join(app, "shared", f));
   fs.mkdirSync(path.join(app, "desktop"));
   for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
   const r = await ask(t, (d) => ({ MONTCLIP_ASR_DIR: path.join(d, "asr") }), { serverJs: path.join(app, "server/server.js") });

@@ -5,7 +5,7 @@
 // card is placed its captions are those lines, moved onto the timeline and kept inside the card's part. Other cards and
 // other captions are not touched.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const S = require('../auto-slices'), L = require('../lyrics-align'), V = require('../ui-preferences');
+const S = require('../shared/auto-slices'), L = require('../shared/lyrics-align'), V = require('../shared/ui-preferences');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
 // a recording's transcript (file seconds): talk, a song with two misheard characters, talk
@@ -112,7 +112,7 @@ test('the lyrics pasted last time: on the card in this window only, in no record
   a.match(fn('autoUndo'), /MontClipAutoSlices\.keepPasted\(st, JSON\.parse\(st\.hist\.pop\(\)\)\)/);
   const save = app.slice(app.indexOf('function projectJSONHere('), app.indexOf('function projectJSONHere(') + 4000);
   a.ok(!/autoState|lyricText|lyricCues/.test(save), 'not in the project file');
-  for (const f of ['app/agent-facts.js', 'app/agent-conversation.js', 'app/agent-pane.js', 'app/cindy-official.js', 'app/chat-proposal.js', 'agent-format.js'])
+  for (const f of ['app/agent-facts.js', 'app/agent-conversation.js', 'app/agent-pane.js', 'app/cindy-official.js', 'app/chat-proposal.js', 'shared/agent-format.js'])
     a.ok(!/lyricText|lyricCues/.test(read(f)), f);
 });
 

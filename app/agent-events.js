@@ -6,7 +6,7 @@
    The risk is the host's: it comes from the capability table (capabilities.js), whatever the event says. The log is kept
    in the project as summaries (bounded count, bounded args; never pictures, sound or recordings). */
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("../capabilities"));
+  if (typeof module === "object" && module.exports) module.exports = factory(require("../shared/capabilities"));
   else root.MontClipEvents = factory(root.MontClipCapabilities);
 })(typeof globalThis !== "undefined" ? globalThis : this, function (Cap) {
   "use strict";

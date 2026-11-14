@@ -4,8 +4,8 @@
 // (4) is #170; (5) the outgoing payload's fields are locked, and the review box's words name both.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const Facts=require('../app/agent-facts'),Cap=require('../capabilities'),V=require('../app/agent-conversation'),Format=require('../agent-format');
-const View=require('../ui-preferences'),Store=require('../desktop/view-settings');
+const Facts=require('../app/agent-facts'),Cap=require('../shared/capabilities'),V=require('../app/agent-conversation'),Format=require('../shared/agent-format');
+const View=require('../shared/ui-preferences'),Store=require('../desktop/view-settings');
 
 const doc=(secs,clips=1)=>({media:[{id:'m1',name:'我的直播.mp4',src:'/media/私密/我的直播.mp4',kind:'video',duration:secs*clips}],
  clips:Array.from({length:clips},(_,i)=>({id:'c'+i,kind:'video',mediaId:'m1',track:'V1',start:i*secs,in:i*secs,duration:secs,props:{}}))});
@@ -24,7 +24,7 @@ test('(1) only singing [from, to] and whole-number loudness 0–100; the step fo
  }
  a.equal(Facts.tooLong(doc(28800),sound(28800)),false,'8 h exactly: attached');
  a.equal(Cap.FACTS.loudnessSeconds,28800);
- const caps=read('capabilities.js');
+ const caps=read('shared/capabilities.js');
  for(const s of ['40 min one a second, 2 h one every 3 s, 4 h one every 6 s, 8 h one every 12 s','no waveform can be rebuilt from them','loudnessSeconds — the longest the clips may be together (8 h); longer, neither is attached that time and the review box\n  // says so'])a.ok(caps.includes(s),s);
 });
 
@@ -73,7 +73,7 @@ test('(2) the review box lists the sound in plain numbers: singing parts, how lo
   a.ok(/唱歌|singing/.test(t.officialPane_factsSound)&&/音量|loudness/.test(t.officialPane_factsSound),l);
   a.ok(/唱歌|singing/.test(t.officialPane_factsCounts)&&/音量|loudness/.test(t.officialPane_factsCounts),l);
  }
- a.match(read('ui-preferences.js'),/QQ's five on #169 \(Deja, 2026-11-05\), JJ定稿 \(2026-11-05\)/);
+ a.match(read('shared/ui-preferences.js'),/QQ's five on #169 \(Deja, 2026-11-05\), JJ定稿 \(2026-11-05\)/);
  a.match(read('app/cindy-official.js'),/data-facts-counts/,'the bundle was rebuilt');
 });
 
@@ -91,7 +91,7 @@ test('(3) 设置 › 「附上唱歌段和音量」: on by default, kept when of
  a.equal(st.set({mode:'simple',language:'zh-CN',soundFacts:true}).ok,false,'true is not stored: absent is on');
  a.equal(st.set({mode:'simple',language:'zh-CN'}).ok,true);a.deepEqual(st.get().value,{mode:'simple',language:'zh-CN'});
  // the editor: the switch, and off means not read and not sent
- const html=read('index.html'),app=read('app/app.js');
+ const html=read('app/index.html'),app=read('app/app.js');
  a.match(html,/<input type="checkbox" id="setSoundFactsOn">\s*<span>\s*<span class="settings-label" data-i18n="own\.sf-label">/);
  a.match(app,/if \(sf\) sf\.checked = soundFactsOn\(\);/);
  a.match(app,/mcView\.set\(\{ soundFacts: !!e\.target\.checked \}\);/);
@@ -101,7 +101,7 @@ test('(3) 设置 › 「附上唱歌段和音量」: on by default, kept when of
  const zh=View.text['zh-CN'],en=View.text.en;
  a.equal(zh['own.sf-label'],'附上唱歌段和音量');a.equal(en['own.sf-label'],'Attach singing parts and loudness');
  a.equal(zh.officialPane_factsOff,'这次没有附上唱歌段和音量：设置里关着。');
- a.match(read('ui-preferences.js'),/「附上唱歌段和音量」 in 设置 \(QQ's five on #169; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
+ a.match(read('shared/ui-preferences.js'),/「附上唱歌段和音量」 in 设置 \(QQ's five on #169; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
 });
 
 test('(3) off, a message about the quiet part gets the editor\'s note above the reply: it can\'t be done, and how to turn it on',()=>{
@@ -139,7 +139,7 @@ test('JJ定稿: nothing said to the streamer, the model or the docs says 「每�
  for(const l of ['zh-CN','en'])for(const [k,v] of Object.entries(View.text[l]))if(typeof v==='string')said.push(k+': '+v);
  said.push('FORMAT_NOTE: '+Format.FORMAT_NOTE);
  for(const c of Cap.list())said.push(c.name+': '+c.summary['zh-CN']+' '+c.summary.en);
- for(const f of ['CLAUDE.md','index.html','capabilities.js','app/agent-facts.js','agent-format.js'])said.push(f+': '+read(f));
+ for(const f of ['CLAUDE.md','app/index.html','shared/capabilities.js','app/agent-facts.js','shared/agent-format.js'])said.push(f+': '+read(f));
  for(const s of said)a.ok(!/每秒的音量|loudness for each second/i.test(s),s.slice(0,120));
  a.equal(View.t('zh-CN','own.sf-hint'),'开着的时候，发给 AI 的内容里会附上哪几段可能在唱歌，以及音量大小（每秒或每隔几秒一个数）：只是数字，不是录音。关掉以后，助手判断不了哪里安静、从哪里开始唱。');
  a.equal(View.t('en','own.sf-hint'),"When on, what is sent to the AI includes which parts may be singing and the loudness (one number every second or every few seconds): numbers only, not the recording. When off, the assistant can't tell where it is quiet or where the singing starts.");

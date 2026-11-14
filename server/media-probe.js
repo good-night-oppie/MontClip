@@ -14,7 +14,7 @@
 const fs = require("fs");
 const { execFile, spawn } = require("child_process");
 const FF = require("./ffmpeg-path");
-const MediaLib = require("../media-lib");
+const MediaLib = require("../shared/media-lib");
 
 const PROBE_CONCURRENCY = 4;
 

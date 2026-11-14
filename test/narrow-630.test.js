@@ -5,7 +5,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
-const view=require('../ui-preferences'),F=require('../agent-format');
+const view=require('../shared/ui-preferences'),F=require('../shared/agent-format');
 
 test('a caption reference with no caption selected gives its own notice',()=>{
  const pane=read('agent-ui/pane.tsx');
@@ -21,7 +21,7 @@ test('the format note asks for replies without field names',()=>{
 });
 
 test('with the settings open in a short pane, the settings get the room (thread, references and composer step aside)',()=>{
- const pane=read('agent-ui/pane.tsx'),css=read('style.css');
+ const pane=read('agent-ui/pane.tsx'),css=read('app/style.css');
  assert.match(pane,/<div className=\{"cindy-port"\+\(compact\?" compact":""\)\+\(configOpen\?" config-open":""\)\}/);
  // P4: the mode switch and the pane's Yolo mark step aside too (the top bar's Yolo mark stays)
  assert.match(css,/\.cindy-port\.compact\.config-open > :is\(\.cindy-thread,\.cindy-ref-actions,\.cindy-references,\.cindy-composer,\.cindy-proposal-actions,\.agent-modes,\.agent-yolo-on\) \{display:none;\}/);
@@ -29,17 +29,17 @@ test('with the settings open in a short pane, the settings get the room (thread,
 });
 
 test('the caption lane above is folded with a hint instead of being left behind the ruler',()=>{
- const app=read('app/app.js'),html=read('index.html');
+ const app=read('app/app.js'),html=read('app/index.html');
  assert.match(html,/<button type="button" class="btn tiny tracks-above" id="btnTracksAbove" hidden><\/button>/);
  assert.match(app,/syncTimelineTrackView\.folded/);
  // JJ (#50): say what the button does
- assert.match(read('ui-preferences.js'),/"tl-above-captions": \["Captions above, click to show", "上方有字幕轨，点这里显示"\]/);
+ assert.match(read('shared/ui-preferences.js'),/"tl-above-captions": \["Captions above, click to show", "上方有字幕轨，点这里显示"\]/);
 });
 
 // VV (85f66ea, real window 630×460): the hint stayed on screen after a click (hidden lost to .btn's display), and the
 // open settings were 108 px with the key box below the fold. The smoke now sizes the page itself to 630×460.
 test('a hidden hint is off screen, and compact settings use small labels and fields',()=>{
- const css=read('style.css');
+ const css=read('app/style.css');
  assert.match(css,/#btnTracksAbove\[hidden\] \{display:none;\}/);
  assert.match(css,/#mcAgentContent \.cindy-port\.compact\.config-open > \.cindy-config label \{font-size:10px;line-height:12px;gap:1px;\}/);
  assert.match(css,/#mcAgentContent \.cindy-port\.compact\.config-open > \.cindy-config :is\(select,input\) \{height:24px;min-height:24px;/);

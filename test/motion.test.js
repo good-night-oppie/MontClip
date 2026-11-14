@@ -5,8 +5,8 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const M = require("../motion.js");
-const E = require("../edit-ops.js");
+const M = require("../shared/motion.js");
+const E = require("../shared/edit-ops.js");
 const { makeDataDir, readProject, startMcp } = require("./helpers");
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);

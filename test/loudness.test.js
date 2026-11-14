@@ -4,7 +4,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const L = require("../loudness.js");
+const L = require("../shared/loudness.js");
 
 const FS = 48000;
 function sine(db, sec, freq = 1000) {

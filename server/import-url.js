@@ -12,7 +12,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
-const Delivery = require("../delivery");
+const Delivery = require("../shared/delivery");
 
 const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GiB
 const TIMEOUT_MS = 180_000;

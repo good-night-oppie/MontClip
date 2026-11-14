@@ -3,7 +3,7 @@
 // test/agent-policy*.test.js and desktop/agent-modes-smoke.cjs (a mock model in the real page).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const View=require('../ui-preferences');
+const View=require('../shared/ui-preferences');
 const t=(l,k,v)=>View.t(l,k,v);
 
 test('the main process keeps the mode in memory: nothing is read from or written to disk, so a restart is 手动',()=>{
@@ -80,7 +80,7 @@ test('new words, both languages (for JJ)',()=>{
 });
 
 test('the switch sits at the top of the assistant; the Yolo mark is in the pane and the top bar',()=>{
- const pane=read('agent-ui/pane.tsx'),html=read('index.html');
+ const pane=read('agent-ui/pane.tsx'),html=read('app/index.html');
  a.ok(pane.indexOf('data-agent-modes')<pane.indexOf('cindy-thread'),'above the thread');
  a.match(pane,/options\.getMode\?\.\(\)==='yolo'&&<p className="agent-yolo-on" role="status" data-yolo-on title=\{t\.yoloOn\}>/);
  a.match(html,/<span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own\.ap-yolo-on">/);
@@ -102,7 +102,7 @@ test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows 
 });
 
 test('no approval box over the page any more: the card is in the stream (v7.2 §2; Deja, step 3)',()=>{
- const app=read('app/app.js'),css=read('style.css');
+ const app=read('app/app.js'),css=read('app/style.css');
  a.ok(!app.includes('data-agent-approval')&&!app.includes("className='agent-approval'"),'the old box is gone');
  a.ok(!/\.agent-approval[ :{]/.test(css));
  a.ok(read('agent-ui/pane.tsx').includes('<HostCard key={c.id} card={c}'));

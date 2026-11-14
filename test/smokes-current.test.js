@@ -14,7 +14,7 @@ test('agent-minimum uses the official pane’s controls, which exist',()=>{
  for(const gone of ['[data-width]','[data-draft]','[data-action=send]','[data-action=cancel]','[data-status]'])a.ok(!s.includes(gone),gone);
  a.ok(s.includes('[data-cindy-draft]')&&pane.includes('data-cindy-draft'));
  a.ok(s.includes('.cindy-send button')&&pane.includes('className="cindy-send"'));
- a.ok(read('index.html').includes('id="mcAssistantClose"'));
+ a.ok(read('app/index.html').includes('id="mcAssistantClose"'));
 });
 
 test('review-body compares each message as the box shows it, and checks that only the trailing JSON is left out',()=>{

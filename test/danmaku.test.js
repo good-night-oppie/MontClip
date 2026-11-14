@@ -4,7 +4,7 @@
 // synthetic XML written here — no real danmaku.
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-const D = require('../danmaku');
+const D = require('../shared/danmaku');
 const { readDanmakuFile } = require('../server/danmaku-file');
 const H = require('../app/highlight-candidates');
 

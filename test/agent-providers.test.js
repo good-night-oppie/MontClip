@@ -4,7 +4,7 @@
 // model filled in. Never "free"; the settings say the provider may keep the text sent (QQ). Earlier (#26) OpenRouter
 // was for tests only; that switch remains but no longer changes the list.
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const S=require('../desktop/agent-service'),V=require('../ui-preferences');
+const S=require('../desktop/agent-service'),V=require('../shared/ui-preferences');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
 const stored=provider=>JSON.stringify({version:1,provider,model:'deepseek/deepseek-v4.1-flash-1017',secret:'sealed'});
 const svc=(extra={})=>{const calls=[];const s=S.createService({read:()=>null,write(){},seal:k=>k,unseal:()=>'k',request:async(c)=>{calls.push(c);return{text:'ok'};},...extra});return{s,calls};};

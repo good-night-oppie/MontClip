@@ -6,7 +6,7 @@
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm');
 const http=require('node:http'),{execFileSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const V=require('../ui-preferences'),M=require('../media-lib'),FF=require('../server/ffmpeg-path');
+const V=require('../shared/ui-preferences'),M=require('../shared/media-lib'),FF=require('../server/ffmpeg-path');
 const zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
 const fnBody=(src,name)=>{const i=src.indexOf('function '+name+'(');a.ok(i>=0,name);return src.slice(i,src.indexOf('\n}',i)+2);};
 
@@ -70,7 +70,7 @@ test('maybeFaststart reports how much of the tidied copy is written, ending at 1
   setTimeout(()=>{fs.appendFileSync(out,Buffer.alloc(3000,2));cb(null);},700);}};
  const ffp={...require('../server/ffmpeg-path'),available:()=>true};
  try{
-  vm.runInNewContext(read('server/import-url.js'),{module:mod,exports:mod.exports,require:id=>id==='child_process'?proc:id==='./ffmpeg-path'?ffp:id==='./delivery'?require('../delivery'):require(id),URL,Buffer,setTimeout,clearTimeout,setInterval,clearInterval});
+  vm.runInNewContext(read('server/import-url.js'),{module:mod,exports:mod.exports,require:id=>id==='child_process'?proc:id==='./ffmpeg-path'?ffp:id==='./delivery'?require('../shared/delivery'):require(id),URL,Buffer,setTimeout,clearTimeout,setInterval,clearInterval});
   const seen=[];const r=await mod.exports.maybeFaststart(file,{onProgress:f=>seen.push(f)});
   a.equal(r.optimized,true);a.ok(seen.length>=2,'during and at the end: '+seen);a.equal(seen.at(-1),1);
   a.ok(seen.slice(0,-1).every(f=>f>0&&f<1),'while writing: a fraction '+seen);

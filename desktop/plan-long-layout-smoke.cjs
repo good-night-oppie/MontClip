@@ -20,7 +20,7 @@ const profileArg = process.argv.find((a) => a.startsWith('--user-data-dir='));
 if (!profileArg || !profileArg.slice('--user-data-dir='.length).trim()) throw Error('A fresh --user-data-dir is required');
 
 const root = path.join(__dirname, '..');
-const cssUrl = 'file:///' + path.join(root, 'style.css').replace(/\\/g, '/');
+const cssUrl = 'file:///' + path.join(root, 'app/style.css').replace(/\\/g, '/');
 const steps = Array.from({length: 30}, (_, i) =>
   `<li data-step-state="todo"><span data-step-label>第 ${i + 1} 步 保留一段</span> <span class="cindy-plan-state">待做</span></li>`).join('');
 const html = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${cssUrl}"></head>
