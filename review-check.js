@@ -265,9 +265,10 @@
     if (status === "issues" && !r.findings.length) status = "no_result";   // 「有问题」 with nothing to show is no answer
     const notes = opts.fellBack ? [t(lang, "rangeTooLong", { n: span })] : [];
     let headline;
-    if (status === "no_result") headline = r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
-      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span })
-      : raw && raw.sendError === true ? t(lang, "sendFailed") : t(lang, "noResult");
+    // a send that was called and failed may have reached the receiver: that comes first, whatever its code says (QQ #326 5900512724 item 2)
+    if (status === "no_result") headline = raw && raw.sendError === true ? t(lang, "sendFailed")
+      : r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
+      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span }) : t(lang, "noResult");
     else if (status === "passed") headline = t(lang, "passed", { n: span });
     else headline = t(lang, "issues", { count: main.length || r.findings.length });
     if (status !== "no_result" && r.scope === "window") notes.push(t(lang, "windowOnly", { n: span }));
