@@ -46,6 +46,7 @@
       whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不发字幕文字和剪辑时间点。",   // JJ #326: no 只 — whatTaste says the examples
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
+      tasteMemory: "好坏例子的文字只在本次运行保留，重启后需重新填写。",   // draft (PG #321 6871936322 三: the words are kept in memory only); JJ to finalize
       whatTwice: "会分 {k} 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。",   // JJ #326 6871859408: willSend.requests > 1 (#328: 1 or 2; two_pass looks blind first)
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
       to: "发给：{service}（{host}）",                             // Deja 6867787475; JJ #326: kept
@@ -71,7 +72,9 @@
       previewNotes: "点「发送检查」会发出去的好坏例子：",            // draft: willSend.notes
       previewNoText: "这次没有要发的文字。",                         // draft
       noteGood: "认可",                                             // draft: a note the streamer approved
+      noteGoodOn: "认可（{label}）",                                 // draft: … for one of the four (PG 6871936322: aspect fact/subtitle/pacing/packaging)
       noteBad: "不认可",                                            // draft
+      noteSep: "：",
       previewNote: "这就是要发出去的画面和声音。",                   // JJ #326: kept (preview and send use one reviewId — interface v0)
       sending: "正在发给 AI 并等它检查，请稍等……",                   // JJ #326
       unavailable: "这台电脑上暂时用不了这个检查。",                 // v2 §6
@@ -125,6 +128,7 @@
       whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). It will not send subtitle text or cut points.",
       whatEdge: "Subtitles that overlap this part of the picture are sent whole, so they may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
+      tasteMemory: "The words of these examples are kept only while the app is running; after a restart they need to be written again.",
       whatTwice: "This will be sent {k} times: the first time with only the picture and sound, and the later times also with the other content described above.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
       to: "Send to: {service} ({host})",
@@ -150,7 +154,9 @@
       previewNotes: "Examples that “Send for a check” would send:",
       previewNoText: "No text would be sent this time.",
       noteGood: "approved",
+      noteGoodOn: "approved ({label})",
       noteBad: "rejected",
+      noteSep: ": ",
       previewNote: "This is the picture and sound that would be sent.",
       sending: "Sending to the AI and waiting for the check. Please wait…",
       unavailable: "This check isn't available on this computer right now.",
@@ -257,9 +263,13 @@
     // PG #321 6871888446: the words that go are shown as they go — the project's text (scope full) and the notes, one per counted note;
     // 「只发这 N 秒」 (scope window) sends neither, so a window clip that carries any is not what the box can promise
     if (typeof ws.projectText !== "string" || !Array.isArray(ws.notes) || ws.notes.length !== taste) return null;
-    const notes = ws.notes.map((x) => (x && typeof x.text === "string" ? { kind: x.kind === "negative" ? "negative" : "positive", text: x.text } : null));
+    const notes = ws.notes.map((x) => (x && typeof x.text === "string" ? { kind: x.kind === "negative" ? "negative" : "positive", aspect: DIMENSIONS.includes(x.aspect) ? x.aspect : null, text: x.text } : null));
     if (notes.includes(null)) return null;
     if (view.scope === "window" && (taste !== 0 || ws.projectText !== "")) return null;
+    if (ws.leadIn != null) {   // #328 153ed95f states the lead-in itself: it must be the one the page shows
+      const li = ws.leadIn, f = num(li && li.from), to = num(li && li.to), sec = num(li && li.seconds);
+      if (lead === 0 || f == null || to == null || sec == null || !near_(to, range.start) || !near_(f, range.start - lead) || !near_(sec, lead)) return null;
+    } else if (lead > 0 && "leadIn" in ws) return null;
     const video = { start: range.start - lead, end: range.end };
     return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes };
   }
@@ -290,7 +300,7 @@
       if (pay.scope === "full") { lines.push(t(lang, "whatFull", at)); lines.push(t(lang, "whatEdge")); }
       lines.push(t(lang, "whatWindow", at));
       if (pay.lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(pay.lead.start), lead: fmtTime(pay.lead.end), leadSec: secs(pay.lead.end - pay.lead.start) }));
-      if (pay.taste) lines.push(t(lang, "whatTaste", { k: pay.taste }));
+      if (pay.taste) { lines.push(t(lang, "whatTaste", { k: pay.taste })); lines.push(t(lang, "tasteMemory")); }
       if (pay.requests > 1) lines.push(t(lang, "whatTwice", { k: pay.requests }));
       lines.push(t(lang, "whatDanmaku"));
     } else lines.push(t(lang, "noPayload"));
@@ -342,7 +352,7 @@
       dimensions = {};
       for (const k of DIMENSIONS) {
         const d = r.dimensions[k];
-        dimensions[k] = { state: d && DIM_STATES.includes(d.state) ? d.state : null, reason: clip(d && d.reason, 200) };
+        dimensions[k] = { state: d && DIM_STATES.includes(d.state) ? d.state : null, reason: clip(d && d.reason, 100) };
       }
     }
     return { reviewId: typeof r.reviewId === "string" ? r.reviewId : null, status, reason: typeof r.reason === "string" ? clip(r.reason, 30) : null,
@@ -540,6 +550,7 @@
     summary: "", textAvailable: true }));
     const view = (r) => ({ reviewId: r.id, state: r.state, range: r.range, lead: r.lead, scope: r.scope, mode: "single",
       willSend: r.state === "ready" ? { what: "a short video clip (with its sound) of this stretch", to: dest, requests: 1, tasteNotes: r.notes.length,
+        leadIn: r.lead > 0 ? { from: +(r.range.start - r.lead).toFixed(2), to: r.range.start, seconds: r.lead } : null,
         projectText: r.scope === "full" ? (opts.projectText != null ? opts.projectText : "18.00-21.50s text: 前面那句\n22.00-26.00s text: 这一句") : "", notes: r.notes,
         seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
       previewSrc: r.state === "ready" ? "/previews/preview_" + r.id + ".mp4" : undefined,
@@ -553,7 +564,7 @@
         const id = "r_" + (++n), lead = +Math.min(3, b.start).toFixed(3);
         const k = (b.scope || "window") === "full" || opts.windowTaste ? opts.taste || 0 : 0;
         const r = { id, range: { start: b.start, end: b.end }, lead, scope: b.scope || "window", state: "rendering", token: "tok_" + n,
-          notes: Array.from({ length: k }, (_, i) => ({ kind: i % 2 ? "negative" : "positive", aspect: "", text: "例子 " + (i + 1) })), polls: opts.renderPolls == null ? 1 : opts.renderPolls };
+          notes: Array.from({ length: k }, (_, i) => ({ kind: i % 2 ? "negative" : "positive", aspect: i % 2 ? null : "subtitle", text: "例子 " + (i + 1) })), polls: opts.renderPolls == null ? 1 : opts.renderPolls };
         live.set(id, r);
         return view(r);
       },
@@ -644,7 +655,10 @@
             if (pay.notes.length) {
               box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNotes")));
               const ul = el(doc, "ul", "review-notes");
-              for (const x of pay.notes) { const li = el(doc, "li", null, t(lang, x.kind === "negative" ? "noteBad" : "noteGood") + "：" + x.text); li.dataset.review = "note"; ul.appendChild(li); }
+              for (const x of pay.notes) {
+                const tag = x.kind === "negative" ? t(lang, "noteBad") : x.aspect ? t(lang, "noteGoodOn", { label: t(lang, "dim_" + x.aspect) }) : t(lang, "noteGood");
+                const li = el(doc, "li", null, tag + t(lang, "noteSep") + x.text); li.dataset.review = "note"; ul.appendChild(li);
+              }
               box.appendChild(ul);
             }
             if (!pay.text && !pay.notes.length) box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoText")));
