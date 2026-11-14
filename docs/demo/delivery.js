@@ -604,7 +604,10 @@
     const val = (m) => (m && m[1] !== "-inf" ? +m[1] : null);
     const out = { lufs: val(i), truePeak: val(p) };
     // nothing above the -70 LUFS gate: ffmpeg prints -70.0 (older builds -inf)
-    if (i && (i[1] === "-inf" || +i[1] <= -69.95)) { out.lufs = null; out.silent = true; }
+    // …but ebur128 needs 400 ms before it can say anything: a clip shorter than that prints -70.0 even with sound in it (Rea, #330). Whenever a peak was
+    // measured the parser does not judge: silent: null means "not judged", and the caller measures the mix against QUIET_DB (export-check.js), the one
+    // standard for "silent" in this repository (QQ, #338). Nothing measurable at all (-inf) stays silent: true.
+    if (i && (i[1] === "-inf" || +i[1] <= -69.95)) { out.lufs = null; out.silent = out.truePeak == null ? true : null; }
     return out;
   }
   const LOUDNESS_ARGS = (file) => ["-hide_banner", "-nostats", "-i", file, "-map", "0:a:0", "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"];

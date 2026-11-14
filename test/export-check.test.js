@@ -212,3 +212,39 @@ test('Rea\'s source on #238: a long FLAC, quiet first and a tone after, read wit
   a.equal(cut.timedOut, true, JSON.stringify(cut));
   a.ok(cut.db == null || cut.db <= C.QUIET_DB, 'only the quiet start, if anything: ' + cut.db);
 });
+
+/* QQ on #338: ebur128 cannot say what the loudness is under 400 ms, but over 400 ms "-70 LUFS" with only a click in it is silence. The parser must not decide the
+   exception by itself (silent: null = not judged), so the one standard of the repository (QUIET_DB, the peak of the mix) decides. */
+const D = require('../delivery');
+const wav = (file, expr, secs) => execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', `aevalsrc='${expr}':s=48000:d=${secs}`, file], { windowsHide: true });
+const measured = (file) => D.parseEbur128(require('node:child_process').spawnSync(FF.path('ffmpeg'), D.LOUDNESS_ARGS(file), { encoding: 'utf8' }).stderr);
+async function exportCheckOf(dir, mix) {
+  const src = path.join(dir, 'src.wav'); wav(src, "0.5*sin(2*PI*440*t)", 3);
+  const plan = C.cleanPlan({ video: [], audio: [{ src: '/media/src.wav', at: 0, dur: 2, t: 1 }], silent: [] });
+  const loud = measured(mix);
+  const r = await C.check({ ffmpeg: FF.path('ffmpeg'), file: mix, plan, resolve: (s) => path.join(dir, s.replace('/media/', '')), silent: C.silentFromLoudness(loud), mix, timeoutMs: 120000 });
+  return { loud, r };
+}
+test('a long file that is silent but for one 5 ms click (peak about -52 dBFS) still fails with EXPORT_BLANK_SOUND, through the same silent decision the server makes', { skip: noFf, timeout: 120_000 }, async (t) => {
+  const dir = tmp(t, 'mcclick-'), mix = path.join(dir, 'mix.wav');
+  wav(mix, "if(lt(t,0.005),0.0025*sin(2*PI*1000*t),0)", 10);
+  const { loud, r } = await exportCheckOf(dir, mix);
+  a.equal(loud.lufs, null); a.ok(loud.truePeak < -50 && loud.truePeak > -60, 'the fixture: I -70 with a peak of ' + loud.truePeak);
+  a.equal(loud.silent, null, 'the parser does not judge it');
+  a.equal(C.silentFromLoudness(loud), null);
+  a.equal(C.failCode(r), 'EXPORT_BLANK_SOUND', 'the sources had sound the export lost');
+});
+test('a 0.3 s clip with real sound passes the export check; 0.3 s of real silence still fails it', { skip: noFf, timeout: 120_000 }, async (t) => {
+  const dir = tmp(t, 'mcshort-'), heard = path.join(dir, 'heard.wav'), quiet = path.join(dir, 'quiet.wav');
+  wav(heard, "0.5*sin(2*PI*1000*t)", 0.3); wav(quiet, "0", 0.3);
+  const ok = await exportCheckOf(dir, heard);
+  a.equal(ok.loud.silent, null); a.equal(C.failCode(ok.r), null, 'sound that is there is not an error');
+  const bad = await exportCheckOf(dir, quiet);
+  a.equal(bad.loud.silent, true); a.equal(C.failCode(bad.r), 'EXPORT_BLANK_SOUND');
+});
+test('silentFromLoudness: true and false as measured, null (measure the mix) where the loudness was not judged, null with no report', () => {
+  a.equal(C.silentFromLoudness({ lufs: -14, truePeak: -1 }), false);
+  a.equal(C.silentFromLoudness({ lufs: null, truePeak: null, silent: true }), true);
+  a.equal(C.silentFromLoudness({ lufs: null, truePeak: -5, silent: null }), null);
+  a.equal(C.silentFromLoudness(null), null);
+});
