@@ -46,6 +46,10 @@
       whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒）。不会另外附带字幕文字、剪辑时间点和好坏例子；画面里本来就有的字幕，还是会跟着画面一起发出去。",   // JJ #326 6872083423 / 6872139855 (PG v4.1 6871970875)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
+      tasteLost: "有 {k} 条好坏例子的文字在重启后没了，这次不会发出去。",   // draft (#328 eb3203ab willSend.tasteLost); JJ to finalize
+      fixedTitle: "每次都会发给模型的固定问题",                       // draft (Deja #326): folded in 「先看要发的内容」; JJ to finalize
+      fixedStandards: "审片标准：",                                  // draft
+      fixedQuestions: "问题：",                                      // draft
       tasteMemory: "好坏例子的文字只在本次运行保留，重启后需重新填写。",   // draft (PG #321 6871936322 三: the words are kept in memory only); JJ to finalize
       whatTwice: "会分 {k} 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。",   // JJ #326 6871859408: willSend.requests > 1 (#328: 1 or 2; two_pass looks blind first)
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
@@ -131,6 +135,10 @@
       whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). It doesn't also send subtitle text, cut points or the saved examples; subtitles that are already in the picture still go out with it.",
       whatEdge: "Subtitles that overlap this part of the picture are sent whole, so they may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
+      tasteLost: "The words of {k} saved examples were lost in a restart, so they won't be sent this time.",
+      fixedTitle: "Fixed questions sent to the model every time",
+      fixedStandards: "Review standards:",
+      fixedQuestions: "Questions:",
       tasteMemory: "The words of these examples are kept only while the app is running; after a restart they need to be written again.",
       whatTwice: "This will be sent {k} times: the first time with only the picture and sound, and the later times also with the other content described above.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
@@ -277,7 +285,19 @@
       if (lead === 0 || f == null || to == null || sec == null || !near_(to, range.start) || !near_(f, range.start - lead) || !near_(sec, lead)) return null;
     } else if (lead > 0 && "leadIn" in ws) return null;
     const video = { start: range.start - lead, end: range.end };
-    return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes };
+    // #328 eb3203ab: how many saved examples lost their words in a restart (they are not sent); absent from older engines = 0
+    const lost = ws.tasteLost == null ? 0 : count_(ws.tasteLost);
+    if (lost == null) return null;
+    // Deja (#326): the fixed standards and questions that go with every send are shown as the engine sends them — from willSend, never
+    // written into the page. Absent (an engine that does not report them yet): nothing is shown; present but malformed: not a description.
+    let fixed = null;
+    if (ws.fixedText != null) {
+      const f = ws.fixedText, list = (a) => (Array.isArray(a) && a.length <= 20 && a.every((x) => typeof x === "string" && x && x.length <= 400) ? a.slice() : null);
+      const standards = list(f && f.standards), questions = list(f && f.questions), ask = f && typeof f.ask === "string" && f.ask.length <= 400 ? f.ask : null;
+      if (!standards || !questions || ask == null) return null;
+      fixed = { standards, questions, ask };
+    }
+    return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes, lost, fixed };
   }
 
   /** The receiver, as the engine reports it: a name and a host, and whether anyone confirmed that host (#328: verified). */
@@ -307,6 +327,7 @@
       lines.push(t(lang, "whatWindow", at));
       if (pay.lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(pay.lead.start), lead: fmtTime(pay.lead.end), leadSec: secs(pay.lead.end - pay.lead.start) }));
       if (pay.taste) { lines.push(t(lang, "whatTaste", { k: pay.taste })); lines.push(t(lang, "tasteMemory")); }
+      if (pay.lost) lines.push(t(lang, "tasteLost", { k: pay.lost }));
       if (pay.requests > 1) lines.push(t(lang, "whatTwice", { k: pay.requests }));
       lines.push(t(lang, "whatDanmaku"));
     } else lines.push(t(lang, "noPayload"));
@@ -557,6 +578,7 @@
     const view = (r) => ({ reviewId: r.id, state: r.state, range: r.range, lead: r.lead, scope: r.scope, mode: "single",
       willSend: r.state === "ready" ? { what: "a short video clip (with its sound) of this stretch", to: dest, requests: 1, tasteNotes: r.notes.length,
         leadIn: r.lead > 0 ? { from: +(r.range.start - r.lead).toFixed(2), to: r.range.start, seconds: r.lead } : null,
+        ...(opts.fixedText ? { fixedText: opts.fixedText } : {}), ...(opts.tasteLost != null ? { tasteLost: r.scope === "full" ? opts.tasteLost : 0 } : {}),
         projectText: r.scope === "full" ? (opts.projectText != null ? opts.projectText : "18.00-21.50s text: 前面那句\n22.00-26.00s text: 这一句") : "", notes: r.notes,
         seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
       previewSrc: r.state === "ready" ? "/previews/preview_" + r.id + ".mp4" : undefined,
@@ -669,6 +691,16 @@
             }
             if (!pay.text) box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoText")));
           } else if (pay && pay.scope === "window") box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNoTextWindow")));
+          if (pay && pay.fixed) {   // folded: the same words the engine sends every time
+            const d = el(doc, "details", "review-fixed"); d.dataset.review = "fixed";
+            d.appendChild(el(doc, "summary", null, t(lang, "fixedTitle")));
+            const part = (title, items, key) => { d.appendChild(el(doc, "p", "dim review-note", title)); const ol = el(doc, "ol", "review-notes");
+              for (const x of items) { const li = el(doc, "li", null, x); li.dataset.review = key; ol.appendChild(li); } d.appendChild(ol); };
+            part(t(lang, "fixedStandards"), pay.fixed.standards, "standard");
+            part(t(lang, "fixedQuestions"), pay.fixed.questions, "question");
+            const ask = el(doc, "p", "dim review-note", pay.fixed.ask); ask.dataset.review = "ask"; d.appendChild(ask);
+            box.appendChild(d);
+          }
         }
         for (const b of m.buttons) {
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
