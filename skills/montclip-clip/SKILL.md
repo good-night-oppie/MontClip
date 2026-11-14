@@ -372,6 +372,8 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 - `no_result` **永远不是通过**，`reason` 会说为什么：`NO_BRIDGE`（没装 `agy`）、`TIMEOUT`、`FORBIDDEN_TOOL`、`BAD_OUTPUT`、`CANCELLED`、`RENDER_FAILED` 等。跟主播就说「这次没检查成」，不要说成「没问题」。
 - `passed` 只说明这一段没挑出毛病，不是证明；只在铺垫里的问题会标 `inLead:true`，别当成这一段的问题，也别丢掉。
 - 一段最多 30 秒（多了回 `TOO_LONG`）；默认带前面 3 秒铺垫（`lead` 0–10 秒）；`timeout` 默认 300 秒，超时只是没等到结果，用 `{action:"status", id}` 再看，或用 `{action:"cancel", id}` 停。
+- `mode:"two_pass"` 是把**同一段发两次**（先不给名牌、标准和剪法地盲看一遍，再带着这次观察完整查一遍），发送量按两份算。小样会先压到 3.2 MB 以内再发；同一个工程在打开期间合计最多 100 MB，超了回 `SEND_LIMIT`，不截短、也不自动降级。
+- 所以「一段 30 秒」不等于「随便查」：一个工程查多了会撞上 100 MB 的顶。查之前先想要查哪几段，别整片扫。
 
 **其余动作**：`prepare`（只渲染）、`status`、`cancel`、`records {limit}` / `record {id}`、`mark {id, finding, mark:"fixed"|"recheck_needed"|"note", note}`（你处理完之后自己标；标记**永远不会**让一次检查变成 `passed`）、`correct {id, digest}`（模型看错了，写一句它实际是什么，≤300 字）、`gate {start,end}`（问「现在这份内容、这一段，有没有真实的通过覆盖」）、`taste` / `taste_add` / `taste_remove`（审美笔记：每条 ≤200 字、最多 30 条，正例要写清认可的是哪一面；**只在内存里，重启就没了**；不要写个人信息和观众昵称）。一次只跑一个检查；小样渲染和导出共用一条队列，所以和导出是串行的。
 
@@ -379,7 +381,7 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 
 **记录里不留原话**：`reviews/<工程>.json` 只存时间点、类别、四维状态、范围、内容指纹和标记，不存发现原文、总结、笔记和纠正文字（可能带观众昵称）。重启后读同一条记录会看到 `textAvailable:false`，只有结构化字段。
 
-**60 秒门禁（Agent 导出）**：用 `fablecut_export` 导**超过 60 秒**的一段（`preview:true` 不算，`start` / `end` 指定的区间也算在内）时，这一段要有真实的 `passed` 覆盖，否则直接拒绝，提示先用 `fablecut_review` 一段段查、再用 `{action:"gate"}` 核对。主人明说要导，才带 `bypassReason`（几个字；文字不保存，只记「何时、哪一段」被绕过了）。
+**60 秒门禁（Agent 导出）**：用 `fablecut_export` 导**超过 60 秒**的一段（`preview:true` 不算；写 `start` / `end` 就按这个区间算，没写就按工程的 IN/OUT 算，都没设才是整条时间线）时，这一段要有真实的 `passed` 覆盖，否则直接拒绝，提示先用 `fablecut_review` 一段段查、再用 `{action:"gate"}` 核对。主人明说要导，才带 `bypassReason`（几个字；文字不保存，只记「何时、哪一段」被绕过了）。
 
 - 主播自己在剪辑器里点〔导出〕不受这条影响；60 秒以内、小样也都不受影响；Cindy 插件的 `montclip_export` 走插件自己的 `/api/export/request`，也不经过这条。
 - **现实口径**：审片默认发不出去（见上），所以这条门禁现在基本等于「Agent 别导超过 60 秒的一段」——遇到就请主播在剪辑器里点〔导出〕；她明说让你导，才带 `bypassReason`。不要自己去打开开关，也不要为了绕过把长片硬切成几段导。
