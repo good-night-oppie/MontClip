@@ -5331,6 +5331,9 @@ html[data-host-theme="light"] .review-dialog .review-warn { color: #8a4b00; }
 .review-dialog .review-preview { width: 100%; max-height: 240px; margin-bottom: 14px; background: #000; border-radius: 6px; }
 .review-dialog .review-headline { font-weight: 600; margin-bottom: 8px; }
 .review-dialog .review-list { list-style: none; margin: 0 0 14px; padding: 0; max-height: 280px; overflow-y: auto; }
+.review-dialog .review-dims { list-style: none; margin: 0 0 10px; padding: 0; }
+.review-dialog .review-dim { padding: 2px 0; }
+.review-dialog .review-dim-issues { font-weight: 600; }
 .review-dialog .review-item { padding: 8px 0; border-top: 1px solid var(--border); }
 .review-dialog .review-jump { padding: 0; text-align: left; font-weight: 600; }
 .review-dialog .review-detail { margin-top: 4px; }
