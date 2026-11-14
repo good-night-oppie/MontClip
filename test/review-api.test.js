@@ -226,7 +226,7 @@ test("the page sees what is sent: how many requests, how many taste notes, to wh
   const S = setup(t, "pass");
   S.store.tasteAdd("p1", { kind: "negative", text: "a caption that explains the joke" });
   S.store.tasteAdd("p1", { kind: "positive", aspect: "pacing", text: "the pause before the reply" });
-  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass" });
+  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass", scope: "full" });
   await until(() => S.svc.status(v.reviewId).state === "ready");
   const w = S.svc.status(v.reviewId).willSend;
   assert.equal(w.requests, 2); assert.equal(w.tasteNotes, 2);
@@ -375,7 +375,7 @@ const NICK = "SENTINEL-NICK-7731";
 const filesUnder = (dir) => fs.readdirSync(dir, { recursive: true }).map((f) => path.join(dir, f)).filter((f) => fs.statSync(f).isFile());
 test("a viewer's name the model quotes is shown for this check but never written to disk; a restart keeps only structured fields", { skip }, async (t) => {
   const S = setup(t, "nick");
-  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass" });
+  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass", scope: "full" });
   await until(() => S.svc.status(v.reviewId).state === "ready");
   const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
   /* in this process the words are there to look at */
@@ -417,7 +417,7 @@ test("taste notes: the words never reach the disk either (a nickname can be type
   const disk = JSON.parse(fs.readFileSync(path.join(S.d, "reviews", "p1.json"), "utf8")).taste;
   assert.deepEqual(disk.map((n) => Object.keys(n).sort()), [["aspect", "at", "id", "kind"], ["aspect", "at", "id", "kind"]]);
   assert.equal(S.store.tasteSendable("p1").length, 2, "in this process the words are here and a check sends them");
-  const v = S.svc.prepare({ start: 24, end: 29 });
+  const v = S.svc.prepare({ start: 24, end: 29, scope: "full" });
   await until(() => S.svc.status(v.reviewId).state === "ready");
   assert.equal(S.svc.status(v.reviewId).willSend.tasteNotes, 2);
   /* after a restart: the notes are there as kinds, without words, and none is sent */
@@ -501,4 +501,57 @@ test("what is sent is capped per project: past the cap nothing is started", { sk
 test("subtitles inside a composition are part of the reference text", () => {
   const doc = { clips: [{ id: "k", kind: "comp", compId: "c1", start: 10, duration: 5 }], comps: [{ id: "c1", clips: [{ start: 1, duration: 2, props: { text: "inside the comp" } }] }] };
   assert.match(skeleton(doc, 9, 16), /11\.00-13\.00s text \(in a composition\): inside the comp/);
+});
+
+/* ---- PG's scope decision on #321 (6871888446): what the page says, what prepare keeps and what goes out are the same ---- */
+const scopeDoc = () => { const d = DOC(); d.clips.push(
+  { id: "x1", start: 20, duration: 3, kind: "text", props: { text: "CROSS-START-LINE" } },
+  { id: "x2", start: 25, duration: 5, kind: "text", props: { text: "CROSS-END-LINE" } },
+  { id: "x3", start: 40, duration: 2, kind: "text", props: { text: "OUTSIDE-LINE" } }); return d; };
+const allPrompts = (S) => fs.readFileSync(S.calls, "utf8").trim().split("\n").map((l) => JSON.parse(l).prompt).join("\n");
+
+test("window (send only these seconds): no taste notes, no project text, at ready and in every request that goes out; a full question's token does not send a window", { skip }, async (t) => {
+  const S = setup(t, "pass"); S.setDoc(scopeDoc());
+  S.store.tasteAdd("p1", { kind: "negative", text: "HISTORIC-NOTE-WINDOW" });
+  const F = setup(t, "pass"); F.setDoc(scopeDoc()); F.store.tasteAdd("p1", { kind: "negative", text: "HISTORIC-NOTE-WINDOW" });
+  const full = F.svc.prepare({ start: 24, end: 26, lead: 2, scope: "full" });
+  await until(() => F.svc.status(full.reviewId).state === "ready");
+  assert.equal(F.svc.status(full.reviewId).willSend.tasteNotes, 1, "a full check shows its note");
+  const fullToken = F.svc.tokenFor(full.reviewId);
+  const v = S.svc.prepare({ start: 24, end: 26, lead: 2, scope: "window", mode: "two_pass" });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const w = S.svc.status(v.reviewId).willSend;
+  assert.equal(w.tasteNotes, 0); assert.deepEqual(w.notes, []); assert.equal(w.projectText, "");
+  assert.doesNotMatch(w.what, /plus your|plus the subtitles/i);
+  await assert.rejects(S.svc.send(v.reviewId, fullToken), (e) => e.status === 403, "the old confirmation is not this one's");
+  await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  const sent = allPrompts(S);
+  for (const w2 of ["HISTORIC-NOTE-WINDOW", "CROSS-START-LINE", "CROSS-END-LINE", "OUTSIDE-LINE"]) assert.ok(!sent.includes(w2), w2 + " did not go out");
+  assert.ok(S.store.get("p1", v.reviewId) === null || S.store.get("p1", v.reviewId).tasteNotes === 0, "the record says no notes were sent");
+});
+
+test("full: whole subtitle lines that touch the clip go, shown as they are, with the plain warning; lines that do not touch it never go", { skip }, async (t) => {
+  const S = setup(t, "pass"); S.setDoc(scopeDoc());
+  S.store.tasteAdd("p1", { kind: "negative", text: "HISTORIC-NOTE-FULL" });
+  const v = S.svc.prepare({ start: 24, end: 26, lead: 2, scope: "full" });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const w = S.svc.status(v.reviewId).willSend;
+  assert.match(w.projectText, /CROSS-START-LINE/); assert.match(w.projectText, /CROSS-END-LINE/);
+  assert.doesNotMatch(w.projectText, /OUTSIDE-LINE/);
+  assert.match(w.what, /may include text from before or after the clip/i);
+  assert.equal(w.notes[0].text, "HISTORIC-NOTE-FULL");
+  await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  const sent = allPrompts(S);
+  assert.ok(sent.includes("CROSS-START-LINE") && sent.includes("CROSS-END-LINE") && sent.includes("HISTORIC-NOTE-FULL"), "what was shown went");
+  assert.ok(!sent.includes("OUTSIDE-LINE"), "a line that does not touch the clip did not");
+});
+
+test("a lead-in is shown with its real range and length; the total is not called the clip's length", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  const v = S.svc.prepare({ start: 24, end: 29, lead: 3 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const w = S.svc.status(v.reviewId).willSend;
+  assert.deepEqual(w.leadIn, { from: 21, to: 24, seconds: 3 });
+  assert.equal(w.seconds, 8);
+  assert.match(w.what, /lead-in of 3 s \(21\.00-24\.00 s\)/);
 });

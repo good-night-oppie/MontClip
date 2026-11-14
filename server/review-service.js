@@ -50,7 +50,8 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   const destination = () => ({ ...bridge.destination(env) });
   const sameDestination = (a, b) => a && b && a.service === b.service && a.host === b.host;
   const what = (r) => ["a short video clip (with its sound) of this stretch",
-    r.scope === "full" ? "plus the subtitles and cut points inside it" : "and nothing else from the project",
+    r.scope === "full" ? "plus the subtitles and cut points that touch it (a subtitle goes whole, so it may include text from before or after the clip)" : "and nothing else from the project (no subtitles, no saved notes)",
+    r.lead > 0 ? `including a lead-in of ${r.lead} s (${(r.range.start - r.lead).toFixed(2)}-${r.range.start.toFixed(2)} s) before the part you chose` : "",
     r.taste ? `plus your ${r.taste} saved taste note${r.taste === 1 ? "" : "s"} (what you approved or rejected before)` : "",
     r.mode === "two_pass" ? "sent in 2 requests: a blind first look, then the full check" : ""].filter(Boolean).join("; ");
   const view = (r) => ({
@@ -58,6 +59,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     willSend: r.state === "ready" ? { what: what(r), to: r.destination, requests: r.mode === "two_pass" ? 2 : 1, tasteNotes: r.taste,
       /* the words themselves, as they will go: the project's subtitles and cut points (scope full) and the taste notes */
       projectText: r.ctx || "", notes: (r.tasteSnap || []).map((t) => ({ kind: t.kind, aspect: t.aspect, text: t.text })),
+      leadIn: r.lead > 0 ? { from: +(r.range.start - r.lead).toFixed(2), to: r.range.start, seconds: r.lead } : null,
       seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: new Date(r.tokenExp).toISOString() } : undefined,
     previewSrc: r.file ? "/previews/" + encodeURIComponent(path.basename(r.file)) : undefined, result: r.result || undefined, reason: r.reason || undefined,
   });
@@ -75,7 +77,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
         /* the sample was rendered from the project as it is now: the words, the notes and the key are taken from that same moment, shown as they are,
            and a later edit makes the picture stale (refused at send) */
         { const doc = readProject() || {}; r.key = store.contentKey(doc); r.revision = doc.revision ?? null;
-          r.ctx = r.scope === "full" ? skeleton(doc, Math.max(0, r.range.start - r.lead), r.range.end) : ""; r.tasteSnap = store.tasteSendable(r.project); r.taste = r.tasteSnap.length; }
+          r.ctx = r.scope === "full" ? skeleton(doc, Math.max(0, r.range.start - r.lead), r.range.end) : ""; r.tasteSnap = r.scope === "full" ? store.tasteSendable(r.project) : []; r.taste = r.tasteSnap.length; }
         r.file = file; r.state = "ready"; r.token = crypto.randomBytes(24).toString("hex"); r.tokenExp = now() + TOKEN_TTL_MS; r.progress = 1; break;
       }
       if (j.status === "failed" || j.status === "cancelled" || j.status === "error") { r.state = r.cancelled ? "cancelled" : "failed"; r.reason = r.cancelled ? "CANCELLED" : "RENDER_FAILED"; break; }
@@ -146,7 +148,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       const doc = readProject() || {};
       const from = Math.max(0, s - l);
       const range = { start: s, end: e };
-      const tasteSnap = store.tasteSendable(project);   // taken again when the sample is ready, and that is what is shown and sent
+      const tasteSnap = scope === "full" ? store.tasteSendable(project) : [];   // "only these seconds" carries no saved notes either   // taken again when the sample is ready, and that is what is shown and sent
       const id = "r_" + crypto.randomBytes(6).toString("hex");
       const job = requestSample({ project, range: { start: from, end: e }, where, revision: doc.revision ?? null });
       const r = { id, project, range, lead: +(s - from).toFixed(3), scope, mode, tasteSnap: tasteSnap, taste: tasteSnap.length, ctx: scope === "full" ? skeleton(doc, from, e) : "", destination: destination(), revision: doc.revision ?? null, key: store.contentKey(doc), state: "rendering", job: job.id,

@@ -107,3 +107,10 @@ Successfully processed 1 files; Failed processing 0 files
 5. 目的地「文档地址 + 明说未验证」是否可接受，还是要真机抓包核一次。
 6. 审美笔记作为项目文字随每次检查发出（有条数提示、可删）是否可接受。
 7. （已按 PG 6868846142 定：四项任一缺证据都是 no_result。）
+
+## 发送范围（PG 决定，#321 6871888446）
+
+- `scope:"window"`（只发这一段，默认）：只发小视频和固定标准；**不带**审美笔记、字幕文字、剪辑时间点、全片上下文。prepare、ready 快照、实际发送载荷三处一致（`willSend.tasteNotes=0`、`notes=[]`、`projectText=""`）。每次 prepare 的确认令牌只对那一次有效，不能把别的检查的令牌用到这一次。
+- `scope:"full"`：附带审美笔记，以及与小样区间相交的字幕条目——**整条发送**，可能包含片段前后的文字；`willSend.what` 明说这一点，`willSend.projectText` 给出实际文字，仍受长度上限约束；完全不相交的条目不发。
+- 有铺垫时 `willSend.leadIn = {from,to,seconds}`，`what` 写出铺垫的起止和时长；`seconds` 是含铺垫的总时长。
+- 目的地未核实：门禁不变（DESTINATION_UNVERIFIED，409 带 destination），由 QQ 另提方案。

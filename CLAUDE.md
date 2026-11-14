@@ -2955,7 +2955,7 @@ agent last wrote, so an export right after a patch includes that patch.
   real pass (a mark can never set it) and stops counting when the project's content changes;
   `no_result` is never a pass. The answer has four separate verdicts (`dimensions`: fact,
   subtitle, pacing, packaging) and passes only when none is `issues`. The clip is judged against
-  fixed team standards plus the project's taste notes (`taste`, `taste_add`, `taste_remove`);
+  fixed team standards plus, only with `scope:"full"`, the project's taste notes (`taste`, `taste_add`, `taste_remove`) and the subtitles/cut points that touch the clip (a subtitle goes whole, so it may include text from before or after the clip; `willSend.projectText` shows it); the default `scope:"window"` sends only the clip and the fixed standards (PG #321); `willSend.leadIn` gives the lead-in's real range and length;
   `mode:"two_pass"` first looks blind, then checks (the clip is sent in 2 requests). An agent
   sending on the streamer's behalf (`check`) is OFF unless `MONTCLIP_REVIEW_AGENT_SEND=1`
   (403 `AGENT_SEND_OFF`); `prepare` always works and the streamer sends with a click.
