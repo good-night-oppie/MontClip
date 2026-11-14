@@ -630,3 +630,25 @@ test("willSend carries the five standards, the five questions and the fixed ask,
     if (mode === "two_pass") for (const x of [...st.rules, ...st.questions, st.ask]) assert.ok(!calls[0].prompt.includes(x), "the blind first look has none of it");
   }
 });
+
+/* ---- PG (#321 6872473697): "only these seconds": the actual payload is checked against the English sentence the API returns ---- */
+test("window: the request itself carries 0 good/bad examples, no edit points, no project text, no subtitle text of its own; willSend.what is the adopted sentence", { skip }, async (t) => {
+  for (const mode of ["single", "two_pass"]) {
+    const S = setup(t, "pass"); S.setDoc(scopeDoc());
+    S.store.tasteAdd("p1", { kind: "negative", text: "HISTORIC-NOTE-WINDOW" });
+    S.store.tasteAdd("p1", { kind: "positive", aspect: "pacing", text: "HISTORIC-PRAISE-WINDOW" });
+    const v = S.svc.prepare({ start: 24, end: 26, lead: 2, scope: "window", mode });
+    await until(() => S.svc.status(v.reviewId).state === "ready");
+    const w = S.svc.status(v.reviewId).willSend;
+    assert.ok(w.what.includes("No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video."), w.what);
+    assert.equal(w.tasteNotes, 0); assert.deepEqual(w.notes, []); assert.equal(w.projectText, "");
+    const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+    assert.equal(rec.tasteNotes, 0, mode + ": the record says no examples went");
+    const calls = fs.readFileSync(S.calls, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(calls.length, mode === "two_pass" ? 2 : 1);
+    for (const c of calls) {
+      for (const bad of ["APPROVED before", "REJECTED before", "HISTORIC-NOTE-WINDOW", "HISTORIC-PRAISE-WINDOW", "text from the project", "clip starts", "cut points", "CROSS-START-LINE", "CROSS-END-LINE", "OUTSIDE-LINE", "text:"])
+        assert.ok(!c.prompt.includes(bad), mode + ": the request has no \"" + bad + "\"");
+    }
+  }
+});
