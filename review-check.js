@@ -329,11 +329,15 @@
     // a send that was called and failed may have reached the receiver: that comes first, whatever its code says (QQ #326 5900512724 item 2)
     if (status === "no_result") headline = raw && raw.sendError === true ? t(lang, "sendFailed")
       : r.reason === "NO_BRIDGE" ? t(lang, "unavailable") : r.reason === "BUSY" ? t(lang, "busy")
-      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span }) : t(lang, "noResult");
+      : r.reason === "PREPARE_FAILED" ? t(lang, "prepareFailed", { n: span })
+      : r.reason === "INSUFFICIENT_EVIDENCE" ? t(lang, "insufficient") : t(lang, "noResult");
     else if (status === "passed") headline = t(lang, "passed", { n: span });
-    else headline = t(lang, "issues", { count: main.length || r.findings.length });
+    else headline = t(lang, "issues", { count: main.length || r.findings.length || DIMENSIONS.filter((k) => r.dimensions[k].state === "issues").length });
     if (status !== "no_result" && r.scope === "window") notes.push(t(lang, "windowOnly", { n: span }));
-    if (status !== "no_result" && r.contextTruncated) notes.push(t(lang, "truncated", { n: span }));
+    if (!r.textAvailable) notes.push(t(lang, "textGone"));
+    const dims = r.dimensions && !(raw && raw.sendError === true) ? DIMENSIONS.map((k) => ({ key: k, state: r.dimensions[k].state,
+      line: t(lang, "dimLine", { label: t(lang, "dim_" + k), state: t(lang, "dimState_" + (r.dimensions[k].state || "unknown")) })
+        + (r.dimensions[k].reason ? t(lang, "dimReason", { text: r.dimensions[k].reason }) : "") })) : [];
     const items = r.findings.slice().sort((a, b) => a.t - b.t).map((f) => ({
       id: f.id, t: f.t, time: fmtTime(f.t), label: t(lang, "type_" + f.type) + (f.inLead ? t(lang, "inLead") : ""),
       detail: f.text, suggestion: f.suggestion ? t(lang, "suggestion", { text: f.suggestion }) : "", inLead: f.inLead, mark: f.mark,
