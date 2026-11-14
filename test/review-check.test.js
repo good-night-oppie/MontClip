@@ -631,13 +631,27 @@ test("JJ #326: STORE_FAILED (#328: the clip may already have gone out, the recor
   a.notEqual(R.resultModel({ status: 'no_result', reason: 'PREPARE_FAILED', why: 'STORE_FAILED', findings: [] }, 'zh-CN', 10).headline, r.headline);
 });
 
-test("#328 85d9e8d1: outside the desktop window no send token is shown — the box says so and nothing can be sent", async () => {
+test("#328 85d9e8d1 / PG #321 6872395398: in the Cindy plugin or a browser no send token is shown — view-only: no send buttons at all, one plain line, the clip can still be looked at", async () => {
+  const line = '这一步要在 MontClip 窗口里点，这里只能先看会发什么。';
   const m = R.confirmModel(await readyView({ noPage: true }), 'zh-CN');
   a.equal(m.canSend, false);
-  a.ok(m.lines.includes('这个页面不能发送检查，要发送请在 MontClip 桌面版的窗口里操作；这里只能先看会发什么。'));
-  a.ok(m.buttons.filter((b) => b.id !== 'cancel').every((b) => !b.enabled));
+  a.ok(m.lines.includes(line));
+  a.deepEqual(m.buttons.filter((b) => !b.hidden).map((b) => b.id), ['preview', 'cancel']);
   const ok = R.confirmModel(await readyView({}), 'zh-CN');
   a.equal(ok.canSend, true);
-  a.ok(!ok.lines.includes('这个页面不能发送检查，要发送请在 MontClip 桌面版的窗口里操作；这里只能先看会发什么。'));
-  a.ok(R.confirmModel(await readyView({ noPage: true }), 'en').lines.includes("Checks can't be sent from this page. To send one, use the MontClip desktop window; here you can only see what would be sent first."));
+  a.ok(!ok.lines.includes(line));
+  a.ok(ok.buttons.every((b) => !b.hidden));
+  a.ok(R.confirmModel(await readyView({ noPage: true }), 'en').lines.includes("This step has to be done in the MontClip window; here you can only see what would be sent first."));
+  // mounted: the box has no 「发送检查」 / 「只发这 10 秒」, every button shown does something, and nothing is sent
+  const api = R.stubApi({ noPage: true }), w = mountWith(api);
+  await settle(); w.button.click(); await settle();
+  a.equal(w.byReview('full').length, 0);
+  a.equal(w.byReview('window').length, 0);
+  a.ok(w.text().includes(line));
+  const pv = w.byReview('preview')[0];
+  a.equal(pv.disabled, false, 'looking at the clip still works');
+  pv.click(); await settle();
+  a.ok(w.ui.session.state.previewSrc, 'the clip is shown');
+  a.equal(w.byReview('cancel')[0].disabled, false);
+  a.ok(!api.calls.some((c) => c[0] === 'send'));
 });
