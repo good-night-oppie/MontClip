@@ -655,3 +655,21 @@ test("#328 85d9e8d1 / PG #321 6872395398: in the Cindy plugin or a browser no se
   a.equal(w.byReview('cancel')[0].disabled, false);
   a.ok(!api.calls.some((c) => c[0] === 'send'));
 });
+
+test("PG #321 6872473697: the page picks the sentence by scope; 「只发这 N 秒」 is JJ's final sentence; the English one is #328's willSend.what sentence word for word", async () => {
+  const JJ = '点「只发这 10 秒」会发出去：0:20–0:30 的画面和声音（10 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。';
+  // #328 fb0de17c review-service.js what(): the window part, as test/review-api.test.js there locks it
+  const ENGINE = 'No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.';
+  const noLead = async (scope) => { const v = await readyView({}, { start: 20, end: 30 }, scope); return { ...v, willSend: { ...v.willSend, seconds: 10, leadIn: null }, lead: 0 }; };
+  const w0 = await noLead('window');
+  // by scope: a window clip says only what the window button sends; a full clip says both, the full one first
+  const win = R.confirmModel(w0, 'zh-CN'), full = R.confirmModel(await noLead('full'), 'zh-CN');
+  const zh = (k) => R.t('zh-CN', k, { n: 10, from: '0:20', to: '0:30', sec: '10' });
+  a.ok(win.lines.includes(JJ), win.lines.join('|'));
+  a.ok(!win.lines.includes(zh('whatFull')) && !win.lines.includes(zh('whatEdge')), 'a window clip does not promise the full send');
+  a.ok(full.lines.includes(zh('whatFull')) && full.lines.includes(zh('whatEdge')) && full.lines.includes(JJ));
+  a.ok(full.lines.indexOf(zh('whatFull')) < full.lines.indexOf(JJ));
+  // English: the window sentence carries the engine's sentence unchanged
+  const en = R.confirmModel(w0, 'en').lines.find((l) => l.startsWith('Clicking “Send only these 10 s”'));
+  a.ok(en && en.endsWith(' ' + ENGINE), en);
+});
