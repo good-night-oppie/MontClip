@@ -483,70 +483,52 @@
       set({ raw: { ...raw, findings } });
       return true;
     }
-    /** No check possible (no bridge on this computer, or one already running): say so, nothing is prepared or sent. */
-    function noResult(range, reason) { s.gen++; set({ phase: "result", range, prep: null, previewSrc: null, raw: { status: "no_result", reason, findings: [] } }); }
-    return { state: s, check, preview, noResult, send, cancel, close, markFixed, recheck: (statusDest) => (s.range ? check(s.range, statusDest || s.statusDest) : null),
+    return { state: s, check, preview, send, cancel, close, markFixed, recheck: () => (s.range ? check(s.range) : null),
       on(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
   }
 
-  /**
-   * Prewarm once the playhead rests: `tick(time, playing, blocked)` from a timer; after `delay` ms at the same time, not
-   * playing and not blocked (an export running, a check open), it asks the server to make that clip ahead of time —
-   * on this computer, one at a time, never again for the same stretch until it changes.
-   */
-  function createPrewarmer({ api, delay = PREWARM_DELAY, now, range = (tm) => tm } = {}) {
-    if (typeof now !== "function") now = () => Date.now();
-    let lastT = null, since = 0, inFlight = false, doneKey = null;
-    return {
-      tick(time, playing, blocked) {
-        const tt = num(time);
-        if (tt == null || playing) { lastT = null; return false; }
-        if (lastT == null || Math.abs(tt - lastT) > 1e-3) { lastT = tt; since = now(); return false; }
-        if (blocked || inFlight || now() - since < delay) return false;
-        const r = range(tt);
-        if (!r) return false;
-        const key = r.start + "-" + r.end;
-        if (key === doneKey) return false;
-        inFlight = true; doneKey = key;
-        Promise.resolve().then(() => api.prewarm({ start: r.start, end: r.end })).catch(() => { doneKey = null; }).finally(() => { inFlight = false; });
-        return true;
-      },
-      reset() { doneKey = null; },
-    };
-  }
-
-  /** A stand-in for the engine (interface v0) until #325 and Cindy's step 1 are in: tests and nothing else. No network. */
+  /** A stand-in for the engine (#328's /api/review/* shapes): tests and nothing else. No network. */
   function stubApi(opts = {}) {
     const calls = [];
-    const dest = opts.destination === undefined ? { service: "Gemini", host: "generativelanguage.googleapis.com" } : opts.destination;
+    const dest = opts.destination === undefined ? { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "owner-confirmed", verified: true } : opts.destination;
     let n = 0;
     const live = new Map();
-    const result = opts.result || ((scope, range) => ({ status: "issues", range, scope, revision: 8, findings: [
+    const result = opts.result || ((scope, range) => ({ status: "issues", range, scope, findings: [
       { id: 0, t: range.start + 4.2, type: "speaker_swapped", text: "左边的人说话时，字幕标成了右边的名字。", suggestion: "把这两句字幕的说话人对调。", inLead: false, mark: null }],
-    summary: "", windowDigest: "", contextTruncated: false }));
+    dimensions: { fact: { state: "issues", reason: "名牌和说话的人对不上。" }, subtitle: { state: "passed", reason: "" }, pacing: { state: "passed", reason: "" }, packaging: { state: "passed", reason: "" } },
+    summary: "", textAvailable: true }));
+    const view = (r) => ({ reviewId: r.id, state: r.state, range: r.range, lead: r.lead, scope: r.scope, mode: "single",
+      willSend: r.state === "ready" ? { what: "a short video clip (with its sound) of this stretch", to: dest, requests: 1, tasteNotes: opts.taste || 0,
+        seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
+      previewSrc: r.state === "ready" ? "/previews/preview_" + r.id + ".mp4" : undefined,
+      sendToken: r.state === "ready" ? r.token : undefined });
     return {
-      calls,
-      async status() { calls.push(["status"]); return opts.status || { available: true, destination: dest }; },
+      calls, live,
+      async available() { calls.push(["available"]); return opts.available !== false; },
       async prepare(b) {
         calls.push(["prepare", b]);
-        if (opts.prepareError) { const e = new Error(opts.prepareError); e.code = opts.prepareError; throw e; }
-        const reviewId = "r_" + (++n), sendToken = "tok_" + n;
-        const range = { start: b.start, end: b.end }, lead = b.start > 0 ? { start: Math.max(0, b.start - 1.5), end: b.start } : null;
-        live.set(reviewId, { sendToken, range });
-        return { reviewId, sendToken, expiresAt: "2026-11-14T00:10:00Z", range, lead, durationSec: b.end - (lead ? lead.start : b.start), bytes: 2_400_000, cacheHit: false,
-          willSend: { video: { start: lead ? lead.start : b.start, end: b.end, sec: b.end - (lead ? lead.start : b.start) }, text: { scope: "full", subtitleChars: 1824, cutPoints: 37, truncated: false }, destination: dest } };
+        if (opts.prepareError) { const e = new Error(opts.prepareError); e.code = opts.prepareError; if (opts.prepareError === "DESTINATION_UNVERIFIED") e.body = { destination: dest }; throw e; }
+        const id = "r_" + (++n), lead = +Math.min(3, b.start).toFixed(3);
+        const r = { id, range: { start: b.start, end: b.end }, lead, scope: b.scope || "window", state: "rendering", token: "tok_" + n, polls: opts.renderPolls == null ? 1 : opts.renderPolls };
+        live.set(id, r);
+        return view(r);
       },
-      async preview(id) { calls.push(["preview", id]); return { src: "/previews/preview_" + id + ".mp4" }; },
-      async send(b) {
-        calls.push(["send", b]);
-        const r = live.get(b.reviewId);
-        if (!r || r.sendToken !== b.sendToken) { const e = new Error("bad token"); e.code = "TOKEN"; throw e; }
-        live.delete(b.reviewId);
-        return { reviewId: b.reviewId, source: "streamer", ...result(b.scope, r.range) };
+      async status(id) {
+        calls.push(["status", id]);
+        const r = live.get(id);
+        if (!r) { const e = new Error("no such check"); e.code = "NO_SUCH_REVIEW"; throw e; }
+        if (r.state === "rendering" && --r.polls <= 0) r.state = opts.renderFails ? "failed" : "ready";
+        return view(r);
       },
-      async cancel(id) { calls.push(["cancel", id]); live.delete(id); return { ok: true }; },
+      async send(id, token) {
+        calls.push(["send", id, token]);
+        const r = live.get(id);
+        if (!r || r.state !== "ready" || r.token !== token) { const e = new Error("not confirmed"); e.code = "NOT_CONFIRMED"; throw e; }
+        r.state = "done"; live.delete(id);
+        return { reviewId: id, source: "streamer", ...result(r.scope, r.range) };
+      },
+      async cancel(id) { calls.push(["cancel", id]); const r = live.get(id); if (r) { r.state = "cancelled"; live.delete(id); } return { reviewId: id, state: "cancelled" }; },
       async mark(b) { calls.push(["mark", b]); if (b.mark === "passed") { const e = new Error("no"); e.status = 400; throw e; } return { ok: true }; },
-      async prewarm(b) { calls.push(["prewarm", b]); return { queued: true }; },
     };
   }
 
@@ -554,16 +536,15 @@
   function el(doc, tag, cls, txt) { const e = doc.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
 
   /**
-   * Wire the button and the box into the editor. env: {doc, button, lang(), time(), playing(), duration(), inOut(),
-   * seek(t), blocked(), api?, setInterval?, now?}. Returns {session, refresh, prewarmer}.
+   * Wire the button and the box into the editor. env: {doc, button, lang(), time(), duration(), inOut(), seek(t), api?,
+   * setInterval?, pollMs?, wait?}. Returns {session, refresh, overlay, render}. (Prewarm is the next batch — #328 B8.)
    */
   function mount(env) {
     const doc = env.doc, api = env.api || httpApi(), btn = env.button;
-    const session = createSession(api);
-    let status = null;
+    const session = createSession(api, { pollMs: env.pollMs, wait: env.wait });
+    let present = false;
     const L = () => lang_(env.lang ? env.lang() : "zh-CN");
     const rangeNow = () => pickRange({ time: env.time(), duration: env.duration(), ...(env.inOut ? env.inOut() : {}) });
-    const prewarmer = createPrewarmer({ api, now: env.now, range: (tm) => pickRange({ time: tm, duration: env.duration(), ...(env.inOut ? env.inOut() : {}) }) });
 
     const overlay = el(doc, "div", "overlay hidden review-overlay");
     const box = el(doc, "div", "dialog review-dialog");
@@ -581,10 +562,15 @@
       btn.disabled = !r;
     }
     async function refresh() {
-      status = await api.status().catch(() => null);
-      if (btn) btn.classList.toggle("hidden", !status);   // no review routes on this server: no button
+      present = await Promise.resolve().then(() => api.available()).catch(() => false);
+      if (btn) btn.classList.toggle("hidden", !present);   // no review routes on this server: no button
       labelButton();
-      return status;
+      return present;
+    }
+    function boxLines(m) {
+      for (const line of m.lines) box.appendChild(el(doc, "p", "review-line", line));
+      const to = el(doc, "p", "review-to" + (m.warn ? " review-warn" : ""), m.to); to.dataset.review = "to"; box.appendChild(to);
+      const tr = el(doc, "p", "review-training", m.training); tr.dataset.review = "training"; box.appendChild(tr);
     }
     function render(s) {
       const lang = L();
@@ -598,14 +584,13 @@
       box.appendChild(h);
       const actions = el(doc, "div", "dialog-actions review-actions");
       const add = (id, label, on, cls) => { const b = el(doc, "button", "btn review-action" + (cls ? " " + cls : ""), label); b.dataset.review = id; b.addEventListener("click", on); actions.appendChild(b); return b; };
+      const fellBack = !!(s.range && s.range.fellBack);
       if (s.phase === "preparing") {
         box.appendChild(el(doc, "p", "dim review-note", t(lang, "preparing", { n })));
         add("cancel", t(lang, "cancelPrep"), () => session.cancel());
-      } else if (s.phase === "confirm") {
-        const m = confirmModel(s.prep, lang, s.statusDest, { fellBack: !!(s.range && s.range.fellBack) });
-        for (const line of m.lines) box.appendChild(el(doc, "p", "review-line", line));
-        const to = el(doc, "p", "review-to" + (m.destination ? "" : " review-warn"), m.to); to.dataset.review = "to"; box.appendChild(to);
-        const tr = el(doc, "p", "review-training", m.training); tr.dataset.review = "training"; box.appendChild(tr);
+      } else if (s.phase === "confirm" || s.phase === "unverified") {
+        const m = s.phase === "confirm" ? confirmModel(s.prep, lang, { fellBack, changed: s.changed }) : unverifiedModel(s.dest, lang, s.range);
+        boxLines(m);
         if (s.previewSrc) {
           const v = el(doc, "video", "review-preview"); v.controls = true; v.preload = "metadata"; v.src = s.previewSrc;
           box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNote"))); box.appendChild(v);
@@ -618,9 +603,14 @@
       } else if (s.phase === "sending") {
         box.appendChild(el(doc, "p", "dim review-note", t(lang, "sending")));
       } else if (s.phase === "result") {
-        const m = resultModel(s.raw, lang, n, { fellBack: !!(s.range && s.range.fellBack) });
+        const m = resultModel(s.raw, lang, n, { fellBack });
         const head = el(doc, "p", "review-headline review-" + m.status, m.headline); head.dataset.review = "headline"; box.appendChild(head);
         for (const note of m.notes) box.appendChild(el(doc, "p", "dim review-note", note));
+        if (m.dims.length) {
+          const ul = el(doc, "ul", "review-dims");
+          for (const d of m.dims) { const li = el(doc, "li", "review-dim review-dim-" + (d.state || "unknown"), d.line); li.dataset.review = "dim"; li.dataset.dim = d.key; ul.appendChild(li); }
+          box.appendChild(ul);
+        }
         if (m.items.length) {
           const ul = el(doc, "ul", "review-list");
           for (const it of m.items) {
@@ -649,33 +639,19 @@
       box.appendChild(actions);
     }
     session.on(render);
-    /**
-     * 「检查这 10 秒」 and 「重新检查」: the receiver is read again each time, never remembered from when the page opened.
-     * QQ #326 item 3: each press is the newest intent; a later press, 「关闭」 or 「不发了」 while the receiver is being read
-     * makes the earlier one do nothing when its answer comes.
-     */
-    let intent = 0;
-    async function start(r) {
-      if (!r || session.state.phase === "preparing" || session.state.phase === "sending") return;
-      const mine = ++intent, gen = session.state.gen;
-      const live = () => mine === intent && gen === session.state.gen;
-      await refresh();
-      if (!live() || !status) return;
-      if (!status.available) { session.noResult(r, status.reason === "BUSY" ? "BUSY" : "NO_BRIDGE"); return; }
-      await session.check(r, status.destination);
+    /** 「检查这 10 秒」 and 「重新检查」: each press is a new check (prepare again; the receiver is read from the engine each time). */
+    function start(r) {
+      if (!r || !present || session.state.phase === "preparing" || session.state.phase === "sending") return null;
+      return session.check(r);
     }
     if (btn) btn.addEventListener("click", () => { void start(rangeNow()); });
     overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); void session.close(); } });
     const every = env.setInterval || ((fn, ms) => setInterval(fn, ms));
-    every(() => {
-      labelButton();
-      const open = session.state.phase !== "idle" && session.state.phase !== "closed";
-      if (status && status.available) prewarmer.tick(env.time(), env.playing(), open || (env.blocked ? env.blocked() : false));
-    }, 500);
+    every(() => labelButton(), 500);
     void refresh();
-    return { session, refresh, prewarmer, overlay, render: () => render(session.state) };
+    return { session, refresh, overlay, render: () => render(session.state) };
   }
 
-  return { text, t, fmtTime, pickRange, destinationOf, payloadOf, confirmModel, cleanResult, resultModel, httpApi, safePreviewSrc,
-    createSession, createPrewarmer, stubApi, mount, SPAN, MAX_SPAN, PREWARM_DELAY };
+  return { text, t, fmtTime, pickRange, destinationOf, payloadOf, confirmModel, unverifiedModel, cleanResult, resultModel, httpApi, safePreviewSrc,
+    createSession, stubApi, mount, SPAN, MAX_SPAN, DIMENSIONS };
 });
