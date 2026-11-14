@@ -96,7 +96,9 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     if (r.state !== "ready") throw httpError(409, "that check is not waiting to be sent", { code: "NOT_READY" });
     if (activeProject() !== r.project) { r.state = "failed"; r.reason = "PROJECT_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "another project is open now; prepare again", { code: "PROJECT_CHANGED" }); }
     if (store.contentKey(readProject() || {}) !== r.key) { r.state = "failed"; r.reason = "PROJECT_EDITED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "the project was edited after this sample was made, so it no longer matches; prepare again", { code: "PROJECT_EDITED" }); }
-    { const need = (r.mode === "two_pass" ? 2 : 1) * bridge.MAX_SAMPLE_BYTES; if (store.sentTotal(r.project) + need > sendCapBytes) { r.state = "failed"; r.reason = "SEND_LIMIT"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "this project has reached its limit for video sent out", { code: "SEND_LIMIT" }); } }
+    /* a ledger that cannot be read: nothing is sent, the tool is not started (it would go out with no record and no count) */
+    let sentSoFar; try { sentSoFar = store.sentTotal(r.project); } catch (e) { r.state = "failed"; r.reason = "LEDGER_UNREADABLE"; r.token = null; dropSample(r); onChange(r); throw e; }
+    { const need = (r.mode === "two_pass" ? 2 : 1) * bridge.MAX_SAMPLE_BYTES; if (sentSoFar + need > sendCapBytes) { r.state = "failed"; r.reason = "SEND_LIMIT"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "this project has reached its limit for video sent out", { code: "SEND_LIMIT" }); } }
     if (!destination().verified || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
@@ -110,6 +112,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
         contextText: ctx, digests, taste: r.tasteSnap, mode: r.mode, env, agy: agyOverride || undefined, onChild: (c) => { r.child = c; }, isCancelled: () => r.cancelled });
     } catch (e) { res = { status: "no_result", reason: "FAILED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" }; }
     r.child = null;
+    try { store.countSent(r.project, res.sentBytes); } catch { }   // what went out is counted before the record is saved: a record that cannot be saved does not make it unsent (#334)
     dropSample(r);
     if (r.cancelled) res = { status: "no_result", reason: "CANCELLED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" };
     let rec;

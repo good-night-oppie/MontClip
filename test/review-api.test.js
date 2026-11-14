@@ -675,3 +675,70 @@ test("scope contract: for window and for full, what willSend claims (what / tast
     assert.ok(!prompt.includes("OUTSIDE-LINE"), scope);
   }
 });
+
+/* ---- #334 / #333 (QQ's review of #328, "may be a problem"): what has been sent is counted on its own, not from the records that happen to be left ---- */
+test("#334: a send whose record could not be saved (STORE_FAILED) still counts toward the project's cap", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  S.store.add = () => { throw Object.assign(new Error("disk full"), { status: 500, code: "LEDGER_UNWRITABLE" }); };
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  await assert.rejects(S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId)), (e) => e.code === "STORE_FAILED");
+  assert.ok(S.store.sentTotal("p1") > 0, "the video went out, so it is counted");
+});
+
+test("#334: records rolling off the end of the ledger do not make the total smaller", (t) => {
+  const s = createReviewStore({ dir: tmp(t) });
+  for (let i = 0; i < 205; i++) { s.countSent("p", 1000); s.add("p", { reviewId: "r" + i, status: "issues", range: { start: 0, end: 1 }, contentKey: "k", sentBytes: 1000, findings: [] }); }
+  assert.equal(s.list("p", 500).length, 200, "only 200 records are kept");
+  assert.equal(s.sentTotal("p"), 205_000, "but all 205 sends are counted");
+});
+
+test("#333/#334: a ledger removed because its old words could not be cleaned away takes the sent total with it only on disk; this process keeps counting", (t) => {
+  const d = tmp(t), s = createReviewStore({ dir: d });
+  s.countSent("p", 5000);
+  const f = path.join(d, "p.json");
+  fs.writeFileSync(f, JSON.stringify({ version: 1, sentBytesTotal: 5000, records: [{ reviewId: "r", status: "issues", range: { start: 0, end: 1 }, contentKey: "k", sentBytes: 5000, summary: NICK, findings: [] }] }));
+  fs.mkdirSync(f + "." + process.pid + ".tmp");           // the cleaned copy cannot be written
+  assert.equal(s.list("p").length, 0, "nothing is read from a file that could not be cleaned");
+  assert.equal(fs.existsSync(f), false, "the file with the old words is gone");
+  assert.equal(s.sentTotal("p"), 5000, "the count is kept by this process");
+});
+
+/* QQ's ruling on #321 (6874674433): an agent may send without a click, and every such send is written to the local record: where, which kinds, how many bytes, who started it, when; no free text */
+test("an agent's send (switch on) is recorded on disk with service and domain, kinds, bytes, initiator and time, and no free text", { skip }, async (t) => {
+  const S = setup(t, "issues", { agentSend: true });
+  const v = S.svc.prepare({ start: 24, end: 29, scope: "full", agent: true, autoSend: true });
+  const rec = await until(() => { const x = S.store.list("p1", 5)[0]; return x && x.reviewId === v.reviewId ? x : null; });
+  const disk = JSON.parse(fs.readFileSync(path.join(S.d, "reviews", "p1.json"), "utf8")), onDisk = disk.records.find((r) => r.reviewId === v.reviewId);
+  assert.equal(onDisk.source, "agent");
+  assert.deepEqual({ service: onDisk.destination.service, host: onDisk.destination.host }, { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com" });
+  assert.ok(onDisk.sentBytes > 0 && onDisk.sentBytes <= 3_355_443);
+  assert.ok(Array.isArray(onDisk.passes) && onDisk.passes.length >= 1 && onDisk.passes.every((p) => typeof p.kind === "string" && p.clipBytes > 0));
+  assert.ok(/^\d{4}-\d\d-\d\dT/.test(onDisk.at));
+  assert.ok(disk.sentBytesTotal >= onDisk.sentBytes, "the send is counted");
+  const text = JSON.stringify(disk);
+  for (const w of ["The name plates look swapped", "Host on the left", "Swap the two name plates"]) assert.ok(!text.includes(w), "no free text on disk: " + w);
+  assert.equal(rec.source, "agent");
+});
+
+/* QQ on #339: a ledger that cannot be read stops the send before anything goes out; no ledger at all is just the first send */
+test("a ledger that cannot be read stops a send before anything leaves: the tool is not started, the sample is dropped, the ledger is not touched", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  fs.mkdirSync(path.join(S.d, "reviews"), { recursive: true });
+  const f = path.join(S.d, "reviews", "p1.json"); fs.writeFileSync(f, "{ not json");
+  await assert.rejects(S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId)), (e) => e.status === 500 && e.code === "LEDGER_UNREADABLE" && !String(e.message).includes(S.d));
+  assert.equal(fs.existsSync(S.report), false, "the tool was never started");
+  assert.equal(fs.readFileSync(f, "utf8"), "{ not json", "what was there is still there");
+  assert.throws(() => S.store.sentTotal("p1"), (e) => e.code === "LEDGER_UNREADABLE", "the total is not guessed as 0");
+});
+test("with no ledger yet the first send goes as usual, and is counted", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  assert.equal(S.store.sentTotal("p1"), 0, "nothing sent yet");
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  assert.equal(rec.status, "passed"); assert.equal(fs.existsSync(S.report), true, "the tool ran");
+  assert.ok(S.store.sentTotal("p1") > 0);
+});

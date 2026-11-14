@@ -23,7 +23,7 @@
 ## 谁触发、能不能关
 
 1. **主播在编辑器里点：** 页面先 `prepare`（只渲染小样，什么都不发），随后展示「将发送：这一段约 N 秒的小视频（带声音）；发给：Google Gemini；可能用于训练」，主播点〔发送〕才 `send`。`send` 需要 `prepare` 之后服务器给这一次检查的**一次性令牌**（10 分钟内有效，用一次就作废，只给编辑器页面看，Agent 看不到）。
-2. **Agent 替主播点：默认关闭（Deja 6867787475）。** 服务器只在环境变量 `MONTCLIP_REVIEW_AGENT_SEND=1` 时才接受 Agent 的 `send:true`（MCP `fablecut_review` 的 `check`）；没开时回 403 `AGENT_SEND_OFF`，什么都不渲染也不发。Agent 仍可 `prepare`（只渲染），由主播在页面点〔发送〕。**这个开关要等主人授权原文和范围核实后才打开；我在仓库和单里没找到「主人 11-12 授权」的原文（我最早写的接口 v0 里引用过这句，但我没有链接可附），所以这里不附，也不声称有。** 请 QQ 核验时向 Deja / 主人要原文；打开前先把链接和范围补进本节。若打开：Cindy 在对话里听到主播说「帮我看看这一段」，才用 `send:true` 调用。能力表里 `fablecut_review` 的风险等级是 `external`，和 `assistant_request`、`cloud_transcribe` 同属外发类（`agent-policy.js` 按它的等级和上限处理，本 PR 没有改 agent-policy，也没有在真机上验证它会弹哪张确认卡）；上限在 `capabilities.js` 的 `VIDEO`（每次 3.2 MB，每个打开的工程 100 MB；**100 MB 是我提的数，请 QQ 定**）。页面自己发 `send:true` 会被 403 拒绝。
+2. **Agent 替主播点：默认关闭（Deja 6867787475）。** 服务器只在环境变量 `MONTCLIP_REVIEW_AGENT_SEND=1` 时才接受 Agent 的 `send:true`（MCP `fablecut_review` 的 `check`）；没开时回 403 `AGENT_SEND_OFF`，什么都不渲染也不发。Agent 仍可 `prepare`（只渲染），由主播在页面点〔发送〕。**授权来源已补：** 主人在 Deja 主会话（a2d3693d）2026-11-14 的回复，记录和 QQ 的裁定见 https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6874674433 ；范围和条件见下面「授权更新」一节。开关仍默认关闭。若打开：Cindy 在对话里听到主播说「帮我看看这一段」，才用 `send:true` 调用。能力表里 `fablecut_review` 的风险等级是 `external`，和 `assistant_request`、`cloud_transcribe` 同属外发类（`agent-policy.js` 按它的等级和上限处理，本 PR 没有改 agent-policy，也没有在真机上验证它会弹哪张确认卡）；上限在 `capabilities.js` 的 `VIDEO`（每次 3.2 MB，每个打开的工程 100 MB；**100 MB 是我提的数，请 QQ 定**）。页面自己发 `send:true` 会被 403 拒绝。
 3. **关闭：** 没有任何自动触发、定时触发或后台预发（B8 的预热还没做；做的时候也只在本机渲染，不发送）。主播不点、Cindy 没被要求，就不会发。发送前可取消（`cancel`，令牌立刻作废，已渲染的小样删除）；发送中取消会结束 `agy` 的进程树。卸载或不装 `agy` 时，`prepare` 直接回 `NO_BRIDGE`，什么都不渲染。
 3a. **发出去的就是展示过的（ReviewInbox 对首个 head 的审查所指出的四点，已修，各有测试）：** 工程里的字幕文字和审美笔记在 `prepare` 那一刻就定下来（快照），之后改了字幕、加了笔记都不会随这次发送出去；`send` 时若打开的已是另一个工程，令牌作废（409 `PROJECT_CHANGED`），什么都不发；压缩副本还在做的时候取消，取消标志会在启动 `agy` 之前（两次请求之间也一样）被检查，`agy` 一次都不会启动（记录为 `no_result: CANCELLED`）；`gate` 以「最新的、涉及这一秒的检查」为准，之后对更小一段的检查发现问题（或被标 `recheck_needed`）就让那一段的通过失效，没检查成（`no_result`）不说明任何事。
 4. 这是新的外发路径，不属于 `assistant_request` 的 `TEXT` 上限，所以在能力表里单独加了 `VIDEO`。
@@ -136,3 +136,22 @@ Successfully processed 1 files; Failed processing 0 files
 ## 发送范围一变，三处一次改完（Deja，#321）
 
 `willSend` 对每个 scope 说的话（`what`、`notes`、`projectText`、`tasteNotes`、剪辑点）必须和实际请求带的一致；引擎文字、页面文案、测试（`review-api.test.js` 的「scope contract」）三处同时改，不单独改其中一处。引擎返回英文句作标识，主播看到的中文由页面提供（PG，#321 6872473697）。
+
+## 授权更新：Agent 可以不经主播点击发出审片内容（QQ 裁定，#321 6874674433）
+
+**授权来源：** 主人在 Deja 主会话（a2d3693d）2026-11-14 的回复；QQ 已向主人本人核对，裁定记在 https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6874674433 （由 Deja 代贴）。这是主人在 SOP 第 16 条范围内给的授权，**放宽了 11-03 那条「每次外发前显示内容和网站」的规则，只限审片外发这一条路径**；其他新的外发路径照旧要 ADR 和 QQ 核验。
+
+这一节**取代**上文里凡是写「每次发送前都要给主播显示内容和目的地 / 必须主播点击」的说法，对 Agent 发起的发送而言：
+1. Agent 可以不经主播点击、也不在界面上提示，发出审片内容（`send:true`）。主播自己在编辑器里点的那条路径不变：仍先展示「将发送」的内容和目的地，再点〔发送〕。
+2. **本机记录不变且必须有：** 每次外发写进 `reviews/<工程>.json`：发给谁（服务和域名，`destination`）、发了哪几类东西（`passes[].kind` 与各类是否带了标准/工程文字/笔记）、字节数（`sentBytes`）、由谁发起（`source`: `agent` 或 `streamer`）、时间（`at`）。自由文字仍然不写盘。
+3. **目的地绑定不变：** 主人设置 `MONTCLIP_REVIEW_DEST_CONFIRMED`，发送时再核对一次；目的地变了就什么都不发。
+4. **`MONTCLIP_REVIEW_AGENT_SEND` 仍默认关闭，只有主人能在服务进程上打开。** 要改成默认开启，必须先补齐 V23（真机 `agy` 外发实测并抓包，确认只发到已确认的域名、只发了该发的那一小段），由 QQ 核验后，再提 PR，由 QQ 审。
+5. 上限不变：每段最长 30 秒（铺垫 10 秒），每个工程累计 100 MB，超过就拒绝。
+6. CLAUDE.md 里「Agent 不得设置这两个变量」保留：打开开关是主人的动作，不是 Agent 的。
+还不知道的：Google 对上传内容的保留和训练条款还没核；观众昵称和弹幕会随画面一起发出去，这是主人已经接受的范围。
+
+## 后续单（QQ 对 #328 评审 5901757968 里「可能有问题」三条）
+
+- **#333 账本清洗回写失败：** 旧账本里有带文字的记录时，读的时候先去掉文字再回写；回写失败就把整个账本文件删掉（`review-store.js` 的 `read()`）。这时通过记录和 60 秒门槛的绕过记录一起没有，`gate` 回到「未通过」，要重新审片或重新写 bypass。**这是接受的取舍**：隐私上旧文字不留，代价是记录丢失。已发送量不受影响（见 #334）。
+- **#334 发送量计量：** 已发送字节数单独累计（账本里的 `sentBytesTotal`，加本进程内存里的下限），在视频发出后、写记录之前先计入。所以写记录失败（`STORE_FAILED`）的那一次、旧记录被滚掉（`MAX_RECORDS=200`）都不会让总量变小；整个账本被删时，**只在同一个进程内**总量不变（内存里的下限）。**取舍：重启以后内存里的下限丢了，账本又被删过的话，这个工程的已发送量会从 0 重新数**；这是接受的，因为账本被删只发生在「旧文字无法清洗又回写不了」这种罕见情况。没有这个字段的旧账本按记录求和。累加器只是一个数字，不带文字。**账本读不出来（损坏）时不猜总量**：`sentTotal` 直接抛 `LEDGER_UNREADABLE`，`send` 在启动 `agy` 之前就失败（不会出现一次没有记录也没有计数的外发）；还没有账本只是第一次发送，照常发送。
+- **#335 60 秒门槛只是软门槛：** 只拦 MCP 的 `fablecut_export`；Agent 直接调 HTTP `/api/export/request` 不经过它，`bypassReason` 是 Agent 自己填的、不校验、只记录有没有绕过。所以它不是安全边界。是否改成硬门槛由 PG 决定，不在本改动里。
