@@ -153,21 +153,23 @@ async function videoEncoders(ffmpeg) {
   encoderCache.set(ffmpeg, set);
   return set;
 }
-/** The first video encoder that is here, in the order that costs least: H.264 where the build has it, else MPEG-4 (every
- *  build has it). The model reads either. */
-async function pickEncoder(ffmpeg) {
+/** The video encoders that are listed here, in the order that costs least: H.264 where the build has it, else MPEG-4 (every
+ *  build has it). The model reads either. A listed encoder may still not run (h264_nvenc on a computer without that graphics
+ *  card), so stageCompact tries them in turn. */
+async function candidateEncoders(ffmpeg) {
   const have = await videoEncoders(ffmpeg);
-  for (const e of ["libx264", "h264_mf", "h264_nvenc", "h264_videotoolbox", "mpeg4"]) if (have.has(e)) return e;
-  return null;
+  return ["libx264", "h264_mf", "h264_nvenc", "h264_videotoolbox", "mpeg4"].filter((e) => have.has(e));
 }
+async function pickEncoder(ffmpeg) { return (await candidateEncoders(ffmpeg))[0] || null; }
 /** src (a file made for this review, already the stretch to look at) → dst (.mp4, at most maxBytes, locked read-only).
  *  → {bytes, durationSec, hasAudio, encoder}. */
 async function stageCompact({ ffmpeg, ffprobe, src, dst, maxBytes = MAX_SAMPLE_BYTES }) {
   if (maxBytes < MIN_SAMPLE_BYTES) throw Object.assign(new Error("maxBytes is too small"), { code: "BAD_SAMPLE" });
   const { durationSec, hasAudio } = await probe(ffprobe, src);
-  const encoder = await pickEncoder(ffmpeg);
+  const candidates = await candidateEncoders(ffmpeg);
+  let encoder = candidates[0];
   if (!encoder) throw Object.assign(new Error("no video encoder here"), { code: "NO_ENCODER" });
-  const encode = async (height, fps, vk, ak) => {
+  const encodeWith = async (height, fps, vk, ak) => {
     const args = ["-y", "-hide_banner", "-loglevel", "error", "-i", src];
     if (!hasAudio) args.push("-f", "lavfi", "-t", durationSec.toFixed(3), "-i", "anullsrc=r=24000:cl=mono", "-map", "0:v:0", "-map", "1:a:0");
     args.push("-vf", `scale='min(iw,${height * 2})':'min(ih,${height})':force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2,fps=${fps}`,
@@ -175,6 +177,13 @@ async function stageCompact({ ffmpeg, ffprobe, src, dst, maxBytes = MAX_SAMPLE_B
       "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", `${ak}k`, "-ac", "1", "-ar", "24000", "-movflags", "+faststart", dst);
     const r = await runTool(ffmpeg, args, { timeoutMs: 300_000 });
     if (r.code !== 0 || !fs.existsSync(dst)) throw Object.assign(new Error("the compact copy could not be made"), { code: "BAD_SAMPLE" });
+  };
+  /* the first listed encoder that really runs here is kept for the second pass too */
+  const encode = async (...a) => {
+    for (let i = candidates.indexOf(encoder); ; ) {
+      try { return await encodeWith(...a); }
+      catch (e) { try { fs.rmSync(dst, { force: true }); } catch { } if (++i >= candidates.length) throw e; encoder = candidates[i]; }
+    }
   };
   const targetKb = Math.max(0.5, (maxBytes / 1048576) * 0.82) * 8192;
   const totalKbps = Math.floor(targetKb / Math.max(0.5, durationSec));
