@@ -447,12 +447,16 @@
     async function send(scope) {
       if (s.phase !== "confirm" || !s.prep) return false;
       if (scope !== "full" && scope !== "window") return false;
-      const m = confirmModel(s.prep, "zh-CN", s.statusDest);
-      if (!m.canSend) return false;
-      const gen = s.gen, prep = s.prep;
-      set({ phase: "sending", scope });
+      const m = confirmModel(s.prep, "zh-CN");
+      const btn = m.buttons.find((b) => b.id === scope);
+      if (!m.canSend || !btn || !btn.enabled) return false;
+      const gen = s.gen;
+      let view = s.prep;
+      if (scope === "window" && view.scope !== "window") { view = await switchToWindow(gen); if (!view) return false; }
+      if (gen !== s.gen) return false;
+      set({ phase: "sending", scope, previewSrc: null });
       let raw;
-      try { raw = await api.send({ reviewId: prep.reviewId, sendToken: prep.sendToken, scope }); }
+      try { raw = await api.send(view.reviewId, view.sendToken); }
       // the request itself failed: it may or may not have reached the receiver (JJ #326 sendFailed) — never 「没发出去」
       catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", sendError: true, findings: [] }; }
       if (gen !== s.gen) return false;
