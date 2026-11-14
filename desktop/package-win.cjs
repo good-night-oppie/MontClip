@@ -201,7 +201,7 @@ async function main() {
     // and CRLF; when this app hides + URL (#58), JJ's alternative URL line replaces v3's and nothing else changes.
     const date0 = new Date().toISOString().slice(0, 10).replace(/-/g, ''), buildId = date0 + '-' + short;
     const Readme = require(path.join(src, 'desktop', 'package-readme', 'render.js'));
-    const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app', 'app/app.js'), 'utf8'));
+    const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app', 'app.js'), 'utf8'));
     const readOr = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
     const copyGone = Readme.dropsExportCopy(readOr(path.join(src, 'desktop', 'main.js')), readOr(path.join(src, 'desktop', 'export-downloads.js')), readOr(path.join(src, 'server', 'server.js')));
     let readmeVariant = null;
