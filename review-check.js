@@ -533,17 +533,24 @@
           }
           box.appendChild(ul);
         }
-        if (!(s.raw && s.raw.reason === "NO_BRIDGE")) add("recheck", t(lang, "recheck"), () => { void start(s.range); }, m.status === "passed" ? "" : "primary");
+        if (!(s.raw && s.raw.reason === "NO_BRIDGE")) add("recheck", t(lang, "recheck"), () => { void start(s.range); }, m.status === "passed" ? "" : "review-send");
         add("close", t(lang, "close"), () => session.close());
       }
       box.appendChild(actions);
     }
     session.on(render);
-    /** 「检查这 10 秒」 and 「重新检查」: the receiver is read again each time, never remembered from when the page opened. */
+    /**
+     * 「检查这 10 秒」 and 「重新检查」: the receiver is read again each time, never remembered from when the page opened.
+     * QQ #326 item 3: each press is the newest intent; a later press, 「关闭」 or 「不发了」 while the receiver is being read
+     * makes the earlier one do nothing when its answer comes.
+     */
+    let intent = 0;
     async function start(r) {
       if (!r || session.state.phase === "preparing" || session.state.phase === "sending") return;
+      const mine = ++intent, gen = session.state.gen;
+      const live = () => mine === intent && gen === session.state.gen;
       await refresh();
-      if (!status) return;
+      if (!live() || !status) return;
       if (!status.available) { session.noResult(r, status.reason === "BUSY" ? "BUSY" : "NO_BRIDGE"); return; }
       await session.check(r, status.destination);
     }
@@ -559,6 +566,6 @@
     return { session, refresh, prewarmer, overlay, render: () => render(session.state) };
   }
 
-  return { text, t, fmtTime, pickRange, destinationOf, confirmModel, cleanResult, resultModel, httpApi, safePreviewSrc,
+  return { text, t, fmtTime, pickRange, destinationOf, payloadOf, confirmModel, cleanResult, resultModel, httpApi, safePreviewSrc,
     createSession, createPrewarmer, stubApi, mount, SPAN, MAX_SPAN, PREWARM_DELAY };
 });
