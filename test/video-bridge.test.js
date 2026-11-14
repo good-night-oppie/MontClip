@@ -221,6 +221,10 @@ test("the four verdicts: right names with a caption that explains the joke is is
   const unknown = await VB.checkSample(base(t, sample, envFor("unknown-fact"), { tmpRoot: root }));
   assert.equal(unknown.status, "no_result"); assert.equal(unknown.reason, "INSUFFICIENT_EVIDENCE");
   assert.equal(unknown.dimensions.fact.state, "insufficient_evidence", "what it could not tell is still shown");
+  for (const k of ["pacing", "packaging", "subtitle"]) {
+    const u = await VB.checkSample(base(t, sample, envFor("unknown-" + k), { tmpRoot: root }));
+    assert.equal(u.status, "no_result", k); assert.equal(u.reason, "INSUFFICIENT_EVIDENCE", k); assert.equal(u.dimensions[k].state, "insufficient_evidence");
+  }
   const none = await VB.checkSample(base(t, sample, envFor("no-dims"), { tmpRoot: root }));
   assert.equal(none.status, "no_result"); assert.equal(none.reason, "BAD_OUTPUT");
   const spoiled = await VB.checkSample(base(t, sample, envFor("spoiled"), { tmpRoot: root, rangeStart: 20, offset: 20 }));

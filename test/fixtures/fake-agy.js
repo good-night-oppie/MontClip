@@ -70,6 +70,9 @@ if (mode === "hang") {
 } else if (mode === "unknown-fact") {
   tool("read_file", target);
   answer({ verdict: "pass", summary: "Cannot tell who is who.", windowDigest: "", dimensions: DIMS({ fact: "insufficient_evidence" }), findings: [] });
+} else if (/^unknown-(pacing|packaging|subtitle)$/.test(mode)) {
+  tool("read_file", target);
+  answer({ verdict: "pass", summary: "cannot judge one part", windowDigest: "", dimensions: DIMS({ [mode.slice(8)]: "insufficient_evidence" }), findings: [] });
 } else if (mode === "no-dims") {
   tool("read_file", target);
   answer({ verdict: "pass", summary: "no dimensions given", windowDigest: "", findings: [] });

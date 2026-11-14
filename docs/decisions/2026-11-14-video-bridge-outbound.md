@@ -65,7 +65,7 @@ Successfully processed 1 files; Failed processing 0 files
 结果带 `dimensions: {fact, subtitle, pacing, packaging}`，每项 `passed | issues | insufficient_evidence` 加一句理由（≤200 字），**四项都必须有**，缺一项或出现别的值，整个回答作废（`no_result: BAD_OUTPUT`）。`status`：
 
 - 任何一项是 `issues`，或这一段本身列出了问题 → `issues`。「名牌没贴反但画面里有说明书式花字」（`packaging: issues`）就算模型说了 `pass` 也是 `issues`，有测试。
-- `fact` 或 `subtitle` 是 `insufficient_evidence`（名字或台词没法判断）且没有别的问题 → `no_result: INSUFFICIENT_EVIDENCE`：既不通过也不算失败，什么都没查出来。`pacing`/`packaging` 判断不了不挡通过但会显示出来。**哪些算「关键项」是我定的（fact、subtitle），请 JJ/PG 在 v4 里确认。**
+- 没有 `issues`，但任一维是 `insufficient_evidence` → `no_result: INSUFFICIENT_EVIDENCE`（PG 6868846142 的口径）：既不通过也不算失败，什么都没查出来，具体哪几维缺证据列在 `dimensions` 里；补上下文或加长窗口即可消除。
 - 其余才是 `passed`；`passed` 仍只由检查本身产生，`mark` 写不了。
 
 ## 工程不受影响
@@ -94,4 +94,4 @@ Successfully processed 1 files; Failed processing 0 files
 4. 门禁是否升级为导出前硬拦。
 5. 目的地「文档地址 + 明说未验证」是否可接受，还是要真机抓包核一次。
 6. 审美笔记作为项目文字随每次检查发出（有条数提示、可删）是否可接受。
-7. 「关键项」= fact + subtitle 是否对。
+7. （已按 PG 6868846142 定：四项任一缺证据都是 no_result。）

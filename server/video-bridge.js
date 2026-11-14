@@ -41,8 +41,8 @@ const LIMITS = Object.freeze({ finding: 200, suggestion: 200, summary: 600, dige
 /* four separate verdicts instead of one score (PG, #321 v4 B12): a clip with the right names and a spoiled joke is not a pass */
 const DIMENSIONS = Object.freeze(["fact", "subtitle", "pacing", "packaging"]);
 const DIM_STATES = Object.freeze(["passed", "issues", "insufficient_evidence"]);
-/* these dimensions cannot be "unknown" for a pass: nobody passes a clip whose names or words could not be checked */
-const KEY_DIMENSIONS = Object.freeze(["fact", "subtitle"]);
+/* PG #321 v4 (6868846142): any dimension that could not be judged keeps the whole answer from being a pass */
+const KEY_DIMENSIONS = DIMENSIONS;
 /* The owner's fixed standards for how these clips are cut (PG #321 v4 B10, approved by the owner 2026-11-14). Sent with every check. */
 const RUBRIC = Object.freeze([
   "Keep the real conversation, reactions and pauses. Packaging may be playful, but who people are and what happened is never invented.",
