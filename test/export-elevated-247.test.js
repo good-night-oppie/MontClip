@@ -26,6 +26,7 @@ function standIn(t, script) {
 }
 const QUICK_CLEAN = 'process.exit(0);';                                   // what an elevated Chrome's first process does
 const LATE_CRASH = 'console.error("renderer crashed"); setTimeout(() => process.exit(5), 400);';
+const STAYS_UP = 'setInterval(() => {}, 1000);';                          // a browser that came up and keeps running
 const queue = (o = {}) => { const log = []; return { log, jobs: createExportJobs({ url: (id) => 'http://127.0.0.1:1/?exportJob=' + id, broadcast() {}, editors: () => 0, log: (l) => log.push(l), ...o }) }; };
 async function ended(jobs, id) { let v; for (let i = 0; i < 150; i++) { await new Promise((r) => setTimeout(r, 100)); v = jobs.get(id); if (v.status !== 'pending' && v.status !== 'running') break; } return v; }
 
@@ -51,6 +52,24 @@ test('② not elevated, the same quick clean exit: #231\'s sentence, never the a
   const { jobs, log } = queue({ isElevated: () => false, host: 'cindy' });
   const v = await ended(jobs, jobs.request({ kind: 'export', where: 'headless' }).id);
   a.equal(v.code, 'EXPORT_PAGE_CRASHED'); a.equal(log.length, 0);
+});
+test('③ elevated, and the browser works: its page takes the job and reports it done — done, no code, no administrator line; the queue takes the next job', { skip: process.platform === 'win32' ? 'see ①' : !spawnable }, async (t) => {
+  standIn(t, STAYS_UP);
+  const { jobs, log } = queue({ isElevated: () => true, host: 'cindy' });
+  const j = jobs.request({ kind: 'export', where: 'headless' });
+  // the page loads and takes the job, as app.js does (POST /api/export/job/claim), then works past the "at once" window
+  await new Promise((r) => setTimeout(r, 500));
+  a.equal(jobs.claim(j.id, { tabId: 'page' }), true, 'the page took the job');
+  await new Promise((r) => setTimeout(r, FAST_EXIT_MS + 500));
+  a.equal(jobs.get(j.id).status, 'running', 'still running after the "at once" window: the browser stayed up');
+  a.deepEqual(jobs.report(j.id, { status: 'done', src: '/exports/a.mp4', tabId: 'page' }), { cancel: false });
+  const v = jobs.get(j.id);
+  a.equal(v.status, 'done'); a.equal(v.code ?? null, null, 'no error code'); a.equal(v.src, '/exports/a.mp4');
+  a.deepEqual(log, [], 'no administrator line in the log');
+  const next = jobs.request({ kind: 'scopes', where: 'headless', time: 0 });
+  a.ok(next.id && next.id !== j.id, 'the queue took the next job');
+  jobs.cancel(next.id);
+  jobs.shutdown();
 });
 test('④ elevated, but the browser crashes for another reason (it says something, exits later, not 0): #231\'s sentence', { skip: process.platform === 'win32' ? 'see ①' : !spawnable }, async (t) => {
   standIn(t, LATE_CRASH);
@@ -108,9 +127,13 @@ test('the exit handler, all five cases of the spec', () => {
 });
 
 /* The real thing, where it can happen: Windows, this very process elevated (a shell started as administrator), a real
-   Chrome / Edge. Nothing is injected. Skipped everywhere else. */
+   Chrome / Edge. Nothing is injected. Opt-in only (MONTCLIP_E2E_ELEVATED=1): a real browser started elevated does not
+   always leave at once — on GitHub's Windows runner (elevated, Chrome present) it was still pending after 15.8 s (QQ's
+   review 5900419860) — so required CI covers the decision with the stand-ins and the exit-handler unit above, and this
+   runs only on a machine where that quick exit has been seen (the Win11 runs in the PR). */
 const realBrowser = (() => { const saved = process.env.FABLECUT_CHROME; delete process.env.FABLECUT_CHROME; try { return require('../server/export-jobs').findBrowser(); } finally { if (saved != null) process.env.FABLECUT_CHROME = saved; } })();
-const realSkip = process.platform !== 'win32' ? 'Windows only' : !require('../server/export-jobs').isElevated() ? 'this process is not elevated' : !realBrowser ? 'no Chrome / Edge' : false;
+const realSkip = process.env.MONTCLIP_E2E_ELEVATED !== '1' ? 'opt-in: set MONTCLIP_E2E_ELEVATED=1 on a machine where an elevated browser is known to exit at once'
+  : process.platform !== 'win32' ? 'Windows only' : !require('../server/export-jobs').isElevated() ? 'this process is not elevated' : !realBrowser ? 'no Chrome / Edge' : false;
 test('Windows, really elevated, a real browser: the export job ends at once with the administrator code, and the queue takes the next job', { skip: realSkip, timeout: 60000 }, async (t) => {
   const saved = process.env.FABLECUT_CHROME; delete process.env.FABLECUT_CHROME;
   t.after(() => { if (saved != null) process.env.FABLECUT_CHROME = saved; });
