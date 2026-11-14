@@ -113,3 +113,42 @@ test("C5 control: parsing never changes the subtitles it was given", () => {
   parse({ transcript: TRANSCRIPT }, { subtitles: subs });
   assert.deepEqual(subs, JSON.parse(JSON.stringify(SUBS)));
 });
+
+/* ---- 3 (cont.). C7/C8 (#321 attempt-07 counter-examples, PG 6878593931): what the model says about the picture is checked
+   against the frames decoded on this computer. `frames` is that local truth: when the burned-in subtitle actually changes
+   (`subtitleChanges`, seconds of the sample) and what the picture text actually reads (`text`). A finding that contradicts
+   the frames is marked "verify" (待核对): no replacement wording, no edit, no re-cut. ---- */
+const FRAMES = Object.freeze({ subtitleChanges: [3.1, 9.0, 11.4], text: [{ t: 4.0, text: "（甲）" }] });
+
+test("C7: the model says the subtitle already changed at 11.0 s, the frames change at 11.4 s → advice 'verify', no edit, no re-cut", () => {
+  const v = parse({ verdict: "issues", dimensions: { ...DIMS_OK, subtitle: { state: "issues", reason: "screen changes early" } },
+    findings: [{ t: 11.0, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture", screenChangeAt: 11.0,
+      text: "the subtitle has already changed while the line is still being said", suggestion: "move the change to 11.6 s" }] }, { frames: FRAMES });
+  assert.ok(v, "the answer parses");
+  const f = v.findings[0];
+  assert.equal(f.advice, "verify", "shown as 待核对: it contradicts the actual frame");
+  assert.ok(!/move|11\.6|挪|改到/.test(f.suggestion || ""), "no timing change is proposed from a claim the frames contradict");
+  assert.equal(v.edits, undefined, "no edit to apply");
+  assert.equal(v.recut, undefined, "nothing that would start a re-cut");
+});
+
+test("C8: the model misreads the picture text (frame says 甲, model says 乙) and proposes a change → advice 'verify', no replacement, no edit", () => {
+  const v = parse({ verdict: "issues", dimensions: { ...DIMS_OK, subtitle: { state: "issues", reason: "bracket text" } },
+    findings: [{ t: 4.0, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture_text", reads: "（乙）",
+      text: "the bracket reads 乙", suggestion: "change 「甲」 to 「乙」" }] }, { frames: FRAMES });
+  assert.ok(v, "the answer parses");
+  const f = v.findings[0];
+  assert.equal(f.advice, "verify", "a reading the frame contradicts is 待核对, not 'please confirm' and never 'suggest'");
+  assert.ok(!/甲|乙|change|改成/.test(f.suggestion || ""), "no replacement wording survives");
+  assert.equal(v.edits, undefined);
+  assert.equal(v.recut, undefined);
+});
+
+test("C7 control: the model's change time agrees with the frames (11.4 s) → a timing hint ('confirm'), not 'verify'", () => {
+  const v = parse({ verdict: "issues", dimensions: { ...DIMS_OK, subtitle: { state: "issues", reason: "maybe early" } },
+    findings: [{ t: 11.4, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture", screenChangeAt: 11.4,
+      text: "the change may come before the line ends", suggestion: "" }] }, { frames: FRAMES });
+  assert.ok(v, "the answer parses");
+  assert.equal(v.findings[0].advice, "confirm", "the timing still only becomes a 'please confirm' (C4), never a change");
+  assert.equal(v.edits, undefined);
+});
