@@ -1659,7 +1659,7 @@ async function handleRequest(req, res) {
      cancel call in error. */
   if (p === "/api/export/request" && req.method === "POST") {
     try {
-      const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      let opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       /* E5a (MontClip#215): the job names the open project and the Cindy task that asked. The task is taken only from
          the plugin worker's own request (X-MontClip-Session); a page's body or URL never names one (MontClip-Cindy#18).
          A caller that names another project, or a switch before the job is queued, is EXPORT_PROJECT_CHANGED. */
@@ -1685,6 +1685,13 @@ async function handleRequest(req, res) {
         if (bad) { sendJSON(res, 400, { code: bad.errorCode, error: bad.error }); return; }
       }
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
+      /* a sample with no encoding named is a look, not a deliverable: a light one (H.264 "web" at the picture's own size, so nothing is reframed)
+         where this computer can encode H.264, else ProRes 422, which every build can */
+      let sampleNote = null;
+      if (opts.preview === true && !opts.profile && !opts.preset && !opts.delivery && !opts.outputs) {
+        if (Delivery.encodersFor("h264", await deliveryEncoders()).length) { opts = { ...opts, preset: "web", delivery: { width: null, height: null } }; sampleNote = "sample: no encoding was named, so a light H.264 one (web preset, the picture's own size) is used; pass profile or preset to choose"; }
+        else { opts = { ...opts, profile: "prores422" }; sampleNote = "sample: no encoding was named and this computer has no H.264 encoder, so ProRes 422 is used (large, but short); pass profile or preset to choose"; }
+      }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
       // several files from one render: outputs:true = the project's checked batch outputs, or a list of specs
@@ -1714,12 +1721,13 @@ async function handleRequest(req, res) {
           { available: await deliveryEncoders(), presets: savedDeliveryPresets() });
         delivery = n.spec; notes = n.notes;
       }
+      if (sampleNote) notes = [...notes, sampleNote];
       let revision = null;
       try { revision = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).revision ?? null; } catch {}
       checkProject();
       const job = exportJobs.request({ project: exportProject, session, range: opts.range, preview: opts.preview === true, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
       sendJSON(res, 200, deliveries ? { ...job, delivery: `${deliveries.length} outputs from one render`, notes: outNotes }
-        : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
+        : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : sampleNote ? { ...job, notes } : job);
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
       sendJSON(res, code, { code: e.errorCode, error: String(e.message || e), busy: e.busy });

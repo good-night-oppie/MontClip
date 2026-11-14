@@ -252,3 +252,40 @@ test("fablecut_export takes start and end together, not with range, and says whe
   assert.match(t.inputSchema.properties.preview.description, /at most 30 s/, "the tool says how long a sample may be");
   assert.match(t.inputSchema.properties.end.description, /RANGE_PAST_END/);
 });
+
+/* #321: a sample with no encoding named gets a light one: H.264 (the "web" delivery preset at the picture's own size) where this computer
+   can encode H.264, else ProRes 422, which every build can. Anything the caller names is kept; a normal export is unchanged. */
+async function withTab(t, env) {
+  const dir = makeDataDir(t, seedProject({ revision: 2 }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: path.join(dir, "no-such-browser"), ...env });
+  const tab = fakeTab(t, base); await tab.connected();
+  return { base, dir };
+}
+const cancel = (base, id) => post(base, "/api/export/job/cancel?id=" + id, {});
+
+test("a sample with no encoding named: ProRes 422 where there is no H.264 encoder", { skip, timeout: 60_000 }, async (t) => {
+  const { base } = await withTab(t, { MONTCLIP_TEST_NO_H264: "1" });
+  const r = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.profile, "prores422"); assert.equal(r.body.preset, null);
+  await cancel(base, r.body.id);
+});
+
+test("a sample with no encoding named: light H.264 where there is an encoder; what the caller names is kept; a normal export is not touched", { skip, timeout: 60_000 }, async (t) => {
+  const { base } = await withTab(t, {});
+  const h264 = await fetch(base + "/api/export/h264").then((r) => r.json());
+  if (!h264.encoders || !h264.encoders.length) return t.skip("no H.264 encoder on this computer");
+  const light = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true });
+  assert.equal(light.status, 200, JSON.stringify(light.body));
+  assert.equal(light.body.preset, "web"); assert.equal(light.body.profile, null);
+  assert.match(light.body.delivery, /H\.?264|h264|AAC/i, light.body.delivery);
+  assert.ok(light.body.notes.some((n) => /sample/i.test(n)), "the reply says which encoding it chose and why");
+  await cancel(base, light.body.id);
+  const named = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true, profile: "prores422" });
+  assert.equal(named.body.profile, "prores422"); assert.equal(named.body.preset, null); await cancel(base, named.body.id);
+  const preset = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 2 }, preview: true, preset: "youtube" });
+  assert.equal(preset.body.preset, "youtube"); await cancel(base, preset.body.id);
+  const plain = await post(base, "/api/export/request", { where: "tab" });
+  assert.equal(plain.body.preview, false); assert.equal(plain.body.preset, null); assert.equal(plain.body.profile, null, "a normal export keeps the server's own default");
+  await cancel(base, plain.body.id);
+});

@@ -2946,6 +2946,9 @@ agent last wrote, so an export right after a patch includes that patch.
   goes to `previews/` (not `exports/`), is named `preview_*`, one file only (not with
   `outputs`); of the samples the server made (it keeps a list of them), the newest 20 are
   kept and none stays longer than a day — nothing else in `previews/` is ever removed.
+  With no `profile`, `preset` or `delivery` named, a sample gets a light encoding by itself:
+  H.264 (the `web` preset at the picture's own size, nothing reframed) where this computer can
+  encode H.264, else ProRes 422; the reply says which. Name one to choose.
   Look at a 10 s sample before exporting the whole timeline.
 - `preset:"instagram-reels"` picks a delivery preset; `delivery:{…}` changes any of its
   settings (`{preset:"youtube", delivery:{fps:60, video:{rate:"vbr", bitrate:16000}}}`).
