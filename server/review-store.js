@@ -31,11 +31,34 @@ function contentKey(doc) {
 }
 const httpError = (code, message, extra = {}) => Object.assign(new Error(message), { status: code, ...extra });
 
+/* QQ (#328): what the model wrote about a clip (findings' words, the summary, the digest, the blind observation, the reasons) can quote
+   what is on screen, nicknames of viewers included. None of it is written to disk. A record on disk keeps only structured fields (times,
+   kinds, states, marks); the words live in this process's memory for the check just made, and are gone when it exits. Marks' notes and
+   corrections are words too and are kept the same way. A file from before this rule is scrubbed the first time it is read. */
+const MEM_MAX = 200;
+function structured(r) {
+  const o = { ...r };
+  delete o.summary; delete o.windowDigest; delete o.observation;
+  o.findings = (r.findings || []).map((f) => ({ id: f.id, t: f.t, type: f.type, inLead: !!f.inLead, mark: f.mark || null }));
+  if (r.dimensions) o.dimensions = Object.fromEntries(Object.entries(r.dimensions).map(([k, v]) => [k, { state: v && v.state }]));
+  o.marks = (r.marks || []).map((m) => ({ id: m.id, mark: m.mark, at: m.at }));
+  o.correction = r.correction ? { at: r.correction.at } : null;
+  return o;
+}
+const hasWords = (r) => "summary" in r || "windowDigest" in r || "observation" in r || (r.findings || []).some((f) => "text" in f || "suggestion" in f)
+  || Object.values(r.dimensions || {}).some((v) => v && "reason" in v) || (r.marks || []).some((m) => "note" in m) || !!(r.correction && "text" in r.correction);
+
 function createReviewStore({ dir, now = () => Date.now() }) {
   const fileOf = (projectId) => path.join(dir, (SAFE_ID.test(String(projectId || "")) ? projectId : "default") + ".json");
+  const mem = new Map();   // "project\0reviewId" → the words of that check, this process only
+  const memKey = (p, id) => p + "\u0000" + id;
+  const memFor = (p, id) => { const k = memKey(p, id); let m = mem.get(k); if (!m) { m = { findings: {}, dims: {}, notes: [], correction: null }; mem.set(k, m); while (mem.size > MEM_MAX) mem.delete(mem.keys().next().value); } return m; };
   function read(projectId) {
-    try { const d = JSON.parse(fs.readFileSync(fileOf(projectId), "utf8")); if (d && Array.isArray(d.records)) return d; } catch { }
-    return { version: 1, records: [] };
+    let d = null;
+    try { d = JSON.parse(fs.readFileSync(fileOf(projectId), "utf8")); } catch { }
+    if (!d || !Array.isArray(d.records)) return { version: 1, records: [] };
+    if (d.records.some(hasWords)) { d.records = d.records.map(structured); write(projectId, d); }   // scrub a file from before this rule
+    return d;
   }
   function write(projectId, doc) {
     fs.mkdirSync(dir, { recursive: true });
@@ -44,19 +67,32 @@ function createReviewStore({ dir, now = () => Date.now() }) {
     fs.renameSync(tmp, f);
   }
   /** What a caller may see: no content hash. */
-  const view = (r) => { if (!r) return null; const { contentKey: _k, ...rest } = r; return rest; };
+  const view = (r, projectId) => {
+    if (!r) return null;
+    const { contentKey: _k, ...rest } = r;
+    const m = mem.get(memKey(projectId, r.reviewId));
+    if (!m) return { ...rest, textAvailable: false };
+    return { ...rest, textAvailable: true, summary: m.summary || "", windowDigest: m.windowDigest || "", observation: m.observation || "",
+      findings: rest.findings.map((f) => ({ ...f, ...(m.findings[f.id] || {}) })),
+      dimensions: rest.dimensions ? Object.fromEntries(Object.entries(rest.dimensions).map(([k, v]) => [k, { ...v, reason: m.dims[k] || "" }])) : rest.dimensions,
+      marks: rest.marks.map((x, i) => ({ ...x, note: (m.notes[i] || "") })), correction: rest.correction ? { ...rest.correction, text: m.correction || "" } : null };
+  };
   return {
     contentKey,
     add(projectId, rec) {
       const doc = read(projectId);
-      doc.records.push({ ...rec, marks: [], correction: null });
+      const m = memFor(projectId, rec.reviewId);
+      m.summary = rec.summary || ""; m.windowDigest = rec.windowDigest || ""; m.observation = rec.observation || "";
+      for (const f of rec.findings || []) m.findings[f.id] = { text: f.text || "", suggestion: f.suggestion || "" };
+      for (const [k, v] of Object.entries(rec.dimensions || {})) m.dims[k] = (v && v.reason) || "";
+      doc.records.push(structured({ ...rec, marks: [], correction: null }));
       if (doc.records.length > MAX_RECORDS) doc.records.splice(0, doc.records.length - MAX_RECORDS);
       write(projectId, doc);
-      return view(doc.records[doc.records.length - 1]);
+      return view(doc.records[doc.records.length - 1], projectId);
     },
-    get(projectId, id) { return view(read(projectId).records.find((r) => r.reviewId === id)); },
+    get(projectId, id) { return view(read(projectId).records.find((r) => r.reviewId === id), projectId); },
     /** newest first */
-    list(projectId, limit = 20) { return read(projectId).records.slice(-Math.max(1, Math.min(MAX_RECORDS, limit | 0 || 20))).reverse().map(view); },
+    list(projectId, limit = 20) { return read(projectId).records.slice(-Math.max(1, Math.min(MAX_RECORDS, limit | 0 || 20))).reverse().map((r) => view(r, projectId)); },
     /** Marks a record or one of its findings. "passed" is not a mark: 400. */
     mark(projectId, { id, finding = null, mark, note = "" }) {
       if (!MARKS.includes(mark)) throw httpError(400, "mark must be fixed, recheck_needed or note — a pass only comes from a check that really passed", { code: "MARK_REFUSED" });
@@ -67,11 +103,12 @@ function createReviewStore({ dir, now = () => Date.now() }) {
         f = rec.findings.find((x) => x.id === Number(finding));
         if (!f) throw httpError(404, "no such finding in that check", { code: "NO_SUCH_FINDING" });
       }
-      const entry = { id: f ? f.id : null, mark, note: clip(note, 200), at: new Date(now()).toISOString() };
+      const entry = { id: f ? f.id : null, mark, at: new Date(now()).toISOString() };
       rec.marks.push(entry);
+      const m = memFor(projectId, id); m.notes[rec.marks.length - 1] = clip(note, 200);   // the words stay in memory
       if (f) f.mark = mark;
       write(projectId, doc);
-      return view(rec);
+      return view(rec, projectId);
     },
     /** The project's taste notes (PG #321 v4 B10): what the streamer approved and rejected before, so every check judges by the same
      *  measure. A positive example must say WHAT was approved (pacing, caption, ...), never "this whole clip is fine". */
@@ -98,9 +135,10 @@ function createReviewStore({ dir, now = () => Date.now() }) {
     correct(projectId, { id, digest }) {
       const doc = read(projectId), rec = doc.records.find((r) => r.reviewId === id);
       if (!rec) throw httpError(404, "no such check", { code: "NO_SUCH_REVIEW" });
-      rec.correction = { text: clip(digest, 300), at: new Date(now()).toISOString() };
+      rec.correction = { at: new Date(now()).toISOString() };
+      memFor(projectId, id).correction = clip(digest, 300);
       write(projectId, doc);
-      return view(rec);
+      return view(rec, projectId);
     },
     /** Does the project, as it is now (key), have a real pass over every second of [start, end]? The newest check that says anything
      *  about a second decides it, so a later check of a smaller part that found a problem (or a person's recheck_needed) takes

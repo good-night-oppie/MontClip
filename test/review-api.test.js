@@ -360,3 +360,42 @@ test("fail closed: an address nobody confirmed means nothing is rendered or sent
   assert.deepEqual([d.verified, d.source], [false, "docs"]);
   assert.deepEqual([VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).verified, VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).source], [true, "owner-confirmed"]);
 });
+
+/* ---- QQ (#328): the model's words never reach the disk ---- */
+const NICK = "SENTINEL-NICK-7731";
+const filesUnder = (dir) => fs.readdirSync(dir, { recursive: true }).map((f) => path.join(dir, f)).filter((f) => fs.statSync(f).isFile());
+test("a viewer's name the model quotes is shown for this check but never written to disk; a restart keeps only structured fields", { skip }, async (t) => {
+  const S = setup(t, "nick");
+  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass" });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  /* in this process the words are there to look at */
+  assert.equal(rec.status, "issues"); assert.equal(rec.textAvailable, true);
+  assert.ok(JSON.stringify(rec).includes(NICK), "the words of the check just made can be read now");
+  S.store.mark("p1", { id: v.reviewId, finding: 0, mark: "note", note: "see " + NICK });
+  S.store.correct("p1", { id: v.reviewId, digest: "chat shows " + NICK });
+  assert.ok(JSON.stringify(S.store.get("p1", v.reviewId)).includes(NICK));
+  /* on disk: nothing of it, in any file the review wrote */
+  for (const f of filesUnder(path.join(S.d, "reviews"))) assert.ok(!fs.readFileSync(f, "utf8").includes(NICK), f + " has no name");
+  const disk = JSON.parse(fs.readFileSync(path.join(S.d, "reviews", "p1.json"), "utf8")).records[0];
+  assert.deepEqual(Object.keys(disk.findings[0]).sort(), ["id", "inLead", "mark", "t", "type"]);
+  for (const k of ["summary", "windowDigest", "observation"]) assert.ok(!(k in disk), k + " is not stored");
+  assert.deepEqual(disk.dimensions.packaging, { state: "issues" });
+  assert.ok(disk.marks.every((m) => !("note" in m)) && !("text" in disk.correction));
+  /* after a restart (a new store over the same folder) only the structured fields are left */
+  const again = createReviewStore({ dir: path.join(S.d, "reviews") }).get("p1", v.reviewId);
+  assert.equal(again.textAvailable, false); assert.ok(!JSON.stringify(again).includes(NICK));
+  assert.equal(again.findings[0].type, "protected_region_occluded"); assert.equal(again.findings[0].t, 24); assert.equal(again.status, "issues");
+  assert.equal(S.store.gate("p1", { key: S.store.contentKey(S.doc()), start: 24, end: 29 }).passed, false, "the gate does not need the words");
+});
+
+test("a file from before the rule is scrubbed the first time it is read", (t) => {
+  const d = tmp(t);
+  fs.writeFileSync(path.join(d, "p1.json"), JSON.stringify({ version: 1, records: [{ reviewId: "r_old", status: "issues", range: { start: 1, end: 5 }, contentKey: "k", summary: "s " + NICK, windowDigest: NICK,
+    observation: NICK, findings: [{ id: 0, t: 2, type: "audio", text: NICK, suggestion: NICK, inLead: false, mark: null }], dimensions: { fact: { state: "issues", reason: NICK } },
+    marks: [{ id: null, mark: "note", note: NICK, at: "x" }], correction: { text: NICK, at: "y" } }] }));
+  const s = createReviewStore({ dir: d });
+  const r = s.get("p1", "r_old");
+  assert.ok(!JSON.stringify(r).includes(NICK)); assert.equal(r.findings[0].type, "audio"); assert.equal(r.marks.length, 1);
+  assert.ok(!fs.readFileSync(path.join(d, "p1.json"), "utf8").includes(NICK), "the old words are gone from the file");
+});
