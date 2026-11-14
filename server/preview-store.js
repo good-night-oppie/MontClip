@@ -13,7 +13,7 @@ const path = require("path");
 const REGISTRY = ".preview-registry.json";
 const NAME_RE = /^[^\\/]+$/;
 
-function createPreviewStore(dir, { keep = 20, maxAgeMs = 24 * 3600 * 1000, workMs = 3600 * 1000, clock = Date.now } = {}) {
+function createPreviewStore(dir, { keep = 20, maxAgeMs = 24 * 3600 * 1000, workMs = 3600 * 1000, clock = Date.now, log = () => { } } = {}) {
   const regPath = path.join(dir, REGISTRY);
   const okName = (n) => typeof n === "string" && NAME_RE.test(n) && n !== "." && n !== ".." && n !== REGISTRY && n === path.basename(n);
 
@@ -35,6 +35,7 @@ function createPreviewStore(dir, { keep = 20, maxAgeMs = 24 * 3600 * 1000, workM
       fs.renameSync(tmp, regPath);
     } catch (e) { try { fs.rmSync(tmp, { force: true }); } catch { } throw e; }
   }
+  const say = (n, why) => { try { log(`removed ${n} (${why})`); } catch { } };   // QQ, #325: when something goes, the log says what and why
   function update(fn) { const entries = read(); fn(entries); write(entries); }
 
   return {
@@ -53,6 +54,17 @@ function createPreviewStore(dir, { keep = 20, maxAgeMs = 24 * 3600 * 1000, workM
         e[name] = { kind: "file", size: st.size, mtimeMs: st.mtimeMs, at: clock() };
       });
     },
+    /** Registers what a sample run has just made (its work folder and .part files). If the registry cannot be written, what was just made is removed
+     *  again instead of being left in previews/ for good (QQ, #325); a name outside previews/ is refused and nothing is removed. */
+    registerRun(dirName, parts = []) {
+      const names = [dirName, ...parts.filter(Boolean)];
+      if (!names.every(okName)) throw new Error("not a name in previews/");
+      try { update((e) => { e[dirName] = { kind: "work", type: "dir", at: clock() }; for (const p of parts) if (p) e[p] = { kind: "work", type: "file", at: clock() }; }); }
+      catch (err) {
+        for (const n of names) { try { fs.rmSync(path.join(dir, n), { recursive: true, force: true }); say(n, "the registry could not be written"); } catch { } }
+        throw new Error("the preview registry could not be written: " + (err && err.code || "error"));
+      }
+    },
     entries: read,
     /** live: names (work folders, .part files) a running export still uses. Returns the names removed. */
     prune({ now = clock(), live = new Set() } = {}) {
@@ -68,7 +80,7 @@ function createPreviewStore(dir, { keep = 20, maxAgeMs = 24 * 3600 * 1000, workM
           const sameKind = e.type === "dir" ? st.isDirectory() : st.isFile();
           if (!sameKind) { delete entries[n]; changed = true; continue; }
           if (now - e.at > workMs) {
-            try { fs.rmSync(p, { recursive: e.type === "dir", force: true }); removed.push(n); } catch { continue; }
+            try { fs.rmSync(p, { recursive: e.type === "dir", force: true }); removed.push(n); say(n, `leftover work, older than ${Math.round(workMs / 60000)} min`); } catch { continue; }
             delete entries[n]; changed = true;
           }
           continue;
@@ -79,7 +91,7 @@ function createPreviewStore(dir, { keep = 20, maxAgeMs = 24 * 3600 * 1000, workM
       samples.sort((a, b) => b.t - a.t);
       samples.forEach((s, i) => {
         if (i < keep && now - s.t <= maxAgeMs) return;
-        try { fs.rmSync(path.join(dir, s.n), { force: true }); removed.push(s.n); delete entries[s.n]; changed = true; } catch { }
+        try { fs.rmSync(path.join(dir, s.n), { force: true }); removed.push(s.n); say(s.n, now - s.t > maxAgeMs ? `older than ${Math.round(maxAgeMs / 3600000)} h` : `over the newest ${keep}`); delete entries[s.n]; changed = true; } catch { }
       });
       if (changed) write(entries);
       return removed;

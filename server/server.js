@@ -420,7 +420,7 @@ function reserveExportPaths(dir, baseName, ext) {
 const PREVIEW_KEEP = 20, PREVIEW_MAX_AGE_MS = 24 * 3600 * 1000, PREVIEW_WORKDIR_MS = 3600 * 1000;
 /* #325 R1b: a sample is a quick look — at most this many seconds (Deja may change it) */
 const PREVIEW_MAX_SEC = 30;
-const previewStore = createPreviewStore(PREVIEWS_DIR, { keep: PREVIEW_KEEP, maxAgeMs: PREVIEW_MAX_AGE_MS, workMs: PREVIEW_WORKDIR_MS });
+const previewStore = createPreviewStore(PREVIEWS_DIR, { keep: PREVIEW_KEEP, maxAgeMs: PREVIEW_MAX_AGE_MS, workMs: PREVIEW_WORKDIR_MS, log: logPreviewRemoval });
 /** Work folders and .part files that running sample exports still use: never pruned. */
 function livePreviewNames() {
   const live = new Set();
@@ -437,8 +437,7 @@ function prunePreviews() {
 }
 /** Registers what a sample export has just created in previews/ (its work folder, its .part files). */
 function registerPreviewWork(dir, parts) {
-  previewStore.addWork(path.basename(dir), "dir");
-  for (const p of parts) if (p) previewStore.addWork(path.basename(p), "file");
+  previewStore.registerRun(path.basename(dir), parts.filter(Boolean).map((p) => path.basename(p)));   // a registry that cannot be written removes what was just made
 }
 /** A sample has been saved under its own name: record it as ours, then keep the newest PREVIEW_KEEP. */
 function registerPreviewFile(outPath, partPath) {
@@ -919,6 +918,12 @@ function cleanupExport(id) {
   exportSessions.delete(id);
   const job = ExportCleanup.stopSessions([s], { timeoutMs: 5000, log: logCleanupLeft });
   pendingCleanups.add(job); job.finally(() => { pendingCleanups.delete(job); if (s.preview) prunePreviews(); });   // #325: forget the work removed
+}
+/** What the preview cleanup removed, and why (QQ, #325): DATA_DIR/logs/export-cleanup.log, local only, names only. */
+function logPreviewRemoval(msg) {
+  const line = `${new Date().toISOString()} previews/: ${X.maskUserPath(String(msg))}
+`;
+  try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
 }
 /** Paths an export cleanup could not delete, kept in DATA_DIR/logs/export-cleanup.log (local only). */
 function logCleanupLeft(left) {
