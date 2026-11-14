@@ -489,3 +489,16 @@ test("a silent mix through the real ffmpeg measures as silence", (t) => {
   if (r.error) return t.skip("no ffmpeg");
   assert.deepEqual(D.parseEbur128(r.stderr), { lufs: null, truePeak: null, silent: true });
 });
+
+/* Rea on #330 (f098239f): ebur128 needs 400 ms to say what the loudness is; a sample of 0.3 s with sound comes back I: -70.0 and a true peak of -5 dB. That is not silence. */
+test("a clip shorter than the loudness gate with real sound is not silent: -70 LUFS together with a true peak is a clip too short to measure, not a quiet one", (t) => {
+  assert.deepEqual(D.parseEbur128("    I:         -70.0 LUFS\n  True peak:\n    Peak:       -5.2 dBFS"), { lufs: null, truePeak: -5.2 }, "heard: no silent flag, the peak is kept");
+  assert.deepEqual(D.parseEbur128("    I:         -70.0 LUFS\n  True peak:\n    Peak:      -inf dBFS"), { lufs: null, truePeak: null, silent: true }, "nothing: still silence");
+  assert.deepEqual(D.parseEbur128("    I:         -70.0 LUFS\n  True peak:\n    Peak:      -75.0 dBFS"), { lufs: null, truePeak: -75, silent: true }, "far below hearing: still silence");
+  const ff = require("../server/ffmpeg-path").path("ffmpeg");
+  for (const d of [0.167, 0.3]) {
+    const r = require("node:child_process").spawnSync(ff, ["-hide_banner", "-nostats", "-f", "lavfi", "-i", `sine=f=440:r=48000:d=${d}`, "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"], { encoding: "utf8" });
+    if (r.error) return t.skip("no ffmpeg");
+    assert.ok(!D.parseEbur128(r.stderr).silent, `a ${d} s tone through the real ffmpeg is not silent`);
+  }
+});
