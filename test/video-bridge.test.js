@@ -19,7 +19,7 @@ const IS_WIN = process.platform === "win32";
 const tmp = (t, p = "mcvb-") => { const d = fs.mkdtempSync(path.join(os.tmpdir(), p)); t.after(() => VB.rmForce(d)); return d; };
 /** an environment that starts the stand-in; extra env is only for the parent (it must not reach the tool) */
 function envFor(mode, opts = {}) {
-  const prefix = [FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.child ? [`--child=${opts.child}`] : []), ...(opts.sentinel ? [`--sentinel=${opts.sentinel}`] : []), "--"];
+  const prefix = [FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.calls ? [`--calls=${opts.calls}`] : []), ...(opts.child ? [`--child=${opts.child}`] : []), ...(opts.sentinel ? [`--sentinel=${opts.sentinel}`] : []), "--"];
   return { ...process.env, MONTCLIP_AGY_BIN: process.execPath, MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify(prefix), ...(opts.extra || {}) };
 }
 function makeSample(dir, sec = 10) {
@@ -58,7 +58,8 @@ test("readEvents: one read of exactly the staged copy passes; anything else is f
 test("parseVerdict: checked fields, cut lengths, no control characters; 'pass' needs the word; junk is null", () => {
   assert.equal(VB.parseVerdict("no json", { durationSec: 10 }), null);
   assert.equal(VB.parseVerdict('{"verdict":"maybe"}', { durationSec: 10 }), null);
-  const v = VB.parseVerdict('blah {"verdict":"issues","summary":"' + "s".repeat(900) + '","windowDigest":"' + "d".repeat(900) + '","findings":[{"t":99,"type":"weird","text":"a\\u0000b","suggestion":"c"},{"t":"x"},{"t":-3,"type":"audio","text":"t"}]} trailing', { durationSec: 10 });
+  const DIMS = '"dimensions":{"fact":{"state":"issues","reason":"' + "r".repeat(500) + '"},"subtitle":{"state":"passed","reason":""},"pacing":{"state":"insufficient_evidence","reason":"?"},"packaging":{"state":"passed","reason":""}},';
+  const v = VB.parseVerdict('blah {"verdict":"issues","summary":"' + "s".repeat(900) + '","windowDigest":"' + "d".repeat(900) + '",' + DIMS + '"findings":[{"t":99,"type":"weird","text":"a\\u0000b","suggestion":"c"},{"t":"x"},{"t":-3,"type":"audio","text":"t"}]} trailing', { durationSec: 10 });
   assert.equal(v.summary.length, VB.LIMITS.summary); assert.equal(v.windowDigest.length, VB.LIMITS.digest);
   assert.equal(v.findings.length, 2, "a finding without a number for t is dropped");
   assert.equal(v.findings[0].t, 10, "a time past the end is held at the end"); assert.equal(v.findings[0].type, "other");
@@ -179,4 +180,56 @@ test("the prompt names exactly one file, orders one read and no other tool, and 
   assert.ok(p.indexOf("<<<REFERENCE") < p.indexOf("TASK:"));
   const none = VB.buildPrompt({ targetPath: "/box/video_input.mp4", durationSec: 10 });
   assert.ok(!none.includes("REFERENCE ONLY"), "no context when none was chosen");
+});
+
+/* ---- PG #321 v4: fixed standards, taste notes, a blind first look, four verdicts ---- */
+const callsOf = (file) => fs.readFileSync(file, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+
+test("one request: the fixed standards and the taste notes go with every check, and the first blind look does not exist", { skip }, async (t) => {
+  const d = tmp(t), root = tmp(t, "mcroot-"), sample = makeSample(d), calls = path.join(d, "calls.jsonl");
+  const taste = [{ kind: "negative", aspect: null, text: "a caption that explains the joke" }, { kind: "positive", aspect: "pacing", text: "the pause before the reply" }];
+  const r = await VB.checkSample(base(t, sample, envFor("pass", { calls }), { tmpRoot: root, taste }));
+  assert.equal(r.status, "passed"); assert.equal(r.mode, "single");
+  const c = callsOf(calls); assert.equal(c.length, 1); assert.equal(c[0].kind, "main");
+  for (const rule of VB.RUBRIC) assert.ok(c[0].prompt.includes(rule), "the standard is in the prompt: " + rule.slice(0, 30));
+  assert.match(c[0].prompt, /REJECTED before: a caption that explains the joke/);
+  assert.ok(c[0].prompt.includes("APPROVED before (pacing): the pause before the reply"));
+  assert.ok(!/blind observation/.test(c[0].prompt));
+  assert.deepEqual(Object.keys(r.dimensions), ["fact", "subtitle", "pacing", "packaging"]);
+});
+
+test("two passes: the blind look carries no names, no project text, no standards, no taste; the second one is given what it saw", { skip }, async (t) => {
+  const d = tmp(t), root = tmp(t, "mcroot-"), sample = makeSample(d), calls = path.join(d, "calls.jsonl");
+  const r = await VB.checkSample(base(t, sample, envFor("pass", { calls }), { tmpRoot: root, mode: "two_pass", contextText: "HOST-NAME-XYZ says hi", taste: [{ kind: "negative", text: "TASTE-NOTE-XYZ" }] }));
+  assert.equal(r.status, "passed"); assert.equal(r.mode, "two_pass");
+  const [blind, main] = callsOf(calls);
+  assert.equal(blind.kind, "blind"); assert.equal(main.kind, "main");
+  for (const bad of ["HOUSE STANDARDS", "REFERENCE", "HOST-NAME-XYZ", "TASTE-NOTE-XYZ", "dimensions", "findings", "better removed", "packaging"]) assert.ok(!blind.prompt.includes(bad), "the blind prompt has no " + bad);
+  assert.match(main.prompt, /Two people talk; the left one nods; a caption sits at the top./, "the second look is given the first one");
+  assert.match(main.prompt, /which caption or name plate would be better removed/);
+  assert.equal(r.observation, "Two people talk; the left one nods; a caption sits at the top.".slice(0, VB.LIMITS.observation));
+  const bad = await VB.checkSample(base(t, sample, envFor("blind-bad"), { tmpRoot: root, mode: "two_pass" }));
+  assert.equal(bad.status, "no_result"); assert.equal(bad.reason, "BAD_OUTPUT", "a blind look that cannot be read stops the check");
+  assert.equal((await VB.checkSample(base(t, sample, envFor("pass"), { tmpRoot: root, mode: "three" }))).reason, "BAD_MODE");
+});
+
+test("the four verdicts: right names with a caption that explains the joke is issues; unknown names or words is no result; none given is no result", { skip }, async (t) => {
+  const d = tmp(t), root = tmp(t, "mcroot-"), sample = makeSample(d);
+  const packaging = await VB.checkSample(base(t, sample, envFor("packaging"), { tmpRoot: root }));
+  assert.equal(packaging.status, "issues", "the model said pass, listed nothing, and packaging says issues");
+  assert.equal(packaging.dimensions.packaging.state, "issues"); assert.equal(packaging.dimensions.fact.state, "passed");
+  const unknown = await VB.checkSample(base(t, sample, envFor("unknown-fact"), { tmpRoot: root }));
+  assert.equal(unknown.status, "no_result"); assert.equal(unknown.reason, "INSUFFICIENT_EVIDENCE");
+  assert.equal(unknown.dimensions.fact.state, "insufficient_evidence", "what it could not tell is still shown");
+  const none = await VB.checkSample(base(t, sample, envFor("no-dims"), { tmpRoot: root }));
+  assert.equal(none.status, "no_result"); assert.equal(none.reason, "BAD_OUTPUT");
+  const spoiled = await VB.checkSample(base(t, sample, envFor("spoiled"), { tmpRoot: root, rangeStart: 20, offset: 20 }));
+  assert.equal(spoiled.status, "issues");
+  assert.deepEqual(spoiled.findings.map((f) => f.type), ["punchline_spoiled", "over_explained_caption"]);
+});
+
+test("destination: one function says where it goes, and it says plainly that this is not checked at run time", () => {
+  const a = VB.destination(), b = VB.destination();
+  assert.deepEqual(a, b); assert.equal(a.verified, false); assert.equal(a.source, "docs");
+  assert.ok(Object.isFrozen(a) && Object.isFrozen(VB.DESTINATION));
 });

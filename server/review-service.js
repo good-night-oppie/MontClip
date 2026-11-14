@@ -31,14 +31,20 @@ function skeleton(doc, from, to) {
 }
 
 function createReviewService({ store, bridge, readProject, activeProject, requestSample, getJob, cancelJob, sampleFile, ffmpeg, ffprobe, env = process.env,
-  agyOverride = null, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
+  agyOverride = null, agentSendEnabled = () => false, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
   const reviews = new Map();           // reviewId → in-flight state (finished ones live in the store)
   const busy = (project) => [...reviews.values()].find((r) => r.project === project && (r.state === "rendering" || r.state === "ready" || r.state === "sending"));
-  const destination = () => ({ ...bridge.DESTINATION });
+  /* ONE decision about where it goes: what is shown, what is checked again at the moment of sending, and what the record says */
+  const destination = () => ({ ...bridge.destination() });
+  const sameDestination = (a, b) => a && b && a.service === b.service && a.host === b.host;
+  const what = (r) => ["a short video clip (with its sound) of this stretch",
+    r.scope === "full" ? "plus the subtitles and cut points inside it" : "and nothing else from the project",
+    r.taste ? `plus your ${r.taste} saved taste note${r.taste === 1 ? "" : "s"} (what you approved or rejected before)` : "",
+    r.mode === "two_pass" ? "sent in 2 requests: a blind first look, then the full check" : ""].filter(Boolean).join("; ");
   const view = (r) => ({
-    reviewId: r.id, state: r.state, project: r.project, range: r.range, lead: r.lead, scope: r.scope, revision: r.revision, progress: r.progress ?? null,
-    willSend: r.state === "ready" ? { what: r.scope === "full" ? "a short video clip (with its sound) of this stretch, plus the subtitles and cut points inside it" : "a short video clip (with its sound) of this stretch, nothing else",
-      to: destination(), seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: new Date(r.tokenExp).toISOString() } : undefined,
+    reviewId: r.id, state: r.state, project: r.project, range: r.range, lead: r.lead, scope: r.scope, mode: r.mode, revision: r.revision, progress: r.progress ?? null,
+    willSend: r.state === "ready" ? { what: what(r), to: r.destination, requests: r.mode === "two_pass" ? 2 : 1, tasteNotes: r.taste,
+      seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: new Date(r.tokenExp).toISOString() } : undefined,
     previewSrc: r.file ? "/previews/" + encodeURIComponent(path.basename(r.file)) : undefined, result: r.result || undefined, reason: r.reason || undefined,
   });
 
@@ -66,6 +72,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
 
   async function doSend(r) {
     if (r.state !== "ready") throw httpError(409, "that check is not waiting to be sent", { code: "NOT_READY" });
+    if (!sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
     const from = r.range.start - r.lead;
@@ -74,15 +81,16 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       const ctx = r.scope === "full" ? skeleton(doc, from, r.range.end) : "";
       const digests = [];   // B9 (rolling digests of other stretches) is the next batch
       res = await bridge.checkSample({ ffmpeg: ffmpeg(), ffprobe: ffprobe(), sampleFile: r.file, offset: from, leadSec: r.lead, rangeStart: r.range.start,
-        contextText: ctx, digests, env, agy: agyOverride || undefined, onChild: (c) => { r.child = c; } });
-    } catch (e) { res = { status: "no_result", reason: "FAILED", findings: [], summary: "", windowDigest: "" }; }
+        contextText: ctx, digests, taste: store.tasteList(r.project), mode: r.mode, env, agy: agyOverride || undefined, onChild: (c) => { r.child = c; } });
+    } catch (e) { res = { status: "no_result", reason: "FAILED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" }; }
     r.child = null;
     dropSample(r);
-    if (r.cancelled) res = { status: "no_result", reason: "CANCELLED", findings: [], summary: "", windowDigest: "" };
+    if (r.cancelled) res = { status: "no_result", reason: "CANCELLED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" };
     const rec = store.add(r.project, {
       reviewId: r.id, status: res.status, reason: res.reason || null, range: r.range, lead: r.lead, revision: r.revision, contentKey: r.key, scope: r.scope,
       source: r.source, at: new Date(now()).toISOString(), findings: res.findings, summary: res.summary, windowDigest: res.windowDigest,
-      destination: destination(),
+      dimensions: res.dimensions || null, mode: r.mode, requests: r.mode === "two_pass" ? 2 : 1, observation: res.observation || "", tasteNotes: r.taste,
+      destination: r.destination,
     });
     r.result = rec; r.state = r.cancelled ? "cancelled" : "done"; r.reason = res.reason || null; onChange(r);
     return rec;
@@ -91,14 +99,17 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   return {
     skeleton,
     /** Renders the sample. For a person at the editor this is all that happens: she sees what would be sent and clicks. */
-    prepare({ start, end, lead, scope = "window", where, agent = false, autoSend = false }) {
+    prepare({ start, end, lead, scope = "window", mode = "single", where, agent = false, autoSend = false }) {
       const s = num(start), e = num(end);
       if (s == null || e == null || s < 0 || e <= s) throw httpError(400, "start and end are seconds with 0 <= start < end", { code: "BAD_RANGE" });
       if (e - s > MAX_SPAN_S) throw httpError(400, `one check looks at most ${MAX_SPAN_S} seconds; pass a shorter stretch`, { code: "TOO_LONG" });
       const l = lead == null ? DEFAULT_LEAD_S : num(lead);
       if (l == null || l < 0 || l > MAX_LEAD_S) throw httpError(400, `lead is 0 to ${MAX_LEAD_S} seconds`, { code: "BAD_LEAD" });
       if (scope !== "window" && scope !== "full") throw httpError(400, 'scope is "window" or "full"', { code: "BAD_SCOPE" });
+      if (mode !== "single" && mode !== "two_pass") throw httpError(400, 'mode is "single" or "two_pass"', { code: "BAD_MODE" });
       if (autoSend && !agent) throw httpError(403, "only a person's click at the editor sends a sample", { code: "CLICK_REQUIRED" });
+      /* off until the owner's authorisation for an agent to send on the streamer's behalf is on file and QQ has verified it (Deja, #321) */
+      if (autoSend && !agentSendEnabled()) throw httpError(403, "an agent may not send a sample yet: it is off until the owner's authorisation is verified; use prepare, and the streamer sends with her click", { code: "AGENT_SEND_OFF" });
       const project = activeProject();
       if (busy(project)) throw httpError(409, "another check of this project is still running; cancel it or wait", { code: "BUSY", busy: view(busy(project)) });
       if (!agyOverride && !bridge.findAgy(env)) throw httpError(409, "the video check tool is not installed on this computer", { code: "NO_BRIDGE" });
@@ -107,7 +118,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       const range = { start: s, end: e };
       const id = "r_" + crypto.randomBytes(6).toString("hex");
       const job = requestSample({ project, range: { start: from, end: e }, where, revision: doc.revision ?? null });
-      const r = { id, project, range, lead: +(s - from).toFixed(3), scope, revision: doc.revision ?? null, key: store.contentKey(doc), state: "rendering", job: job.id,
+      const r = { id, project, range, lead: +(s - from).toFixed(3), scope, mode, taste: store.tasteList(project).length, destination: destination(), revision: doc.revision ?? null, key: store.contentKey(doc), state: "rendering", job: job.id,
         source: agent ? "agent" : "streamer", autoSend: !!autoSend, progress: 0, token: null, tokenExp: 0, cancelled: false };
       reviews.set(id, r);
       waitRender(r).catch(() => { r.state = "failed"; r.reason = "FAILED"; });

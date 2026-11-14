@@ -1543,7 +1543,7 @@ async function reviewTool(args) {
   const out = (o) => JSON.stringify(o, null, 2);
   switch (action) {
     case "check": case "prepare": {
-      const first = await call("POST", "/api/review/prepare", { start: need("start"), end: need("end"), lead: args.lead, scope: args.scope, where: args.where, send: action === "check" });
+      const first = await call("POST", "/api/review/prepare", { start: need("start"), end: need("end"), lead: args.lead, scope: args.scope, mode: args.mode, where: args.where, send: action === "check" });
       if (action === "prepare") return out(first);
       const limit = Date.now() + (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 300) * 1000;
       for (;;) {
@@ -1561,6 +1561,9 @@ async function reviewTool(args) {
     case "mark": return out(await call("POST", "/api/review/mark", { id: need("id"), finding: args.finding, mark: need("mark"), note: args.note }));
     case "correct": return out(await call("POST", "/api/review/correct", { id: need("id"), digest: need("digest") }));
     case "gate": return out(await call("GET", "/api/review/gate?" + q({ start: need("start"), end: need("end") })));
+    case "taste": return out(await call("GET", "/api/review/taste"));
+    case "taste_add": return out(await call("POST", "/api/review/taste/add", { kind: need("kind"), aspect: args.aspect, text: need("text") }));
+    case "taste_remove": return out(await call("POST", "/api/review/taste/remove", { id: need("id") }));
     default: throw new Error(`fablecut_review: unknown action "${action}"`);
   }
 }

@@ -2950,8 +2950,14 @@ agent last wrote, so an export right after a patch includes that patch.
   of this computer** — use it only when the streamer asked, and say so. Nothing changes in the
   project (revision, IN/OUT, undo); results are kept in `reviews/`. `passed` only comes from a
   real pass (a mark can never set it) and stops counting when the project's content changes;
-  `no_result` is never a pass. Other actions: `prepare`, `status`, `cancel`, `records`, `record`,
-  `mark`, `correct`, `gate`. See `docs/decisions/2026-11-14-video-bridge-outbound.md`.
+  `no_result` is never a pass. The answer has four separate verdicts (`dimensions`: fact,
+  subtitle, pacing, packaging) and passes only when none is `issues`. The clip is judged against
+  fixed team standards plus the project's taste notes (`taste`, `taste_add`, `taste_remove`);
+  `mode:"two_pass"` first looks blind, then checks (the clip is sent in 2 requests). An agent
+  sending on the streamer's behalf (`check`) is OFF unless `MONTCLIP_REVIEW_AGENT_SEND=1`
+  (403 `AGENT_SEND_OFF`); `prepare` always works and the streamer sends with a click.
+  Other actions: `prepare`, `status`, `cancel`, `records`, `record`, `mark`, `correct`, `gate`.
+  See `docs/decisions/2026-11-14-video-bridge-outbound.md`.
 - `preset:"instagram-reels"` picks a delivery preset; `delivery:{…}` changes any of its
   settings (`{preset:"youtube", delivery:{fps:60, video:{rate:"vbr", bitrate:16000}}}`).
   `profile:"hq"` picks a raw encoding profile instead. With neither, `project.delivery`

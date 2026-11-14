@@ -11,6 +11,9 @@ const path = require("node:path");
 
 const MAX_RECORDS = 200;
 const MARKS = Object.freeze(["fixed", "recheck_needed", "note"]);
+const TASTE_KINDS = Object.freeze(["positive", "negative"]);
+const TASTE_ASPECTS = Object.freeze(["pacing", "caption", "packaging", "fact", "subtitle", "other"]);
+const TASTE_MAX = 30;
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const clip = (s, n) => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
 
@@ -70,6 +73,27 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       write(projectId, doc);
       return view(rec);
     },
+    /** The project's taste notes (PG #321 v4 B10): what the streamer approved and rejected before, so every check judges by the same
+     *  measure. A positive example must say WHAT was approved (pacing, caption, ...), never "this whole clip is fine". */
+    tasteList(projectId) { return (read(projectId).taste || []).map((t) => ({ ...t })); },
+    tasteAdd(projectId, { kind, aspect, text }) {
+      if (!TASTE_KINDS.includes(kind)) throw httpError(400, "kind is positive or negative", { code: "BAD_TASTE" });
+      const t = clip(text, 200);
+      if (!t) throw httpError(400, "text is needed", { code: "BAD_TASTE" });
+      if (kind === "positive" && !TASTE_ASPECTS.includes(aspect)) throw httpError(400, "a positive example says what was approved: aspect is one of " + TASTE_ASPECTS.join(", "), { code: "BAD_TASTE" });
+      const doc = read(projectId); doc.taste = doc.taste || [];
+      if (doc.taste.length >= TASTE_MAX) throw httpError(400, "at most " + TASTE_MAX + " notes; remove one first", { code: "TASTE_FULL" });
+      const e = { id: "t_" + crypto.randomBytes(4).toString("hex"), kind, aspect: kind === "positive" ? aspect : null, text: t, at: new Date(now()).toISOString() };
+      doc.taste.push(e); write(projectId, doc);
+      return { ...e };
+    },
+    tasteRemove(projectId, id) {
+      const doc = read(projectId), n = (doc.taste || []).length;
+      doc.taste = (doc.taste || []).filter((t) => t.id !== id);
+      if (doc.taste.length === n) throw httpError(404, "no such note", { code: "NO_SUCH_TASTE" });
+      write(projectId, doc);
+      return { removed: id };
+    },
     /** A person's (or an agent's) correction of what the model took the stretch to be. It does not make anything pass. */
     correct(projectId, { id, digest }) {
       const doc = read(projectId), rec = doc.records.find((r) => r.reviewId === id);
@@ -89,4 +113,4 @@ function createReviewStore({ dir, now = () => Date.now() }) {
   };
 }
 
-module.exports = { createReviewStore, contentKey, canon, MARKS, MAX_RECORDS };
+module.exports = { createReviewStore, contentKey, canon, MARKS, MAX_RECORDS, TASTE_KINDS, TASTE_ASPECTS, TASTE_MAX };

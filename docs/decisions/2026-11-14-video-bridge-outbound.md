@@ -1,7 +1,7 @@
 # ADR：把一小段画面发给外部视频模型挑毛病（视频桥，2026-11-14）
 
 状态：已实现，待 QQ 核验（外发路径，独立 ADR）。
-来源：MontClip#321（P0）。PG 决定 6867274922、6867466332、6867554263、6867587684、6867627361；Deja 排期 6867286474 和第 1 步范围；规格 v1 6867305928、v2 6867359530、v3 6867498484、v3.1 6867571539。实现 Cindy。
+来源：MontClip#321（P0）。2026-11-14 增补：Deja 对第 1 步接口的决定 6867787475（agent 路径默认关闭、目的地同一判断、预热上限），PG 的增量产品决定 6868662787（B10–B13）。PG 决定 6867274922、6867466332、6867554263、6867587684、6867627361；Deja 排期 6867286474 和第 1 步范围；规格 v1 6867305928、v2 6867359530、v3 6867498484、v3.1 6867571539。实现 Cindy。
 本文是独立设计，不依赖 SPEC.md，也不引用任何反编译内容。
 
 ## 背景
@@ -12,15 +12,18 @@
 
 - **内容：** 这一段时间线（加上它前面最多 10 秒的「铺垫」，默认 3 秒）渲染出来的、重新压缩过的小视频，含声音。每次最多 3.2 MB；一次检查的这一段最长 30 秒，铺垫最长 10 秒（常量 `MAX_SPAN_S`/`MAX_LEAD_S`），超过直接 400，不渲染。画面是主播自己剪好的片子，里面可能有人脸、人声、直播间弹幕截图。
 - **不发：** 原始素材文件、工程文件、文件名、路径、用户名、账号、观众昵称（除非它们就出现在这一段的画面里）、其他段落的画面。
+- **项目里记下的审美笔记（B10）：** 每次检查都会把本项目已记下的「主播认可 / 否定过的例子」（`taste`，每条最多 200 字，最多 30 条，正例必须写明认可的是哪一方面）作为「仅供参考的文字」随请求发出。这是项目文字的一种，所以 `status` 的「发什么」里会写明「你的 N 条审美笔记」，有就一定写。它们由主播或 Agent 通过 `fablecut_review` 的 `taste_add` 写入，**不要写个人信息**（工具说明里写了）。主播可以在发送前看到条数，不想发就先删（`taste_remove`）或不点发送。
+- **固定的剪辑标准（B10）：** 5 条主人已批准的标准（`RUBRIC`，代码里的英文常量）随每次检查发出。它们是固定文字，不含项目内容。
+- **一次还是两次请求（B11）：** 默认（`mode:"single"`）同一小视频只发一次请求。`mode:"two_pass"`（深度审片推荐）会把**同一份小视频发两次请求**：第一次「盲看」只问看到、听到了什么，不带名字、不带编辑意图、不带标准、不带笔记；第二次把第一次的观察和标准、笔记一起带上做完整检查。确认框里写「分 2 次发送」，记录里写 `requests:2`。
 - **可选的文字：** 默认（`scope: "window"`）**只发画面，不带任何工程文字**。主播明确选「带上这段里的字幕和切点」（`scope: "full"`）时，才把这一段内的字幕文本和切点时间作为「仅供参考的文字」放进提示词，最多 6000 字符，用 `<<<REFERENCE … REFERENCE>>>` 框起，并告诉模型它不是指令。
-- **发给谁：** Google Gemini，经本机已安装的命令行工具 `agy`（主机 `daily-cloudcode-pa.googleapis.com`，来自该工具的文档与 Python 参考实现，**本 PR 没有在运行时验证这个主机名**）。接口返回里和界面上固定写这个名字（`DESTINATION`），不是由模型或调用方填的。
+- **发给谁：** Google Gemini，经本机已安装的命令行工具 `agy`（主机 `daily-cloudcode-pa.googleapis.com`）。**这个主机名来自该工具的文档和 Python 参考实现，运行时没有验证，也验证不了：`agy` 自己决定连哪里、不告诉调用方（`--log-file` 的日志里只有本地语言服务的信息，没有对外地址；本机 Win11 的 `agy` 也未登录，无法实连）。** 所以 `destination()` 返回 `{service, host, source:"docs", verified:false}`，界面必须把「未验证」说出来。Deja 要求「域名取自运行时实际要连的地址」，这一点我做不到，要么接受「文档地址 + 明说未验证」，要么真机抓包核一次（需要主播登录和一次真实发送，我没有授权去做）。同一个 `destination()` 用于三处：`status` 里展示的、**发送那一刻再核对一次的**（和 `prepare` 时展示的不一样就 409 `DESTINATION_CHANGED`，什么都不发）、记录里写的；有测试锁住。目的地不是由模型或调用方填的。
 - **对方怎么用：** 按 Google 的说明，这类请求的内容**可能用于训练**。界面确认处、MCP 工具说明里都写明这一句。
 - **谁的账号：** 用的是本机 `agy` 已登录的账号。MontClip 不读、不存、不转发它的任何密钥或令牌（见下「密钥」）。
 
 ## 谁触发、能不能关
 
 1. **主播在编辑器里点：** 页面先 `prepare`（只渲染小样，什么都不发），随后展示「将发送：这一段约 N 秒的小视频（带声音）；发给：Google Gemini；可能用于训练」，主播点〔发送〕才 `send`。`send` 需要 `prepare` 之后服务器给这一次检查的**一次性令牌**（10 分钟内有效，用一次就作废，只给编辑器页面看，Agent 看不到）。
-2. **Agent 替主播点：** Cindy 在对话里听到主播说「帮我看看这一段」，才用 `send:true` 调用（MCP `fablecut_review` 默认 `check`）。能力表里 `fablecut_review` 的风险等级是 `external`，和 `assistant_request`、`cloud_transcribe` 同属外发类（`agent-policy.js` 按它的等级和上限处理，本 PR 没有改 agent-policy，也没有在真机上验证它会弹哪张确认卡）；上限在 `capabilities.js` 的 `VIDEO`（每次 3.2 MB，每个打开的工程 100 MB；**100 MB 是我提的数，请 QQ 定**）。页面自己发 `send:true` 会被 403 拒绝。
+2. **Agent 替主播点：默认关闭（Deja 6867787475）。** 服务器只在环境变量 `MONTCLIP_REVIEW_AGENT_SEND=1` 时才接受 Agent 的 `send:true`（MCP `fablecut_review` 的 `check`）；没开时回 403 `AGENT_SEND_OFF`，什么都不渲染也不发。Agent 仍可 `prepare`（只渲染），由主播在页面点〔发送〕。**这个开关要等主人授权原文和范围核实后才打开；我在仓库和单里没找到「主人 11-12 授权」的原文（我最早写的接口 v0 里引用过这句，但我没有链接可附），所以这里不附，也不声称有。** 请 QQ 核验时向 Deja / 主人要原文；打开前先把链接和范围补进本节。若打开：Cindy 在对话里听到主播说「帮我看看这一段」，才用 `send:true` 调用。能力表里 `fablecut_review` 的风险等级是 `external`，和 `assistant_request`、`cloud_transcribe` 同属外发类（`agent-policy.js` 按它的等级和上限处理，本 PR 没有改 agent-policy，也没有在真机上验证它会弹哪张确认卡）；上限在 `capabilities.js` 的 `VIDEO`（每次 3.2 MB，每个打开的工程 100 MB；**100 MB 是我提的数，请 QQ 定**）。页面自己发 `send:true` 会被 403 拒绝。
 3. **关闭：** 没有任何自动触发、定时触发或后台预发（B8 的预热还没做；做的时候也只在本机渲染，不发送）。主播不点、Cindy 没被要求，就不会发。发送前可取消（`cancel`，令牌立刻作废，已渲染的小样删除）；发送中取消会结束 `agy` 的进程树。卸载或不装 `agy` 时，`prepare` 直接回 `NO_BRIDGE`，什么都不渲染。
 4. 这是新的外发路径，不属于 `assistant_request` 的 `TEXT` 上限，所以在能力表里单独加了 `VIDEO`。
 
@@ -33,7 +36,7 @@
 | 3 | 只读、锁定 | 副本和目录在 POSIX 上 `0400`/`0700`；Windows 上 `icacls /inheritance:r /grant:r *<SID>:(R,DE,WA)`（文件）与 `(OI)(CI)F`（目录）并加只读属性 | V4 |
 | 4 | 环境白名单 | 子进程只拿到 `PATH`、`HOME`/`USERPROFILE`、`TEMP`/`TMP`、`LANG`、`APPDATA` 等 22 个白名单变量（`ENV_ALLOWLIST`）；名单之外的**一律不传**，密钥类变量不在名单里。Windows 会自己补上 `USERNAME`、`USERDOMAIN` 等系统变量，测试只断言没有密钥 | 环境测试、`review-api.test.js`「没有密钥」 |
 | 5 | 超时与进程树 | 超时（默认 420 秒 + 35 秒宽限）后结束整棵进程树，等它退出再删临时目录 | V7 |
-| 6 | 模型的话只是数据 | 回答必须是一个 JSON；`type` 只认 `speaker_swapped/cut_jump/subtitle_mismatch/audio/continuity/other`，其余变 `other`；每段文字截断（发现 200、建议 200、总结 600、摘要 300、最多 20 条），控制字符去掉。**路径、链接、命令一律不执行、不打开、不当作授权**；`passed` 只由「检查本身通过」产生，任何 HTTP/MCP 调用都写不了（`mark` 拒绝 `passed`，400） | V6、`review-api.test.js` |
+| 6 | 模型的话只是数据 | 回答必须是一个 JSON；`type` 只认 `speaker_swapped/cut_jump/subtitle_mismatch/audio/continuity/over_explained_caption/punchline_spoiled/protected_region_occluded/other`，其余变 `other`；每段文字截断（发现 200、建议 200、总结 600、摘要 300、最多 20 条），控制字符去掉。**路径、链接、命令一律不执行、不打开、不当作授权**；`passed` 只由「检查本身通过」产生，任何 HTTP/MCP 调用都写不了（`mark` 拒绝 `passed`，400） | V6、`review-api.test.js` |
 | 7 | 会话文件 | `agy` 会在用户目录留下会话记录，检查后尽量把那份会话目录也锁成只读 | `lockToolSession` |
 
 **Windows 上的诚实说明：** 这些锁防的是「`agy` 或模型让它去改、删、读别的文件」和「别的程序顺手读到临时副本」的常见情形。同一个用户下的其他进程**可以**改回 ACL 再读，这一点在 Windows 上做不到，和 Python 参考实现在 POSIX 上的同用户限制一样。不能当成对恶意同用户程序的防护。
@@ -51,10 +54,18 @@ Successfully processed 1 files; Failed processing 0 files
 ## 隔离：外发内容不进日志、测试、PR 证据
 
 - 发出去的小视频只在 `os.tmpdir()` 下一个随机目录里存在，检查结束（成功、失败、超时、取消都一样）在 `finally` 里删除；渲染出的那份完整小样在 `previews/`，发送后立即删除，没发送的由现有的 `prunePreviews()` 清理（最新 20 个、一天）。
-- 记录（`reviews/<工程id>.json`）只存结果：时间点、类型、文字（已截断）、总结、检查的范围、`revision`、内容指纹。**不存**视频、提示词、`agy` 的路径或参数、临时目录、模型的原始回答。
+- 记录（`reviews/<工程id>.json`）只存结果：时间点、类型、文字（已截断）、四项分项结论（含理由）、总结、盲看的观察（清理并截到 800 字）、检查的范围、`revision`、内容指纹、`mode`/`requests`/笔记条数、当时展示的目的地。**不存**视频、提示词、`agy` 的路径或参数、临时目录、模型的原始回答。审美笔记本身存在同一个文件里（`taste`），不在 `project.json`。
 - MCP 与 HTTP 的返回、`status`、记录里都没有密钥、`agy` 路径、临时目录（`review-api.test.js`「nothing secret…」断言）。服务器日志不打印提示词或回答。
 - 测试用的是替身 `test/fixtures/fake-agy.js`，**不联网**；PR 证据里不贴视频、不贴模型回答原文，只贴数字和打码后的结果。真机 `agy` 的试跑（如做）也只记录状态和数量，不附内容。
 - 密钥：团队密钥只用 1Password 引用；本功能不要求任何密钥写进仓库、日志、MCP 或工具返回。`agy` 的登录由它自己管理，MontClip 不碰。
+
+## 四项分项结论（B12）与通过的硬规则
+
+结果带 `dimensions: {fact, subtitle, pacing, packaging}`，每项 `passed | issues | insufficient_evidence` 加一句理由（≤200 字），**四项都必须有**，缺一项或出现别的值，整个回答作废（`no_result: BAD_OUTPUT`）。`status`：
+
+- 任何一项是 `issues`，或这一段本身列出了问题 → `issues`。「名牌没贴反但画面里有说明书式花字」（`packaging: issues`）就算模型说了 `pass` 也是 `issues`，有测试。
+- `fact` 或 `subtitle` 是 `insufficient_evidence`（名字或台词没法判断）且没有别的问题 → `no_result: INSUFFICIENT_EVIDENCE`：既不通过也不算失败，什么都没查出来。`pacing`/`packaging` 判断不了不挡通过但会显示出来。**哪些算「关键项」是我定的（fact、subtitle），请 JJ/PG 在 v4 里确认。**
+- 其余才是 `passed`；`passed` 仍只由检查本身产生，`mark` 写不了。
 
 ## 工程不受影响
 
@@ -68,7 +79,8 @@ Successfully processed 1 files; Failed processing 0 files
 
 ## 没做（下一批）
 
-- B8：滑动窗口加铺垫的本机预热缓存；B9：`globalVideoContext` 与滚动摘要。
+- B8：滑动窗口加铺垫的本机预热缓存（Deja 6867787475 定：最多 5 个、总计不超过 200 MB，超了先删最久没用的；本 PR 的 `previews/` 仍是 #325 的「最新 20 个、一天」，预热做的时候再收紧）；B9：`globalVideoContext` 与滚动摘要。
+- B13：本机零外发的几何框和保护区审查卷（用工程里的坐标，FFmpeg `drawbox` 画在审查用的临时副本上，标签只用中性代号），作为紧接着的小补丁（Step 1.5）。外部定位/分割模型（YOLO、SAM、Meta Muse、OpenRouter）按 PG 说的：新依赖、新域名、新密钥，**不在本 PR**，要另单、QQ 核验、主人专项授权。`regionDetector` 适配口也还没留。
 - Cindy 侧的 `montclip_preview_check` 工具（MontClip-Cindy，引擎先合，插件后合）。
 - Deja 的两个按钮（第 2 步）直接用本 PR 的 `/api/review/*`。
 - 真机 `agy` 联网试跑：需要主播确认账号和内容后再做，本 PR 只用替身。
@@ -77,5 +89,8 @@ Successfully processed 1 files; Failed processing 0 files
 
 1. 上面「发给谁」的文案与主机名是否够准（运行时未验证）。
 2. `VIDEO` 的 100 MB 每工程上限。
-3. Agent 的 `send:true` 是否应再加一道确认卡片（现在依赖 `external` 风险等级和「主播在对话里要求」）。
+3. Agent 的 `send:true`：默认已关；主人授权原文和范围、以及打开方式（现在是环境变量，是否要改成桌面设置里的开关）。
 4. 门禁是否升级为导出前硬拦。
+5. 目的地「文档地址 + 明说未验证」是否可接受，还是要真机抓包核一次。
+6. 审美笔记作为项目文字随每次检查发出（有条数提示、可删）是否可接受。
+7. 「关键项」= fact + subtitle 是否对。

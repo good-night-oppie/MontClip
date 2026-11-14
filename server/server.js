@@ -997,6 +997,8 @@ function reviews() {
     getJob: (id) => exportJobs.get(id), cancelJob: (id) => exportJobs.cancel(id),
     sampleFile: (src) => { const n = path.basename(decodeURIComponent(String(src).split("?")[0])); const f = path.join(PREVIEWS_DIR, n); try { return fs.statSync(f).isFile() ? f : null; } catch { return null; } },
     ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"),
+    /* an agent sending on the streamer's behalf is OFF unless MONTCLIP_REVIEW_AGENT_SEND=1 (set only after QQ has verified the owner's authorisation) */
+    agentSendEnabled: () => process.env.MONTCLIP_REVIEW_AGENT_SEND === "1",
     onChange: (r) => { try { broadcast("review", JSON.stringify({ id: r.id, state: r.state })); } catch { } },
   });
   return reviewSvc;
@@ -1727,6 +1729,9 @@ async function handleRequest(req, res) {
        GET  /api/review/status?id= → the check now (result when done)         POST /api/review/cancel {id}
        GET  /api/review/records?limit= · /api/review/record?id=                POST /api/review/mark {id, finding?, mark: fixed|recheck_needed|note, note?}
        POST /api/review/correct {id, digest}                                   GET  /api/review/gate?start=&end= → {passed, recordId, …}
+       GET  /api/review/taste · POST /api/review/taste/add {kind: positive|negative, aspect (positive), text} · /taste/remove {id}
+       prepare also takes mode: "single" (default) | "two_pass" (a blind first look, then the full check: the same clip is sent in 2 requests).
+       An agent's send:true answers 403 AGENT_SEND_OFF unless MONTCLIP_REVIEW_AGENT_SEND=1.
        "passed" is only ever written by a check that passed; mark refuses it (400). */
   if (p.startsWith("/api/review/")) {
     const action = p.slice("/api/review/".length);
@@ -1737,7 +1742,7 @@ async function handleRequest(req, res) {
       const q = (k) => url.searchParams.get(k);
       if (action === "prepare" && req.method === "POST") {
         if (body.send === true && !agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample" }); return; }
-        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, where: body.where, agent, autoSend: body.send === true }));
+        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, where: body.where, agent, autoSend: body.send === true }));
       } else if (action === "status" && req.method === "GET") {
         const v = svc.status(q("id") || undefined);
         if (!agent && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
@@ -1757,6 +1762,12 @@ async function handleRequest(req, res) {
         sendJSON(res, 200, store.mark(project, { id: String(body.id || ""), finding: body.finding ?? null, mark: body.mark, note: body.note }));
       } else if (action === "correct" && req.method === "POST") {
         sendJSON(res, 200, store.correct(project, { id: String(body.id || ""), digest: body.digest }));
+      } else if (action === "taste" && req.method === "GET") {
+        sendJSON(res, 200, { notes: store.tasteList(project) });
+      } else if (action === "taste/add" && req.method === "POST") {
+        sendJSON(res, 200, store.tasteAdd(project, { kind: body.kind, aspect: body.aspect, text: body.text }));
+      } else if (action === "taste/remove" && req.method === "POST") {
+        sendJSON(res, 200, store.tasteRemove(project, String(body.id || "")));
       } else if (action === "gate" && req.method === "GET") {
         const s = Number(q("start")), e = Number(q("end"));
         if (!Number.isFinite(s) || !Number.isFinite(e) || s < 0 || e <= s) { sendJSON(res, 400, { code: "BAD_RANGE", error: "start and end are seconds with 0 <= start < end" }); return; }

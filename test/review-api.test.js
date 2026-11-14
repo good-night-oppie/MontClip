@@ -18,7 +18,7 @@ try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" 
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 const tmp = (t, p = "mcrv-") => { const d = fs.mkdtempSync(path.join(os.tmpdir(), p)); t.after(() => VB.rmForce(d)); return d; };
 const envFor = (mode, opts = {}) => ({ ...process.env, MONTCLIP_AGY_BIN: process.execPath, SECRET_TOKEN_FOR_TEST: "s3cret-value",
-  MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), "--"]) });
+  MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.calls ? [`--calls=${opts.calls}`] : []), "--"]) });
 function makeSample(dir, sec = 8) {
   const f = path.join(dir, "sample.mp4");
   execFileSync(FF.path("ffmpeg"), ["-v", "error", "-y", "-f", "lavfi", "-i", `testsrc2=size=640x360:rate=30:duration=${sec}`, "-f", "lavfi", "-i", `sine=f=440:duration=${sec}`,
@@ -79,17 +79,17 @@ test("store: a project id cannot pick another path; the file is a plain tmp-and-
 
 /* ---- the steps ---- */
 function setup(t, mode, extra = {}) {
-  const d = tmp(t), sample = makeSample(d), report = path.join(d, "report.json");
+  const d = tmp(t), sample = makeSample(d), report = path.join(d, "report.json"), calls = path.join(d, "calls.jsonl");
   const store = createReviewStore({ dir: path.join(d, "reviews") });
   let doc = DOC(), jobs = 0, cancelled = [];
   const svc = createReviewService({
-    store, bridge: VB, readProject: () => doc, activeProject: () => "p1", pollMs: 20,
+    store, bridge: extra.bridge || VB, readProject: () => doc, activeProject: () => "p1", pollMs: 20, agentSendEnabled: () => !!extra.agentSend,
     requestSample: ({ range }) => { jobs++; return { id: "x_" + jobs, range }; },
     getJob: () => ({ status: extra.jobStatus || "done", progress: 1, src: "/previews/sample.mp4" }),
     cancelJob: (id) => cancelled.push(id), sampleFile: () => sample,
-    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: envFor(mode, { report }),
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: envFor(mode, { report, calls }),
   });
-  return { d, svc, store, report, setDoc: (x) => { doc = x; }, doc: () => doc, cancelled, jobsMade: () => jobs };
+  return { d, svc, store, report, calls, setDoc: (x) => { doc = x; }, doc: () => doc, cancelled, jobsMade: () => jobs };
 }
 const until = async (fn, ms = 20000) => { const t0 = Date.now(); for (;;) { const v = fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error("timed out"); await new Promise((r) => setTimeout(r, 25)); } };
 
@@ -128,8 +128,11 @@ test("timeline seconds: the sample starts lead seconds before the stretch", { sk
   assert.equal(lead.t, 22.5); assert.equal(lead.inLead, true);
 });
 
-test("an agent's request with send:true is sent when ready; a page cannot ask for that", { skip }, async (t) => {
-  const S = setup(t, "pass");
+test("an agent's request with send:true is OFF by default; with the switch on it is sent when ready; a page cannot ask for that", { skip }, async (t) => {
+  const off = setup(t, "pass");
+  assert.throws(() => off.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.status === 403 && e.code === "AGENT_SEND_OFF");
+  assert.equal(off.jobsMade(), 0, "nothing is rendered either");
+  const S = setup(t, "pass", { agentSend: true });
   assert.throws(() => S.svc.prepare({ start: 24, end: 29, agent: false, autoSend: true }), (e) => e.status === 403 && e.code === "CLICK_REQUIRED");
   const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
   const done = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "done" && s; });
@@ -216,4 +219,67 @@ test("skeleton: text and cut points inside the stretch only, cut to size", () =>
   assert.ok(!/20\.00/.test(s), "a clip that starts before the stretch is not a cut point of it");
   const big = { clips: Array.from({ length: 400 }, (_, i) => ({ start: i, duration: 1, kind: "text", props: { text: "x".repeat(150) } })) };
   assert.ok(skeleton(big, 0, 400).length <= 6000);
+});
+
+/* ---- PG #321 v4 and Deja's gates ---- */
+test("the page sees what is sent: how many requests, how many taste notes, to whom; the record says the same", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  S.store.tasteAdd("p1", { kind: "negative", text: "a caption that explains the joke" });
+  S.store.tasteAdd("p1", { kind: "positive", aspect: "pacing", text: "the pause before the reply" });
+  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass" });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const w = S.svc.status(v.reviewId).willSend;
+  assert.equal(w.requests, 2); assert.equal(w.tasteNotes, 2);
+  assert.match(w.what, /2 requests/); assert.match(w.what, /2 saved taste notes/);
+  assert.deepEqual(w.to, { ...VB.destination() }, "what is shown is the one decision");
+  const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  assert.deepEqual(rec.destination, w.to, "the record says what was shown");
+  assert.equal(rec.mode, "two_pass"); assert.equal(rec.requests, 2); assert.equal(rec.tasteNotes, 2);
+  assert.equal(rec.dimensions.fact.state, "passed");
+  const calls = fs.readFileSync(S.calls, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(calls.map((c) => c.kind), ["blind", "main"], "the clip really went in 2 requests");
+  assert.ok(calls[1].prompt.includes("the pause before the reply") && !calls[0].prompt.includes("the pause before the reply"));
+  assert.throws(() => S.svc.prepare({ start: 1, end: 5, mode: "three" }), (e) => e.status === 400 && e.code === "BAD_MODE");
+});
+
+test("where it goes is checked again at the moment of sending: a change since it was shown stops the send", { skip }, async (t) => {
+  let host = "daily-cloudcode-pa.googleapis.com";
+  const moving = { ...VB, destination: () => Object.freeze({ service: "Google Gemini", host, source: "docs", verified: false }) };
+  const S = setup(t, "pass", { bridge: moving });
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const token = S.svc.tokenFor(v.reviewId);
+  host = "somewhere.else.example";
+  await assert.rejects(S.svc.send(v.reviewId, token), (e) => e.status === 409 && e.code === "DESTINATION_CHANGED");
+  assert.equal(fs.existsSync(S.report), false, "nothing was sent");
+  assert.equal(S.svc.status(v.reviewId).state, "failed");
+});
+
+test("hard rule over the four verdicts, through the whole check: names right but packaging issues is not a pass and the gate says no", { skip }, async (t) => {
+  const S = setup(t, "packaging");
+  const v = S.svc.prepare({ start: 24, end: 29 });
+  await until(() => S.svc.status(v.reviewId).state === "ready");
+  const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
+  assert.equal(rec.status, "issues"); assert.equal(rec.dimensions.packaging.state, "issues");
+  assert.equal(S.store.gate("p1", { key: S.store.contentKey(S.doc()), start: 24, end: 29 }).passed, false);
+});
+
+test("taste notes: a positive one says what was approved, at most 30, removable; they live apart from the project", (t) => {
+  const s = createReviewStore({ dir: tmp(t) });
+  assert.throws(() => s.tasteAdd("p", { kind: "positive", text: "the whole clip is great" }), (e) => e.status === 400 && e.code === "BAD_TASTE", "no aspect: refused");
+  assert.throws(() => s.tasteAdd("p", { kind: "positive", aspect: "everything", text: "x" }), (e) => e.status === 400);
+  assert.throws(() => s.tasteAdd("p", { kind: "maybe", text: "x" }), (e) => e.status === 400);
+  assert.throws(() => s.tasteAdd("p", { kind: "negative", text: "   " }), (e) => e.status === 400);
+  const n = s.tasteAdd("p", { kind: "negative", text: "an explaining caption\u0000 " + "x".repeat(400) });
+  assert.equal(n.aspect, null); assert.equal(n.text.length, 200); assert.ok(!/\u0000/.test(n.text));
+  const p = s.tasteAdd("p", { kind: "positive", aspect: "caption", text: "the one-word reaction caption" });
+  assert.deepEqual(s.tasteList("p").map((x) => x.id), [n.id, p.id]);
+  for (let i = 0; i < 28; i++) s.tasteAdd("p", { kind: "negative", text: "n" + i });
+  assert.throws(() => s.tasteAdd("p", { kind: "negative", text: "one too many" }), (e) => e.status === 400 && e.code === "TASTE_FULL");
+  assert.deepEqual(s.tasteRemove("p", n.id), { removed: n.id });
+  assert.throws(() => s.tasteRemove("p", n.id), (e) => e.status === 404);
+  assert.equal(s.tasteList("p").length, 29);
+  assert.deepEqual(s.tasteList("other"), [], "another project has its own notes");
+  s.add("p", { reviewId: "r1", status: "issues", range: { start: 0, end: 1 }, contentKey: "k", findings: [] });
+  assert.equal(s.tasteList("p").length, 29, "adding a record does not lose the notes");
 });

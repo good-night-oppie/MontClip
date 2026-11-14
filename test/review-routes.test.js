@@ -15,7 +15,7 @@ let HAS_FFMPEG = false;
 try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch { }
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 
-const agyEnv = (mode, report) => ({ FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath,
+const agyEnv = (mode, report, more = {}) => ({ FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(report ? [`--report=${report}`] : []), "--"]) });
 const PAGE = { "Sec-Fetch-Site": "same-origin" };
 /* node's fetch adds neither Origin nor Sec-Fetch-Site: that is an agent (MCP / the plugin); the page's header is added by hand */
@@ -100,7 +100,7 @@ test("the whole way on a real server: page prepares, the tab renders, only the p
 
 test("an agent's check sends when ready (send:true); a page cannot ask that; marks never make a pass; the gate says no without a pass", { skip, timeout: 120_000 }, async (t) => {
   const dir = makeDataDir(t, seedProject({ revision: 3 }));
-  const { base } = await startServer(t, dir, agyEnv("pass"));
+  const { base } = await startServer(t, dir, agyEnv("pass", undefined, { MONTCLIP_REVIEW_AGENT_SEND: "1" }));
   const before = fs.readFileSync(path.join(dir, "project.json"), "utf8");
   const tab = fakeTab(t, base); await tab.connected();
 
@@ -139,4 +139,21 @@ test("refusals before anything is rendered: bad range, too long, no tool", { ski
   const b = await startServer(t, dir2, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_AGY_BIN: path.join(dir2, "none") });
   const r = await call(b.base, "POST", "/api/review/prepare", { start: 1, end: 3 });
   assert.equal(r.status, 409); assert.equal(r.body.code, "NO_BRIDGE");
+});
+
+test("an agent's send:true is off unless the switch is on; taste notes by route; the page and the agent see the same notes", { skip, timeout: 60_000 }, async (t) => {
+  const dir = makeDataDir(t);
+  const { base } = await startServer(t, dir, agyEnv("pass"));
+  const off = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true });
+  assert.equal(off.status, 403); assert.equal(off.body.code, "AGENT_SEND_OFF");
+  assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], [], "nothing was rendered");
+  assert.equal((await call(base, "POST", "/api/review/taste/add", { kind: "positive", text: "all good" })).status, 400, "a positive note says what");
+  const add = await call(base, "POST", "/api/review/taste/add", { kind: "positive", aspect: "pacing", text: "the pause before the reply" });
+  assert.equal(add.status, 200, JSON.stringify(add.body));
+  assert.equal((await call(base, "POST", "/api/review/taste/add", { kind: "negative", text: "a caption that explains the joke" })).status, 200);
+  assert.equal((await call(base, "GET", "/api/review/taste", undefined, PAGE)).body.notes.length, 2);
+  assert.equal((await call(base, "POST", "/api/review/taste/remove", { id: add.body.id })).status, 200);
+  assert.equal((await call(base, "GET", "/api/review/taste")).body.notes.length, 1);
+  assert.equal((await call(base, "POST", "/api/review/taste/remove", { id: "nope" })).status, 404);
+  assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, mode: "three" })).body.code, "BAD_MODE");
 });
