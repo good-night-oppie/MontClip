@@ -6,7 +6,7 @@
    own code and JJ's sentence. Every other exit keeps #231's sentence. Nothing is done to make the browser work
    elevated. The five cases of the spec, with an injected "is elevated" and stand-in browsers (node itself). */
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-const { createExportJobs, elevatedCode, FAST_EXIT_MS } = require('../export-jobs');
+const { createExportJobs, elevatedCode, FAST_EXIT_MS } = require('../server/export-jobs');
 const V = require('../ui-preferences');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
@@ -63,7 +63,7 @@ test('④ elevated, but the browser crashes for another reason (it says somethin
    node, which exits at once — with code 9 for Chrome's flags (a crash), or with code 0 when FABLECUT_CHROME's flags are
    swallowed by NODE_OPTIONS-free `node -e`. Here the process is replaced by a fake with the fields the handler reads. */
 function fakeRun({ elevated, code, afterMs, claimed = false, host = 'cindy' }) {
-  const src = read('export-jobs.js');
+  const src = read('server/export-jobs.js');
   const handler = src.slice(src.indexOf('proc.on("exit", (code) => {'), src.indexOf('  return {\n    assertWhere,'));
   a.ok(handler.length > 200, 'the exit handler was found');
   // run the handler's body as it is written, with stand-ins for what it closes over
@@ -109,8 +109,8 @@ test('the exit handler, all five cases of the spec', () => {
 
 /* The real thing, where it can happen: Windows, this very process elevated (a shell started as administrator), a real
    Chrome / Edge. Nothing is injected. Skipped everywhere else. */
-const realBrowser = (() => { const saved = process.env.FABLECUT_CHROME; delete process.env.FABLECUT_CHROME; try { return require('../export-jobs').findBrowser(); } finally { if (saved != null) process.env.FABLECUT_CHROME = saved; } })();
-const realSkip = process.platform !== 'win32' ? 'Windows only' : !require('../export-jobs').isElevated() ? 'this process is not elevated' : !realBrowser ? 'no Chrome / Edge' : false;
+const realBrowser = (() => { const saved = process.env.FABLECUT_CHROME; delete process.env.FABLECUT_CHROME; try { return require('../server/export-jobs').findBrowser(); } finally { if (saved != null) process.env.FABLECUT_CHROME = saved; } })();
+const realSkip = process.platform !== 'win32' ? 'Windows only' : !require('../server/export-jobs').isElevated() ? 'this process is not elevated' : !realBrowser ? 'no Chrome / Edge' : false;
 test('Windows, really elevated, a real browser: the export job ends at once with the administrator code, and the queue takes the next job', { skip: realSkip, timeout: 60000 }, async (t) => {
   const saved = process.env.FABLECUT_CHROME; delete process.env.FABLECUT_CHROME;
   t.after(() => { if (saved != null) process.env.FABLECUT_CHROME = saved; });
@@ -157,9 +157,9 @@ test('JJ\'s sentences, word for word; the plugin\'s names Cindy; where the progr
 });
 
 test('nothing is done to make the browser work elevated; the server says who started the engine', () => {
-  const src = read('export-jobs.js');
+  const src = read('server/export-jobs.js');
   a.doesNotMatch(src, /--no-sandbox|--do-not-de-elevate|--disable-gpu-sandbox|runas/i);
   a.match(src, /path\.join\(env\.SystemRoot \|\| env\.windir \|\| "C:\\\\Windows", "System32", "whoami\.exe"\), \["\/groups", "\/fo", "csv", "\/nh"\]/, 'whoami by its full path, fixed arguments, no shell');
-  a.match(read('server.js'), /host: EMBED \? "cindy" : DESKTOP \? "montclip" : "",/);
-  a.equal(require('../export-jobs').isElevated({}, 'linux'), false, 'only asked on Windows');
+  a.match(read('server/server.js'), /host: EMBED \? "cindy" : DESKTOP \? "montclip" : "",/);
+  a.equal(require('../server/export-jobs').isElevated({}, 'linux'), false, 'only asked on Windows');
 });
