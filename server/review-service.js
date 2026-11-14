@@ -25,15 +25,27 @@ function skeleton(doc, from, to) {
   const inside = (c) => { const s = Number(c.start), d = Number(c.duration); return Number.isFinite(s) && Number.isFinite(d) && s < to && s + d > from; };
   const words = clips.filter((c) => c && c.props && typeof c.props.text === "string" && c.props.text && inside(c)).sort((a, b) => a.start - b.start);
   for (const c of words) lines.push(`${(+c.start).toFixed(2)}-${(+c.start + +c.duration).toFixed(2)}s text: ${c.props.text.replace(/\s+/g, " ").slice(0, 200)}`);
+  /* a composition's own text clips, placed by the composition clip's start (trim and speed are not followed: the words are reference, not timing) */
+  for (const c of clips) {
+    if (!c || c.kind !== "comp" || !inside(c)) continue;
+    const comp = (Array.isArray(doc.comps) ? doc.comps : []).find((x) => x && x.id === (c.compId || c.comp || c.compositionId));
+    for (const sub of (comp && Array.isArray(comp.clips) ? comp.clips : [])) {
+      if (!sub || !sub.props || typeof sub.props.text !== "string" || !sub.props.text) continue;
+      const a = +c.start + (+sub.start || 0), b = a + (+sub.duration || 0);
+      if (a < to && b > from) lines.push(`${a.toFixed(2)}-${b.toFixed(2)}s text (in a composition): ${sub.props.text.replace(/\s+/g, " ").slice(0, 200)}`);
+    }
+  }
   const cuts = clips.filter((c) => c && c.kind !== "text" && Number.isFinite(Number(c.start)) && c.start >= from && c.start <= to).map((c) => +c.start).sort((a, b) => a - b);
   if (cuts.length) lines.push("clip starts (cut points): " + [...new Set(cuts.map((t) => t.toFixed(2)))].join(", ") + " s");
   return lines.join("\n").slice(0, CONTEXT_MAX);
 }
 
 function createReviewService({ store, bridge, readProject, activeProject, requestSample, getJob, cancelJob, sampleFile, ffmpeg, ffprobe, env = process.env,
-  agyOverride = null, agentSendEnabled = () => false, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
+  agyOverride = null, agentSendEnabled = () => false, sendCapBytes = 104857600, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
   const reviews = new Map();           // reviewId → in-flight state (finished ones live in the store)
-  const busy = (project) => [...reviews.values()].find((r) => r.project === project && (r.state === "rendering" || r.state === "ready" || r.state === "sending"));
+  /* a check that was shown but never confirmed does not hold the project forever: after its token ran out it is expired and its sample removed */
+  const sweep = () => { for (const r of reviews.values()) if (r.state === "ready" && now() > r.tokenExp) { r.state = "expired"; r.reason = "EXPIRED"; r.token = null; dropSample(r); onChange(r); } };
+  const busy = (project) => { sweep(); return [...reviews.values()].find((r) => r.project === project && (r.state === "rendering" || r.state === "ready" || r.state === "sending")); };
   /* ONE decision about where it goes: what is shown, what is checked again at the moment of sending, and what the record says */
   const destination = () => ({ ...bridge.destination(env) });
   const sameDestination = (a, b) => a && b && a.service === b.service && a.host === b.host;
@@ -44,6 +56,8 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   const view = (r) => ({
     reviewId: r.id, state: r.state, project: r.project, range: r.range, lead: r.lead, scope: r.scope, mode: r.mode, revision: r.revision, progress: r.progress ?? null,
     willSend: r.state === "ready" ? { what: what(r), to: r.destination, requests: r.mode === "two_pass" ? 2 : 1, tasteNotes: r.taste,
+      /* the words themselves, as they will go: the project's subtitles and cut points (scope full) and the taste notes */
+      projectText: r.ctx || "", notes: (r.tasteSnap || []).map((t) => ({ kind: t.kind, aspect: t.aspect, text: t.text })),
       seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: new Date(r.tokenExp).toISOString() } : undefined,
     previewSrc: r.file ? "/previews/" + encodeURIComponent(path.basename(r.file)) : undefined, result: r.result || undefined, reason: r.reason || undefined,
   });
@@ -58,6 +72,10 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       if (j.status === "done") {
         const file = j.src ? sampleFile(j.src) : null;
         if (!file) { r.state = "failed"; r.reason = "RENDER_FAILED"; break; }
+        /* the sample was rendered from the project as it is now: the words, the notes and the key are taken from that same moment, shown as they are,
+           and a later edit makes the picture stale (refused at send) */
+        { const doc = readProject() || {}; r.key = store.contentKey(doc); r.revision = doc.revision ?? null;
+          r.ctx = r.scope === "full" ? skeleton(doc, Math.max(0, r.range.start - r.lead), r.range.end) : ""; r.tasteSnap = store.tasteSendable(r.project); r.taste = r.tasteSnap.length; }
         r.file = file; r.state = "ready"; r.token = crypto.randomBytes(24).toString("hex"); r.tokenExp = now() + TOKEN_TTL_MS; r.progress = 1; break;
       }
       if (j.status === "failed" || j.status === "cancelled" || j.status === "error") { r.state = r.cancelled ? "cancelled" : "failed"; r.reason = r.cancelled ? "CANCELLED" : "RENDER_FAILED"; break; }
@@ -73,6 +91,8 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   async function doSend(r) {
     if (r.state !== "ready") throw httpError(409, "that check is not waiting to be sent", { code: "NOT_READY" });
     if (activeProject() !== r.project) { r.state = "failed"; r.reason = "PROJECT_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "another project is open now; prepare again", { code: "PROJECT_CHANGED" }); }
+    if (store.contentKey(readProject() || {}) !== r.key) { r.state = "failed"; r.reason = "PROJECT_EDITED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "the project was edited after this sample was made, so it no longer matches; prepare again", { code: "PROJECT_EDITED" }); }
+    { const need = (r.mode === "two_pass" ? 2 : 1) * bridge.MAX_SAMPLE_BYTES; if (store.sentTotal(r.project) + need > sendCapBytes) { r.state = "failed"; r.reason = "SEND_LIMIT"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "this project has reached its limit for video sent out", { code: "SEND_LIMIT" }); } }
     if (!destination().verified || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
@@ -88,12 +108,17 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     r.child = null;
     dropSample(r);
     if (r.cancelled) res = { status: "no_result", reason: "CANCELLED", findings: [], summary: "", windowDigest: "", dimensions: null, mode: r.mode, observation: "" };
-    const rec = store.add(r.project, {
+    let rec;
+    try { rec = store.add(r.project, {
       reviewId: r.id, status: res.status, reason: res.reason || null, range: r.range, lead: r.lead, revision: r.revision, contentKey: r.key, scope: r.scope,
       source: r.source, at: new Date(now()).toISOString(), findings: res.findings, summary: res.summary, windowDigest: res.windowDigest,
       dimensions: res.dimensions || null, mode: r.mode, requests: r.mode === "two_pass" ? 2 : 1, observation: res.observation || "", tasteNotes: r.taste,
-      destination: r.destination,
-    });
+      destination: r.destination, sentBytes: res.sentBytes || 0, passes: res.passes || [],
+    }); } catch (e) {
+      /* the clip may already have gone out; the check must not stay "sending" and block the project: it is failed, with a fixed code */
+      r.state = "failed"; r.reason = "STORE_FAILED"; onChange(r);
+      throw httpError(500, "the check ran but its record could not be saved", { code: "STORE_FAILED" });
+    }
     r.result = rec; r.state = r.cancelled ? "cancelled" : "done"; r.reason = res.reason || null; onChange(r);
     return rec;
   }
@@ -102,6 +127,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     skeleton,
     /** Renders the sample. For a person at the editor this is all that happens: she sees what would be sent and clicks. */
     prepare({ start, end, lead, scope = "window", mode = "single", where, agent = false, autoSend = false }) {
+      sweep();
       const s = num(start), e = num(end);
       if (s == null || e == null || s < 0 || e <= s) throw httpError(400, "start and end are seconds with 0 <= start < end", { code: "BAD_RANGE" });
       if (e - s > MAX_SPAN_S) throw httpError(400, `one check looks at most ${MAX_SPAN_S} seconds; pass a shorter stretch`, { code: "TOO_LONG" });
@@ -120,7 +146,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       const doc = readProject() || {};
       const from = Math.max(0, s - l);
       const range = { start: s, end: e };
-      const tasteSnap = store.tasteSendable(project);
+      const tasteSnap = store.tasteSendable(project);   // taken again when the sample is ready, and that is what is shown and sent
       const id = "r_" + crypto.randomBytes(6).toString("hex");
       const job = requestSample({ project, range: { start: from, end: e }, where, revision: doc.revision ?? null });
       const r = { id, project, range, lead: +(s - from).toFixed(3), scope, mode, tasteSnap: tasteSnap, taste: tasteSnap.length, ctx: scope === "full" ? skeleton(doc, from, e) : "", destination: destination(), revision: doc.revision ?? null, key: store.contentKey(doc), state: "rendering", job: job.id,

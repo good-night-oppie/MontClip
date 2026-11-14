@@ -59,11 +59,16 @@ test("parseVerdict: checked fields, cut lengths, no control characters; 'pass' n
   assert.equal(VB.parseVerdict("no json", { durationSec: 10 }), null);
   assert.equal(VB.parseVerdict('{"verdict":"maybe"}', { durationSec: 10 }), null);
   const DIMS = '"dimensions":{"fact":{"state":"issues","reason":"' + "r".repeat(500) + '"},"subtitle":{"state":"passed","reason":""},"pacing":{"state":"insufficient_evidence","reason":"?"},"packaging":{"state":"passed","reason":""}},';
-  const v = VB.parseVerdict('blah {"verdict":"issues","summary":"' + "s".repeat(900) + '","windowDigest":"' + "d".repeat(900) + '",' + DIMS + '"findings":[{"t":99,"type":"weird","text":"a\\u0000b","suggestion":"c"},{"t":"x"},{"t":-3,"type":"audio","text":"t"}]} trailing', { durationSec: 10 });
+  /* a finding that cannot be placed in time makes the whole answer unusable: it is not dropped and left as a pass */
+  assert.equal(VB.parseVerdict('blah {"verdict":"issues","summary":"s","windowDigest":"d",' + DIMS + '"findings":[{"t":"x"}]}', { durationSec: 10 }), null);
+  const v = VB.parseVerdict('blah {"verdict":"issues","summary":' + JSON.stringify("s".repeat(900)) + ',"windowDigest":' + JSON.stringify("d".repeat(900)) + ',' + DIMS + '"findings":[{"t":99,"type":"weird","text":"a\\u0000b","suggestion":"c"},{"t":-3,"type":"audio","text":"t"}]} trailing', { durationSec: 10 });
   assert.equal(v.summary.length, VB.LIMITS.summary); assert.equal(v.windowDigest.length, VB.LIMITS.digest);
-  assert.equal(v.findings.length, 2, "a finding without a number for t is dropped");
+  assert.equal(v.dimensions.fact.reason.length, VB.LIMITS.reason); assert.equal(v.dimensions.pacing.state, "insufficient_evidence");
+  assert.equal(v.findings.length, 2);
   assert.equal(v.findings[0].t, 10, "a time past the end is held at the end"); assert.equal(v.findings[0].type, "other");
   assert.ok(!/\u0000/.test(v.findings[0].text)); assert.equal(v.findings[1].t, 0);
+  /* a dimension that says issues, with no finding to look at, is unusable (B12c) */
+  assert.equal(VB.parseVerdict('{"verdict":"pass","summary":"","windowDigest":"",' + DIMS + '"findings":[]}', { durationSec: 10 }), null);
 });
 
 test("stageCompact: a copy of at most 3.2 MB, playable, locked read-only to the current user", { skip }, async (t) => {

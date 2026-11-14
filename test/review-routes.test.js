@@ -17,7 +17,15 @@ const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 
 const agyEnv = (mode, report, more = {}) => ({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com", FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(report ? [`--report=${report}`] : []), "--"]) });
-const PAGE = { "Sec-Fetch-Site": "same-origin" };
+/* The editor page is the one that was handed the page cookie when it loaded the editor (a header alone proves nothing: a local process can write any header). */
+const PAGE = { "Sec-Fetch-Site": "same-origin", Origin: "http://localhost" };
+async function asPage(base) {
+  const r = await fetch(base + "/api/review/records");
+  const c = /mc_review_page=[^;]+/.exec(r.headers.get("set-cookie") || "");
+  assert.ok(c, "the first answer of the review hands out the page cookie");
+  PAGE.Cookie = c[0];
+  return PAGE;
+}
 /* node's fetch adds neither Origin nor Sec-Fetch-Site: that is an agent (MCP / the plugin); the page's header is added by hand */
 const call = (base, method, p, body, headers) => fetch(base + p, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
   .then(async (r) => ({ status: r.status, body: await r.json() }));
@@ -62,7 +70,7 @@ test("the whole way on a real server: page prepares, the tab renders, only the p
   const dir = makeDataDir(t, seedProject({ revision: 7, inPoint: 1, outPoint: 3 }));
   const report = path.join(dir, "..", path.basename(dir) + "-report.json");
   t.after(() => { try { fs.rmSync(report, { force: true }); } catch { } });
-  const { base } = await startServer(t, dir, agyEnv("issues", report));
+  const { base } = await startServer(t, dir, agyEnv("issues", report)); await asPage(base);
   const before = fs.readFileSync(path.join(dir, "project.json"), "utf8");
   const tab = fakeTab(t, base); await tab.connected();
 
@@ -100,7 +108,7 @@ test("the whole way on a real server: page prepares, the tab renders, only the p
 
 test("an agent's check sends when ready (send:true); a page cannot ask that; marks never make a pass; the gate says no without a pass", { skip, timeout: 120_000 }, async (t) => {
   const dir = makeDataDir(t, seedProject({ revision: 3 }));
-  const { base } = await startServer(t, dir, agyEnv("pass", undefined, { MONTCLIP_REVIEW_AGENT_SEND: "1" }));
+  const { base } = await startServer(t, dir, agyEnv("pass", undefined, { MONTCLIP_REVIEW_AGENT_SEND: "1" })); await asPage(base);
   const before = fs.readFileSync(path.join(dir, "project.json"), "utf8");
   const tab = fakeTab(t, base); await tab.connected();
 
@@ -143,7 +151,7 @@ test("refusals before anything is rendered: bad range, too long, no tool", { ski
 
 test("an agent's send:true is off unless the switch is on; taste notes by route; the page and the agent see the same notes", { skip, timeout: 60_000 }, async (t) => {
   const dir = makeDataDir(t);
-  const { base } = await startServer(t, dir, agyEnv("pass"));
+  const { base } = await startServer(t, dir, agyEnv("pass")); await asPage(base);
   const off = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true });
   assert.equal(off.status, 403); assert.equal(off.body.code, "AGENT_SEND_OFF");
   assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], [], "nothing was rendered");
@@ -161,7 +169,7 @@ test("an agent's send:true is off unless the switch is on; taste notes by route;
 test("fail closed over HTTP: without the owner's confirmation of the address, prepare is refused (409) and nothing is rendered", { skip, timeout: 60_000 }, async (t) => {
   const dir = makeDataDir(t);
   const env = agyEnv("pass"); delete env.MONTCLIP_REVIEW_DEST_CONFIRMED;
-  const { base } = await startServer(t, dir, env);
+  const { base } = await startServer(t, dir, env); await asPage(base);
   for (const headers of [undefined, PAGE]) {
     const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3 }, headers);
     assert.equal(r.status, 409); assert.equal(r.body.code, "DESTINATION_UNVERIFIED");
@@ -177,4 +185,78 @@ test("the checks of /api/export/request apply here too: an end past the timeline
   const long = await call(base, "POST", "/api/review/prepare", { start: 5, end: 35 });   // 30 s plus the 3 s lead-in is a 33 s sample
   assert.equal(long.status, 400); assert.equal(long.body.code, "PREVIEW_TOO_LONG");
   assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], [], "nothing was rendered");
+});
+
+test("a header is not a page: Origin and Sec-Fetch-Site without the page cookie get no token and cannot send (QQ #328); the cookie is HttpOnly, Strict and only for the review", { skip, timeout: 120_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ revision: 3 }));
+  const report = path.join(dir, "..", path.basename(dir) + "-rpt.json"); t.after(() => { try { fs.rmSync(report, { force: true }); } catch { } });
+  const { base } = await startServer(t, dir, agyEnv("pass", report));
+  const tab = fakeTab(t, base); await tab.connected();
+  const forged = { "Sec-Fetch-Site": "same-origin", Origin: base, "Sec-Fetch-Mode": "cors", Referer: base + "/" };
+  const root = await fetch(base + "/api/review/records"); const sc = root.headers.get("set-cookie") || "";
+  assert.equal((await fetch(base + "/")).headers.get("set-cookie"), null, "the editor page itself gets no cookie from the review");
+  assert.match(sc, /mc_review_page=[0-9a-f]{48}/); assert.match(sc, /HttpOnly/i); assert.match(sc, /SameSite=Strict/i); assert.match(sc, /Path=\/api\/review\//);
+  const prep = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab" }, forged);
+  assert.equal(prep.status, 200, JSON.stringify(prep.body));
+  await playTab(base, tab);
+  const id = prep.body.reviewId;
+  await until(async () => (await call(base, "GET", "/api/review/status?id=" + id, undefined, forged)).body.state === "ready");
+  const seen = (await call(base, "GET", "/api/review/status?id=" + id, undefined, forged)).body;
+  assert.equal(seen.sendToken, undefined, "forged headers are shown no token");
+  assert.equal((await call(base, "POST", "/api/review/send", { id, token: "0".repeat(48) }, forged)).status, 403);
+  assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, { ...forged, Cookie: "mc_review_page=" + "0".repeat(48) })).body.code, "AGENT_SEND_OFF", "a wrong cookie is an agent, and the agent switch is off");
+  assert.equal(fs.existsSync(report), false, "nothing was sent");
+  const real = await asPage(base);
+  assert.match((await call(base, "GET", "/api/review/status?id=" + id, undefined, real)).body.sendToken, /^[0-9a-f]{48}$/, "the real page gets the token");
+  assert.equal((await fetch(base + "/reviews/default.json")).status, 404, "what this server keeps is not an app file");
+  assert.equal((await fetch(base + "/reviews/")).status, 404);
+});
+
+test("the review answers only to this computer: a connection through the machine's own network address is refused", { skip, timeout: 60_000 }, async (t) => {
+  const os = require("node:os");
+  const ip = Object.values(os.networkInterfaces()).flat().find((i) => i && i.family === "IPv4" && !i.internal);
+  if (!ip) return t.skip("no network address on this computer");
+  const dir = makeDataDir(t);
+  /* startServer pins HOST to 127.0.0.1, so this one is started by hand, listening on every address */
+  const { spawn } = require("node:child_process");
+  const port = 41000 + Math.floor(Math.random() * 2000);
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "server", "server.js")], { env: { ...process.env, ...agyEnv("pass"), PORT: String(port), HOST: "0.0.0.0", FABLECUT_DATA_DIR: dir }, stdio: "ignore", windowsHide: true });
+  t.after(() => { try { child.kill(); } catch { } });
+  for (let i = 0; i < 60; i++) { try { if ((await fetch("http://127.0.0.1:" + port + "/api/export/ffmpeg")).status === 200) break; } catch { } await new Promise((r) => setTimeout(r, 250)); }
+  /* fetch cannot set Host; http can */
+  const via = (host) => new Promise((resolve, reject) => { const q = http.request({ host, port, path: "/api/review/records", headers: { Host: "localhost:" + port }, timeout: 5000 }, (x) => { let body = ""; x.on("data", (c) => { body += c; }); x.on("end", () => resolve({ status: x.statusCode, body })); }); q.on("error", reject); q.on("timeout", () => q.destroy(new Error("timeout"))); q.end(); });
+  let r; try { r = await via(ip.address); } catch { return t.skip("the machine's address is not reachable from itself here"); }
+  assert.equal(r.status, 403); assert.equal(JSON.parse(r.body).code, "NOT_LOCAL");
+  assert.equal((await fetch("http://127.0.0.1:" + port + "/api/review/records")).status, 200, "this computer itself is fine");
+});
+
+test("409 DESTINATION_UNVERIFIED carries the destination, so the page can say where it would have gone and that it is not confirmed", { skip, timeout: 60_000 }, async (t) => {
+  const dir = makeDataDir(t);
+  const env = agyEnv("pass"); delete env.MONTCLIP_REVIEW_DEST_CONFIRMED;
+  const { base } = await startServer(t, dir, env);
+  const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3 });
+  assert.equal(r.status, 409); assert.equal(r.body.code, "DESTINATION_UNVERIFIED");
+  assert.deepEqual(r.body.destination, { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "docs", verified: false });
+});
+
+test("the 60 s gate: an agent's full export of more than a minute is refused until a video check passed over it, or the owner's bypass (recorded, the words are not)", { skip, timeout: 120_000 }, async (t) => {
+  const { startMcp } = require("./helpers");
+  const dir = makeDataDir(t, seedProject({ revision: 2, media: [{ id: "m_a", name: "a.mp4", kind: "video", src: "/media/a.mp4", duration: 200 }],
+    clips: [{ id: "c_a", mediaId: "m_a", kind: "video", track: "V1", start: 0, in: 0, duration: 90 }] }));
+  const { base, port } = await startServer(t, dir, agyEnv("pass"));
+  const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port) });
+  await mcp.request("initialize", { protocolVersion: "2025-11-25" });
+  const run = async (args) => { try { const r = await mcp.callTool("fablecut_export", { wait: false, where: "tab", ...args }); return String(r && (r.text || JSON.stringify(r))); } catch (e) { return String(e.message || e); } };
+  const refused = await run({});
+  assert.match(refused, /has not passed a video check over its whole length/, refused);
+  assert.match(await run({ range: "entire" }), /has not passed a video check/);
+  assert.match(await run({ bypassReason: "no" }), /has not passed a video check/, "a reason of a few words is needed");
+  /* not touched: a sample, a short stretch, a stretch of exactly a minute */
+  for (const a of [{ preview: true, start: 0, end: 10 }, { start: 0, end: 30 }, { start: 0, end: 60 }]) assert.doesNotMatch(await run(a), /has not passed a video check/, JSON.stringify(a));
+  /* the owner's bypass goes through to the export request, and leaves a record without the reason */
+  const reason = "the owner said so SENTINEL-NICK-7731";
+  assert.doesNotMatch(await run({ bypassReason: reason }), /has not passed a video check/);
+  const file = fs.readdirSync(path.join(dir, "reviews")).map((f) => fs.readFileSync(path.join(dir, "reviews", f), "utf8")).join("");
+  const led = JSON.parse(file); assert.equal(led.bypasses.length, 1); assert.equal(led.bypasses[0].start, 0); assert.equal(led.bypasses[0].end, 90);
+  assert.ok(!file.includes("SENTINEL-NICK-7731") && !file.includes("owner said"), "the reason is not on disk");
 });

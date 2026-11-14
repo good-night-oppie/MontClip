@@ -83,7 +83,7 @@ const { createPreviewStore } = require("./preview-store");
 const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
-const { createEmbed, sameSecret, TASK_ID_RE } = require("./embed");
+const { createEmbed, sameSecret, TASK_ID_RE, REVIEW_PAGE_COOKIE, reviewPageCookie } = require("./embed");
 
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
@@ -1030,8 +1030,16 @@ function reviews() {
   });
   return reviewSvc;
 }
-/* a request from an agent (the plugin worker, MCP) and not from the editor page: the page always sends Origin or Sec-Fetch-Site */
-const isAgentReq = (req) => !!(embed && embed.worker(req)) || (!req.headers.origin && !req.headers["sec-fetch-site"]);
+/* Who is the editor page? Not whoever writes Origin / Sec-Fetch-Site: a local process can put any header on a request (QQ, #328). The page is the one
+   that holds the page cookie (handed out by the review's own first answer, kept and returned by a browser) (the cookie is minted per server start, HttpOnly, only sent to /api/review/, attributes in embed.js);
+   a request with the headers but without the cookie is an agent. A local process that loads the editor page itself can get the cookie too — that is
+   the same trust boundary as the person's own account on this computer, and the review's other doors (the owner's confirmation of the address, the
+   agent switch) do not depend on this one. */
+const REVIEW_PAGE_SECRET = crypto.randomBytes(24).toString("hex");
+const cookieOf = (req, name) => { const m = new RegExp("(?:^|;\\s*)" + name + "=([^;]*)").exec(req.headers.cookie || ""); return m ? m[1] : ""; };
+const isPageReq = (req) => { const c = cookieOf(req, REVIEW_PAGE_COOKIE); return c.length === REVIEW_PAGE_SECRET.length && sameSecret(c, REVIEW_PAGE_SECRET) && !(embed && embed.worker(req)); };
+const isAgentReq = (req) => !isPageReq(req);
+const isLoopback = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket && req.socket.remoteAddress);
 
 /* Static file with HTTP Range support (required for <video> seeking) */
 function serveFile(req, res, filePath) {
@@ -1769,8 +1777,13 @@ async function handleRequest(req, res) {
        An agent's send:true answers 403 AGENT_SEND_OFF unless MONTCLIP_REVIEW_AGENT_SEND=1.
        "passed" is only ever written by a check that passed; mark refuses it (400). */
   if (p.startsWith("/api/review/")) {
+    /* the review reaches this computer's own clips: only from this computer, whatever HOST the server was started with */
+    if (!isLoopback(req)) { sendJSON(res, 403, { code: "NOT_LOCAL", error: "the review answers only to this computer" }); return; }
     const action = p.slice("/api/review/".length);
     const agent = isAgentReq(req);
+    /* a client that has none yet is handed the page cookie with its first answer; a browser keeps and returns it by itself, so the editor page needs no code
+       for it, while a request without a cookie jar (the MCP tool, a script) never shows it back */
+    if (agent) res.setHeader("Set-Cookie", reviewPageCookie(REVIEW_PAGE_SECRET));
     try {
       const svc = reviews(), store = reviewStore(), project = projects.peekActive();
       const body = req.method === "POST" ? JSON.parse((await readBody(req)).toString("utf8") || "{}") : {};
@@ -1803,6 +1816,10 @@ async function handleRequest(req, res) {
         sendJSON(res, 200, store.tasteAdd(project, { kind: body.kind, aspect: body.aspect, text: body.text }));
       } else if (action === "taste/remove" && req.method === "POST") {
         sendJSON(res, 200, store.tasteRemove(project, String(body.id || "")));
+      } else if (action === "bypass" && req.method === "POST") {
+        const s = Number(body.start), e = Number(body.end);
+        if (!Number.isFinite(s) || !Number.isFinite(e) || s < 0 || e <= s) { sendJSON(res, 400, { code: "BAD_RANGE", error: "start and end are seconds with 0 <= start < end" }); return; }
+        sendJSON(res, 200, store.bypass(project, { start: s, end: e }));
       } else if (action === "gate" && req.method === "GET") {
         const s = Number(q("start")), e = Number(q("end"));
         if (!Number.isFinite(s) || !Number.isFinite(e) || s < 0 || e <= s) { sendJSON(res, 400, { code: "BAD_RANGE", error: "start and end are seconds with 0 <= start < end" }); return; }
@@ -1810,7 +1827,7 @@ async function handleRequest(req, res) {
       } else { sendJSON(res, 404, { error: "unknown review endpoint" }); }
     } catch (e) {
       const code = Number.isInteger(e.status) ? e.status : e instanceof SyntaxError ? 400 : e.code === 409 || e.code === 400 ? e.code : 500;
-      sendJSON(res, code, { code: e.errorCode || (typeof e.code === "string" ? e.code : undefined), error: String(e.message || e), busy: e.busy });
+      sendJSON(res, code, { code: e.errorCode || (typeof e.code === "string" ? e.code : undefined), error: String(e.message || e), busy: e.busy, destination: e.destination });
     }
     return;
   }
@@ -2599,6 +2616,9 @@ async function handleRequest(req, res) {
   let file = p === "/" ? "/index.html" : p;
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
+  /* run from a clone, the data folder is the app folder: what this server keeps there is never served as an app file */
+  if (["reviews", "previews"].includes(path.relative(ROOT, file).split(path.sep)[0])) { res.writeHead(404); res.end(); return; }
+
   serveFile(req, res, file);
 }
 
@@ -2627,6 +2647,7 @@ server.listen(PORT, HOST, () => {
   boundPort = server.address().port;
   writerLock.update({ port: boundPort });
   console.log(`\n  MontClip running →  http://localhost:${boundPort}\n`);
+  try { reviewStore().scrubAll(); } catch { }   // a review record from before the no-words rule is cleaned now, opened project or not
   const ready = { type: "montclip-ready", origin: serverOrigin() };
   if (DESKTOP) {
     process.parentPort?.postMessage(ready);

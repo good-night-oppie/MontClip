@@ -71,7 +71,7 @@ if (mode === "hang") {
 } else if (mode === "packaging") {
   /* right names, but a caption that explains the joke: the answer says pass, the dimension says issues, nothing is listed in the stretch */
   tool("read_file", target);
-  answer({ verdict: "pass", summary: "Names are right.", windowDigest: "", dimensions: DIMS({ packaging: "issues" }), findings: [] });
+  answer({ verdict: "pass", summary: "Names are right.", windowDigest: "", dimensions: DIMS({ packaging: "issues" }), findings: [{ t: 0.5, type: "over_explained_caption", text: "A caption explains the joke (in the lead-in).", suggestion: "Remove it." }] });
 } else if (mode === "unknown-fact") {
   tool("read_file", target);
   answer({ verdict: "pass", summary: "Cannot tell who is who.", windowDigest: "", dimensions: DIMS({ fact: "insufficient_evidence" }), findings: [] });

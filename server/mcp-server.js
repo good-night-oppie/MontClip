@@ -324,6 +324,7 @@ async function audioTrackTool(args) {
 
 /* ── Tool definitions ── */
 const TOOLS = require("./mcp-tools");
+const { timelineLength } = require("./export-jobs");
 
 /* ── Loudness normalize (fablecut_normalize_audio) ──
    Decodes each clip's source window with ffmpeg and measures it with the same
@@ -1366,6 +1367,24 @@ async function exportTool(args) {
     if ((args.start != null) !== (args.end != null)) throw new Error("pass start and end together (seconds on the timeline)");
     if (args.start != null && args.range) throw new Error("pass start and end, or range — not both");
     const span = args.start != null ? { start: args.start, end: args.end } : args.range;
+    /* the 60 s gate (PG, #321): an agent's full export of more than a minute needs a video check that passed over the whole stretch, or the owner's
+       bypass with a reason. A preview, a short export and the editor's own Export button are not touched. */
+    if (args.preview !== true) {
+      const proj = readProject(), len = timelineLength(proj), has = (v) => Number.isFinite(v);
+      let a = 0, b = len;
+      if (args.start != null) { a = +args.start; b = +args.end; }
+      else if (args.range !== "entire" && (has(proj.inPoint) || has(proj.outPoint))) { a = has(proj.inPoint) ? Math.max(0, proj.inPoint) : 0; b = has(proj.outPoint) ? Math.min(len, proj.outPoint) : len; }
+      if (b - a > 60) {
+        const g = await apiJSON("GET", `/api/review/gate?start=${a}&end=${b}`);
+        if (!(g.status === 200 && g.body && g.body.passed)) {
+          const why = typeof args.bypassReason === "string" ? args.bypassReason.trim() : "";
+          if (why.length < 5) throw new Error(`this export is ${Math.round(b - a)} s long and has not passed a video check over its whole length (fablecut_review {action:"check"}, stretch by stretch, then check again with {action:"gate"}). If the owner told you to export it anyway, pass bypassReason with their instruction in a few words.`);
+          await apiJSON("POST", "/api/review/bypass", { start: a, end: b });   // recorded: when and which stretch, not the words
+          startNote += `Gate bypassed for ${Math.round(b - a)} s (recorded; the reason is not stored).
+`;
+        }
+      }
+    }
     const r = await apiJSON("POST", "/api/export/request", { range: span, preview: args.preview === true, profile: args.profile, preset: args.preset, delivery: args.delivery, outputs: args.outputs, where: args.where || "auto" });
     if (r.status !== 200) throw new Error(r.body?.error || `export request failed (${r.status})`);
     job = r.body;

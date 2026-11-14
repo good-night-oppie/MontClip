@@ -68,6 +68,18 @@ Successfully processed 1 files; Failed processing 0 files
 - 没有 `issues`，但任一维是 `insufficient_evidence` → `no_result: INSUFFICIENT_EVIDENCE`（PG 6868846142 的口径）：既不通过也不算失败，什么都没查出来，具体哪几维缺证据列在 `dimensions` 里；补上下文或加长窗口即可消除。
 - 其余才是 `passed`；`passed` 仍只由检查本身产生，`mark` 写不了。
 
+## 第二轮终审（QQ 对 0c6106d0）的修改
+
+1. **「页面」不能靠请求头认。** 令牌只发给带「页面 cookie」的请求：审片接口对还没有 cookie 的客户端，在第一次回答里给一个每次启动随机生成的 `mc_review_page`（HttpOnly、SameSite=Strict、Path=/api/review/，属性只写在 `embed.js` 一处；浏览器自己保存并带回，所以编辑器页面不需要为它写代码，而没有 cookie 罐的请求——MCP 工具、脚本——拿到了也不会再带回来）；只有 Origin / Sec-Fetch-Site 而没有这个 cookie 的请求是 Agent，看不到令牌、`/send` 回 403（有伪造头测试）。**诚实的边界：** 本机上自带 cookie 罐、有意去取的进程也能拿到这个 cookie，这和本机用户账号是同一条信任边界；所以它不是唯一的门——主人对目的地的确认、Agent 代发开关、一次性令牌各自独立存在。审片接口还**只接受本机连接**（`HOST=0.0.0.0` 时通过本机网络地址访问回 403 `NOT_LOCAL`，有测试）。`MONTCLIP_REVIEW_DEST_CONFIRMED` 和 `MONTCLIP_REVIEW_AGENT_SEND` 是服务器进程的环境变量，**Agent 不得设置或建议设置**，MCP/HTTP 都没有写它们的接口。
+2. **发送前给主播看实际内容。** `willSend` 现在带 `projectText`（会随请求发出的这一段字幕和切点原文，scope full 时）和 `notes`（会发出的审美笔记原文），文字取自小样渲染完成那一刻；目的地的来源写成「主人确认」（`source:"owner-confirmed"`）或「文档，未验证」，**不写成运行时已验证**。渲染完成后若工程又被改过，旧画面不再发送（409 `PROJECT_EDITED`）。
+3. **异常的模型输出不再可能变成通过或没有定位的 issues：** 有一条定位不了的发现（`t` 不是数字）整个回答作废（`BAD_OUTPUT`）；某一项写 `issues` 却没有任何发现可指也作废。
+4. **不再卡死：** 写记录失败（例如磁盘满）→ 这次检查转为 `failed`、固定码 `STORE_FAILED`、不带路径，工程不再 BUSY；一直没确认的 `ready` 过了令牌期自动 `expired` 并释放；账本读不出来是错误（`LEDGER_UNREADABLE`），**不会当成空账本去覆盖**；写失败是 `LEDGER_UNWRITABLE`，都不含路径。没装 `agy` 在 `prepare` 时回 409 `NO_BRIDGE`（带结构化码）。
+5. **原话不留在别处：** 每次检查结束后**删除**这次的 `agy` 会话文件（`brain/<id>`、`conversations/<id>.db`），不只是改权限；服务启动时把所有旧账本都清一遍（不管该工程有没有被打开），清不了就删文件，再不行就报固定码；静态文件兜底拒绝 `/reviews/`、`/previews/`（从仓库克隆运行时数据目录就是应用目录）；`.gitignore` 加了 `/previews/`、`/reviews/`。
+6. **其余：** 提示词里只写相对名 `video_input.mp4`，不带这台电脑的路径；工具必须**恰好读一次**且读的是这份副本，没有路径的 DONE 不算、重复读取作废；锁权限没锁住（含 `icacls /remove:g` 失败）就不启动；`skeleton` 也展开合成片段里的字幕；每个工程发出的视频字节记账（`sentBytes`，每次 3.2 MB 的上限，每个工程 100 MB，超了回 409 `SEND_LIMIT`）；记录里加了每一遍实际发了什么（`passes`：类型、字节、提示词长度、是否带标准/工程文字/笔记条数/第一遍观察，没有文字）。
+7. **60 秒门禁（PG 6869536456 的收窄）：** MCP `fablecut_export` 全片导出超过 60 秒，必须这一整段已有通过的视频检查（`gate`），否则拒绝；主人明令要导时可带 `bypassReason`，**原因文字不保存**，只记录「何时、哪一段」（`bypasses`）。小样、60 秒以内、编辑器自己的导出按钮不受影响。
+
+**要 PG / JJ 书面决定的（我不替你们定）：** (a) 5 条标尺和 5 问现在是我按决定的意思写的英文，不是决定里的原文（V20 / V22）——要么给我原文，要么书面接受现在的写法；(b) B10b / B12a 的字段名和上限（`taste` 每条 200 字、最多 30 条；`dimensions` 四项各 200 字理由）与规格是否一致；(c) V21「重启后还在」与隐私门禁冲突，笔记和原话重启后没有了，请书面接受这个偏离。
+
 ## 工程不受影响
 
 - 检查不改工程的 `revision`、IN/OUT、撤销历史：结果存在 `reviews/`，不写 `project.json`。

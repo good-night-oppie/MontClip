@@ -373,6 +373,7 @@ const TOOLS = [
         timeout: { type: "number", description: "Seconds to wait before returning the job's status instead (default 900); the export keeps running" },
         job: { type: "string", description: "Report on an export started earlier instead of starting one" },
         cancel: { type: "string", description: "Cancel this export job" },
+        bypassReason: { type: "string", description: "Only when the owner has told you to export a long stretch (over 60 s) that has not passed a video check (fablecut_review): say why, in a few words. The reason is not stored; that a bypass happened (when, which stretch) is recorded. Without it, a full export of more than 60 s is refused until fablecut_review has passed over its whole length." },
       },
     },
   },

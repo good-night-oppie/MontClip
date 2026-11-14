@@ -41,6 +41,7 @@ const ENV_ALLOWLIST = Object.freeze(["PATH", "HOME", "LANG", "LC_ALL", "TERM", "
   "XDG_DATA_HOME", "XDG_CACHE_HOME", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "HOMEDRIVE", "HOMEPATH",
   "APPDATA", "LOCALAPPDATA", "TEMP", "TMP"]);
 const IS_WIN = process.platform === "win32";
+const TARGET_NAME = "video_input.mp4";   // the copy's name inside the tool's folder; the prompt says this, never a path of this computer
 
 const FINDING_TYPES = ["speaker_swapped", "cut_jump", "subtitle_mismatch", "audio", "continuity", "over_explained_caption", "punchline_spoiled",
   "protected_region_occluded", "other"];
@@ -107,19 +108,23 @@ function icacls(target, grant) {
      which /inheritance:r does not remove (found by the Windows CI run on #328). Take them, and the broad groups, off explicitly; the current
      user is never one of them by SID, so its own entry stays. */
   const others = ["S-1-5-18", "S-1-5-32-544", "S-1-5-32-545", "S-1-5-11", "S-1-1-0"].filter((x) => x !== sid);
-  try { execFileSync(exe, [target, "/remove:g", ...others.map((x) => `*${x}`)], { stdio: "ignore", windowsHide: true }); } catch { }
+  try { execFileSync(exe, [target, "/remove:g", ...others.map((x) => `*${x}`)], { stdio: "ignore", windowsHide: true }); } catch { return false; }
   return true;
 }
 /* the user may read, delete and change attributes of its own copy (the last two so that cleaning up works through the
    read-only attribute); what the lock keeps out is every other account on the computer, and an accidental write. A process
    running as the same user can always undo it — that is what the tool's own sandbox mode is for. */
 function lockFile(p) {
-  try { fs.chmodSync(p, 0o400); } catch { }
-  if (IS_WIN) icacls(p, "(R,DE,WA)");
+  let ok = true;
+  try { fs.chmodSync(p, 0o400); } catch { ok = false; }
+  if (IS_WIN) ok = icacls(p, "(R,DE,WA)") && ok;
+  return ok;
 }
 function lockDir(p) {
-  try { fs.chmodSync(p, 0o700); } catch { }
-  if (IS_WIN) icacls(p, "(OI)(CI)F");
+  let ok = true;
+  try { fs.chmodSync(p, 0o700); } catch { ok = false; }
+  if (IS_WIN) ok = icacls(p, "(OI)(CI)F") && ok;
+  return ok;
 }
 /** What the tool leaves in ~/.gemini: its folders and, for this conversation, its files, locked to the current user. */
 function lockToolSession(convId, home = os.homedir()) {
@@ -137,6 +142,14 @@ function lockToolSession(convId, home = os.homedir()) {
   };
   walk(path.join(cli, "brain", convId));
   try { fs.chmodSync(path.join(cli, "conversations", convId + ".db"), 0o600); } catch { }
+}
+/** What the tool keeps of one conversation (QQ, #328): the model's words and the clip's subtitles and notes are in these. They are deleted after
+ *  every check, not just locked. */
+function purgeToolSession(convId, home = os.homedir()) {
+  if (!convId || !/^[A-Za-z0-9_.-]+$/.test(convId)) return false;
+  const cli = path.join(home, ".gemini", "antigravity-cli");
+  rmForce(path.join(cli, "brain", convId)); rmForce(path.join(cli, "conversations", convId + ".db"));
+  return !fs.existsSync(path.join(cli, "brain", convId)) && !fs.existsSync(path.join(cli, "conversations", convId + ".db"));
 }
 function rmForce(p) {
   const open = (d) => {
@@ -225,7 +238,7 @@ async function stageCompact({ ffmpeg, ffprobe, src, dst, maxBytes = MAX_SAMPLE_B
   const bytes = fs.statSync(dst).size;
   if (bytes > maxBytes) { try { fs.rmSync(dst, { force: true }); } catch { } throw Object.assign(new Error("the compact copy is over the size limit; pass a shorter stretch"), { code: "BAD_SAMPLE" }); }
   const out = await probe(ffprobe, dst);
-  lockFile(dst);
+  if (!lockFile(dst)) { try { fs.rmSync(dst, { force: true }); } catch { } throw Object.assign(new Error("the copy could not be locked"), { code: "LOCK_FAILED" }); }
   return { bytes, durationSec: out.durationSec, hasAudio: true, encoder };
 }
 
@@ -318,7 +331,7 @@ function parseVerdict(text, { durationSec }) {
   for (const f of Array.isArray(j.findings) ? j.findings.slice(0, LIMITS.findings) : []) {
     if (!f || typeof f !== "object") continue;
     const t = Number(f.t);
-    if (!Number.isFinite(t)) continue;
+    if (!Number.isFinite(t)) return null;   // a finding that cannot be placed in time makes the whole answer unusable: it must not be dropped and left as a pass
     findings.push({ t: Math.min(Math.max(0, t), durationSec), type: FINDING_TYPES.includes(f.type) ? f.type : "other",
       text: clean(f.text, LIMITS.finding), suggestion: clean(f.suggestion, LIMITS.suggestion) });
   }
@@ -331,6 +344,8 @@ function parseVerdict(text, { durationSec }) {
     if (!x || typeof x !== "object" || !DIM_STATES.includes(x.state)) return null;
     dimensions[k] = { state: x.state, reason: clean(x.reason, LIMITS.reason) };
   }
+  /* a dimension that says "issues" has to be pointed at: without any finding there is nothing to look at (B12c) */
+  if (DIMENSIONS.some((k) => dimensions[k].state === "issues") && findings.length === 0) return null;
   return { verdict: j.verdict, summary: clean(j.summary, LIMITS.summary), windowDigest: clean(j.windowDigest, LIMITS.digest), findings, dimensions };
 }
 
@@ -349,6 +364,7 @@ function toolPath(info) {
 /** Reads the tool's event lines back. → {readDone, forbidden:[…], text, status, convId}. Pure, so tests can feed it lines. */
 function readEvents(stdout, sandbox, target) {
   const out = { readDone: false, forbidden: [], chunks: [], final: null, convId: null, errors: [] };
+  let reads = 0;
   for (let line of String(stdout || "").split(/\r?\n/)) {
     line = line.trim();
     if (!line.startsWith("{")) continue;
@@ -363,7 +379,7 @@ function readEvents(stdout, sandbox, target) {
       if (name === "read_file" || name === "view_file") {
         const req = toolPath(info);
         if (req && !samePath(path.resolve(sandbox, req), target)) out.forbidden.push(`${name}:read-outside`);
-        else if (state === "DONE" && !info.error) out.readDone = true;
+        else if (state === "DONE" && !info.error && req) { if (++reads > 1) out.forbidden.push(`${name}:read-twice`); else out.readDone = true; }   // a read that names no path does not count
         else if (state === "ERROR") out.errors.push("read-error");
       } else out.forbidden.push(`${name || "tool"}:${state}`);
     } else if (su.step_type === "agent_response" && su.text_delta) out.chunks.push(String(su.text_delta));
@@ -400,6 +416,7 @@ async function runAgy({ agy, sandbox, targetName = "video_input.mp4", prompt, mo
       if (timedOut) return finish({ ok: false, reason: "TIMEOUT" });
       const ev = readEvents(stdout, sandbox, target);
       try { lockToolSession(ev.convId, home); } catch { }
+      try { purgeToolSession(ev.convId, home); } catch { }
       if (ev.forbidden.length) return finish({ ok: false, reason: "FORBIDDEN_TOOL" });
       const final = ev.final;
       const ok = code === 0 && final && final.status === "SUCCESS" && ev.readDone;
@@ -416,30 +433,35 @@ async function runAgy({ agy, sandbox, targetName = "video_input.mp4", prompt, mo
  *  → {status:"passed"|"issues"|"no_result", reason?, findings, summary, windowDigest}. Findings carry timeline seconds. */
 async function checkSample({ ffmpeg, ffprobe, sampleFile, offset, leadSec = 0, rangeStart, contextText = "", digests = [], taste = [], mode = "single", model, timeoutSec, graceSec,
   env = process.env, agy = findAgy(env), onChild = null, isCancelled = () => false, tmpRoot = os.tmpdir() }) {
-  const none = (reason) => ({ status: "no_result", reason, findings: [], summary: "", windowDigest: "", dimensions: null, mode, observation: "" });
+  /* what each request carried (kind, size, which kinds of reference text went along) and how many bytes of the clip went out: numbers and kinds, no words */
+  const acct = { passes: [], bytes: 0 };
+  const none = (reason) => ({ status: "no_result", reason, findings: [], summary: "", windowDigest: "", dimensions: null, mode, observation: "", passes: acct.passes, sentBytes: acct.bytes });
   if (!agy) return none("NO_BRIDGE");
   if (mode !== "single" && mode !== "two_pass") return none("BAD_MODE");
   if (isCancelled()) return none("CANCELLED");
   let sandbox = null;
   try {
     sandbox = fs.mkdtempSync(path.join(tmpRoot, "montclip-review-"));
-    lockDir(sandbox);
-    const target = path.join(sandbox, "video_input.mp4");
+    if (!lockDir(sandbox)) return none("LOCK_FAILED");   // a lock that did not hold is not a lock: nothing starts
+    const target = path.join(sandbox, TARGET_NAME);
     let staged;
     try { staged = await stageCompact({ ffmpeg, ffprobe, src: sampleFile, dst: target }); }
-    catch (e) { return none(e && e.code === "NO_ENCODER" ? "NO_BRIDGE" : "BAD_SAMPLE"); }
+    catch (e) { return none(e && e.code === "NO_ENCODER" ? "NO_BRIDGE" : e && e.code === "LOCK_FAILED" ? "LOCK_FAILED" : "BAD_SAMPLE"); }
     let observation = "";
     /* a cancel that came while the copy was being made (nothing was running yet to stop) must keep the tool from ever starting */
     if (isCancelled()) return none("CANCELLED");
     if (mode === "two_pass") {
       /* look 1: blind. Nothing about the edit, the names or the standards goes in, so it cannot be steered. Same copy, same fences. */
-      const p1 = await runAgy({ agy, sandbox, prompt: buildBlindPrompt({ targetPath: target, durationSec: staged.durationSec, leadSec }), model, timeoutSec, graceSec, env, onChild });
+      const blindPrompt = buildBlindPrompt({ targetPath: TARGET_NAME, durationSec: staged.durationSec, leadSec });
+      acct.passes.push({ kind: "blind", clipBytes: staged.bytes, promptChars: blindPrompt.length, standards: false, projectText: false, tasteNotes: 0, firstLook: false }); acct.bytes += staged.bytes;
+      const p1 = await runAgy({ agy, sandbox, prompt: blindPrompt, model, timeoutSec, graceSec, env, onChild });
       if (!p1.ok) return none(p1.reason);
       observation = parseObservation(p1.text);
       if (!observation) return none("BAD_OUTPUT");
       if (isCancelled()) return none("CANCELLED");
     }
-    const prompt = buildPrompt({ targetPath: target, durationSec: staged.durationSec, leadSec, contextText, digests, taste, observation });
+    const prompt = buildPrompt({ targetPath: TARGET_NAME, durationSec: staged.durationSec, leadSec, contextText, digests, taste, observation });
+    acct.passes.push({ kind: "check", clipBytes: staged.bytes, promptChars: prompt.length, standards: true, projectText: !!contextText, tasteNotes: taste.length, firstLook: !!observation }); acct.bytes += staged.bytes;
     const r = await runAgy({ agy, sandbox, prompt, model, timeoutSec, graceSec, env, onChild });
     if (!r.ok) return none(r.reason);
     const v = parseVerdict(r.text, { durationSec: staged.durationSec });
@@ -458,7 +480,7 @@ async function checkSample({ ffmpeg, ffprobe, sampleFile, offset, leadSec = 0, r
     }
     /* the hard rule: right names and a spoiled joke (packaging: issues) is "issues", never "passed" */
     const status = !anyIssue && main.length === 0 && (v.verdict === "pass" || findings.length > 0) ? "passed" : "issues";
-    return { status, findings, summary: v.summary, windowDigest: v.windowDigest, dimensions: dims, mode, observation };
+    return { status, findings, summary: v.summary, windowDigest: v.windowDigest, dimensions: dims, mode, observation, passes: acct.passes, sentBytes: acct.bytes };
   } finally { if (sandbox) await rmForceAsync(sandbox); }
 }
 
@@ -473,5 +495,5 @@ async function rmForceAsync(p, tries = 25) {
 }
 
 module.exports = { DEFAULT_MODEL, MAX_SAMPLE_BYTES, DESTINATION, destination, ENV_ALLOWLIST, FINDING_TYPES, DIMENSIONS, DIM_STATES, KEY_DIMENSIONS, RUBRIC, LIMITS,
-  buildBlindPrompt, parseObservation, findAgy, lockFile, lockDir, lockToolSession,
+  buildBlindPrompt, parseObservation, findAgy, lockFile, lockDir, lockToolSession, purgeToolSession,
   killTree, rmForce, rmForceAsync, stageCompact, pickEncoder, buildPrompt, parseVerdict, firstJson, readEvents, runAgy, checkSample, currentSid };

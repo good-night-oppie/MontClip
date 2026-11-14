@@ -54,21 +54,31 @@ function createReviewStore({ dir, now = () => Date.now() }) {
   const tasteWords = new Map();   // "project\0noteId" → the words of a taste note, this process only (QQ: a nickname can be typed into one too)
   const memKey = (p, id) => p + "\u0000" + id;
   const memFor = (p, id) => { const k = memKey(p, id); let m = mem.get(k); if (!m) { m = { findings: {}, dims: {}, notes: [], correction: null }; mem.set(k, m); while (mem.size > MEM_MAX) mem.delete(mem.keys().next().value); } return m; };
+  /* A ledger that cannot be read is an error, not an empty ledger: the next write would wipe what was there. The message names no path. */
   function read(projectId) {
     let d = null;
-    try { d = JSON.parse(fs.readFileSync(fileOf(projectId), "utf8")); } catch { }
-    if (!d || !Array.isArray(d.records)) return { version: 1, records: [] };
+    try { d = JSON.parse(fs.readFileSync(fileOf(projectId), "utf8")); }
+    catch (e) { if (e && e.code === "ENOENT") return { version: 1, records: [] }; throw httpError(500, "the review record could not be read", { code: "LEDGER_UNREADABLE" }); }
+    if (!d || !Array.isArray(d.records)) throw httpError(500, "the review record could not be read", { code: "LEDGER_UNREADABLE" });
     let dirty = false;
     if (d.records.some(hasWords)) { d.records = d.records.map(structured); dirty = true; }   // scrub a file from before this rule
     if ((d.taste || []).some((t) => "text" in t)) { d.taste = d.taste.map(({ text: _t, ...rest }) => rest); dirty = true; }   // taste words too
-    if (dirty) write(projectId, d);
+    if (dirty) {
+      try { write(projectId, d); }
+      catch (e) {
+        /* the old words must not stay: if the file cannot be rewritten it is removed; if even that fails, nothing is read from it */
+        try { fs.rmSync(fileOf(projectId), { force: true }); return { version: 1, records: [] }; } catch { throw httpError(500, "the review record could not be cleaned", { code: "LEDGER_UNWRITABLE" }); }
+      }
+    }
     return d;
   }
   function write(projectId, doc) {
-    fs.mkdirSync(dir, { recursive: true });
-    const f = fileOf(projectId), tmp = f + "." + process.pid + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(doc));
-    fs.renameSync(tmp, f);
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const f = fileOf(projectId), tmp = f + "." + process.pid + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(doc));
+      fs.renameSync(tmp, f);
+    } catch { throw httpError(500, "the review record could not be written", { code: "LEDGER_UNWRITABLE" }); }
   }
   /** What a caller may see: no content hash. */
   const view = (r, projectId) => {
@@ -83,6 +93,22 @@ function createReviewStore({ dir, now = () => Date.now() }) {
   };
   return {
     contentKey,
+    /** Every ledger on disk, read once so that a file from before the no-words rule is cleaned whether or not its project is ever opened. */
+    scrubAll() {
+      let n = 0;
+      let names = []; try { names = fs.readdirSync(dir).filter((x) => /^[A-Za-z0-9_-]{1,80}\.json$/.test(x)); } catch { return 0; }
+      for (const x of names) { try { read(x.slice(0, -5)); n++; } catch { } }
+      return n;
+    },
+    /** That an agent exported a long stretch without a passed check, when and which stretch. The reason it gave is not kept. */
+    bypass(projectId, { start, end }) {
+      const doc = read(projectId); doc.bypasses = doc.bypasses || [];
+      doc.bypasses.push({ at: new Date(now()).toISOString(), start: +start, end: +end }); if (doc.bypasses.length > 200) doc.bypasses.splice(0, doc.bypasses.length - 200);
+      write(projectId, doc); return { recorded: true };
+    },
+    bypasses(projectId) { return (read(projectId).bypasses || []).map((b) => ({ ...b })); },
+    /** How much of this project's video has been sent so far (compact copies, bytes), for the per-project cap. */
+    sentTotal(projectId) { return read(projectId).records.reduce((a, r) => a + (Number(r.sentBytes) || 0), 0); },
     add(projectId, rec) {
       const doc = read(projectId);
       const m = memFor(projectId, rec.reviewId);

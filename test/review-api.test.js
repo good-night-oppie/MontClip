@@ -304,15 +304,24 @@ test("what goes out is what was shown: a project switched, a word edited or a no
   /* the project's words are the ones at prepare */
   const a = S.svc.prepare({ start: 21, end: 26, scope: "full" });
   await until(() => S.svc.status(a.reviewId).state === "ready");
-  const doc2 = JSON.parse(JSON.stringify(S.doc())); doc2.clips.find((c) => c.id === "t1").props.text = "SECRET-OF-ANOTHER-EDIT"; S.setDoc(doc2);
+  assert.ok(S.svc.status(a.reviewId).willSend.projectText.includes("大家好 hello"), "the page is shown the words that will go");
   S.store.tasteAdd("p1", { kind: "negative", text: "NOTE-ADDED-AFTER-THE-QUESTION" });
   assert.equal(S.svc.status(a.reviewId).willSend.tasteNotes, 0);
   await S.svc.send(a.reviewId, S.svc.tokenFor(a.reviewId));
   const prompt = JSON.parse(fs.readFileSync(S.report, "utf8")).prompt;
   assert.ok(prompt.includes("大家好 hello"), "the words that were shown");
-  assert.ok(!prompt.includes("SECRET-OF-ANOTHER-EDIT") && !prompt.includes("NOTE-ADDED-AFTER-THE-QUESTION"), "nothing added since");
+  assert.ok(!prompt.includes("NOTE-ADDED-AFTER-THE-QUESTION"), "a note added since is not sent");
+  /* an edit after the sample was made: the picture is stale, so nothing is sent */
+  fs.rmSync(S.report, { force: true });
+  const e = S.svc.prepare({ start: 21, end: 26, scope: "full" });
+  await until(() => S.svc.status(e.reviewId).state === "ready");
+  const tokenE = S.svc.tokenFor(e.reviewId);
+  const doc2 = JSON.parse(JSON.stringify(S.doc())); doc2.clips.find((c) => c.id === "t1").props.text = "SECRET-OF-ANOTHER-EDIT"; S.setDoc(doc2);
+  await assert.rejects(S.svc.send(e.reviewId, tokenE), (x) => x.status === 409 && x.code === "PROJECT_EDITED");
+  assert.equal(fs.existsSync(S.report), false, "nothing was sent");
   /* another project open now: the old token is refused and nothing starts */
   fs.rmSync(S.report, { force: true });
+  S.setDoc(JSON.parse(JSON.stringify(DOC())));
   const b = S.svc.prepare({ start: 21, end: 26, scope: "full" });
   await until(() => S.svc.status(b.reviewId).state === "ready");
   const token = S.svc.tokenFor(b.reviewId);
@@ -425,4 +434,71 @@ test("a taste note written before the rule is scrubbed of its words the first ti
   assert.deepEqual(s.tasteList("p1").map((n) => [n.id, n.textAvailable]), [["t_old", false]]);
   assert.ok(!fs.readFileSync(path.join(d, "p1.json"), "utf8").includes(NICK), "gone from the file");
   assert.deepEqual(s.tasteRemove("p1", "t_old"), { removed: "t_old" });
+});
+
+/* ---- QQ's findings on 0c6106d0 ---- */
+test("a check that was shown and never confirmed expires and stops holding the project; a failed save of the record does not leave it 'sending'", { skip }, async (t) => {
+  let clock = 1_000_000;
+  const d = tmp(t), sample = makeSample(d), store = createReviewStore({ dir: path.join(d, "reviews") });
+  const mk = (st) => createReviewService({ store: st, bridge: VB, readProject: DOC, activeProject: () => "p1", pollMs: 20, now: () => clock,
+    requestSample: () => ({ id: "x" }), getJob: () => ({ status: "done", progress: 1, src: "/previews/s.mp4" }), cancelJob() { }, sampleFile: () => sample,
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: envFor("pass") });
+  const svc = mk(store);
+  const a = svc.prepare({ start: 24, end: 29 });
+  await until(() => svc.status(a.reviewId).state === "ready");
+  assert.throws(() => svc.prepare({ start: 1, end: 5 }), (e) => e.code === "BUSY");
+  clock += 11 * 60 * 1000;   // the token ran out
+  const b = svc.prepare({ start: 1, end: 5 });   // not BUSY any more
+  assert.equal(svc.status(a.reviewId).state, "expired");
+  await until(() => svc.status(b.reviewId).state === "ready");
+  /* the record cannot be saved (disk full): the check ends failed with a fixed code, the project is free again */
+  const broken = Object.create(store); broken.add = () => { throw new Error("ENOSPC: no space left on device, open 'C:\\secret\\path'"); };
+  const svc2 = mk(broken);
+  const c = svc2.prepare({ start: 24, end: 29 });
+  await until(() => svc2.status(c.reviewId).state === "ready");
+  await assert.rejects(svc2.send(c.reviewId, svc2.tokenFor(c.reviewId)), (e) => e.status === 500 && e.code === "STORE_FAILED" && !/secret|ENOSPC/.test(e.message));
+  assert.equal(svc2.status(c.reviewId).state, "failed");
+  svc2.prepare({ start: 1, end: 5 });   // not BUSY
+});
+
+test("a ledger that cannot be read is an error and is never replaced by an empty one; a failed write has a fixed code and no path", (t) => {
+  const d = tmp(t); fs.writeFileSync(path.join(d, "p1.json"), "{ not json");
+  const s = createReviewStore({ dir: d });
+  assert.throws(() => s.get("p1", "r"), (e) => e.status === 500 && e.code === "LEDGER_UNREADABLE" && !e.message.includes(d));
+  assert.throws(() => s.add("p1", { reviewId: "r", status: "issues", range: { start: 0, end: 1 }, contentKey: "k", findings: [] }), (e) => e.code === "LEDGER_UNREADABLE");
+  assert.equal(fs.readFileSync(path.join(d, "p1.json"), "utf8"), "{ not json", "what was there is still there");
+  const blocked = path.join(d, "file-not-dir"); fs.writeFileSync(blocked, "x");
+  const s2 = createReviewStore({ dir: blocked });
+  assert.throws(() => s2.add("p2", { reviewId: "r", status: "issues", range: { start: 0, end: 1 }, contentKey: "k", findings: [] }), (e) => e.status === 500 && e.code === "LEDGER_UNWRITABLE" && !e.message.includes(blocked));
+});
+
+test("scrubAll cleans every old ledger at start, a project that is never opened included; the totals of video sent are kept", (t) => {
+  const d = tmp(t);
+  for (const p of ["a", "b"]) fs.writeFileSync(path.join(d, p + ".json"), JSON.stringify({ version: 1, records: [{ reviewId: "r_" + p, status: "issues", range: { start: 1, end: 5 }, contentKey: "k", sentBytes: 1000, summary: NICK, findings: [{ id: 0, t: 1, type: "audio", text: NICK, suggestion: "", inLead: false, mark: null }] }], taste: [{ id: "t1", kind: "negative", text: NICK }] }));
+  const s = createReviewStore({ dir: d });
+  assert.equal(s.scrubAll(), 2);
+  for (const f of fs.readdirSync(d)) assert.ok(!fs.readFileSync(path.join(d, f), "utf8").includes(NICK), f);
+  assert.equal(s.sentTotal("a"), 1000);
+});
+
+test("what is sent is capped per project: past the cap nothing is started", { skip }, async (t) => {
+  const S = setup(t, "pass");
+  const small = createReviewService({ store: S.store, bridge: VB, readProject: S.doc, activeProject: () => "p1", pollMs: 20, sendCapBytes: 3_300_000,
+    requestSample: () => ({ id: "x" }), getJob: () => ({ status: "done", progress: 1, src: "/previews/s.mp4" }), cancelJob() { }, sampleFile: () => makeSample(S.d),
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: envFor("pass", { report: S.report }) });
+  const v = small.prepare({ start: 24, end: 29 });
+  await until(() => small.status(v.reviewId).state === "ready");
+  const rec = await small.send(v.reviewId, small.tokenFor(v.reviewId));
+  assert.ok(rec.sentBytes > 0 && rec.sentBytes <= 3_200_000 && Array.isArray(rec.passes) && rec.passes[0].kind === "check", JSON.stringify(rec.passes));
+  assert.ok(!JSON.stringify(rec.passes).includes("SENTINEL"), "kinds and sizes only");
+  fs.rmSync(S.report, { force: true });
+  const w = small.prepare({ start: 24, end: 29 });
+  await until(() => small.status(w.reviewId).state === "ready");
+  await assert.rejects(small.send(w.reviewId, small.tokenFor(w.reviewId)), (e) => e.status === 409 && e.code === "SEND_LIMIT");
+  assert.equal(fs.existsSync(S.report), false, "nothing was started");
+});
+
+test("subtitles inside a composition are part of the reference text", () => {
+  const doc = { clips: [{ id: "k", kind: "comp", compId: "c1", start: 10, duration: 5 }], comps: [{ id: "c1", clips: [{ start: 1, duration: 2, props: { text: "inside the comp" } }] }] };
+  assert.match(skeleton(doc, 9, 16), /11\.00-13\.00s text \(in a composition\): inside the comp/);
 });
