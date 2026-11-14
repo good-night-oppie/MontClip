@@ -99,20 +99,20 @@ test('a check (#328): prepare is local, status is read until the clip is ready, 
 
 test("the box says what is sent, to whom, and that it may train a model", async () => {
   const m = R.confirmModel(await readyView(), 'zh-CN');
-  a.equal(m.lines[0], '联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 10 秒的画面和声音，还有这一段里的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。');
+  a.equal(m.lines[0], '联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 10 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。');
   a.equal(m.to, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com）');
   a.equal(m.training, '对方可能用这段内容训练模型');
   a.deepEqual(m.buttons.map((b) => b.label), ['先看要发的内容', '发送检查', '只发这 10 秒', '不发了'], 'the four buttons as before');
   a.ok(m.canSend && m.buttons.every((b) => b.enabled));
   a.deepEqual(m.lines.slice(1), [
-    '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段里的字幕文字、剪辑时间点。',
+    '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段有重叠的字幕文字、剪辑时间点。',
     '点「只发这 10 秒」只发出去：0:17–0:30 的画面和声音（13 秒），不发字幕文字和剪辑时间点。',
     '两个按钮发的画面和声音里，都有前面多带的 3 秒（0:17–0:20），让 AI 知道前面在说什么。',
     '画面里如果有观众昵称、弹幕，会原样发出去。']);
   const taste = R.confirmModel(await readyView({ taste: 4 }), 'zh-CN');
   a.ok(taste.lines.includes('两个按钮都会把之前记下的 4 条好坏例子（认可的和不认可的）一起发出去。'), 'willSend.tasteNotes is always said when there are any');
   const twice = await readyView(); twice.willSend = { ...twice.willSend, requests: 2 };
-  a.ok(R.confirmModel(twice, 'zh-CN').lines.includes('同一段会分 2 次发出去。'));
+  a.ok(R.confirmModel(twice, 'zh-CN').lines.includes('会分 2 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。'));
 });
 
 test("Deja #328: a domain nobody confirmed says 「未验证」 beside it and is never shown as confirmed; nothing can be sent to it", async () => {
