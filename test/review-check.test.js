@@ -106,11 +106,18 @@ test("the box says what is sent, to whom, and that it may train a model", async 
   a.ok(m.canSend && m.buttons.every((b) => b.enabled));
   a.deepEqual(m.lines.slice(1), [
     '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段有重叠的字幕文字、剪辑时间点。',
+    '与这段画面相交的字幕会整条发送，可能包含片段前后的文字。',
     '点「只发这 10 秒」会发出去：0:17–0:30 的画面和声音（13 秒），不发字幕文字和剪辑时间点。',
     '两个按钮发的画面和声音里，都有前面多带的 3 秒（0:17–0:20），让 AI 知道前面在说什么。',
     '画面里如果有观众昵称、弹幕，会原样发出去。']);
   const taste = R.confirmModel(await readyView({ taste: 4 }), 'zh-CN');
-  a.ok(taste.lines.includes('两个按钮都会把之前记下的 4 条好坏例子（认可的和不认可的）一起发出去。'), 'willSend.tasteNotes is always said when there are any');
+  a.ok(taste.lines.includes('点「发送检查」还会把之前记下的 4 条好坏例子（认可的和不认可的）一起发出去。'), 'willSend.tasteNotes is always said when there are any');
+  a.equal(taste.payload.notes.length, 4, 'the notes themselves are there to show');
+  // PG #321 6871888446: the words that go are shown; a count without the words, or words that do not match the count, are not a description
+  const t4 = await readyView({ taste: 2 });
+  for (const [name, ws] of [['no projectText', { ...t4.willSend, projectText: undefined }], ['no notes', { ...t4.willSend, notes: undefined }],
+    ['fewer notes than counted', { ...t4.willSend, notes: t4.willSend.notes.slice(1) }], ['a note without text', { ...t4.willSend, notes: [{ kind: 'positive' }, t4.willSend.notes[1]] }]])
+    a.equal(R.confirmModel({ ...t4, willSend: ws }, 'zh-CN').canSend, false, name);
   const twice = await readyView(); twice.willSend = { ...twice.willSend, requests: 2 };
   a.ok(R.confirmModel(twice, 'zh-CN').lines.includes('会分 2 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。'));
 });
@@ -164,9 +171,9 @@ test('「只发这 10 秒」 (#328: scope is fixed at prepare): a clip without t
   a.deepEqual(api.calls.find((c) => c[0] === 'send'), ['send', 'r_2', 'tok_2'], 'the window clip goes, with its own token');
   a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).notes[0], '这次只检查了这 10 秒，没有结合字幕文字。');
 
-  // the window clip comes back different (here: taste notes added in between): the box is shown again, nothing is sent
+  // the window clip comes back different (here: sent in 2 requests): the box is shown again, nothing is sent
   let n = 0; const api2 = R.stubApi(); const st = api2.status;
-  api2.status = async (id) => { const v = await st(id); if (v.state === 'ready' && ++n === 2) v.willSend = { ...v.willSend, tasteNotes: 2 }; return v; };
+  api2.status = async (id) => { const v = await st(id); if (v.state === 'ready' && ++n === 2) v.willSend = { ...v.willSend, requests: 2 }; return v; };
   const s2 = session(api2);
   await s2.check({ start: 20, end: 30 });
   a.equal(await s2.send('window'), false);
@@ -174,7 +181,7 @@ test('「只发这 10 秒」 (#328: scope is fixed at prepare): a clip without t
   a.equal(api2.calls.filter((c) => c[0] === 'send').length, 0, 'not sent: the box changed');
   const m2 = R.confirmModel(s2.state.prep, 'zh-CN', { changed: true });
   a.ok(m2.lines.includes('要发的内容和刚才说的不一样了，请再看一遍再决定。'));
-  a.ok(m2.lines.includes('两个按钮都会把之前记下的 2 条好坏例子（认可的和不认可的）一起发出去。'));
+  a.ok(m2.lines.includes('会分 2 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。'));
   a.equal(m2.buttons.find((b) => b.id === 'full').enabled, false, 'this clip has no text: 「发送检查」 would need its own');
   a.ok(await s2.send('window'), 'a second click sends what is now shown');
   a.deepEqual(api2.calls.filter((c) => c[0] === 'send').map((c) => c[1]), ['r_2']);
@@ -186,6 +193,25 @@ test('「只发这 10 秒」 (#328: scope is fixed at prepare): a clip without t
   await s3.check({ start: 20, end: 30 });
   a.equal(await s3.send('window'), false);
   a.equal(api3.calls.filter((c) => c[0] === 'send').length, 0);
+
+  // PG #321 6871888446 (1): 「只发这 N 秒」 sends no notes and no project text. A window clip that carries any is refused, on every click
+  for (const opts of [{ taste: 2, windowTaste: true }]) {
+    const api4 = R.stubApi(opts), s4 = session(api4);
+    await s4.check({ start: 20, end: 30 });
+    a.equal(await s4.send('window'), false);
+    a.ok(R.confirmModel(s4.state.prep, 'zh-CN').lines.includes('说不清这次具体会发出去什么，所以先不发。'));
+    a.equal(await s4.send('window'), false, 'and on a second click');
+    a.equal(api4.calls.filter((c) => c[0] === 'send').length, 0);
+  }
+  const api5 = R.stubApi(); const st5 = api5.status; let j = 0;
+  api5.status = async (id) => { const v = await st5(id); if (v.state === 'ready' && ++j === 2) v.willSend = { ...v.willSend, projectText: '22.00-26.00s text: 这一句' }; return v; };
+  const s5 = session(api5); await s5.check({ start: 20, end: 30 });
+  a.equal(await s5.send('window'), false, 'a window clip with project text');
+  a.equal(api5.calls.filter((c) => c[0] === 'send').length, 0);
+  // with notes saved, 「发送检查」 says and sends them; 「只发这 N 秒」 sends a clip with none
+  const api6 = R.stubApi({ taste: 3 }), s6 = session(api6); await s6.check({ start: 20, end: 30 });
+  a.ok(await s6.send('window'));
+  a.deepEqual(api6.calls.find((c) => c[0] === 'send'), ['send', 'r_2', 'tok_2']);
 });
 
 test('「不发了」 and 「取消」 cancel the check and send nothing; a slow answer after them never reopens the box', async () => {
@@ -408,6 +434,9 @@ test('in the page: the box shows the receiver and the training line before eithe
   const order = w.nodes();
   a.ok(order.indexOf(to) < order.indexOf(full) && order.indexOf(tr) < order.indexOf(win), 'above the buttons');
   a.deepEqual(api.calls.map((c) => c[0]), ['available', 'prepare', 'status'], 'nothing sent yet');
+  w.byReview('preview')[0].click(); await settle();
+  a.equal(w.byReview('text')[0].textContent, '18.00-21.50s text: 前面那句\n22.00-26.00s text: 这一句', 'PG 6871888446: the real text is shown before sending, as plain text');
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0, 'looking sends nothing');
   full.click(); await settle();
   a.equal(api.calls.filter((c) => c[0] === 'send').length, 1);
   a.equal(w.byReview('headline')[0].textContent, '检查完了，发现 1 处可能有问题。');
@@ -478,4 +507,32 @@ test('the editor loads it and hands it the playhead; the playground copies it', 
   a.ok(!/fetch\(/.test(block), 'the wiring calls nothing itself');
   a.equal((app.match(/MontClipReviewCheck/g) || []).length, 2, 'one place in app.js');
   a.match(read('docs/demo/sync.js'), /"review-check\.js"/);
+});
+
+test("#328's refusals (Deja 6871907804) get a plain sentence under the headline; a refused send still never says 「没发出去」", async () => {
+  for (const [code, line] of [['NOT_LOCAL', '这个检查只能在这台电脑上用。'], ['LEDGER_UNREADABLE', '检查记录读不出来，所以这次先不检查。'], ['LEDGER_UNWRITABLE', '检查记录写不进去，所以这次先不检查。']]) {
+    const s = session(R.stubApi({ prepareError: code }));
+    await s.check({ start: 20, end: 30 });
+    const r = R.resultModel(s.state.raw, 'zh-CN', 10);
+    a.equal(r.headline, '这 10 秒没能在这台电脑上准备好，什么都没有发出去。', code);
+    a.deepEqual(r.notes, [line], code);
+  }
+  for (const [code, line] of [['PROJECT_EDITED', '准备好以后工程又改过，和要发的内容对不上了。请重新检查。'], ['PROJECT_CHANGED', '现在打开的是别的工程。请回到这个工程再检查。'],
+    ['SEND_LIMIT', '这个工程能发出去的视频已经到上限了，这次不能再发。'], ['DESTINATION_CHANGED', '要发去的地址变了。请重新检查。'], ['STORE_FAILED', '检查的结果没能保存下来。']]) {
+    const api = R.stubApi(); api.send = async () => { const e = new Error('x'); e.code = code; throw e; };
+    const s = session(api);
+    await s.check({ start: 20, end: 30 }); await s.send('full');
+    const r = R.resultModel(s.state.raw, 'zh-CN', 10);
+    a.equal(r.headline, '检查没做成。不确定内容有没有已经发到对方那边。这不代表没问题。', code);
+    a.deepEqual(r.notes, [line], code);
+  }
+  // a clip that failed while being made says why when the engine says so (status: state failed, reason)
+  const api = R.stubApi(); const st = api.status; api.status = async (id) => ({ ...(await st(id)), state: 'failed', reason: 'PROJECT_EDITED' });
+  const s = session(api); await s.check({ start: 20, end: 30 });
+  a.deepEqual(R.resultModel(s.state.raw, 'zh-CN', 10).notes, ['准备好以后工程又改过，和要发的内容对不上了。请重新检查。']);
+  // an unknown code adds nothing, and an engine message is never shown
+  const s2 = session(R.stubApi({ prepareError: 'SOMETHING_ELSE' })); await s2.check({ start: 20, end: 30 });
+  a.deepEqual(R.resultModel(s2.state.raw, 'zh-CN', 10).notes, []);
+  const en = R.resultModel({ status: 'no_result', reason: 'PREPARE_FAILED', why: 'SEND_LIMIT', findings: [] }, 'en', 10);
+  a.ok(en.notes[0] && !/[一-鿿]/.test(en.notes[0]));
 });
