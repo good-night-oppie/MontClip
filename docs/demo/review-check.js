@@ -46,7 +46,7 @@
       whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。",   // JJ #326 (PG v4.1 6871970875 with 字幕文字)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
-      noPage: "这个页面不能发送检查，要发送请在 MontClip 桌面版的窗口里操作；这里只能先看会发什么。",   // JJ #326 6872379274 (#328 85d9e8d1: no send token outside the desktop window)
+      noPage: "这一步要在 MontClip 窗口里点，这里只能先看会发什么。",   // draft (PG #321 6872395398 「这一步要在 MontClip 窗口里点」, replaces JJ 6872379274); JJ to finalize
       tasteLost: "有 {k} 条好坏例子的文字在重启后没有保留，这次不会发出去；需要的话请重新填写。",   // JJ #326 6872283674 (#328 willSend.tasteLost)
       fixedTitle: "会一起发给 AI 的固定标准和问题",                // JJ #326 6872283674: folded in 「先看要发的内容」
       fixedTwice: "分次发出时，第一次不带，从后面几次起带上。",   // JJ #326 6872283674: only when requests > 1, right under the folded title
@@ -138,7 +138,7 @@
       whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). No subtitle text, cut points or saved examples will be sent separately; subtitles already visible in the picture will still be sent as part of it.",
       whatEdge: "Any subtitle that overlaps this clip in time will be sent in full, so it may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
-      noPage: "Checks can't be sent from this page. To send one, use the MontClip desktop window; here you can only see what would be sent first.",
+      noPage: "This step has to be done in the MontClip window; here you can only see what would be sent first.",
       tasteLost: "The text of {k} saved examples wasn't kept after a restart, so it won't be sent this time. Enter it again if you need it.",
       fixedTitle: "Fixed standards and questions sent to the AI with it",
       fixedTwice: "When it is sent in parts, the first part doesn't include them; they go with the later parts.",
@@ -343,8 +343,10 @@
     const token = view && typeof view.sendToken === "string" && view.sendToken ? view.sendToken : null;
     const id = view && typeof view.reviewId === "string" && view.reviewId ? view.reviewId : null;
     const canSend = !!(pay && dest && dest.verified && id && token && view.state === "ready");
-    // #328 85d9e8d1: only the desktop window's own requests are the page; anywhere else (a browser tab, a server started another way) no token is shown
-    if (pay && dest && dest.verified && id && !token && view.state === "ready") lines.push(t(lang, "noPage"));
+    // #328 85d9e8d1: only the desktop window's own requests are the page; anywhere else (the Cindy plugin, a browser tab) no token is shown.
+    // PG #321 6872395398: there it is view-only — no send button that does nothing, one plain line instead; the clip can still be looked at.
+    const viewOnly = !!(pay && dest && dest.verified && id && !token && view.state === "ready");
+    if (viewOnly) lines.push(t(lang, "noPage"));
     return {
       title: t(lang, "title", { n }), n, lines, payload: pay,
       blocked: !pay ? "noPayload" : !dest ? "noDestination" : !dest.verified ? "unverified" : null,
@@ -352,9 +354,9 @@
       training: t(lang, "training"),
       destination: dest, canSend,
       buttons: [
-        { id: "preview", label: t(lang, "previewBtn"), enabled: !!(canSend && safePreviewSrc(view && view.previewSrc)) },
-        { id: "full", label: t(lang, "sendFull"), enabled: !!(canSend && pay.scope === "full") },
-        { id: "window", label: t(lang, "sendWindow", { n }), enabled: canSend },
+        { id: "preview", label: t(lang, "previewBtn"), enabled: !!((canSend || viewOnly) && safePreviewSrc(view && view.previewSrc)) },
+        { id: "full", label: t(lang, "sendFull"), enabled: !!(canSend && pay.scope === "full"), hidden: viewOnly },
+        { id: "window", label: t(lang, "sendWindow", { n }), enabled: canSend, hidden: viewOnly },
         { id: "cancel", label: t(lang, "cancel"), enabled: true },
       ],
     };
@@ -714,6 +716,7 @@
           }
         }
         for (const b of m.buttons) {
+          if (b.hidden) continue;   // view-only (PG #321 6872395398): a send button that cannot send is not shown at all
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
           const node = add(b.id, b.label, on, b.id === "full" ? "review-send" : "");
           node.disabled = !b.enabled;
