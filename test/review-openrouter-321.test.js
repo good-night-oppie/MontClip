@@ -115,7 +115,7 @@ test("sender: the switch is OFF by default; off means nothing goes", async (t) =
   assert.equal(snd.switch.set("yes").ok, false, "a boolean only");
 });
 
-test("sender: only a check the streamer confirmed in the box goes, and only as many requests as it has", async (t) => {
+test("sender: only a check the streamer clicked to send goes (a permit from the main process), and only as many requests as it has", async (t) => {
   const d = tmp(t), s = standin();
   const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request });
   snd.switch.set(true); snd.key.set(FAKE_KEY);
@@ -183,6 +183,70 @@ test("Settings › 审片发送: the one line under the switch is JJ's, word for
     assert.ok(box.includes('<span class="settings-hint" data-i18n="own.rv-set-note">' + EN + "</span>"), f);
     assert.ok(!/收不回|检查这 10 秒/.test(box), f + ": the replaced sentence is gone");
   }
+});
+
+test("Settings › 审片发送: every other string of the section is JJ's (#347), English added and the Chinese unchanged, on the language switch", () => {
+  const root = path.join(__dirname, "..");
+  const T = {
+    "rv-set-title": ["Send for review", "审片发送"],
+    "rv-set-enabled": ["Send the clip to openrouter.ai when reviewing", "审片时把片段发到 openrouter.ai"],
+    "rv-set-key-ph": ["OpenRouter key (used only for review)", "OpenRouter 密钥（只用于审片）"],
+    "rv-set-key-save": ["Save key", "保存密钥"],
+    "rv-set-key-clear": ["Delete key", "删除密钥"],
+    "rv-key-saved": ["Key saved", "已保存密钥"],
+    "rv-key-none": ["No key yet", "还没有密钥"],
+    "rv-key-unsealed": ["This computer can't store the key encrypted, so it was not saved.", "这台电脑不能加密保存密钥，没有保存"],
+    "rv-key-bad": ["The key format is not valid, so it was not saved.", "密钥格式不对，没有保存"]
+  };
+  for (const f of ["ui-preferences.js", "docs/demo/ui-preferences.js"]) {
+    const ui = fs.readFileSync(path.join(root, f), "utf8");
+    for (const [k, [en, zh]] of Object.entries(T)) assert.ok(ui.includes('"' + k + '": [' + JSON.stringify(en) + ", " + JSON.stringify(zh) + "]"), f + " " + k);
+  }
+  for (const f of ["index.html", "docs/demo/index.html"]) {
+    const html = fs.readFileSync(path.join(root, f), "utf8");
+    const box = html.slice(html.indexOf('id="setReview"'), html.indexOf('id="setSlices"'));
+    for (const k of ["rv-set-title", "rv-set-enabled", "rv-set-key-save", "rv-set-key-clear"]) assert.ok(box.includes('data-i18n="own.' + k + '">' + T[k][0] + "<"), f + " " + k);
+    assert.ok(box.includes('placeholder="' + T["rv-set-key-ph"][0] + '" data-i18n-placeholder="own.rv-set-key-ph"'), f);
+    assert.ok(!/[一-鿿]/.test(box.replace(/<!--[\s\S]*?-->/g, "")), f + ": no Chinese left hard-coded in the section");
+  }
+  for (const f of ["app/app.js", "docs/demo/app/app.js"]) {
+    const app = fs.readFileSync(path.join(root, f), "utf8");
+    const i = app.indexOf('const box=$("setReview")'), block = app.slice(i, app.indexOf("void show();", i));
+    assert.ok(i > 0 && !/[一-鿿]/.test(block), f + ": the key states come from uiText, none hard-coded");
+    for (const k of ["rv-key-saved", "rv-key-none", "rv-key-unsealed", "rv-key-bad"]) assert.ok(block.includes('"own.' + k + '"'), f + " " + k);
+  }
+});
+
+test("reverse: the review key is used only for review — only review-sender opens it, and only to send a review request", () => {
+  const root = path.join(__dirname, "..");
+  const skip = new Set(["node_modules", ".git", "test", "dist", "out", "vendor", "docs", ".cindy-worktrees"]);
+  const files = [];
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    if (e.isDirectory()) { if (!skip.has(e.name)) walk(path.join(d, e.name)); }
+    else if (/\.(c?js|mjs|html)$/.test(e.name)) files.push(path.join(d, e.name)); } };
+  walk(root);
+  const sender = path.join(root, "desktop", "review-sender.js");
+  for (const f of files) {
+    if (f === sender) continue;
+    const t = fs.readFileSync(f, "utf8");
+    assert.ok(!t.includes("review-openrouter-key"), path.relative(root, f) + " names the review key file");
+    assert.ok(!/\bkey\.open\(/.test(t) && !/reviewSender\.key\.open/.test(t), path.relative(root, f) + " opens the review key");
+  }
+  const s = fs.readFileSync(sender, "utf8");
+  assert.equal((s.match(/\bkey\.open\(\)/g) || []).length, 1, "review-sender opens the key in one place");
+  const send = s.slice(s.indexOf("async send("));
+  assert.ok(send.indexOf("key.open()") > 0 && send.indexOf("key.open()") < send.indexOf("OR.post("), "the one place is the review send, right before the one review request");
+  /* the page can only ask whether a key is saved, store one or delete it — never read it */
+  const preload = fs.readFileSync(path.join(root, "desktop", "view-preload.js"), "utf8");
+  assert.ok(!/montclip:review:key(Get|Open|Read)/.test(preload));
+  assert.deepEqual([...preload.matchAll(/montclip:review:(key\w+)/g)].map((m) => m[1]).sort(), ["keyClear", "keySet", "keyStatus"]);
+  const { createReviewSender } = require("../desktop/review-sender");
+  const tmpd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "rk-"));
+  try {
+    const st = createReviewSender({ root: tmpd, safeStorage: { isEncryptionAvailable: () => true, encryptString: (v) => Buffer.from("x" + v), decryptString: (b) => b.toString().slice(1) }, env: {}, isPackaged: true, smoke: false });
+    st.key.set("sk-or-v1-sentinel-key-0123456789abcdef");
+    assert.deepEqual(Object.keys(st.key.status()).sort(), ["configured", "ok"], "status says only whether one is saved");
+  } finally { fs.rmSync(tmpd, { recursive: true, force: true }); }
 });
 
 /* ---- doors an agent must not have (reverse tests) ---- */
