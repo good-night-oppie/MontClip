@@ -183,7 +183,11 @@ const KNOWN = { 'own.font-net-hosts': 'Google',
   // the audio-track hint (JJ chose A on #177, 2026-11-07): the recorder's product name, (a)
   'own.at-hint': 'OBS',
   // #146's no-x264 sentences (JJ chose A on #146, 2026-11-07): the preset as the export list shows it, delivery.js label "Master", (a)
-  'extNeededServer': 'Master', 'extNeededPlugin': 'Master' };
+  'extNeededServer': 'Master', 'extNeededPlugin': 'Master',
+  // 设置 › 审片发送 (#321, JJ 定稿 2026-11-15 on #347, the Chinese unchanged): the site the clip goes to, openrouter.ai, and the
+  // service's name in the key field, (a) —
+  // already listed for this section's HTML as html:setReview in fixtures/zh-index-english.json
+  'own.rv-set-enabled': 'openrouter', 'own.rv-set-key-ph': 'OpenRouter' };
 // the same notice writes the address api.deepseek.com: "api" there is part of a host name, not API in another casing
 const KNOWN_CASE = { 'officialPane_dataNoticeWho': ['api'] };
 test('the Chinese interface: no English word of three letters or more, beyond JJ\'s categories; names in their own casing', () => {
