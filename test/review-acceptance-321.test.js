@@ -1,6 +1,7 @@
 "use strict";
-/* MontClip#321 — RED TESTS, written before the implementation (Deja, 2026-11-14). Synthetic fixtures only: every input is a
-   string in this file; nothing is sent anywhere and no streamer material is used.
+/* MontClip#321 — acceptance tests, written red before the implementation (Deja, 2026-11-14) and green with it (the implementation PR,
+   ADR docs/decisions/2026-11-14-review-openrouter-outbound.md). Synthetic fixtures only: every input is a string in this file; nothing is
+   sent anywhere and no streamer material is used.
 
    Order and scope are PG's (#321 6878569226, adopting 6878540535):
      1. ① sound not checked: audio was sent but usage says 0 audio tokens, or there is no usage → 「声音没检查」.
@@ -18,7 +19,8 @@
    Interface (proposed with ADR #341): parseVerdict(text, {durationSec, sentAudio, usage, frames}) →
      findings[].state ∈ {"suggest","confirm"}, result.states (the states shown for this result, findings' and sound's),
      result.reviewed = {start, end} (seconds of the sample), and never `edits` / `recut`.
-   The implementation waits for QQ's verification of the ADR; until then these tests are expected to fail. */
+   The frames are what this computer knows the sample shows (review-service.js framesOf: the project's own text clips that were rendered
+   into it), never the model's word. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const VB = require("../server/video-bridge");
@@ -137,6 +139,41 @@ test("3 C7 control: the model's change time agrees with the frames (11.4 s) → 
   assert.ok(v, "the answer parses");
   assert.equal(v.findings.length, 1, "a claim the frames support is not suppressed");
   assert.equal(v.findings[0].state, "confirm");
+  noAutoChange(v);
+});
+
+/* C7, two more kinds from #321 6886251080 (synthetic): the model says a word is missing, but the frame shows it; and the model infers an
+   event from how the shot is cropped ("one person: the mic dropped"), but the frames show two people. Both are suppressed. */
+test("3 C7 (6886251080): the model says 「你」 is missing, but the frame text at that time has it → suppressed, not shown", () => {
+  const frames = { ...FRAMES, text: [...FRAMES.text, { t: 8.3, text: "你先走吧" }] };
+  const v = parse({ verdict: "issues", dimensions: SUB_ISSUE("a word is missing"),
+    findings: [{ t: 8.3, type: "subtitle_mismatch", dimension: "subtitle", basis: "picture_text", missing: "你",
+      text: "the subtitle misses 「你」", suggestion: "add 「你」" }] }, { frames });
+  assert.ok(v, "the answer parses");
+  assert.equal(v.findings.filter((f) => Math.abs(f.t - 8.3) < 0.5).length, 0, "a word the frame shows is not reported missing");
+  assert.ok(!v.states.includes("suggest") && !v.states.includes("confirm"));
+  noAutoChange(v);
+});
+
+test("3 C7 (6886251080): an event inferred from the crop (one person → mic dropped), frames show two people → suppressed", () => {
+  const frames = { ...FRAMES, people: [{ t: 6.0, count: 2 }] };
+  const v = parse({ verdict: "issues", dimensions: { ...DIMS_OK, fact: { state: "issues", reason: "mic dropped" } },
+    findings: [{ t: 6.0, type: "continuity", dimension: "fact", basis: "crop", claimsPeople: 1,
+      text: "only one person is left in the shot: the guest's mic dropped", suggestion: "cut the dropout" }] }, { frames });
+  assert.ok(v, "the answer parses");
+  assert.equal(v.findings.length, 0, "an event the frames contradict is not shown");
+  assert.notEqual(v.dimensions.fact.state, "issues", "nothing is left to point at");
+  noAutoChange(v);
+});
+
+test("3 C7 control (6886251080): a cropping inference with no frame count to check → at most 「这里请你确认」, no cut", () => {
+  const v = parse({ verdict: "issues", dimensions: { ...DIMS_OK, fact: { state: "issues", reason: "mic dropped" } },
+    findings: [{ t: 6.0, type: "continuity", dimension: "fact", basis: "crop", claimsPeople: 1,
+      text: "only one person is left in the shot", suggestion: "cut the dropout" }] });
+  assert.ok(v, "the answer parses");
+  assert.equal(v.findings.length, 1);
+  assert.equal(v.findings[0].state, "confirm");
+  assert.equal(v.findings[0].suggestion, "", "no cut proposal");
   noAutoChange(v);
 });
 
