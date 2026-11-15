@@ -43,7 +43,7 @@ const MEM_MAX = 200;
 function structured(r) {
   const o = { ...r };
   delete o.summary; delete o.windowDigest; delete o.observation;
-  o.findings = (r.findings || []).map((f) => ({ id: f.id, t: f.t, type: f.type, inLead: !!f.inLead, mark: f.mark || null }));
+  o.findings = (r.findings || []).map((f) => ({ id: f.id, t: f.t, type: f.type, state: f.state || null, inLead: !!f.inLead, mark: f.mark || null }));
   if (r.dimensions) o.dimensions = Object.fromEntries(Object.entries(r.dimensions).map(([k, v]) => [k, { state: v && v.state }]));
   o.marks = (r.marks || []).map((m) => ({ id: m.id, mark: m.mark, at: m.at }));
   o.correction = r.correction ? { at: r.correction.at } : null;
@@ -128,6 +128,11 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       sentFloor.set(projectId, Math.max(disk, sentFloor.get(projectId) || 0) + b);
       try { if (!d) return; d.sentBytesTotal = (d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d)) + b; write(projectId, d); } catch { }
     },
+    /** A receipt from someone other than Google AI Studio (or another model) stops this project's later sends (QQ's ruling on #341):
+     *  kept in the ledger, so a restart does not lift it. Only the streamer's confirmation (unblock) does. A ledger that cannot be read throws. */
+    blocked(projectId) { const b = read(projectId).blocked; return b && b.reason ? { reason: b.reason, at: b.at } : null; },
+    block(projectId, { reason }) { const d = read(projectId); d.blocked = { reason: String(reason || "DESTINATION_MISMATCH"), at: new Date(now()).toISOString() }; write(projectId, d); return d.blocked; },
+    unblock(projectId) { const d = read(projectId); const was = !!d.blocked; delete d.blocked; write(projectId, d); return { unblocked: was }; },
     add(projectId, rec) {
       const doc = read(projectId);
       const m = memFor(projectId, rec.reviewId);
