@@ -80,7 +80,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     r.mode === "two_pass" ? "sent in 2 requests: a blind first look, then the full check" : ""].filter(Boolean).join("; ");
   const view = (r) => ({
     reviewId: r.id, state: r.state, project: r.project, range: r.range, lead: r.lead, scope: r.scope, mode: r.mode, revision: r.revision, progress: r.progress ?? null,
-    willSend: r.state === "ready" ? { what: what(r), to: r.destination, sendTo: "发往：" + r.destination.host, requests: r.mode === "two_pass" ? 2 : 1, tasteNotes: r.taste,
+    willSend: r.state === "ready" ? { what: what(r), to: r.destination, requests: r.mode === "two_pass" ? 2 : 1, tasteNotes: r.taste,
       videoBytes: r.staged ? r.staged.video.bytes : 0, audioBytes: r.staged && r.staged.audio ? r.staged.audio.bytes : 0, audio: !!(r.staged && r.staged.audio), hash: r.hash || null,
       /* the words themselves, as they will go: the project's subtitles and cut points (scope full) and the taste notes */
       projectText: r.ctx || "", /* the fixed standards and questions: the very strings the request is built from (video-bridge.js), shown so the page can list them */
