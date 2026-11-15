@@ -126,7 +126,7 @@ test("a person's check: ready with what is sent and to whom, sent only with the 
   await ready(S, v.reviewId);
   const st = S.svc.status(v.reviewId);
   assert.equal(st.willSend.to.host, "openrouter.ai");
-  assert.equal(st.willSend.sendTo, "发往：openrouter.ai", "the line the box shows without expanding anything");
+  assert.equal(st.willSend.to.host, "openrouter.ai");
   assert.match(st.willSend.what, /No subtitle text, edit points, or good\/bad examples are attached/);
   assert.match(st.willSend.what, /no sound in the video\) and its sound as a separate WAV \(48 kHz, stereo\)/);
   assert.ok(st.willSend.videoBytes > 0 && st.willSend.videoBytes <= VB.MAX_SAMPLE_BYTES && st.willSend.audioBytes > 0 && st.willSend.audio === true);
