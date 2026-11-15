@@ -257,7 +257,7 @@
       "时间线 {time} 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。"],
     "err-export-page-crashed": ["Something went wrong while exporting, so this export stopped and no file was made. The originals are unchanged. You can start the export again; if it happens again, use \"Copy problem details\" and send it to us.",
       "导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。可以直接重新导出；还是这样的话，点「复制问题信息」发给我们。"],
-    // #320 — JJ定稿 (2026-11-15, via Deja), word for word, https://github.com/good-night-oppie/MontClip/pull/353#issuecomment-6889203398 :
+    // #320 — JJ定稿 (2026-11-15, via Deja), word for word, MontClip#353 comment 6889203398:
     // what happened and that no file was made, then what to do. Said when the export's browser passed the memory limit
     // (export-jobs.js): the job is stopped, not retried.
     "err-export-memory-limit": ["This export used more memory than it is allowed to, so it was stopped and no file was made. The originals are unchanged. Try exporting a shorter part first.",
