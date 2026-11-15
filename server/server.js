@@ -1045,7 +1045,8 @@ function reviews() {
 }
 /* #321 (ADR #341): the request is sent by the desktop main process, which holds the key; this server only hands it the body, after the
    ledger counted it. One message out, one answer back, matched by a one-off id. The main process decides whether it may go (the
-   streamer confirmed it in its own box, or the owner's dev-side switch is on); this server cannot make it send anything else. */
+   streamer's click let that prepared check go, or the owner's dev-side switch is on), and it sends only a body it would build itself; this
+   server cannot make it send anything else. */
 let reviewSendSwitch = false;   // off until the main process says the streamer switched it on
 const reviewPending = new Map();
 function reviewSender(body, { reviewId, kind, agent }) {
@@ -1060,7 +1061,7 @@ process.parentPort?.on("message", ({ data }) => {
   if (data?.type === "review-switch") reviewSendSwitch = data.on === true;
   else if (data?.type === "review-sent" && reviewPending.has(data.reqId)) { const r = reviewPending.get(data.reqId); reviewPending.delete(data.reqId); r(data.result && typeof data.result === "object" ? data.result : { ok: false, reason: "FAILED" }); }
 });
-/* Who sends? Only the main process, after its own box: it alone knows this secret (given at start through the environment, like the page's). */
+/* Who sends? Only the main process, after the streamer's click: it alone knows this secret (given at start through the environment, like the page's). */
 const REVIEW_MAIN_SECRET = /^[a-f0-9]{64}$/.test(process.env.MONTCLIP_REVIEW_MAIN_SECRET || "") ? process.env.MONTCLIP_REVIEW_MAIN_SECRET : null;
 delete process.env.MONTCLIP_REVIEW_MAIN_SECRET;
 const isMainReq = (req) => { const h = req.headers["x-montclip-main"]; return !!REVIEW_MAIN_SECRET && typeof h === "string" && h.length === REVIEW_MAIN_SECRET.length && sameSecret(h, REVIEW_MAIN_SECRET); };
@@ -1848,9 +1849,9 @@ async function handleRequest(req, res) {
         if ((!agent || isMainReq(req)) && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
         sendJSON(res, 200, v);
       } else if (action === "send" && req.method === "POST") {
-        /* the click goes through the main process's own box (IPC montclip:review:send with the token and the hash); a request from the page,
-           an agent or anything else that does not carry the main process's secret sends nothing */
-        if (!isMainReq(req)) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only the streamer's click in the app's own confirmation box sends a sample" }); return; }
+        /* the click goes through the main process (IPC montclip:review:send with the token and the hash); a request from the page, an agent or
+           anything else that does not carry the main process's secret sends nothing */
+        if (!isMainReq(req)) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only the streamer's click in the app sends a sample" }); return; }
         sendJSON(res, 200, await svc.send(String(body.id || ""), body.token, body.hash));
       } else if (action === "unblock" && req.method === "POST") {
         if (!isMainReq(req)) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only the streamer, in the app's own box, can allow sending again" }); return; }
