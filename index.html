@@ -561,6 +561,20 @@
       </label>
       <div class="settings-row"><button class="btn" id="btnAiNotice" type="button" data-i18n="own.ai-set-notice" data-i18n-title="own.ai-set-notice-tip" title="See again who gets your data, what is sent, and whether it may be used for training">Data notice</button></div>
     </div>
+    <!-- #321 (ADR #341): the review's own switch and key, kept by the desktop main process. Wording to be finalized by JJ. -->
+    <div class="settings-section hidden" id="setReview">
+      <h3>审片发送</h3>
+      <label class="settings-row">
+        <input type="checkbox" id="setReviewEnabled">
+        <span>
+          <span class="settings-label">审片时把片段发到 openrouter.ai</span>
+          <span class="settings-hint">默认关。打开后，每次发送前都会显示要发的内容和「发往：openrouter.ai」；已经发出去的收不回。</span>
+        </span>
+      </label>
+      <div class="settings-row"><input type="password" id="setReviewKey" autocomplete="off" spellcheck="false" placeholder="OpenRouter 密钥（只用于审片）">
+        <button class="btn" id="btnReviewKeySave" type="button">保存密钥</button><button class="btn" id="btnReviewKeyClear" type="button">删除密钥</button>
+        <span class="settings-hint" id="setReviewKeyState"></span></div>
+    </div>
     <div class="settings-section hidden" id="setSlices">
       <h3 data-i18n="own.as-set-title">Auto slices</h3>
       <div class="settings-row settings-row-mid"><button class="btn" type="button" data-learn-open data-i18n="own.as-learn-title">Remember my editing habits</button> <span class="settings-hint" data-learn-state></span></div>
