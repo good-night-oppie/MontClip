@@ -259,8 +259,8 @@
       "导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。可以直接重新导出；还是这样的话，点「复制问题信息」发给我们。"],
     // #320 — WORDS ARE A DRAFT BY Cindy, FOR JJ TO FINALISE (the same two sentences, first what happened and that no file was made,
     // then what to do). Said when the export's browser passed the memory limit (export-jobs.js): the job is stopped, not retried.
-    "err-export-memory-limit": ["This export used more memory than it is allowed to, so it was stopped and no file was made. The originals are unchanged. Export a shorter part, or close other programs, and try again.",
-      "这次导出占用的内存超过了允许的上限，已经停下，没有生成文件。原片没有改动。可以先导出短一点的一段，或者关掉别的程序，再试一次。"],
+    "err-export-memory-limit": ["This export used more memory than it is allowed to, so it was stopped and no file was made. The originals are unchanged. Try exporting a shorter part first.",
+      "这次导出占用的内存超过了允许的上限，已经停下，没有生成文件。原片没有改动。可以先导出短一点的一段再试。"],
     // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
     "mono-left": ["{n} sounds in this project only play in the left ear. Make them play in both?", "这个项目里有 {n} 段声音只在左边耳机里有。要改成两边都有吗？"],
     "mono-left-centre": ["Play in both", "改成两边都有"],
