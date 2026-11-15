@@ -24,9 +24,9 @@ const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const TIMEOUT_MS = 360_000;
 const MAX_TOKENS = 4096;
 const AUDIO = Object.freeze({ sampleRate: 48000, channels: 2, format: "wav", codec: "pcm_s16le" });
-const REASONS = Object.freeze(["TIMEOUT", "AUTH_FAILED", "RATE_LIMITED", "FAILED", "CANCELLED", "DESTINATION_MISMATCH", "BAD_OUTPUT", "BODY_TOO_LARGE", "NO_KEY"]);
+const REASONS = Object.freeze(["TIMEOUT", "AUTH_FAILED", "RATE_LIMITED", "FAILED", "CANCELLED", "DESTINATION_MISMATCH", "BAD_OUTPUT", "BODY_TOO_LARGE", "NO_KEY", "BODY_NOT_ALLOWED", "HASH_MISMATCH"]);
 
-/** What is shown to the streamer as the destination, and what the record keeps. One object for all of them. */
+/** The destination as the record and the status keep it (nothing is shown before a send: owner, #321 6888246693). One object for all of them. */
 const DESTINATION_INFO = Object.freeze({ service: "OpenRouter", host: HOST, model: MODEL, provider: EXPECTED_PROVIDER,
   note: "已要求对方只交给 Google AI Studio、不收集数据，是否遵守无法核实" });
 
