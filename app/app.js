@@ -23652,15 +23652,11 @@ function resetAllSideWidths() {
   for (const slot of Object.values(SIDE_SLOTS)) { $("app").style.removeProperty(slot.cssVar); try { localStorage.removeItem(slot.key); } catch { } }
   syncSideSplits();
 }
-/* A smaller window: a width she set earlier is brought back into what now fits (the columns already hold the panels
-   to it; this keeps the stored value and the next drag honest). */
+/* A window that got smaller (or a side panel opened in Cindy): only what is shown is held to what fits — the columns
+   in style.css do that (40% of the window, the preview's 280). The width she chose and the one kept on this computer
+   are left as they are, so the window growing back shows her width again; only her own drag, a double-click and
+   「Layout」 change them (JJ's spec v4, items 10–12; DD on #354). Here only the numbers a screen reader hears follow. */
 function reclampSideWidths() {
-  for (const side of ["left", "right"]) {
-    const slot = sideSlot(side), set = parseFloat($("app").style.getPropertyValue(slot.cssVar));
-    const handle = document.querySelector(`.h-split[data-side="${side}"]`);
-    if (!(set > 0) || !handle || !handle.offsetParent) continue;
-    if (setSideWidth(side, set) !== Math.round(set)) { try { localStorage.setItem(slot.key, String(parseFloat($("app").style.getPropertyValue(slot.cssVar)))); } catch { } }
-  }
   syncSideSplits();
 }
 function syncSideSplits() {

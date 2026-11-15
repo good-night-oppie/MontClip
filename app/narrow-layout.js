@@ -4,7 +4,11 @@
    DOM helper that moves the real elements, so their listeners and state come along. */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.MontClipNarrow = factory();
+  else {
+    root.MontClipNarrow = factory();
+    // before app.js reads the timeline's height (this file is loaded first): see migrateTimelineHeight
+    try { root.MontClipNarrow.migrateTimelineHeight(root.localStorage, root.innerHeight); } catch { }
+  }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   // The upper area keeps room for the monitor header, the player and a picture;
@@ -24,8 +28,26 @@
   function sideWidth({ want, min, other, total, gap = 0, centerMin = SIDE_CENTER_MIN, windowWidth = Infinity, maxShare = SIDE_MAX_SHARE }) {
     // …and never more than its share of the window (40%; the assistant's panel 34%)
     const max = Math.min(Math.floor(total - 2 * gap - centerMin - other), Math.floor(windowWidth * maxShare));
-    const w = Math.round(Number.isFinite(want) ? want : min);
+    // Infinity: as wide as it may get (aria-valuemax asks this); no number: its least width
+    const w = Math.round(want === Infinity ? max : Number.isFinite(want) ? want : min);
     return Math.max(min, Math.min(w, Math.max(min, max)));
+  }
+
+  /* The timeline's height (MontClip#270, DD on #354): until #270 style.css held the timeline at 32% of the window
+     whatever height was stored, and adding a track stored "every track fits", uncapped. With that cap gone, a height an
+     older version stored would make the timeline grow by itself after an update. So once, the first time this version
+     runs, a stored height over 32% of the window is brought down to it — what she saw — and marked done; a height she
+     drags to after that is hers. TL_H_KEY and the 32% are app.js's TL_H_KEY and TL_DEFAULT_SHARE (a test checks).
+     → the height written back, or null when nothing changed. */
+  const TL_H_KEY = "fablecut-timeline-h", TL_H_MIGRATED_KEY = "montclip-timeline-h-v2", TL_DEFAULT_SHARE = 0.32;
+  function migrateTimelineHeight(storage, innerHeight) {
+    const cap = Math.round(innerHeight * TL_DEFAULT_SHARE);
+    if (!storage || !(cap > 0) || storage.getItem(TL_H_MIGRATED_KEY)) return null;   // no window yet: next time
+    const saved = parseFloat(storage.getItem(TL_H_KEY));
+    const capped = saved > cap ? cap : null;
+    if (capped != null) storage.setItem(TL_H_KEY, String(capped));
+    storage.setItem(TL_H_MIGRATED_KEY, "1");
+    return capped;
   }
 
   /** items: [{id, width, rank}] in bar order; rank null = never moves, higher ranks leave first.
@@ -106,5 +128,5 @@
     return { layout, open, close, place };
   }
 
-  return { UPPER_MIN, TIMELINE_MIN, SIDE_LEFT_MIN, SIDE_RIGHT_MIN, SIDE_CENTER_MIN, SIDE_AGENT_MIN, SIDE_MAX_SHARE, SIDE_AGENT_SHARE, sideMins, sideWidth, planOverflow, timelineMax, upperNeed, attach };
+  return { UPPER_MIN, TIMELINE_MIN, SIDE_LEFT_MIN, SIDE_RIGHT_MIN, SIDE_CENTER_MIN, SIDE_AGENT_MIN, SIDE_MAX_SHARE, SIDE_AGENT_SHARE, sideMins, sideWidth, TL_H_KEY, TL_H_MIGRATED_KEY, TL_DEFAULT_SHARE, migrateTimelineHeight, planOverflow, timelineMax, upperNeed, attach };
 });

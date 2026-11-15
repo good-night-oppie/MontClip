@@ -215,3 +215,52 @@ test('with the assistant open the right panel and the preview keep 280; the colu
  a.ok(reset.includes('resetTimelineHeight();')&&reset.includes('resetAllSideWidths();'),'Layout brings all three edges back');
  a.match(app,/function resetAllSideWidths\(\) \{\s*for \(const slot of Object\.values\(SIDE_SLOTS\)\)/,'the assistant\'s width too');
 });
+
+// DD on #354 (2): the right edge's aria-valuemax asks sideWidth for Infinity; that is the widest it may get, not its least
+test('Infinity is as wide as a side panel may get; no number is its least width',()=>{
+ const room={min:L.SIDE_LEFT_MIN,other:320,total:1572,gap:6,centerMin:L.SIDE_CENTER_MIN,windowWidth:1584};
+ a.equal(L.sideWidth({want:Infinity,...room}),L.sideWidth({want:1e9,...room}));
+ a.equal(L.sideWidth({want:Infinity,...room}),Math.floor(1584*0.4),'40% of the window');
+ a.equal(L.sideWidth({want:Infinity,...room,windowWidth:Infinity}),1572-12-280-320,'or what the preview and the other side leave');
+ a.equal(L.sideWidth({want:-Infinity,...room}),150);
+ a.equal(L.sideWidth({want:NaN,...room}),150);
+ a.equal(L.sideWidth({want:Infinity,...room,total:700}),150,'a row too narrow for all three: still its least width');
+});
+
+// DD on #354 (1): a height an older version stored (uncapped; style.css used to hold it at 32vh) must not make the
+// timeline grow by itself after an update — once, it is brought down to 32% of the window; after that it is hers
+test('an older stored timeline height is brought down to 32% once; a height she drags to later is kept',()=>{
+ const mem=(o={})=>({o,getItem:(k)=>k in o?o[k]:null,setItem:(k,v)=>{o[k]=String(v);}});
+ const s=mem({'fablecut-timeline-h':'600'});
+ a.equal(L.migrateTimelineHeight(s,805),Math.round(805*0.32),'600 of 805 → 258');
+ a.equal(s.o['fablecut-timeline-h'],'258');
+ a.equal(s.o[L.TL_H_MIGRATED_KEY],'1');
+ s.o['fablecut-timeline-h']='500';   // she drags it up afterwards
+ a.equal(L.migrateTimelineHeight(s,805),null,'only once');
+ a.equal(s.o['fablecut-timeline-h'],'500','her later height stays');
+ const low=mem({'fablecut-timeline-h':'200'});
+ a.equal(L.migrateTimelineHeight(low,805),null,'under 32%: left as it was');
+ a.equal(low.o['fablecut-timeline-h'],'200');a.equal(low.o[L.TL_H_MIGRATED_KEY],'1');
+ const none=mem();
+ a.equal(L.migrateTimelineHeight(none,805),null);a.ok(!('fablecut-timeline-h' in none.o),'nothing stored: nothing written');
+ const early=mem({'fablecut-timeline-h':'600'});
+ a.equal(L.migrateTimelineHeight(early,0),null,'no window height yet');
+ a.equal(early.o['fablecut-timeline-h'],'600');a.ok(!(L.TL_H_MIGRATED_KEY in early.o),'not marked: done next time');
+ a.equal(L.migrateTimelineHeight(null,805),null,'no storage: nothing');
+ // it runs before app.js reads the height: loaded first, and the key and the 32% are app.js's
+ const html=read('index.html'),app=read('app/app.js');
+ a.ok(html.indexOf('<script src="app/narrow-layout.js"></script>')>=0&&html.indexOf('<script src="app/narrow-layout.js"></script>')<html.indexOf('<script src="app/app.js"></script>'),'narrow-layout.js is loaded (not deferred) before app.js');
+ a.match(app,new RegExp('const TL_H_KEY = "'+L.TL_H_KEY+'";'));
+ a.match(app,new RegExp('const TL_DEFAULT_SHARE = '+L.TL_DEFAULT_SHARE.toString().replace('.','\.')+';'));
+ a.match(read('app/narrow-layout.js'),/root\.MontClipNarrow\.migrateTimelineHeight\(root\.localStorage, root\.innerHeight\)/,'and it is called when the page loads it');
+});
+
+// JJ's spec v4 items 10–12 (DD on #354, 3): a resize only shows what fits; it never writes the width she chose
+test('a resize never writes or changes the side width she chose; only her drag, a double-click and Layout do',()=>{
+ const app=read('app/app.js'),reclamp=app.slice(app.indexOf('function reclampSideWidths()'),app.indexOf('function syncSideSplits()'));
+ a.ok(reclamp.length>0);
+ a.doesNotMatch(reclamp,/localStorage/,'nothing stored on a resize');
+ a.doesNotMatch(reclamp,/setSideWidth|setProperty|removeProperty/,'and the width she set is left as it is (the columns hold what is shown)');
+ a.match(app,/window\.addEventListener\("resize", reclampSideWidths\)/);
+ for(const f of ['index.html','docs/demo/index.html']){const h=read(f);for(const id of ['splitBinMonitor','splitMonitorInspector'])a.match(h,new RegExp('id="'+id+'"[^>]*aria-label="[^"]+"[^>]*data-i18n-aria-label="term\.drag-to-resize-double-click-to-reset"'),f+' '+id+': a name for a screen reader, from an existing text');}
+});

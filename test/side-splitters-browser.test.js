@@ -192,3 +192,97 @@ test("narrow windows: no side edge where a panel is hidden (#270)", { skip, time
     assert.deepEqual(shown, [false, false], "at 1000 px the media panel is hidden and the window sets the two columns: the edges are there but not shown");
   });
 });
+
+// DD on #354: (1) a height an older version stored (uncapped; style.css used to hold it at 32vh) must not make the
+// timeline grow by itself after an update; (2) the side edges tell a screen reader how far they go.
+test("after an update an older stored timeline height does not grow the timeline; the edges say their range (#270, #354)", { skip, timeout: 120000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  await withPage({ browser, url: base + "/", width: 1600, height: 900, settleMs: 1500 }, async ({ evaluate, send }) => {
+    const layout = () => evaluate(LAYOUT);
+    const reload = async () => {
+      await send("Page.reload", {});
+      for (const until = Date.now() + 20000; Date.now() < until;) {
+        if (await evaluate(`document.readyState === "complete" && document.querySelectorAll(".track-head").length > 0`)) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+    };
+    // as an older version left it: a tall height, never migrated
+    await evaluate(`localStorage.setItem("fablecut-timeline-h", "700"); localStorage.removeItem("montclip-timeline-h-v2")`);
+    await reload();
+    const a = await layout();
+    assert.ok(a.timeline.h <= Math.round(a.vh * 0.32) + 1, `the old 700 is brought down to 32% of the window: ${a.timeline.h} of ${a.vh}`);
+    assert.equal(await evaluate(`localStorage.getItem("montclip-timeline-h-v2")`), "1", "and that is done once");
+    // a height she reaches after that (as the edge stores it) is hers: the next start keeps it
+    await evaluate(`localStorage.setItem("fablecut-timeline-h", "500")`);
+    await reload();
+    const b = await layout();
+    assert.ok(b.timeline.h > Math.round(b.vh * 0.32) + 1, `taller than 32% when she made it so: ${b.timeline.h} of ${b.vh}`);
+    // the range a screen reader hears: from its least width up to what it may get, not least to least
+    const aria = await evaluate(`["splitBinMonitor", "splitMonitorInspector"].map((id) => { const e = document.getElementById(id); return [+e.getAttribute("aria-valuemin"), +e.getAttribute("aria-valuemax"), +e.getAttribute("aria-valuenow")]; })`);
+    t.diagnostic(JSON.stringify({ window: b.vh, oldBroughtTo: a.timeline.h, keptAfter: b.timeline.h, aria }));
+    for (const [min, max, now] of aria) {
+      assert.ok(max > min, `aria-valuemax ${max} is more than aria-valuemin ${min}`);
+      assert.ok(now >= min && now <= max, `aria-valuenow ${now} is in the range`);
+    }
+  });
+});
+
+// JJ's spec v4 items 10–12 (DD on #354, 3): a window that gets smaller only holds what is shown; the width she dragged
+// to stays stored, and the window growing back shows it again. Only her own drag changes it.
+test("a smaller window holds the panels to what fits but keeps the width she chose; growing back shows it again (#270, #354)", { skip, timeout: 150000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  await withPage({ browser, url: base + "/", width: 1600, height: 900, settleMs: 1500 }, async ({ evaluate, send }) => {
+    const layout = () => evaluate(LAYOUT);
+    const mouse = (type, x, y, more = {}) => send("Input.dispatchMouseEvent", { type, x, y, ...more });
+    const drag = async (x1, y1, x2, y2) => {
+      await mouse("mouseMoved", x1, y1);
+      await mouse("mousePressed", x1, y1, { button: "left", clickCount: 1 });
+      for (let i = 1; i <= 10; i++) await mouse("mouseMoved", x1 + (x2 - x1) * i / 10, y1 + (y2 - y1) * i / 10, { button: "left", buttons: 1 });
+      await mouse("mouseReleased", x2, y2, { button: "left", clickCount: 1 });
+      await new Promise((r) => setTimeout(r, 300));
+    };
+    const mid = (r) => [Math.round(r.x + r.w / 2), Math.round(r.y + r.h / 2)];
+    const stored = () => evaluate(`localStorage.getItem("montclip-bin-w")`);
+    const resize = async (width) => {
+      await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
+      await new Promise((r) => setTimeout(r, 800));
+    };
+    for (const until = Date.now() + 20000; Date.now() < until;) {
+      if (await evaluate(`document.readyState === "complete" && document.querySelectorAll(".track-head").length > 0`)) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    await resize(1590);
+    const a = await layout();
+    for (const id of ["splitBinMonitor", "splitMonitorInspector"]) assert.ok(await evaluate(`!!document.getElementById("${id}").getAttribute("aria-label")`), id + " has a name for a screen reader");
+    // she drags the media panel as wide as it goes
+    const [lx, ly] = mid(a.left);
+    await drag(lx, ly, Math.round(await evaluate("innerWidth")) - 2, ly);
+    const b = await layout();
+    const chosen = await stored();
+    assert.equal(+chosen, b.bin.w, "her width is kept on this computer");
+    assert.ok(b.bin.w > 600, `wide: ${b.bin.w}`);
+    // the window gets smaller: what is shown fits, what she chose stays
+    await resize(1200);
+    const c = await layout(), vw = await evaluate("innerWidth");
+    assert.ok(c.bin.w <= Math.floor(vw * 0.4) + 1 && c.bin.w < b.bin.w, `shown within 40% of the narrower window: ${c.bin.w} of ${vw}`);
+    assert.ok(c.monitor.w >= L.SIDE_CENTER_MIN, `the preview keeps its least width: ${c.monitor.w}`);
+    assert.equal(await stored(), chosen, "the stored width is not changed by the window");
+    // …and back: her width again
+    await resize(1590);
+    const d = await layout();
+    assert.equal(d.bin.w, b.bin.w, "the window grown back shows the width she chose");
+    assert.equal(await stored(), chosen);
+    // in the smaller window she drags again: that drag is what is kept now
+    await resize(1200);
+    const e = await layout();
+    const [ex, ey] = mid(e.left);
+    await drag(ex, ey, ex - 120, ey);
+    const f = await layout();
+    assert.ok(f.bin.w < e.bin.w, "her drag moved it");
+    assert.equal(+(await stored()), f.bin.w, "her own drag in the smaller window replaces the stored width");
+    t.diagnostic(JSON.stringify({ chosen: +chosen, shownAt1200: c.bin.w, back: d.bin.w, draggedAt1200: f.bin.w }));
+  });
+});
