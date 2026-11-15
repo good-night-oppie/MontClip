@@ -8,7 +8,8 @@
      - the destination: fixed in server/openrouter-review.js (host, path, model, provider lock). A test stand-in (http://127.0.0.1:<port>)
        is honoured only in an unpackaged --montclip-smoke run with MONTCLIP_REVIEW_STANDIN set; a packaged app never reads it.
      - what may go: the engine server hands over one body at a time (review-send). It goes only when
-         (a) the streamer confirmed THIS check (reviewId) in this process's own box — a permit for its requests, or
+         (a) the streamer clicked to check THIS check (reviewId) and this process let it go — a permit for its requests (nothing is shown
+             before a send: owner's decision 2026-11-15, #321 6888246693), or
          (b) it is the team's own agent on the dev side and the owner set MONTCLIP_REVIEW_AGENT_SEND=1 on this process (no click, no box:
              owner's decision, #341 6882174429).
        Anything else is refused (NOT_CONFIRMED). No retry; TLS checked as Node does; one request per message. */
@@ -51,7 +52,7 @@ function createReviewSender({ root, safeStorage, env = process.env, isPackaged =
 
   return {
     key, switch: sw, standin,
-    /** The streamer confirmed reviewId in this process's box: its `requests` requests may go in the next 15 minutes. */
+    /** The streamer's click let reviewId go: its `requests` requests may go in the next 15 minutes. */
     permit(reviewId, requests) { permits.set(reviewId, { left: requests, exp: now() + 15 * 60 * 1000 }); },
     revoke(reviewId) { permits.delete(reviewId); },
     cancel(reviewId) { permits.delete(reviewId); const c = inFlight.get(reviewId); if (c) c.abort(); },
@@ -77,22 +78,8 @@ function createReviewSender({ root, safeStorage, env = process.env, isPackaged =
   };
 }
 
-/** The words of the box the streamer confirms in (ADR #341 §3, QQ's ruling 12): 「发往：openrouter.ai」 on its own line in the message, which
- *  shows without expanding anything; model, upstream and 「是否遵守无法核实」 in the detail. willSend: the engine's status for the check. */
-function confirmText(willSend) {
-  const w = willSend || {};
-  const to = (w.to && w.to.host) || OR.HOST;
-  const mb = (n) => (Number(n) / 1048576).toFixed(2) + " MB";
-  const message = ["发往：" + to, `发送 ${w.seconds || "?"} 秒：画面${w.audio ? "（不带声音）＋单独一条声音（WAV）" : "（只有画面，不发声音）"}`,
-    `大小：视频 ${mb(w.videoBytes || 0)}${w.audio ? "，声音 " + mb(w.audioBytes || 0) : ""}`, `发 ${w.requests || 1} 次`].join("\n");
-  const detail = [`OpenRouter（${to}），模型 ${OR.MODEL}，指定交给 Google AI Studio（以对方回执为准）。`, OR.DESTINATION_INFO.note + "。",
-    w.what ? "内容：" + w.what : "", w.projectText ? "随附工程文字：\n" + String(w.projectText).slice(0, 1500) : "随附工程文字：无",
-    "已经发出去的收不回。"].filter(Boolean).join("\n");
-  return { title: "审片：确认发送", message, detail };
-}
-
-/** The buttons and the unblock box (wording to be finalized by JJ). */
-const BOX = Object.freeze({ cancel: "取消", send: "发送", ok: "知道了", unblock: "重新允许", unblockTitle: "审片",
+/** The unblock box (wording to be finalized by JJ). Nothing is shown before a send (owner's decision 2026-11-15, #321 6888246693). */
+const BOX = Object.freeze({ cancel: "取消", unblock: "重新允许", unblockTitle: "审片",
   unblockMessage: "发往：" + OR.HOST + "\n上次的回执不是 Google AI Studio 或不是指定模型，这个工程的发送已停下。要重新允许发送吗？" });
 
-module.exports = { createReviewSender, confirmText, BOX, KEY_FILE, SWITCH_FILE };
+module.exports = { createReviewSender, BOX, KEY_FILE, SWITCH_FILE };
