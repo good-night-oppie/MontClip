@@ -26,7 +26,7 @@ Date: 2026-11-03; revised 2026-11-15 (the show-before-every-send rule cancelled,
   owner's decision of 2026-11-15, recorded by QQ on #321 (comment 6889233711): asked whether dropping 「任何外发之前先显示内容和目的地」 from SOP v4.1 also cancels this rule, the owner
   chose 「一起取消」. There is no longer a rule that every send out shows its content and destination first. What still holds:
   a send out happens only in a feature the streamer turned on, started by the streamer's own action and with the streamer's
-  consent (a click, or the streamer's own choice of 「都批准」, 自动 or Yolo); a new outbound path needs an ADR and QQ's check;
+  consent (a click, or the streamer's own choice of 「都批准」 or Yolo; 自动 is not consent to a send out — the table asks until 「都批准」); a new outbound path needs an ADR and QQ's check;
   keys stay out of logs, reports and GitHub.
 - When something is shown before a send out, and when not (since 2026-11-15):
   - **Shown:** while an external step is still asked — 手动 and 自动 until 「都批准」 for that chat, capability and target — the
