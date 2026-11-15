@@ -25240,11 +25240,11 @@ if(!EXPORT_WORKER)setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
 { const box=$("setReview"),on=$("setReviewEnabled"),rv=agentEmbedded?null:window.montclipReview;
   if(box&&rv?.switchGet){
     box.classList.remove("hidden");
-    const keyState=async()=>{const k=await rv.keyStatus();$("setReviewKeyState").textContent=k?.configured?"已保存密钥":"还没有密钥";};
+    const keyState=async()=>{const k=await rv.keyStatus();$("setReviewKeyState").textContent=uiText(k?.configured?"own.rv-key-saved":"own.rv-key-none");};
     const show=async()=>{const r=await rv.switchGet();on.checked=r?.on===true;await keyState();};
     on.addEventListener("change",async()=>{const r=await rv.switchSet(on.checked);on.checked=r?.on===true;});
     $("btnReviewKeySave").addEventListener("click",async()=>{const f=$("setReviewKey"),r=await rv.keySet(f.value);f.value="";
-      $("setReviewKeyState").textContent=r?.ok?"已保存密钥":r?.code==="KEY_STORE_UNAVAILABLE"?"这台电脑不能加密保存密钥，没有保存":"密钥格式不对，没有保存";});
+      $("setReviewKeyState").textContent=uiText(r?.ok?"own.rv-key-saved":r?.code==="KEY_STORE_UNAVAILABLE"?"own.rv-key-unsealed":"own.rv-key-bad");});
     $("btnReviewKeyClear").addEventListener("click",async()=>{await rv.keyClear();await keyState();});
     $("btnSettings")?.addEventListener("click",()=>{void show();});
     void show();
