@@ -53,6 +53,7 @@ test("the sentence: words in both languages, for the code the job ends with", ()
   assert.match(z.text, /内存/);
   assert.match(e.text, /memory/);
   assert.ok(!/raw/.test(z.text + e.text), "never the raw message");
+  assert.ok(!/other programs|别的程序/.test(z.text + e.text + z.what + e.what), "JJ: no advice to close other programs");
   assert.ok(/没有生成文件/.test(z.what) && /no file was made/.test(e.what), "the first sentence says what happened and that no file was made");
 });
 
@@ -89,6 +90,7 @@ test("a browser over the limit ends its own job with EXPORT_MEMORY_LIMIT, is sto
   assert.equal(old.status, "failed");
   assert.equal(old.code, "EXPORT_MEMORY_LIMIT");
   assert.match(old.error, /more memory than allowed.*3072 MiB.*limit 2048 MiB.*no file was made.*not retried/);
+  assert.ok(!/other programs/.test(old.error), "no advice about other programs in the message");
   assert.equal(q.logged.length, 1);
   assert.match(q.logged[0], /used 3072 MiB, over the 2048 MiB limit/);
   assert.ok(!/[\\/]/.test(q.logged[0]), "no paths in the log line");
