@@ -1,6 +1,6 @@
 "use strict";
 /* #321 — /api/review/* on a real server (ADR #341): the editor page and an agent are told apart, only the desktop main process — after
-   its own box — makes the server send, the record cannot be written to "passed", and project.json stays byte for byte as it was.
+   the streamer's click — makes the server send, the record cannot be written to "passed", and project.json stays byte for byte as it was.
    A server started here has no main process (no process.parentPort): the streamer's switch is off and there is no sender, so these
    tests check the refusals over HTTP; what a send does is in test/review-api.test.js with a stand-in sender. No network. */
 const test = require("node:test");
@@ -17,7 +17,7 @@ try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" 
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 
 const PAGE_SECRET = "a1b2c3d4".repeat(8);   // what the Electron main process hands the server at start and adds to the editor window's own requests
-const MAIN_SECRET = "e5f6a7b8".repeat(8);   // what only the main process itself sends, after the streamer confirmed in its own box
+const MAIN_SECRET = "e5f6a7b8".repeat(8);   // what only the main process itself sends, after the streamer's click
 const srvEnv = (more = {}) => ({ MONTCLIP_REVIEW_PAGE_SECRET: PAGE_SECRET, MONTCLIP_REVIEW_MAIN_SECRET: MAIN_SECRET, MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai",
   FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", ...more });
 /* The editor page is the Electron window: the main process adds the page secret to its own requests to /api/review/ (it never travels over HTTP to anyone else,
