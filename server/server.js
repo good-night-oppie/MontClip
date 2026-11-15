@@ -51,7 +51,7 @@ const {
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
 const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
-const { createExportJobs, checkExportSpan } = require("./export-jobs");
+const { createExportJobs, checkExportSpan, exportRequestBody } = require("./export-jobs");
 const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
@@ -1704,13 +1704,23 @@ async function handleRequest(req, res) {
   }
 
   /* API: agent-requested export jobs (see export-jobs.js).
-     POST /api/export/request {range?, profile?, where?} → job; GET /api/export/job?id=
+     POST /api/export/request {range? | start?+end?, preview?, profile?, preset?, delivery?, outputs?, where?} → job (any
+     other field: 400 UNKNOWN_FIELD with its name, #337); GET /api/export/job?id=
      polls it; the editor tab claims, reports and finishes it. One job at a time on this queue (all four request
      endpoints): another unfinished one answers 409 {code:"JOB_BUSY", busy:{id, kind, status, …}, error} with the
      cancel call in error. */
   if (p === "/api/export/request" && req.method === "POST") {
     try {
-      let opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      let opts;
+      try { opts = JSON.parse((await readBody(req)).toString("utf8") || "{}"); }
+      catch { sendJSON(res, 400, { code: "BAD_BODY", error: "the body is not JSON — nothing was exported" }); return; }
+      /* #337: top-level start / end are the span; any other field it does not know is a 400 naming it, never a silent
+         export of the whole timeline (export-jobs.js exportRequestBody) */
+      {
+        const b = exportRequestBody(opts);
+        if (b.error) { sendJSON(res, 400, b.error); return; }
+        opts = b.opts;
+      }
       /* E5a (MontClip#215): the job names the open project and the Cindy task that asked. The task is taken only from
          the plugin worker's own request (X-MontClip-Session); a page's body or URL never names one (MontClip-Cindy#18).
          A caller that names another project, or a switch before the job is queued, is EXPORT_PROJECT_CHANGED. */
