@@ -10,7 +10,7 @@ const { EventEmitter } = require("node:events");
 const { execFileSync, spawnSync } = require("node:child_process");
 const OR = require("../server/openrouter-review");
 const VB = require("../server/video-bridge");
-const { createReviewSender, confirmText } = require("../desktop/review-sender");
+const { createReviewSender } = require("../desktop/review-sender");
 
 const FAKE_KEY = "sk-or-v1-FAKEKEYSENTINEL0123456789abcdef";   // a fake key: it must never show up anywhere but the Authorization header
 const NICK = "合成昵称哨兵_小测试";                                  // a synthetic viewer nickname: it must never reach the disk
@@ -157,11 +157,16 @@ test("sender: a local stand-in is honoured only in an unpackaged smoke run, and 
   assert.equal(createReviewSender({ root: d, safeStorage: fakeSafeStorage(), env: { MONTCLIP_REVIEW_STANDIN: "http://evil.example:80" }, isPackaged: false, smoke: true }).standin, null);
 });
 
-test("the box: 「发往：openrouter.ai」 is the first line of the message (shown without expanding); model, upstream and 「无法核实」 in the detail", () => {
-  const b = confirmText({ to: { host: "openrouter.ai" }, seconds: 13, audio: true, videoBytes: 2_000_000, audioBytes: 2_500_000, requests: 1, what: "x" });
-  assert.equal(b.message.split("\n")[0], "发往：openrouter.ai");
-  assert.match(b.detail, /google\/gemini-4-carbon/); assert.match(b.detail, /Google AI Studio/); assert.match(b.detail, /是否遵守无法核实/);
-  assert.match(b.message, /不带声音/); assert.match(b.message, /WAV/);
+test("the send: no box before it (owner's decision 2026-11-15, #321 6888246693); the click is the consent, the assistant needs approve-all or Yolo", () => {
+  const main = fs.readFileSync(path.join(__dirname, "..", "desktop", "main.js"), "utf8");
+  const a = main.indexOf('ipcMain.handle("montclip:review:send"'), b = main.indexOf('ipcMain.handle("montclip:review:unblock"');
+  assert.ok(a > 0 && b > a);
+  const h = main.slice(a, b);
+  assert.ok(!/showMessageBox/.test(h), "nothing is shown before a send");
+  assert.ok(!/confirmText/.test(h));
+  assert.match(h, /st\.json\.sendToken !== v\.token \|\| w\.hash !== v\.hash/, "only the prepared check, by token and hash");
+  assert.match(h, /v\.assistant === true[\s\S]{0,200}mode !== "auto" && mode !== "yolo"[\s\S]{0,60}NEEDS_CLICK/);
+  assert.ok(h.indexOf("reviewSender.permit(") < h.indexOf('"/api/review/send"') && h.indexOf('"/api/review/send"') < h.indexOf("reviewSender.revoke("));
 });
 
 /* ---- doors an agent must not have (reverse tests) ---- */
