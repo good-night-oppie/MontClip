@@ -358,8 +358,8 @@ async function start() {
       return answer.response === 1;
     },
   });
-  /* #321: the review's switch and key (Settings), and the send — the page names a check by its id, token and hash only; what goes, and where,
-     is shown in THIS process's box, with the destination host on its own first line (QQ's ruling 12; the words are in review-sender.js) */
+  /* #321: the review's switch and key (Settings), and the send — the page names a check by its id, token and hash only; this process checks
+     them against the engine's prepared check before it lets that one check go (the words of the unblock box are in review-sender.js) */
   ipcMain.handle("montclip:review:switchGet", (event) => settingsAllowed(event, win, origin) ? reviewSender.switch.get() : { ok: false, code: "REVIEW_FORBIDDEN" });
   ipcMain.handle("montclip:review:switchSet", (event, on) => {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };
@@ -380,18 +380,9 @@ async function start() {
     const st = await engine("GET", "/api/review/status?id=" + encodeURIComponent(id));
     const w = st.json && st.json.willSend;
     if (st.status !== 200 || st.json.state !== "ready" || !w || st.json.sendToken !== v.token || w.hash !== v.hash) return { ok: false, code: "NOT_READY" };
-    const RS = require("./review-sender"), text = RS.confirmText(w);
-    /* approve-all (auto) or Yolo, asked by the assistant: no click, but the box is still shown (11-03; owner's decision in #341 6882174429) */
-    let mode = "manual"; try { mode = agentPolicy.getMode().mode; } catch { }
-    const noClick = v.assistant === true && (mode === "auto" || mode === "yolo");
-    if (noClick) { if (!smoke) void dialog.showMessageBox(win, { type: "info", title: text.title, message: text.message, detail: text.detail, buttons: [RS.BOX.ok], noLink: true }); }
-    else {
-      /* a smoke run answers the box from its environment (as the other boxes here do), so no window comes up on the desktop */
-      const r = smoke ? { response: process.env.MONTCLIP_SMOKE_REVIEW_SEND === "1" ? 1 : 0 }
-        : await dialog.showMessageBox(win, { type: "question", title: text.title, message: text.message, detail: text.detail, buttons: [RS.BOX.cancel, RS.BOX.send], defaultId: 0, cancelId: 0, noLink: true });
-      if (smoke) process.stdout.write("MONTCLIP_REVIEW_BOX " + JSON.stringify({ message: text.message, response: r.response }) + "\n");
-      if (r.response !== 1) { await engine("POST", "/api/review/cancel", { id }); return { ok: false, code: "CANCELLED" }; }
-    }
+    /* owner's decision 2026-11-15 (#321 6888246693): nothing is shown before a send; the streamer's own click on the check is the consent.
+       A request the assistant makes goes only under approve-all (auto) or Yolo (owner's decision in #341 6882174429); otherwise it needs the click. */
+    if (v.assistant === true) { let mode = "manual"; try { mode = agentPolicy.getMode().mode; } catch { } if (mode !== "auto" && mode !== "yolo") return { ok: false, code: "NEEDS_CLICK" }; }
     reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1);
     const sent = await engine("POST", "/api/review/send", { id, token: v.token, hash: v.hash });
     reviewSender.revoke(id);
