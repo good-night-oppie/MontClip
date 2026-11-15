@@ -1,6 +1,6 @@
 # The AI's permission modes (P4, first half)
 
-Date: 2026-11-03. Spec: Deja's architecture draft (sha256 cccbc16f…), sections 「AI 的权限模式」 and
+Date: 2026-11-03; revised 2026-11-15 (the show-before-every-send rule cancelled, see 「External」 below). Spec: Deja's architecture draft (sha256 cccbc16f…), sections 「AI 的权限模式」 and
 「权限模式：QQ 安全审查后的修订」 (items 1–11 take precedence). The plan list is the second half (a separate PR on top of this one).
 
 ## What is decided where
@@ -22,7 +22,19 @@ Date: 2026-11-03. Spec: Deja's architecture draft (sha256 cccbc16f…), sections
 | Yolo | run | run | run | run if the switch is on and the domain allowlisted |
 
 - Blacklist (`Capabilities.BLOCKED`, incl. overwriting an existing file) and every name not in the table: refused in every mode.
-- External always shows what is sent and where; 「都批准」 spares the click only (owner, 2026-11-03).
+- ~~External always shows what is sent and where; 「都批准」 spares the click only (owner, 2026-11-03).~~ Cancelled by the
+  owner's decision of 2026-11-15, recorded by QQ on #321 (comment 6889233711): asked whether dropping 「任何外发之前先显示内容和目的地」 from SOP v4.1 also cancels this rule, the owner
+  chose 「一起取消」. There is no longer a rule that every send out shows its content and destination first. What still holds:
+  a send out happens only in a feature the streamer turned on, started by the streamer's own action and with the streamer's
+  consent (a click, or the streamer's own choice of 「都批准」, 自动 or Yolo); a new outbound path needs an ADR and QQ's check;
+  keys stay out of logs, reports and GitHub.
+- When something is shown before a send out, and when not (since 2026-11-15):
+  - **Shown:** while an external step is still asked — 手动 and 自动 until 「都批准」 for that chat, capability and target — the
+    approval card asks, with what `2026-11-04-approval-card-in-stream.md` puts on it. The chat send keeps its own review box
+    in every mode (see below); that box is as built, not required by a rule any more.
+  - **Not shown:** after 「都批准」 for that chat, capability and target; in Yolo (switch on, domain allowlisted); and the
+    embedded review send (`2026-11-14-review-openrouter-outbound.md` §3: the streamer's click on the check is the consent,
+    nothing is shown before it).
 - External caps, every mode including Yolo, **per capability** in `capabilities.js` (fixed in the main process with the
   risk levels; Deja, 2026-11-03): text sends (`assistant_request`, `song_lookup`) 128 KiB a send and 4 MiB a chat; audio (`cloud_transcribe`, the field only, not wired) 25 MiB a part and
   2 GiB a project while it is open. The main process keeps a total per scope and per capability. Over a cap the send is
@@ -53,9 +65,11 @@ through the system save dialog only is for the export step (later); overwriting 
   main process and for events alike.
 
 - 手动 × sensitive / can't be undone (export, delete): asked every time, 〔只批准这次〕〔不同意〕 only. External is not in this
-  group: three choices in every mode, and 「都批准」 only spares the click — the content is shown every time. Undoable steps
+  group: three choices in every mode; after 「都批准」 it is not asked again for that chat, capability and target, and
+  nothing is shown (the 2026-11-03 「the content is shown every time」 is cancelled, owner's decision of 2026-11-15, recorded by QQ on #321 (comment 6889233711)). Undoable steps
   in 手动: asked the first time, three choices.
 - The caps: per capability, as above.
 
-- No 〔先看看〕 in the box (Deja, 2026-11-03): the three buttons are the owner's own words; an undoable step can be undone,
-  and an external one already shows what it sends in the box.
+- No 〔先看看〕 in the box (Deja, 2026-11-03): the three buttons are the owner's own words; an undoable step can be undone.
+  (The other reason given here on 2026-11-03, that an external step already shows what it sends in the box, no longer holds
+  since the owner's decision of 2026-11-15, recorded by QQ on #321 (comment 6889233711); no 〔先看看〕 stands on the first reason.)
