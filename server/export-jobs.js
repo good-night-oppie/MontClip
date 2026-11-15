@@ -161,7 +161,7 @@ function createExportJobs(opts) {
     const mib = (n) => Math.round(n / 1048576);
     try { (opts.log || console.warn)(`export: the headless browser used ${mib(j.memBytes)} MiB, over the ${mib(memoryLimit)} MiB limit; the export was stopped`); } catch {}
     end(j, "failed", { errorCode: "EXPORT_MEMORY_LIMIT", error: `the export used more memory than allowed (${mib(j.memBytes)} MiB, limit ${mib(memoryLimit)} MiB), so it was stopped ` +
-      "and no file was made; it is not retried. Export a shorter part, or close other programs, and try again" });
+      "and no file was made; it is not retried. Try exporting a shorter part first" });
   }
   function sweep() {
     const now = clock();
