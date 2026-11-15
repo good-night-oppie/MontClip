@@ -1,7 +1,8 @@
 "use strict";
 /* #321 — the steps of one check of a stretch of the timeline: render a small sample, stage what would leave the machine (an mp4
-   without sound and a 48 kHz stereo WAV, video-bridge.js), show it, send it only on her click (a one-time token and the snapshot
-   hash, confirmed again in the desktop main process's own box), keep the result apart from the project.
+   without sound and a 48 kHz stereo WAV, video-bridge.js), send it only on the streamer's click (a one-time token and the snapshot
+   hash, checked again in the desktop main process; nothing is shown before a send: owner, #321 6888246693), keep the result apart
+   from the project.
    Where it goes is fixed (OpenRouter, google/gemini-4-carbon, only Google AI Studio: openrouter-review.js). This file has no key and
    opens no connection: `sender` is the desktop main process (server.js passes it), and it is asked only after the ledger counted the
    bytes. A receipt from anyone else stops this project's later sends until the streamer confirms again (DESTINATION_MISMATCH).
