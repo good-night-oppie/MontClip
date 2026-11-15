@@ -2621,8 +2621,11 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   `EXPORT_BLANK_PICTURE` / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH` when the file came out black or
   silent from start to end while the footage in `check` (`{video:[{t, src, at}], audio:[{src, at, dur}]}`) is not
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
-  `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
-  (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
+  `{range? | start?+end?, preview?, profile?, preset?, delivery?, outputs?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
+  (409 if one is already running, or nothing can render it). `start` / `end` at the top level are the same as
+  `range:{start, end}` (both given: they must agree, else `RANGE_CONFLICT`; one alone: `RANGE_INCOMPLETE`). Any other
+  field, at the top level or inside `range`, is refused with **400** `{code:"UNKNOWN_FIELD", fields, error}` and nothing
+  is exported — it is never dropped to export the whole timeline (#337) · `GET /api/export/job?id=`
   → `{status: pending|running|done|failed|cancelled, progress 0–1, src, error, code}` ·
   `POST /api/export/job/cancel?id=`. The editor tab side: SSE event `export`
   (a ticket), `GET /api/export/job/ticket?id=`, `POST /api/export/job/claim?id=`
