@@ -1,9 +1,10 @@
 'use strict';
 // #321 (ADR #341) — the streamer's path on a real Windows desktop, for SOP 13: a fresh profile in a new temporary folder, the review switch off
-// by default, switched on in Settings, a synthetic clip prepared, and the app's own confirmation box opened. The person running it presses
-// nothing on the desktop: the window stays hidden, and the box is answered 取消 from the environment (MONTCLIP_SMOKE_REVIEW_SEND unset), as the
-// app's other boxes are in a smoke run; the box's own words are printed (MONTCLIP_REVIEW_BOX). The "outside" here is only a local stand-in on
-// 127.0.0.1 that counts what reaches it, honoured only in an unpackaged --montclip-smoke run (desktop/review-sender.js). Nothing leaves the computer.
+// by default, switched on in Settings, a synthetic clip prepared, and sent. Nothing is shown before a send (owner's decision 2026-11-15, #321
+// 6888246693): the streamer's click is the consent. The assistant's request in the default (manual) mode is refused (NEEDS_CLICK) and reaches
+// nothing; the streamer's request goes once. The person running it presses nothing on the desktop: the window stays hidden. The "outside" here is
+// only a local stand-in on 127.0.0.1 that counts what reaches it, honoured only in an unpackaged --montclip-smoke run (desktop/review-sender.js).
+// Nothing leaves the computer.
 // Run: electron desktop/review-send-smoke.cjs --montclip-smoke --user-data-dir=<new empty folder>
 // Prints REVIEW_SEND_PASS {…} or REVIEW_SEND_FAIL <why>.
 const { app } = require('electron'), fs = require('node:fs'), path = require('node:path'), http = require('node:http');
@@ -27,7 +28,7 @@ const standin = http.createServer((req, res) => {
 standin.listen(0, '127.0.0.1', () => {
   process.env.MONTCLIP_REVIEW_STANDIN = 'http://127.0.0.1:' + standin.address().port;
   process.env.MONTCLIP_REVIEW_DEST_CONFIRMED = 'openrouter.ai';   // this run's own process only; the owner's real setting is untouched
-  delete process.env.MONTCLIP_REVIEW_AGENT_SEND; delete process.env.MONTCLIP_SMOKE_REVIEW_SEND;   // the box answers 取消
+  delete process.env.MONTCLIP_REVIEW_AGENT_SEND;
   start();
 });
 
@@ -78,15 +79,18 @@ function start() {
       }
       if (!st || st.state !== 'ready') { const jobs = await read(`Promise.all((window.__jobs||[]).map(id=>fetch('/api/export/job?id='+encodeURIComponent(id)).then(r=>r.json()).then(j=>({status:j.status,error:j.error,errorCode:j.errorCode,via:j.via}))))`); process.stdout.write('REVIEW_JOBS ' + JSON.stringify(jobs) + '\n'); }
       if (!st || st.state !== 'ready') throw Error('NOT_READY ' + JSON.stringify(st && { state: st.state, reason: st.reason }));
-      step('准备好：' + st.willSend.sendTo + '，视频 ' + st.willSend.videoBytes + ' 字节（不带声音），声音 ' + st.willSend.audioBytes + ' 字节（WAV）');
-      /* 4. the send: the main process's own box opens; the person presses 取消 */
-      step('打开确认框，答「取消」');
-      const r = await read(`window.montclipReview.send({reviewId:${JSON.stringify(prep.reviewId)},token:${JSON.stringify(st.sendToken)},hash:${JSON.stringify(st.willSend.hash)}})`);
-      step('确认框结果：' + JSON.stringify(r));
+      step('准备好：发往 ' + st.willSend.to.host + '，视频 ' + st.willSend.videoBytes + ' 字节（不带声音），声音 ' + st.willSend.audioBytes + ' 字节（WAV）');
+      /* 4. the assistant asks in the default mode (not approve-all, not Yolo): refused, nothing reaches the stand-in */
+      const args = `{reviewId:${JSON.stringify(prep.reviewId)},token:${JSON.stringify(st.sendToken)},hash:${JSON.stringify(st.willSend.hash)}`;
+      const ra = await read(`window.montclipReview.send(${args},assistant:true})`);
+      if (!(ra && ra.ok === false && ra.code === 'NEEDS_CLICK' && hits.length === 0)) throw Error('ASSISTANT_NOT_REFUSED ' + JSON.stringify({ ra, hits: hits.length }));
+      step('助手在默认模式下要发：' + ra.code + '，本地替身收到 ' + hits.length + ' 个请求');
+      /* 5. the streamer clicks: no box, it goes once */
+      const r = await read(`window.montclipReview.send(${args}})`);
       const end = await read(`fetch('/api/review/status?id=${prep.reviewId}').then(r=>r.json())`);
-      const ok = r && r.ok === false && r.code === 'CANCELLED' && hits.length === 0 && end.state === 'cancelled';
-      if (!ok) throw Error('EXPECTED_CANCEL ' + JSON.stringify({ r, hits: hits.length, state: end.state }));
-      step('取消后：状态 ' + end.state + '，本地替身收到 ' + hits.length + ' 个请求');
+      const ok = r && r.ok === true && hits.length === 1 && hits[0].path === '/api/v1/chat/completions';
+      if (!ok) throw Error('EXPECTED_ONE_SEND ' + JSON.stringify({ r: r && { ok: r.ok, code: r.code }, hits, state: end.state }));
+      step('主播点击后：没有弹框，直接发出；本地替身收到 ' + hits.length + ' 个请求（' + hits[0].bytes + ' 字节），状态 ' + end.state);
       passed = true;
       process.stdout.write('REVIEW_SEND_PASS ' + JSON.stringify({ steps, standinHits: hits.length }) + '\n');
     } catch (e) { process.stdout.write('REVIEW_SEND_FAIL ' + e.message + '\n'); }
