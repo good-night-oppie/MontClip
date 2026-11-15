@@ -12,6 +12,13 @@ const OR = require("../server/openrouter-review");
 const VB = require("../server/video-bridge");
 const { createReviewSender } = require("../desktop/review-sender");
 
+/** A request body exactly as the engine builds it (server/openrouter-review.js), and its snapshot hash (server/video-bridge.js). */
+const bodyOf = (video = "video-bytes", audio = "wav-bytes", prompt = "check this") => {
+  const vb = Buffer.from(video), ab = audio === null ? null : Buffer.from(audio);
+  const body = OR.serialize(OR.buildBody({ prompt, videoB64: vb.toString("base64"), audioB64: ab ? ab.toString("base64") : null }));
+  return { body, hash: OR.hashOf("montclip-review-v2", OR.hashOf(vb), ab ? OR.hashOf(ab) : "-", prompt) };
+};
+
 const FAKE_KEY = "sk-or-v1-FAKEKEYSENTINEL0123456789abcdef";   // a fake key: it must never show up anywhere but the Authorization header
 const NICK = "合成昵称哨兵_小测试";                                  // a synthetic viewer nickname: it must never reach the disk
 const tmp = (t) => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "mcor-")); t.after(() => VB.rmForce(d)); return d; };
@@ -109,8 +116,9 @@ test("sender: the switch is OFF by default; off means nothing goes", async (t) =
   const d = tmp(t), s = standin();
   const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request });
   assert.deepEqual(snd.switch.get(), { ok: true, on: false });
-  snd.key.set(FAKE_KEY); snd.permit("r_000000000001", 1);
-  assert.equal((await snd.send({ reviewId: "r_000000000001", body: Buffer.from("{}") })).reason, "REVIEW_SEND_OFF");
+  const b = bodyOf();
+  snd.key.set(FAKE_KEY); snd.permit("r_000000000001", 1, b.hash);
+  assert.equal((await snd.send({ reviewId: "r_000000000001", body: b.body })).reason, "REVIEW_SEND_OFF");
   assert.equal(s.calls.length, 0);
   assert.equal(snd.switch.set("yes").ok, false, "a boolean only");
 });
@@ -119,10 +127,11 @@ test("sender: only a check the streamer clicked to send goes (a permit from the 
   const d = tmp(t), s = standin();
   const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request });
   snd.switch.set(true); snd.key.set(FAKE_KEY);
-  assert.equal((await snd.send({ reviewId: "r_000000000002", body: Buffer.from("{}") })).reason, "NOT_CONFIRMED");
-  snd.permit("r_000000000002", 1);
-  assert.equal((await snd.send({ reviewId: "r_000000000002", body: Buffer.from("{}") })).ok, true);
-  assert.equal((await snd.send({ reviewId: "r_000000000002", body: Buffer.from("{}") })).reason, "NOT_CONFIRMED", "the permit is used up");
+  const b = bodyOf();
+  assert.equal((await snd.send({ reviewId: "r_000000000002", body: b.body })).reason, "NOT_CONFIRMED");
+  snd.permit("r_000000000002", 1, b.hash);
+  assert.equal((await snd.send({ reviewId: "r_000000000002", body: b.body })).ok, true);
+  assert.equal((await snd.send({ reviewId: "r_000000000002", body: b.body })).reason, "NOT_CONFIRMED", "the permit is used up");
   assert.equal(s.calls.length, 1);
 });
 
@@ -130,10 +139,51 @@ test("sender: the team's agent sends without a box only when the owner set MONTC
   const d = tmp(t), s = standin();
   const off = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: {} });
   off.switch.set(true); off.key.set(FAKE_KEY);
-  assert.equal((await off.send({ reviewId: "r_000000000003", agent: true, body: Buffer.from("{}") })).reason, "AGENT_SEND_OFF");
+  assert.equal((await off.send({ reviewId: "r_000000000003", agent: true, body: bodyOf().body })).reason, "AGENT_SEND_OFF");
   const on = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: { MONTCLIP_REVIEW_AGENT_SEND: "1" } });
-  assert.equal((await on.send({ reviewId: "r_000000000003", agent: true, body: Buffer.from("{}") })).ok, true);
+  assert.equal((await on.send({ reviewId: "r_000000000003", agent: true, body: bodyOf().body })).ok, true);
   assert.equal(s.calls.length, 1);
+});
+
+test("reverse (QQ, #347 review): the main process sends only a body it would build itself, for the check the click confirmed — a changed body reaches the stand-in 0 times", async (t) => {
+  const d = tmp(t), s = standin();
+  const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: { MONTCLIP_REVIEW_AGENT_SEND: "1" } });
+  snd.switch.set(true); snd.key.set(FAKE_KEY);
+  const good = bodyOf(), j = () => JSON.parse(good.body.toString("utf8"));
+  const changed = [
+    ["another model", Object.assign(j(), { model: "openai/other-model" })],
+    ["another provider order", Object.assign(j(), { provider: { order: ["other"], allow_fallbacks: false, data_collection: "deny" } })],
+    ["fallbacks allowed", Object.assign(j(), { provider: { order: ["google-ai-studio"], allow_fallbacks: true, data_collection: "deny" } })],
+    ["data collection allowed", Object.assign(j(), { provider: { order: ["google-ai-studio"], allow_fallbacks: false, data_collection: "allow" } })],
+    ["an extra top-level field", Object.assign(j(), { transforms: ["middle-out"] })],
+    ["an extra provider field", Object.assign(j(), { provider: { ...j().provider, ignore: [] } })],
+    ["an extra message", (() => { const x = j(); x.messages.push({ role: "user", content: "and this" }); return x; })()],
+    ["no model", (() => { const x = j(); delete x.model; return x; })()],
+  ];
+  for (const [what, obj] of changed) {
+    const body = Buffer.from(JSON.stringify(obj), "utf8");
+    snd.permit("r_00000000000a", 1, good.hash);
+    assert.equal((await snd.send({ reviewId: "r_00000000000a", body })).reason, "BODY_NOT_ALLOWED", what);
+    assert.equal((await snd.send({ reviewId: "r_00000000000b", agent: true, body })).reason, "BODY_NOT_ALLOWED", what + " (the dev-side agent too)");
+  }
+  assert.equal((await snd.send({ reviewId: "r_00000000000a", body: Buffer.from("not json") })).reason, "BODY_NOT_ALLOWED");
+  /* a well-formed body for another check than the one the click confirmed (other picture, other sound, other prompt) */
+  for (const other of [bodyOf("other-video"), bodyOf("video-bytes", "other-wav"), bodyOf("video-bytes", "wav-bytes", "another prompt"), bodyOf("video-bytes", null)]) {
+    snd.permit("r_00000000000c", 1, good.hash);
+    assert.equal((await snd.send({ reviewId: "r_00000000000c", body: other.body })).reason, "HASH_MISMATCH");
+    assert.equal((await snd.send({ reviewId: "r_00000000000c", body: good.body })).reason, "NOT_CONFIRMED", "a mismatch ends the permit");
+  }
+  assert.equal(s.calls.length, 0, "nothing reached the stand-in");
+  /* two_pass: the second request has its own prompt, but must carry the same picture and sound as the first */
+  const second = bodyOf("video-bytes", "wav-bytes", "the second look");
+  snd.permit("r_00000000000d", 2, good.hash);
+  assert.equal((await snd.send({ reviewId: "r_00000000000d", body: good.body })).ok, true);
+  assert.equal((await snd.send({ reviewId: "r_00000000000d", body: bodyOf("other-video", "wav-bytes", "the second look").body })).reason, "HASH_MISMATCH");
+  snd.permit("r_00000000000e", 2, good.hash);
+  assert.equal((await snd.send({ reviewId: "r_00000000000e", body: good.body })).ok, true);
+  assert.equal((await snd.send({ reviewId: "r_00000000000e", body: second.body })).ok, true);
+  assert.equal(s.calls.length, 3);
+  for (const c of s.calls) { const sent = JSON.parse(c.body.toString("utf8")); assert.equal(sent.model, OR.MODEL); assert.deepEqual(sent.provider, OR.buildBody({ prompt: "p", videoB64: "v" }).provider); }
 });
 
 test("sender: the key is sealed (refused without encryption), never returned, and a fake-key sentinel appears nowhere on disk in clear", async (t) => {
