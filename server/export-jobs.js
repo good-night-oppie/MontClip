@@ -305,4 +305,35 @@ function checkExportSpan({ project, range, preview = false, maxPreviewSec = 30 }
   return null;
 }
 
-module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS, timelineLength, checkExportSpan };
+/* #337 (PG, 6886869583): the body of POST /api/export/request. A field the server does not know used to be dropped, so
+   {start: 10, end: 12} at the top level — the way an agent most naturally writes it — exported the whole timeline: a long
+   wait, and an easy way into #320's memory growth. Now start / end at the top level are the span, like range {start, end};
+   given both ways they must agree; and any other field is refused with its name, before anything is queued. */
+const EXPORT_REQUEST_FIELDS = ["range", "start", "end", "preview", "profile", "preset", "delivery", "outputs", "where", "project", "session"];
+const bodyError = (code, error, extra = {}) => ({ error: { code, error: error + " — nothing was exported", ...extra } });
+/** {opts} (start / end folded into range) or {error: {code, error, fields?}} for a 400. */
+function exportRequestBody(body) {
+  if (body === null || typeof body !== "object" || Array.isArray(body))
+    return bodyError("BAD_BODY", "the body must be a JSON object: {range?, start?, end?, preview?, profile?, preset?, delivery?, outputs?, where?}");
+  const unknown = Object.keys(body).filter((k) => !EXPORT_REQUEST_FIELDS.includes(k));
+  if (unknown.length)
+    return bodyError("UNKNOWN_FIELD", `unknown field${unknown.length > 1 ? "s" : ""} ${unknown.map((k) => JSON.stringify(k)).join(", ")}: ` +
+      `/api/export/request takes ${EXPORT_REQUEST_FIELDS.join(", ")}`, { fields: unknown });
+  const r = body.range;
+  if (r != null && typeof r === "object" && !Array.isArray(r)) {
+    const extra = Object.keys(r).filter((k) => k !== "start" && k !== "end");
+    if (extra.length) return bodyError("UNKNOWN_FIELD", `unknown field${extra.length > 1 ? "s" : ""} ${extra.map((k) => JSON.stringify("range." + k)).join(", ")}: range takes start and end`,
+      { fields: extra.map((k) => "range." + k) });
+  }
+  const { start, end, ...rest } = body;
+  const hasStart = start != null, hasEnd = end != null;   // null is "not given", as undefined is
+  if (!hasStart && !hasEnd) return { opts: rest };
+  if (hasStart !== hasEnd) return bodyError("RANGE_INCOMPLETE", `${hasStart ? "start" : "end"} was given without ${hasStart ? "end" : "start"}: pass both, seconds on the timeline with 0 <= start < end`);
+  if (!(Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start))
+    return bodyError("BAD_RANGE", "start and end must be seconds on the timeline (numbers) with 0 <= start < end");
+  if (r != null && !(typeof r === "object" && !Array.isArray(r) && r.start === start && r.end === end))
+    return bodyError("RANGE_CONFLICT", `start / end (${start}–${end} s) and range ${JSON.stringify(r)} say different things: pass one of them`);
+  return { opts: { ...rest, range: { start, end } } };
+}
+
+module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS, timelineLength, checkExportSpan, exportRequestBody, EXPORT_REQUEST_FIELDS };
