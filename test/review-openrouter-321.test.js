@@ -215,7 +215,14 @@ test("the send: no box before it (owner's decision 2026-11-15, #321 6888246693);
   assert.ok(!/showMessageBox/.test(h), "nothing is shown before a send");
   assert.ok(!/confirmText/.test(h));
   assert.match(h, /st\.json\.sendToken !== v\.token \|\| w\.hash !== v\.hash/, "only the prepared check, by token and hash");
-  assert.match(h, /v\.assistant === true[\s\S]{0,200}mode !== "auto" && mode !== "yolo"[\s\S]{0,60}NEEDS_CLICK/);
+  /* QQ, #347 review 5909445232: the assistant goes only when the permission modes say run (auto is not approve-all) */
+  assert.match(h, /v\.assistant === true[\s\S]{0,120}agentPolicy\.decide\(\{ sessionId: "review", capability: "fablecut_review", target: \{ kind: "origin"/);
+  assert.match(h, /d\.action !== "run"\) return \{ ok: false, code: "NEEDS_CLICK" \}/);
+  assert.ok(!/mode !== "auto"/.test(h), "the auto mode no longer lets the assistant send");
+  /* the streamer's own send needs a real input this window got in the 2 s before; a script's call is not a click */
+  assert.match(h, /\} else if \(!takeReviewGesture\(\)\) return \{ ok: false, code: "NEEDS_CLICK" \};/);
+  assert.match(main, /win\.webContents\.on\("input-event", \(_e, input\) => \{[\s\S]{0,260}input\.type === "mouseUp" \|\| \(input\.type === "keyUp"[\s\S]{0,120}reviewGesture = Date\.now\(\);/);
+  assert.match(main, /const takeReviewGesture = \(\) => \{ const ok = reviewGesture > 0 && Date\.now\(\) - reviewGesture <= 2000; reviewGesture = 0; return ok; \};/);
   assert.ok(h.indexOf("reviewSender.permit(") < h.indexOf('"/api/review/send"') && h.indexOf('"/api/review/send"') < h.indexOf("reviewSender.revoke("));
 });
 
