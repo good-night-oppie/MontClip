@@ -407,8 +407,10 @@ async function checkSample({ staged, offset, leadSec = 0, rangeStart, contextTex
     let r;
     try { r = await send(body, { kind }); } catch { r = { ok: false, reason: "FAILED" }; }
     if (!r || typeof r !== "object") r = { ok: false, reason: "FAILED" };
-    if (r.ok) acct.receipts.push({ kind, provider: r.receipt.provider, model: r.receipt.model, audioTokens: OR.audioTokens(r.receipt.usage) });
-    else if (r.reason === "DESTINATION_MISMATCH") acct.receipts.push({ kind, provider: r.provider || null, model: r.model || null, audioTokens: null });
+    /* the receipt's own words go into the ledger: at most 100 characters each (QQ, #347 review) */
+    const cut = (v) => (typeof v === "string" ? v.slice(0, 100) : null);
+    if (r.ok) acct.receipts.push({ kind, provider: cut(r.receipt.provider), model: cut(r.receipt.model), audioTokens: OR.audioTokens(r.receipt.usage) });
+    else if (r.reason === "DESTINATION_MISMATCH") acct.receipts.push({ kind, provider: cut(r.provider), model: cut(r.model), audioTokens: null });
     return r;
   };
   let observation = "";
