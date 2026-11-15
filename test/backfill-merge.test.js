@@ -39,7 +39,7 @@ test("MediaLib.applyBackfill: fills entries that still have no length (same file
 });
 
 test("the editor: the lengths go into the project it has open — its unsaved step kept — and it saves once", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const at = src.indexOf("function onMediaBackfill("), end = src.indexOf("\n}\n", at) + 3;
   a.ok(at > 0, "app.js has onMediaBackfill");
   a.match(src, /es\.addEventListener\("media-backfill", \(e\) => onMediaBackfill\(e\.data\)\);/);

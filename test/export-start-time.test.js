@@ -183,7 +183,7 @@ test("parseProbe: start and audioOffset only when a file's clock is not at 0", (
 });
 
 test("the editor reads every player and the export's decoder on media time, and decodes the sound from media time 0", () => {
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.match(app, /el\._fcSrc = src;\n  setPlayerStart\(el, playerStart\(m, src\)\);/, "the timeline's players");
   a.match(app, /setPlayerStart\(el, playerStart\(m, want\)\);/, "the Source monitor");
   a.match(app, /src\.frameAt\(mediaTimeAt\(c, t\) \+ playerStart\(m, m && m\.src\)\)/, "the MP4 decoder of the export");
@@ -242,7 +242,7 @@ test("the button named in the sentences is the button on screen: en", () => {
 });
 test("a black / silent export: the queue row says the sentence with 〔复制问题信息〕 and 〔重试这条〕 — no 完成, no 保存 or open", () => {
   const V = require("../ui-preferences");
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const src = app.slice(app.indexOf("function renderQueue() {"), app.indexOf("function renderQueueProgress() {"));
   a.ok(src.length > 100, "renderQueue found");
   for (const language of ["zh-CN", "en"]) for (const k of Object.keys(BLANK)) {
@@ -277,7 +277,7 @@ test("after 〔复制问题信息〕: JJ's sentence, word for word, with the mai
   a.equal(said("zh-CN"), "复制好了（文件路径和账号已经去掉）。把它发到 etang.build.bot@gmail.com，我们会尽快看。");
   a.equal(said("en"), "Copied (file paths and account details removed). Send it to etang.build.bot@gmail.com and we'll look at it as soon as we can.");
   // the toast, run on a small stand-in for the page
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const src = app.slice(app.indexOf("function toastProblemSent() {"), app.indexOf("/** A failure in a toast:"));
   const node = (tag) => ({ tag, children: [], className: "", tabIndex: -1, _text: "",
     set textContent(v) { this._text = v; this.children = []; }, get textContent() { return this._text + this.children.map((c) => (typeof c === "string" ? c : c.textContent)).join(""); },

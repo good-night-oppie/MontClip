@@ -18,7 +18,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { ROOT } = require("./helpers");
 
-const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
 
 /* Slice the source between two unique markers, failing loudly when a rename
    breaks the harness (a silent empty slice would pass vacuously). */

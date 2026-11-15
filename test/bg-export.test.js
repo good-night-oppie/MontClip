@@ -6,8 +6,8 @@ const test = require("node:test"), a = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
-const app = read("app.js"), html = read("index.html");
-const BgExport = require("../bg-export");
+const app = read("app/app.js"), html = read("index.html");
+const BgExport = require("../app/bg-export");
 const view = require("../ui-preferences");
 
 const doc0 = () => ({ name: "p", revision: 3, fps: 30, clips: [{ id: "c1", start: 0, duration: 5 }, { id: "c2", start: 5, duration: 5 }], media: [] });
@@ -270,7 +270,7 @@ test("Export goes to the background unless this export has to stay in this windo
   a.match(app, /async function saveNow\(\) \{\n  if \(EXPORT_WORKER\) return false;/);
   // the desktop window may frame its own origin (the export page) and nothing else
   a.match(read("desktop/main.js"), /const frames = details\.resourceType === "mainFrame" \? "'self'" : "'none'";/);
-  a.match(html, /<script src="bg-export\.js"><\/script>/);
+  a.match(html, /<script src="app\/bg-export\.js"><\/script>/);
 });
 
 test("the notes say what each engine does: only an engine that runs in the background says she can keep editing", () => {
@@ -295,7 +295,7 @@ test("the notes say what each engine does: only an engine that runs in the backg
   a.match(zh(here), /请别关掉 MontClip/);
   a.equal(BgExport.noteKey("fast", null), "term.engine-fast-note");
   // the old promise is gone everywhere
-  for (const f of ["ui-terms.js", "ui-preferences.js", "index.html", "app.js"]) {
+  for (const f of ["ui-terms.js", "ui-preferences.js", "index.html", "app/app.js"]) {
     a.doesNotMatch(read(f), /切到别的页面也不影响|切到别的页面也会继续导出|Keeps rendering if you switch tabs/, f);
   }
 });

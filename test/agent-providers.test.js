@@ -109,5 +109,5 @@ test('OpenRouter preselected without a key: no request at all until a key is sav
  a.equal(s.configure({provider:'openrouter',model:'deepseek/deepseek-v4.1-flash-1017',apiKey:''}).code,'KEY_REQUIRED');
  a.equal((await s.send(payload())).code,'UNCONFIGURED');
  a.equal(calls.length,0,'no request without a key');
- for(const f of ['desktop/agent-service.js','desktop/main.js','agent-ui/pane.tsx','app.js'])a.ok(!/api\/v1\/models|\/models['"`]/.test(read(f).replace(/\/\/[^\n]*/g,'')),f+' fetches a model list');
+ for(const f of ['desktop/agent-service.js','desktop/main.js','agent-ui/pane.tsx','app/app.js'])a.ok(!/api\/v1\/models|\/models['"`]/.test(read(f).replace(/\/\/[^\n]*/g,'')),f+' fetches a model list');
 });

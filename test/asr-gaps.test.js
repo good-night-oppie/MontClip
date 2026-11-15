@@ -107,7 +107,7 @@ test('subtitles made from a partial transcript have nothing in a gap: no cue sta
 test('the page: partial is never told as done; the gaps are listed and can be jumped to (words for JJ: placeholders)',()=>{
  const V=require('../ui-preferences');
  for(const k of ['tr-gaps-toast','tr-gaps-note','tr-gaps-more'])for(const l of ['zh-CN','en'])a.ok(V.t(l,'own.'+k,{n:2,dur:'31 秒',more:3}),k+' '+l);
- const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+ const app=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8');
  a.match(app,/data-tr-gaps/);a.match(app,/own\.tr-gaps-toast/);
  const srv=fs.readFileSync(path.join(ROOT,'server/server.js'),'utf8');a.match(srv,/gaps: r\.gaps/);a.match(srv,/skippedSegments: r\.skippedSegments/);
 });
@@ -154,7 +154,7 @@ test("JJ's words for a partial transcription; the tab named is the right panel's
 // VV on #95 d95ab21 (Deja, 2026-11-03): the gaps' times read like the 自动出切片 cards' (0:15–0:22, MontClipAutoSlices.hms),
 // not the tab's frame timecode (00:15:00 reads as 15 minutes); each one is a button — Tab reaches it, Enter goes there
 test('the gaps list: the cards\' time format, each time a button',()=>{
- const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),i=app.indexOf('function trGapsHtml('),body=app.slice(i,app.indexOf('function renderTranscript(',i));
+ const app=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8'),i=app.indexOf('function trGapsHtml('),body=app.slice(i,app.indexOf('function renderTranscript(',i));
  a.match(body,/<button type="button" class="tr-gap-go" data-t="\$\{x\.t\}">\$\{escapeHtml\(MontClipAutoSlices\.hms\(x\.t\)\)\}–\$\{escapeHtml\(MontClipAutoSlices\.hms\(x\.u\)\)\}<\/button>/);
  a.ok(!/class="tr-tc"/.test(body),'no grey span');
  a.match(app,/const gap = e\.target\.closest\("\.tr-gap-go"\);\s*if \(gap\) goToTranscriptTime\(\+gap\.dataset\.t\);/);

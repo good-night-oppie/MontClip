@@ -187,7 +187,7 @@ test('outside the desktop app a saved choice that fails is said without pointing
 /* Deja 2026-11-05: the six refusals point at the FFmpeg card, never at a configuration. The environment variable stays
    as an advanced setting, in the docs only (CLAUDE.md "Run"), and in the English reasons agents and logs read. */
 test('the six refusals name no configuration, and every 「X」 they mention is on the FFmpeg card or in the preset list', () => {
-  const Card = require('../ffmpeg-card');
+  const Card = require('../app/ffmpeg-card');
   const KEYS = ['h264RefuseServer', 'extNeededServer', 'extEnvUnusable', 'h264RefusePlugin', 'extNeededPlugin', 'extSavedUnusable'];
   for (const lang of ['zh-CN', 'en']) {
     const card = Card.model({ state: 'noH264', platform: 'linux', picker: false }, lang);

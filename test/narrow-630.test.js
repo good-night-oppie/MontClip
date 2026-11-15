@@ -29,7 +29,7 @@ test('with the settings open in a short pane, the settings get the room (thread,
 });
 
 test('the caption lane above is folded with a hint instead of being left behind the ruler',()=>{
- const app=read('app.js'),html=read('index.html');
+ const app=read('app/app.js'),html=read('index.html');
  assert.match(html,/<button type="button" class="btn tiny tracks-above" id="btnTracksAbove" hidden><\/button>/);
  assert.match(app,/syncTimelineTrackView\.folded/);
  // JJ (#50): say what the button does

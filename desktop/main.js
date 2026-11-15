@@ -30,8 +30,9 @@ app.on("web-contents-created", (_, contents) => {
 
 async function start() {
   const token = crypto.randomBytes(32).toString("hex");
+  const pageSecret = crypto.randomBytes(32).toString("hex");   // who the editor page is, for /api/review/ (QQ, #328): the server gets it in its environment, only this window's requests carry it
   const env = { ...process.env, PORT: "0", HOST: "127.0.0.1", MONTCLIP_DESKTOP: "1",
-    MONTCLIP_SESSION_TOKEN: token, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
+    MONTCLIP_SESSION_TOKEN: token, MONTCLIP_REVIEW_PAGE_SECRET: pageSecret, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
   delete env.NODE_OPTIONS;
   delete env.NODE_PATH;
   // The server runs only the FFmpeg shipped in resources/ffmpeg once packaged
@@ -118,6 +119,8 @@ async function start() {
   });
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     if (local(details.url)) details.requestHeaders["X-MontClip-Session"] = token;
+    /* the review's page secret goes only on the editor window's own requests to /api/review/ (a hidden export page or anything else gets none) */
+    if (local(details.url) && win && !win.isDestroyed() && details.webContentsId === win.webContents.id && new URL(details.url).pathname.startsWith("/api/review/")) details.requestHeaders["X-MontClip-Page"] = pageSecret;
     callback({ requestHeaders: details.requestHeaders });
   });
   ses.webRequest.onHeadersReceived((details, callback) => {

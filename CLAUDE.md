@@ -303,7 +303,7 @@ See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`, `docs/decisions/2
 node server.js        # → http://localhost:7777
 ```
 
-Files: `index.html` + `style.css` + `app.js` (editor UI), `server.js` (API + hosting),
+Files: `index.html` + `style.css` + `app/app.js` (editor UI; the page's own scripts are in `app/`), `server.js` (API + hosting),
 `project.json` (the timeline — THE file to edit), `media/` (project footage),
 `library/` (default asset library, see below).
 
@@ -2939,6 +2939,37 @@ agent last wrote, so an export right after a patch includes that patch.
 - `fablecut_export {}` — waits, then returns the file path under `exports/`.
   Range: `inPoint`→`outPoint` when either is set, else the whole timeline;
   `range:"entire"|"in-out"` overrides.
+- `start` and `end` (seconds on the timeline, `0 <= start < end`, passed together, not with
+  `range`) export just that part, without touching the project's IN / OUT or its revision.
+  An `end` past the end of the timeline is refused (`RANGE_PAST_END`), not cut short.
+  Add `preview:true` for a quick sample, at most 30 s (longer: `PREVIEW_TOO_LONG`): the file
+  goes to `previews/` (not `exports/`), is named `preview_*`, one file only (not with
+  `outputs`); of the samples the server made (it keeps a list of them), the newest 20 are
+  kept and none stays longer than a day — nothing else in `previews/` is ever removed.
+  Every removal is written, name and reason only, to `logs/export-cleanup.log` in the data folder; if the list cannot be written, the folder just made is removed again. The MCP error for a refused sample starts with its code (`RANGE_PAST_END`, `PREVIEW_TOO_LONG`).
+  With no `profile`, `preset` or `delivery` named, a sample gets a light encoding by itself:
+  H.264 (the `web` preset at the picture's own size, nothing reframed) where this computer can
+  encode H.264, else ProRes 422; the reply says which. Name one to choose.
+  Look at a 10 s sample before exporting the whole timeline.
+- `fablecut_review {start, end}` has a video-understanding model (Google Gemini, through the
+  local `agy` tool) look at that stretch, picture and sound, and list problems (swapped name
+  plates, cut jumps, subtitle mismatches, sound jumps). **It sends a short compressed clip out
+  of this computer** — use it only when the streamer asked, and say so. Nothing changes in the
+  project (revision, IN/OUT, undo); results are kept in `reviews/`. `passed` only comes from a
+  real pass (a mark can never set it) and stops counting when the project's content changes;
+  `no_result` is never a pass. The answer has four separate verdicts (`dimensions`: fact,
+  subtitle, pacing, packaging) and passes only when none is `issues`. The clip is judged against
+  fixed team standards plus, only with `scope:"full"`, the project's taste notes (`taste`, `taste_add`, `taste_remove`) and the subtitles/cut points that touch the clip (a subtitle goes whole, so it may include text from before or after the clip; `willSend.projectText` shows it); the default `scope:"window"` sends only the clip and the fixed standards (PG #321); `willSend.leadIn` gives the lead-in's real range and length;
+  `mode:"two_pass"` first looks blind, then checks (the clip is sent in 2 requests). An agent
+  sending on the streamer's behalf (`check`) is OFF unless `MONTCLIP_REVIEW_AGENT_SEND=1`
+  (403 `AGENT_SEND_OFF`); `prepare` always works and the streamer sends with a click. When the owner turns the switch on, an agent may send without the streamer's click and without a notice on screen (the owner's authorisation, QQ's ruling on #321: https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6874674433, this path only); every send is still written to the local record (service and domain, kinds of content, bytes, initiator, time; no free text), the destination binding stays, the limits stay (30 s per stretch, 100 MB per project), and the switch is not on by default until the real-device capture test (V23) has passed and QQ has checked it.
+  The model's own words (findings text, summary, observation) and the taste notes' words are kept in memory only, never on disk (they can quote
+  viewers' names); a record read after a restart has `textAvailable:false` and only times, kinds and states.
+  **An agent must never set `MONTCLIP_REVIEW_DEST_CONFIRMED` or `MONTCLIP_REVIEW_AGENT_SEND`** (the owner's, on the server process; no tool writes them). The editor page, not a header, is who may send: only a request that carries the page secret (`X-MontClip-Page`: the desktop app's main process mints it at every start, gives it to the server only through its environment and adds it to the editor window's own requests to `/api/review/`; it is never sent over HTTP to anyone, and a server started any other way has no page) is shown the one-time token, and the review answers only to this computer. A full export of more than 60 s through `fablecut_export` needs a passed check over its whole length or `bypassReason` (not stored; the bypass is recorded). **This is a soft threshold, not a security boundary**: it stops only this MCP tool; an agent that calls `/api/export/request` directly does not pass through it, and `bypassReason` is written by the agent itself and is not checked.
+  Nothing is prepared or sent (409 `DESTINATION_UNVERIFIED`) until the owner has confirmed where it goes and set
+  `MONTCLIP_REVIEW_DEST_CONFIRMED` to that host.
+  Other actions: `prepare`, `status`, `cancel`, `records`, `record`, `mark`, `correct`, `gate`.
+  See `docs/decisions/2026-11-14-video-bridge-outbound.md`.
 - `preset:"instagram-reels"` picks a delivery preset; `delivery:{…}` changes any of its
   settings (`{preset:"youtube", delivery:{fps:60, video:{rate:"vbr", bitrate:16000}}}`).
   `profile:"hq"` picks a raw encoding profile instead. With neither, `project.delivery`

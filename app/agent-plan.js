@@ -6,7 +6,7 @@
    with the step's own check, e.g. chat-proposal.js). What happens to a step — run, ask, list, refuse — is the host's call
    (agent-policy.js), never the plan's. */
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./capabilities"));
+  if (typeof module === "object" && module.exports) module.exports = factory(require("../capabilities"));
   else root.MontClipPlan = factory(root.MontClipCapabilities);
 })(typeof globalThis !== "undefined" ? globalThis : this, function (Cap) {
   "use strict";

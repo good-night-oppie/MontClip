@@ -25,7 +25,7 @@ const receipt={completed:false,simulated:true,runnerSha256:sha(__filename),opera
     'Synthetic export boundary test; not human experience or full service restart acceptance']};
 let server,browser,cdp,session,origin;
 const token=crypto.randomBytes(32).toString('hex');
-receipt.codeHashes=Object.fromEntries(['app.js','server/server.js','server/encode-profiles.js'].map(f=>[f,sha(path.join(ROOT,f))]));
+receipt.codeHashes=Object.fromEntries(['app/app.js','server/server.js','server/encode-profiles.js'].map(f=>[f,sha(path.join(ROOT,f))]));
 receipt.tools={ffmpegSha256:sha(FF),ffprobeSha256:sha(PROBE),ffmpegVersion:execFileSync(FF,['-version'],{encoding:'utf8'}).split(/\r?\n/)[0]};
 function check(name,ok){receipt.checks.push({name,ok:!!ok});assert.ok(ok,name);}
 function encode(args){execFileSync(FF,['-v','error',...args],{stdio:'pipe'});}

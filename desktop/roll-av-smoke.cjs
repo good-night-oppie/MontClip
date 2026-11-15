@@ -18,7 +18,7 @@ fs.mkdirSync(outDir, { recursive: true });
 const sha = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const record = { platform: process.platform, mode: 'hidden Electron source smoke (not Cindy)', fps: 25, sourceSeconds: 60,
   head: cp.execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim(),
-  files: Object.fromEntries(['edit-ops.js', 'project-ops.js', 'app.js'].map(f => [f, sha(path.join(__dirname, '..', f))])),
+  files: Object.fromEntries(['edit-ops.js', 'project-ops.js', 'app/app.js'].map(f => [f, sha(path.join(__dirname, '..', f))])),
   sources: [], cases: [], ok: false };
 const save = () => fs.writeFileSync(path.join(outDir, 'roll-av.json'), JSON.stringify(record, null, 2) + '\n');
 function run(args, options = {}) {

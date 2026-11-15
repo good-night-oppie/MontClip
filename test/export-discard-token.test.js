@@ -46,7 +46,7 @@ test("the page keeps the token and beacons it on pagehide; the server refuses a 
   const fs = require("node:fs");
   const path = require("node:path");
   const root = path.resolve(__dirname, "..");
-  const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(root, "app/app.js"), "utf8");
   const server = fs.readFileSync(path.join(root, "server", "server.js"), "utf8");
   assert.match(app, /addEventListener\("pagehide"[\s\S]{0,400}navigator\.sendBeacon/);
   assert.match(app, /discard=1&token=" \+ encodeURIComponent\(token\)/);

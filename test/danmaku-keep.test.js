@@ -7,7 +7,7 @@
 // next project has none (applyProject assigns into the same object, so a value left over would leak into it).
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const app=read('app.js');
+const app=read('app/app.js');
 const fn=(name)=>{const i=app.indexOf('function '+name+'(');a.ok(i>=0,name);return app.slice(i,app.indexOf('\n}',i)+2);};
 
 test('normalizeDanmaku keeps every field of every entry, as a copy; not an array → null; bounded',()=>{

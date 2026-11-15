@@ -20,7 +20,7 @@ test("a name with nothing usable for a file falls back to 直播切片 {月-日}
   a.equal(D.fileSafeName("直播回放", V.exportFallback("zh-CN", "export", day)), "直播回放", "a usable name is kept");
 });
 test("the page uses them: new-project dialog, empty names, export and caption file names", () => {
-  const app = read("app.js");
+  const app = read("app/app.js");
   a.match(app, /const exportBaseName = \(fallback\) => Delivery\.fileSafeName\(MontClipView\.exportProjectName\(project\.name, \(project\.media \|\| \[\]\)\.map\(\(m\) => m\.name\)\),\s*MontClipView\.exportFallback\(mcView\.get\(\)\.language, fallback\)\);/);
   a.match(app, /id="pjNewName" value="\$\{escapeHtml\(MontClipView\.defaultProjectName\(mcView\.get\(\)\.language\)\)\}"/);
   a.ok(!/\|\| "Untitled [Pp]roject"/.test(app), "no hard-coded English default left in the page");

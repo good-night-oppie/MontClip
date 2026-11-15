@@ -11,7 +11,7 @@ test('the paragraph on the singing parts and loudness, word for word (待 JJ 定
  a.match(read('ui-preferences.js'),/the notice says what the new numbers are and are not \(not a recording\);\n\s*\/\/ 「DeepSeek 会怎么用」 above is kept as it is\. 待 JJ 定稿/);
  const pane=read('agent-ui/pane.tsx');
  a.ok(pane.indexOf('{t.dataNoticeUse}</p><p data-data-notice-sound><b>{t.dataNoticeSoundLabel}</b>{t.dataNoticeSound}</p>')>0,'right after 「DeepSeek 会怎么用」');
- a.match(read('cindy-official.js'),/data-data-notice-sound/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-data-notice-sound/,'the bundle was rebuilt');
 });
 test('「DeepSeek 会怎么用」 is kept: what is sent 「可能」 is used for training; nothing says it won\'t be',()=>{
  const zh=T('zh-CN')('dataNoticeUse'),en=T('en')('dataNoticeUse');

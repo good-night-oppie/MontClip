@@ -5,7 +5,7 @@
 // others below), and "needs the desktop app" when no editor service runs.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences'), P = require('../server/prepare-media');
-const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 
 // JJ v2, 2026-11-04: europa ~/montclip-labels/jj/2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256
 // d99c25d114f865bd6388bc98822b04308f6ca96c3e3ac02a802dd92cc736cb13 (v1, 68f8f88e…, kept beside it). The streamer cannot

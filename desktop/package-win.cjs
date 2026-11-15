@@ -87,7 +87,7 @@ function filesHolding(appDir, files, key) {
 // every module it requires
 const ROOT_FILES = (list) => list.filter((f) => !f.includes('/') && /\.(js|html|css|svg|json)$/.test(f)
   && !/^(package(-lock)?\.json|project\.json|glama\.json|manifest\.json)$/.test(f) && !/^github-result-/.test(f));
-const ROOT_DIRS = ['server/', 'icons/', 'library/elements/', 'library/fonts/', 'library/svg/'];
+const ROOT_DIRS = ['server/', 'app/', 'icons/', 'library/elements/', 'library/fonts/', 'library/svg/'];
 const ROOT_EXTRA = ['CLAUDE.md', 'LICENSE', 'LICENSES.md', 'encoding-profiles.json', 'library/README.md', 'library/sfx/README.md',
   'agent-ui/upstream/LICENSE', 'agent-ui/upstream/NOTICE', 'agent-ui/SOURCES.json', 'agent-ui/THIRD-PARTY-NOTICES.txt',
   'licenses/mediapipe/LICENSE', 'licenses/mediapipe/README.md'];
@@ -201,7 +201,7 @@ async function main() {
     // and CRLF; when this app hides + URL (#58), JJ's alternative URL line replaces v3's and nothing else changes.
     const date0 = new Date().toISOString().slice(0, 10).replace(/-/g, ''), buildId = date0 + '-' + short;
     const Readme = require(path.join(src, 'desktop', 'package-readme', 'render.js'));
-    const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app.js'), 'utf8'));
+    const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app', 'app.js'), 'utf8'));
     const readOr = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
     const copyGone = Readme.dropsExportCopy(readOr(path.join(src, 'desktop', 'main.js')), readOr(path.join(src, 'desktop', 'export-downloads.js')), readOr(path.join(src, 'server', 'server.js')));
     let readmeVariant = null;

@@ -25,7 +25,7 @@ test('placeholders fill in both languages',()=>{
 });
 
 test('the panel and the top bar no longer hard-code English or mixed labels',()=>{
- const app=read('app.js').replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
+ const app=read('app/app.js').replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
  const build=app.slice(app.indexOf('function buildTranscriptPage'),app.indexOf('function transcriptSig')>app.indexOf('function buildTranscriptPage')?app.indexOf('function transcriptSig'):app.indexOf('function buildTranscriptPage')+8000);
  for(const s of ['>Cancel<','placeholder="Find words…"','>Cut all<','>Copy<','>Captions<','>Add captions<','>Import…<','按句选段 / Select sentences','时间映射 / Mapping','Caption last:','>Cut</button>'])
   a.ok(!build.includes(s),'buildTranscriptPage still has '+s);
@@ -39,7 +39,7 @@ test('Chinese text never suggests cutting word by word (Chinese transcripts have
 });
 
 test('switching language relabels the panel and the top bar without rebuilding the project',()=>{
- const app=read('app.js'),upd=app.slice(app.indexOf('function updateMontClipView'),app.indexOf('function updateMontClipView')+600);
+ const app=read('app/app.js'),upd=app.slice(app.indexOf('function updateMontClipView'),app.indexOf('function updateMontClipView')+600);
  a.match(upd,/refreshLanguageText\(\)/);
  a.match(app,/function refreshLanguageText\(\)[\s\S]{0,600}renderTranscript\(true\)/);
  a.match(app,/function refreshLanguageText\(\)[\s\S]{0,600}projectStatusText\(\)/);

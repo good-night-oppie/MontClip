@@ -5,7 +5,7 @@
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..');
 const view=require('../ui-preferences'),Delivery=require('../delivery');
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app/app.js'),'utf8');
 const zh=(k,v)=>view.t('zh-CN','own.'+k,v),en=(k,v)=>view.t('en','own.'+k,v);
 
 // key → [en, zh, where]: "html" = a data-i18n marker in index.html, "app" = uiText("own.key") in app.js

@@ -3,7 +3,7 @@
 // traced to a signal (its name, the measured value and the window it was measured over); with nothing to go on the
 // list is empty, and the editor says why.
 const test = require('node:test'), a = require('node:assert/strict');
-const H = require('../highlight-candidates');
+const H = require('../app/highlight-candidates');
 
 // loudness every 0.5 s: quiet speech at -30 dBFS, with a loud stretch
 const curve = (duration, loud = [], base = -30, high = -14) => {
@@ -80,9 +80,9 @@ test('every reason is traceable: a signal name, a number and the window it was m
 // undo step; the page loads the module and the web demo carries it
 test('the editor wires the cards to local signals, the playhead and the range engine', () => {
   const fs = require('node:fs'), path = require('node:path'), read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-  const app = read('app.js');
-  a.match(read('index.html'), /<script src="highlight-candidates\.js"><\/script>/);
-  a.match(read('docs/demo/sync.js'), /"highlight-candidates\.js"/);
+  const app = read('app/app.js');
+  a.match(read('index.html'), /<script src="app\/highlight-candidates\.js"><\/script>/);
+  a.match(read('docs/demo/sync.js'), /"app\/highlight-candidates\.js"/);
   a.match(app, /q\("\[data-tr-highlights\]"\)\.addEventListener\("click", \(\) => showHighlightCandidates\(\)\);/);
   const at = app.indexOf('async function showHighlightCandidates('), body = app.slice(at, app.indexOf('\n}\n', at));
   a.ok(at > 0);
@@ -123,7 +123,7 @@ test('card times: minutes:seconds with a tenth when there is one, and the length
 
 // JJ (#52): a card's title is its time span only — no "#1" in front
 test('card titles carry no rank number', () => {
-  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app.js'), 'utf8');
+  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app/app.js'), 'utf8');
   const at = app.indexOf('async function showHighlightCandidates('), body = app.slice(at, app.indexOf('\n}\n', at));
   const title = body.match(/<strong>([^<]*)<\/strong>/);
   a.ok(title, 'the card title');
@@ -147,7 +147,7 @@ test('beats change nothing: no beat reason, the same scores and order', () => {
 
 // QQ (#52, c5b1f98): every value written into the card's markup is escaped, the reason's signal name too
 test('the reason attribute is escaped', () => {
-  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app.js'), 'utf8');
+  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app/app.js'), 'utf8');
   const at = app.indexOf('async function showHighlightCandidates('), body = app.slice(at, app.indexOf('\n}\n', at));
   a.match(body, /data-hl-reason="\$\{escapeHtml\(r\.signal\)\}"/);
   a.doesNotMatch(body, /data-hl-reason="\$\{r\.signal\}"/);

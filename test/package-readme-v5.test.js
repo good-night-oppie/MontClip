@@ -37,7 +37,7 @@ test('nothing refers to a file in exports: media and analysis only read /media/ 
   const resolve = server.slice(server.indexOf('function resolveSrc('), server.indexOf('\n}\n', server.indexOf('function resolveSrc(')));
   a.match(resolve, /"\/media\/"/); a.match(resolve, /"\/library\/"/); a.doesNotMatch(resolve, /exports/);
   // the export queue is the tab's own, not saved
-  const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8');
   a.doesNotMatch(app, /localStorage\.setItem\([^)]*[Qq]ueue/);
 });
 

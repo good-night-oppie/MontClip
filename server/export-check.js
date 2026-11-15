@@ -147,6 +147,9 @@ function failCode(r) {
   if (r.lost && r.lost.length) return "EXPORT_AUDIO_FAILED";
   return r.picture && r.sound ? "EXPORT_BLANK_BOTH" : r.picture ? "EXPORT_BLANK_PICTURE" : r.sound ? "EXPORT_BLANK_SOUND" : null;
 }
+/** What a delivery report's loudness says about silence, for check()'s `silent`: true / false as measured, null where the report did not judge it (a clip
+ *  under the 400 ms ebur128 needs: silent: null) or there is no report: then the mix itself is measured against QUIET_DB. */
+const silentFromLoudness = (loud) => (loud ? (loud.silent === null ? null : !!loud.silent) : null);
 /** The failure's params: every lost piece {n, t} — the page names them (app.js exportClipWords: the pieces with a
  *  picture, at most 5, 「第 3、5、8 段」; else the sounds' times). */
 function failParams(r) { return r.lost && r.lost.length ? { clips: r.lost.map((x) => ({ n: x.n, t: x.t })) } : null; }
@@ -178,4 +181,4 @@ function withQuiet(report, quiet, unchecked) {
 /** The warnings of an export with no delivery report (a profile export): withQuiet on an empty report, or null. */
 function warningReport(quiet, unchecked) { const r = withQuiet({ ok: true, checks: [], line: "" }, quiet, unchecked); return r.checks.length ? r : null; }
 
-module.exports = { check, cleanPlan, frameMax, soundPeak, soundRead, warningReport, TIMEOUT_MS, failCode, failParams, failText, withQuiet, BLACK, SOURCE_LIT, QUIET_DB };
+module.exports = { silentFromLoudness, check, cleanPlan, frameMax, soundPeak, soundRead, warningReport, TIMEOUT_MS, failCode, failParams, failText, withQuiet, BLACK, SOURCE_LIT, QUIET_DB };

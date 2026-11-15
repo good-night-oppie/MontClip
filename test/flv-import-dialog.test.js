@@ -5,7 +5,7 @@
 // (VV saw the reason flash past in a toast). The page code runs here on a small fake DOM.
 const test = require("node:test"), assert = require("node:assert/strict"), vm = require("node:vm"), fs = require("node:fs"), path = require("node:path");
 const V = require("../ui-preferences");
-const source = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const source = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
 
 function el(tag) {
   return { tag, dataset: {}, children: [], hidden: false, disabled: false, textContent: "", className: "", listeners: {},

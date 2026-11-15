@@ -24,7 +24,7 @@ test('the dialog keys exist in both languages; the Chinese has no English words,
   }
 });
 test('the dialog writes no sentence of its own: no Chinese literal, no 「 / 」 pairs, every text through uiText', () => {
-  for (const f of ['app.js', 'docs/demo/app.js']) {
+  for (const f of ['app/app.js', 'docs/demo/app/app.js']) {
     const src = read(f), fn = body(src, 'async function showSentenceSelection(');
     a.ok(!CJK.test(fn.replace(/\/\/[^\n]*/g, '')), f + ': a Chinese literal is left in showSentenceSelection');
     a.ok(!/"[^"\n]* \/ [^"\n]*"|`[^`\n]* \/ [^`\n]*`/.test(fn), f + ': a 「中文 / English」 string is left');
@@ -56,7 +56,7 @@ test('JJ\'s wording', () => {
 test("JJ (8 PRs): the by-time dialog reuses #36's refusals; no ssel-err-* / ssel-changed of its own", () => {
   for (const l of ['zh-CN', 'en']) for (const k of Object.keys(View.text[l]))
     a.ok(!/^own\.ssel-(err-|changed$)/.test(k), k + ' should be gone (' + l + ')');
-  for (const f of ['app.js', 'docs/demo/app.js']) {
+  for (const f of ['app/app.js', 'docs/demo/app/app.js']) {
     const fn = body(read(f), 'async function showSentenceSelection(');
     a.ok(!/ssel-err-|"own\.ssel-changed"|byTimeError/.test(fn), f + ': a second set of refusals is left');
     for (const k of ['sd-range-line', 'sd-changed']) a.ok(fn.includes('uiText("own.' + k + '")'), f + ' says ' + k + ' for both dialogs');
@@ -69,7 +69,7 @@ test("JJ (8 PRs): the by-time dialog reuses #36's refusals; no ssel-err-* / ssel
 });
 
 test('the joined length reads 0:32, not 12.34 s', () => {
-  const fn = body(read('app.js'), 'async function showSentenceSelection(');
+  const fn = body(read('app/app.js'), 'async function showSentenceSelection(');
   a.ok(!/toFixed\(2\)\} s/.test(fn), 'no "12.34 s"');
   a.match(fn, /duration: clock\(Math\.round\(plan\.duration\)\)/);
 });

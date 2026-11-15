@@ -107,7 +107,7 @@ test('server: without a local FFmpeg, libx264 profiles are refused in plain word
 });
 
 test('desktop: the path comes only from the main-process file dialog and is stored by the main process',()=>{
- const main=fs.readFileSync(path.join(ROOT,'desktop/main.js'),'utf8'),preload=fs.readFileSync(path.join(ROOT,'desktop/view-preload.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+ const main=fs.readFileSync(path.join(ROOT,'desktop/main.js'),'utf8'),preload=fs.readFileSync(path.join(ROOT,'desktop/view-preload.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8');
  a.match(preload,/montclipExternalFfmpeg/);
  for(const op of ['get','choose','clear'])a.ok(preload.includes(op+":()=>ipcRenderer.invoke('montclip:ffmpeg:"+op+"')"),'no argument reaches '+op);
  a.ok(!/montclip:ffmpeg:set/.test(main+preload),'no channel takes a path from the page');

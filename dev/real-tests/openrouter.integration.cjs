@@ -7,7 +7,7 @@
 // permissions is refused and the tests are skipped (dev/real-tests/key-file.cjs). It is never printed, logged or written anywhere.
 // Rate limits (429) and upstream failures are reported as SKIPPED (with the reason), not passed.
 const {test}=require('node:test'),a=require('node:assert/strict'),path=require('node:path');
-const S=require('../../desktop/agent-service'),C=require('../../agent-conversation'),K=require('./key-file.cjs');
+const S=require('../../desktop/agent-service'),C=require('../../app/agent-conversation'),K=require('./key-file.cjs');
 const ON=process.env.MONTCLIP_REAL_MODELS==='1';
 const found=ON?K.readKey():{},KEY=found.key||null;
 const off=!ON?'real-model tests are off (set MONTCLIP_REAL_MODELS=1)':!KEY?found.skip:false;

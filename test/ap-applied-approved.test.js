@@ -6,7 +6,7 @@
 // it; the reason comes from the real policy host (desktop/agent-policy-host.js).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const View=require('../ui-preferences'),{createPolicyHost}=require('../desktop/agent-policy-host');
-const src=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const src=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
 function fn(name){const s=src.indexOf('async function '+name+'(');a.ok(s>=0,name);return src.slice(s,src.indexOf('\n}',s)+2);}
 
 const APPROVED={zh:'已按你批准的改好。可以撤销。',en:'Done as you approved. Undo is available.'};

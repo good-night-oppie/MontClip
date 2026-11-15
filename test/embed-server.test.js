@@ -64,7 +64,7 @@ test("embedded start is refused without loopback, a 64-hex token, or next to des
 test("embedded: only the session header or cookie gets in; anything else is 403", async (t) => {
   const s = await embedded(t);
   const get = (p, headers = {}) => fetch(s.base + p, { headers, redirect: "manual" });
-  for (const p of ["/api/project", "/", "/index.html", "/app.js", "/api/events"]) assert.equal((await get(p)).status, 403, p);
+  for (const p of ["/api/project", "/", "/index.html", "/app/app.js", "/api/events"]) assert.equal((await get(p)).status, 403, p);
   assert.equal((await get("/api/project", { "X-MontClip-Session": hex() })).status, 403);
   assert.equal((await get("/api/project", { Cookie: `montclip_embed=${hex()}` })).status, 403);
   assert.equal((await get("/api/project", { Cookie: `other=${s.token}` })).status, 403, "only the montclip_embed cookie counts");
