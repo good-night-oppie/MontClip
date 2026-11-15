@@ -20305,6 +20305,9 @@ function createExportUploader(sessId, { batchItems, batchBytes, signal, getError
         method: "POST", body, signal,
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "frame upload failed");
+      // MontClip#320: an unread reply keeps its request (a batch of frames) alive in this render process, so the browser grew
+      // with every frame of an export (arena: flat once the reply is read). Read it, small as it is.
+      await r.arrayBuffer().catch(() => {});
     });
     uploadTail = p.catch((err) => {
       if (!getError()) setError(err);
