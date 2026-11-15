@@ -179,6 +179,16 @@ async function start() {
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,
       preload: path.join(__dirname, "view-preload.js"), contextIsolation: true, nodeIntegration: false, webSecurity: true, devTools: !app.isPackaged } });
   win.removeMenu();
+  /* #321 (QQ, #347 review 5909445232): a review send the streamer starts needs a real input — the last mouse button let go, or Enter / Space
+     let go, that this window got from the system in the 2 s before. A page script calling montclipReview.send on its own is not a click.
+     One input lets one send go. */
+  let reviewGesture = 0;
+  win.webContents.on("input-event", (_e, input) => {
+    if (!input) return;
+    const k = input.keyCode || input.key;
+    if (input.type === "mouseUp" || (input.type === "keyUp" && (k === "Enter" || k === "Return" || k === "Space" || k === " "))) reviewGesture = Date.now();
+  });
+  const takeReviewGesture = () => { const ok = reviewGesture > 0 && Date.now() - reviewGesture <= 2000; reviewGesture = 0; return ok; };
   const settings = createStore(app.getPath("userData"));
   for (const operation of ["get", "set"]) ipcMain.on("montclip:view:" + operation, (event, value) => {
     event.returnValue = settingsAllowed(event, win, origin)
@@ -380,9 +390,16 @@ async function start() {
     const st = await engine("GET", "/api/review/status?id=" + encodeURIComponent(id));
     const w = st.json && st.json.willSend;
     if (st.status !== 200 || st.json.state !== "ready" || !w || st.json.sendToken !== v.token || w.hash !== v.hash) return { ok: false, code: "NOT_READY" };
-    /* owner's decision 2026-11-15 (#321 6888246693): nothing is shown before a send; the streamer's own click on the check is the consent.
-       A request the assistant makes goes only under approve-all (auto) or Yolo (owner's decision in #341 6882174429); otherwise it needs the click. */
-    if (v.assistant === true) { let mode = "manual"; try { mode = agentPolicy.getMode().mode; } catch { } if (mode !== "auto" && mode !== "yolo") return { ok: false, code: "NEEDS_CLICK" }; }
+    /* owner's decision 2026-11-15 (#321 6888246693): nothing is shown before a send; the streamer's own click on the check is the consent —
+       a real input this window got in the 2 s before (takeReviewGesture), not a script's call.
+       A request the assistant makes goes only when the permission modes say run for fablecut_review to openrouter.ai (QQ, #347 review
+       5909445232): approve-all is the approval card's session choice, not the auto mode; in manual and auto an external step is asked until
+       then, and a review send is never asked in a card, so it is NEEDS_CLICK. The page's own `assistant` flag is checked in #326. */
+    if (v.assistant === true) {
+      let d = null;
+      try { d = agentPolicy.decide({ sessionId: "review", capability: "fablecut_review", target: { kind: "origin", value: "https://" + require("../server/openrouter-review").HOST }, bytes: Number(w.videoBytes) || 0 }); } catch { }
+      if (!d || d.ok !== true || d.action !== "run") return { ok: false, code: "NEEDS_CLICK" };
+    } else if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
     reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1, w.hash);
     const sent = await engine("POST", "/api/review/send", { id, token: v.token, hash: v.hash });
     reviewSender.revoke(id);
