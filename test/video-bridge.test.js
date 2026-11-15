@@ -223,6 +223,9 @@ test("DESTINATION_MISMATCH: a receipt from anyone but Google AI Studio is no res
   assert.deepEqual(r.receipts, [{ kind: "check", provider: "Some Other", model: "google/gemini-4-carbon", audioTokens: null }]);
   const m = await VB.checkSample(base(s, fakeSender("pass", { model: "google/other-model" })));
   assert.equal(m.reason, "DESTINATION_MISMATCH", "another model counts the same");
+  /* the receipt's own words go into the ledger at most 100 characters each (QQ, #347 review) */
+  const long = await VB.checkSample(base(s, fakeSender("pass", { provider: "P".repeat(500), model: "m".repeat(500) })));
+  assert.deepEqual(long.receipts, [{ kind: "check", provider: "P".repeat(100), model: "m".repeat(100), audioTokens: null }]);
 });
 
 test("① the sound: a WAV sent but 0 audio tokens (or no usage) is 「声音没检查」, and the model's pass is not a pass", { skip }, async (t) => {
