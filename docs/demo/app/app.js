@@ -23687,7 +23687,12 @@ function trackEdgeDrag(handle, e, bodyClass, { onMove, onKeep, onCancel }) {
     if (cancelled) onCancel(); else onKeep();
   };
   const end = () => finish(false);
-  const onKey = (ev) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); finish(true); } };
+  // Esc ends it and puts the size back; Space does nothing while an edge is dragged (spec v3 item 7: a drag never
+  // starts playback — the editor's own Space listener is on window, after this capture one)
+  const onKey = (ev) => {
+    if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); finish(true); }
+    else if (ev.key === " ") { ev.preventDefault(); ev.stopPropagation(); }
+  };
   try { handle.setPointerCapture(e.pointerId); } catch { }
   handle.classList.add("dragging");
   document.body.classList.add(bodyClass);
@@ -23719,6 +23724,8 @@ function initSideSplits() {
     handle.addEventListener("dblclick", (e) => { e.preventDefault(); e.stopPropagation(); resetSideWidth(side); });
     // with the keyboard: the arrows move the edge 16 px; the keys are kept from the editor's own shortcuts
     handle.addEventListener("keydown", (e) => {
+      // Space on a focused edge is not the editor's play key (#354): it stops here, before the window's shortcuts
+      if (e.key === " ") { e.preventDefault(); e.stopPropagation(); return; }
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       e.preventDefault(); e.stopPropagation();
       setSideWidth(side, sidePanel(side).getBoundingClientRect().width + dir * (e.key === "ArrowRight" ? 16 : -16));

@@ -286,3 +286,43 @@ test("a smaller window holds the panels to what fits but keeps the width she cho
     t.diagnostic(JSON.stringify({ chosen: +chosen, shownAt1200: c.bin.w, back: d.bin.w, draggedAt1200: f.bin.w }));
   });
 });
+
+// JJ's spec v3 item 7, DD on #354 (4), PG: an edge that has the focus, or is being dragged, does not start playback on Space
+test("Space on a focused or dragged side edge does not start playback (#270, #354)", { skip, timeout: 120000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ media: [], clips: [{ id: "c_t", kind: "text", mediaId: null, track: "V1", start: 0, duration: 8, props: { text: "synthetic" } }] }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  await withPage({ browser, url: base + "/", width: 1600, height: 900, settleMs: 1500 }, async ({ evaluate, send }) => {
+    for (const until = Date.now() + 20000; Date.now() < until;) {
+      if (await evaluate(`document.readyState === "complete" && document.querySelectorAll(".track-head").length > 0`)) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+    const playing = () => evaluate(`typeof state !== "undefined" && !!state.playing`);
+    const space = async (type) => send("Input.dispatchKeyEvent", { type, key: " ", code: "Space", windowsVirtualKeyCode: 32, text: type === "keyDown" ? " " : undefined });
+    const press = async () => { await space("keyDown"); await space("keyUp"); await new Promise((r) => setTimeout(r, 400)); };
+    // control: Space with nothing focused plays, so the key does reach the editor here
+    await evaluate(`document.activeElement && document.activeElement.blur()`);
+    await press();
+    const control = await playing();
+    if (control) await press();
+    assert.equal(control, true, "control: Space on the page starts playback");
+    assert.equal(await playing(), false, "(and stops it again)");
+    // focused edge
+    await evaluate(`document.getElementById("splitBinMonitor").focus()`);
+    assert.equal(await evaluate(`document.activeElement.id`), "splitBinMonitor");
+    await press();
+    assert.equal(await playing(), false, "Space on the focused edge does not play");
+    // mid-drag (nothing focused before the press)
+    await evaluate(`document.activeElement && document.activeElement.blur()`);
+    const r = await evaluate(`(() => { const b = document.getElementById("splitMonitorInspector").getBoundingClientRect(); return [Math.round(b.left + b.width / 2), Math.round(b.top + b.height / 2)]; })()`);
+    const mouse = (type, x, y, more = {}) => send("Input.dispatchMouseEvent", { type, x, y, ...more });
+    await mouse("mouseMoved", r[0], r[1]);
+    await mouse("mousePressed", r[0], r[1], { button: "left", clickCount: 1 });
+    await mouse("mouseMoved", r[0] - 30, r[1], { button: "left", buttons: 1 });
+    await press();
+    const midDrag = await playing();
+    await mouse("mouseReleased", r[0] - 30, r[1], { button: "left", clickCount: 1 });
+    if (await playing()) await press();
+    assert.equal(midDrag, false, "Space while dragging an edge does not play");
+  });
+});
