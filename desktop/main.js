@@ -31,7 +31,7 @@ app.on("web-contents-created", (_, contents) => {
 async function start() {
   const token = crypto.randomBytes(32).toString("hex");
   const pageSecret = crypto.randomBytes(32).toString("hex");   // who the editor page is, for /api/review/ (QQ, #328): the server gets it in its environment, only this window's requests carry it
-  const mainSecret = crypto.randomBytes(32).toString("hex");   // #321: who may make the server send a review sample — this process only, after its own box (never on any page request)
+  const mainSecret = crypto.randomBytes(32).toString("hex");   // #321: who may make the server send a review sample — this process only, after the streamer's click (never on any page request)
   const env = { ...process.env, PORT: "0", HOST: "127.0.0.1", MONTCLIP_DESKTOP: "1",
     MONTCLIP_SESSION_TOKEN: token, MONTCLIP_REVIEW_PAGE_SECRET: pageSecret, MONTCLIP_REVIEW_MAIN_SECRET: mainSecret, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
   delete env.NODE_OPTIONS;
@@ -383,7 +383,7 @@ async function start() {
     /* owner's decision 2026-11-15 (#321 6888246693): nothing is shown before a send; the streamer's own click on the check is the consent.
        A request the assistant makes goes only under approve-all (auto) or Yolo (owner's decision in #341 6882174429); otherwise it needs the click. */
     if (v.assistant === true) { let mode = "manual"; try { mode = agentPolicy.getMode().mode; } catch { } if (mode !== "auto" && mode !== "yolo") return { ok: false, code: "NEEDS_CLICK" }; }
-    reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1);
+    reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1, w.hash);
     const sent = await engine("POST", "/api/review/send", { id, token: v.token, hash: v.hash });
     reviewSender.revoke(id);
     return sent.status === 200 ? { ok: true, record: sent.json } : { ok: false, code: (sent.json && sent.json.code) || "FAILED" };
