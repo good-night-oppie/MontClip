@@ -123,3 +123,35 @@ test("/api/export/request: a field it does not know is a 400 naming it, and noth
   assert.equal(ticket.id, ok.body.id);
   assert.equal(tab.count(), 0);
 });
+
+/* QQ, #343 review 5908480205: two shapes of `range` the first round did not cover. exportRequestBody lets a lone range
+   through unchanged (its shape is export-jobs' request() to judge), so these pin the whole route: a 400 with the reason,
+   and nothing queued. */
+const RANGE_NOT_OBJECT = [5, 0, true, false, "", "half", [1, 2], []];
+const RANGE_HALF = [{ start: 1 }, { end: 2 }, { start: 1, end: null }, { start: null, end: 2 }];
+
+test("exportRequestBody: a range that is not an object, or has only start or only end, is passed on as it is; with top-level start / end it is RANGE_CONFLICT", () => {
+  for (const range of [...RANGE_NOT_OBJECT, ...RANGE_HALF]) {
+    assert.deepEqual(exportRequestBody({ range }).opts, { range }, JSON.stringify(range));
+    const r = exportRequestBody({ start: 1, end: 2, range });
+    assert.equal(r.error && r.error.code, "RANGE_CONFLICT", JSON.stringify(range));
+  }
+});
+
+test("/api/export/request: a range that is not an object, or has only start or only end, is a 400 with the reason, and nothing is queued", { skip, timeout: 60_000 }, async (t) => {
+  const { base, tab } = await boot(t);
+  for (const range of [...RANGE_NOT_OBJECT, ...RANGE_HALF]) {
+    const r = await post(base, "/api/export/request", { where: "tab", range, profile: "prores422" });
+    assert.equal(r.status, 400, JSON.stringify(range) + " → " + JSON.stringify(r.body));
+    assert.match(r.body.error, /range must be "entire", "in-out" or \{start, end\}/, JSON.stringify(range));
+    const both = await post(base, "/api/export/request", { where: "tab", start: 1, end: 2, range, profile: "prores422" });
+    assert.equal(both.status, 400, JSON.stringify(range) + " with start / end → " + JSON.stringify(both.body));
+    assert.equal(both.body.code, "RANGE_CONFLICT", JSON.stringify(range));
+  }
+  // none of them queued a job: the next good request is not JOB_BUSY, and it is the only ticket the tab got
+  const ok = await post(base, "/api/export/request", { where: "tab", range: { start: 0, end: 1 }, profile: "prores422" });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  const ticket = await tab.next();
+  assert.equal(ticket.id, ok.body.id);
+  assert.equal(tab.count(), 0);
+});
