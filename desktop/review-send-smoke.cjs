@@ -1,8 +1,8 @@
 'use strict';
 // #321 (ADR #341) — the streamer's path on a real Windows desktop, for SOP 13: a fresh profile in a new temporary folder, the review switch off
 // by default, switched on in Settings, a synthetic clip prepared, and sent. Nothing is shown before a send (owner's decision 2026-11-15, #321
-// 6888246693): the streamer's click is the consent. The assistant's request in the default (manual) mode is refused (NEEDS_CLICK) and reaches
-// nothing; the streamer's request goes once. The person running it presses nothing on the desktop: the window stays hidden. The "outside" here is
+// 6888246693): the streamer's click is the consent. The assistant's request in the manual and in the auto mode is refused (NEEDS_CLICK), and
+// so is a page script's call with no real input before it; both reach nothing. After a real click (an input event) the request goes once. The person running it presses nothing on the desktop: the window stays hidden. The "outside" here is
 // only a local stand-in on 127.0.0.1 that counts what reaches it, honoured only in an unpackaged --montclip-smoke run (desktop/review-sender.js).
 // Nothing leaves the computer.
 // Run: electron desktop/review-send-smoke.cjs --montclip-smoke --user-data-dir=<new empty folder>
@@ -96,7 +96,20 @@ function start() {
       const ra = await read(`window.montclipReview.send(${args},assistant:true})`);
       if (!(ra && ra.ok === false && ra.code === 'NEEDS_CLICK' && hits.length === 0)) throw Error('ASSISTANT_NOT_REFUSED ' + JSON.stringify({ ra, hits: hits.length }));
       step('助手在默认模式下要发：' + ra.code + '，本地替身收到 ' + hits.length + ' 个请求');
-      /* 5. the streamer clicks: no box, it goes once */
+      /* 4b. the auto mode is not approve-all (QQ, #347 review 5909445232): the assistant is still refused */
+      const am = await read(`window.montclipAgentPolicy.setMode('auto')`);
+      const rauto = await read(`window.montclipReview.send(${args},assistant:true})`);
+      await read(`window.montclipAgentPolicy.setMode('manual')`);
+      if (!(am && am.mode === 'auto' && rauto && rauto.ok === false && rauto.code === 'NEEDS_CLICK' && hits.length === 0)) throw Error('AUTO_NOT_REFUSED ' + JSON.stringify({ am, rauto, hits: hits.length }));
+      step('助手在「自动」模式下要发：' + rauto.code + '，本地替身收到 ' + hits.length + ' 个请求');
+      /* 4c. a page script's call with no real input in the 2 s before is not a click */
+      const rs = await read(`window.montclipReview.send(${args}})`);
+      if (!(rs && rs.ok === false && rs.code === 'NEEDS_CLICK' && hits.length === 0)) throw Error('SCRIPT_NOT_REFUSED ' + JSON.stringify({ rs, hits: hits.length }));
+      step('页面脚本自己调用、没有真实点击：' + rs.code + '，本地替身收到 ' + hits.length + ' 个请求');
+      /* 5. the streamer clicks (a real input event from the system, at the window's top-left corner where nothing reacts): no box, it goes once */
+      win.webContents.sendInputEvent({ type: 'mouseDown', x: 1, y: 1, button: 'left', clickCount: 1 });
+      win.webContents.sendInputEvent({ type: 'mouseUp', x: 1, y: 1, button: 'left', clickCount: 1 });
+      await wait(100);
       const r = await read(`window.montclipReview.send(${args}})`);
       const end = await read(`fetch('/api/review/status?id=${prep.reviewId}').then(r=>r.json())`);
       const ok = r && r.ok === true && hits.length === 1 && hits[0].path === '/api/v1/chat/completions';
