@@ -56,6 +56,15 @@ function start() {
       const after = await read(`({on:document.getElementById('setReviewEnabled').checked,key:document.getElementById('setReviewKeyState').textContent})`);
       if (!after.on) throw Error('SWITCH_DID_NOT_TURN_ON');
       step('打开开关，保存密钥（' + after.key + '）');
+      /* the section in both interface languages (JJ 定稿, #347): read what the window shows, word for word */
+      const readBox = () => read(`(()=>{const b=document.getElementById('setReview'),q=(s)=>b.querySelector(s);return{title:q('h3').textContent,label:q('.settings-label').textContent,note:q('[data-i18n="own.rv-set-note"]').textContent,ph:document.getElementById('setReviewKey').placeholder,save:document.getElementById('btnReviewKeySave').textContent,clear:document.getElementById('btnReviewKeyClear').textContent,state:document.getElementById('setReviewKeyState').textContent};})()`);
+      const zhBox = await readBox(), wantZh = {"title": "审片发送", "label": "审片时把片段发到 openrouter.ai", "ph": "OpenRouter 密钥（只用于审片）", "save": "保存密钥", "clear": "删除密钥", "state": "已保存密钥"};
+      for (const k of Object.keys(wantZh)) if (zhBox[k] !== wantZh[k]) throw Error('ZH_TEXT ' + k + ' ' + zhBox[k]);
+      await read(`document.getElementById('btnCloseSettings').click();updateMontClipView({language:'en'});document.getElementById('btnSettings').click();true`); await wait(600);
+      const enBox = await readBox(), wantEn = {"title": "Send for review", "label": "Send the clip to openrouter.ai when reviewing", "note": "Off by default. When this is on, clicking the check button sends that stretch of picture and sound (including any chat messages and viewer names on screen) to the AI service you set up, with no further prompt before it goes.", "ph": "OpenRouter key (used only for review)", "save": "Save key", "clear": "Delete key", "state": "Key saved"};
+      for (const k of Object.keys(wantEn)) if (enBox[k] !== wantEn[k]) throw Error('EN_TEXT ' + k + ' ' + enBox[k]);
+      step('英文界面：这一节 7 处字（标题、开关名、说明、密钥框提示、两个按钮、密钥状态）和 JJ 定稿逐字一致');
+      await read(`document.getElementById('btnCloseSettings').click();updateMontClipView({language:'zh-CN'});document.getElementById('btnSettings').click();true`); await wait(600);
       await wait(1500);   // a person looks at the switch
       await read(`document.getElementById('btnCloseSettings').click();true`); await wait(300);
       /* 2. a synthetic 6 s clip (test pattern + tone), no streamer material */
