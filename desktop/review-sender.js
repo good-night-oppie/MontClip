@@ -52,34 +52,62 @@ function createReviewSender({ root, safeStorage, env = process.env, isPackaged =
 
   return {
     key, switch: sw, standin,
-    /** The streamer's click let reviewId go: its `requests` requests may go in the next 15 minutes. */
-    permit(reviewId, requests) { permits.set(reviewId, { left: requests, exp: now() + 15 * 60 * 1000 }); },
+    /** The streamer's click let reviewId go: its `requests` requests may go in the next 15 minutes, and only the prepared check whose
+     *  snapshot hash this process confirmed (its first request must hash to it; a second one must carry the same picture and sound). */
+    permit(reviewId, requests, hash) { permits.set(reviewId, { left: requests, hash: typeof hash === "string" ? hash : null, files: null, exp: now() + 15 * 60 * 1000 }); },
     revoke(reviewId) { permits.delete(reviewId); },
     cancel(reviewId) { permits.delete(reviewId); const c = inFlight.get(reviewId); if (c) c.abort(); },
     /** One body from the engine server → {ok, receipt} | {ok:false, reason}. */
     async send({ reviewId, agent, body }) {
       if (!sw.get().on) return { ok: false, reason: "REVIEW_SEND_OFF" };
       if (typeof reviewId !== "string" || !reviewId) return { ok: false, reason: "NOT_CONFIRMED" };
+      const buf = Buffer.isBuffer(body) ? body : body instanceof Uint8Array ? Buffer.from(body.buffer, body.byteOffset, body.byteLength) : null;
+      if (!buf) return { ok: false, reason: "FAILED" };
+      /* the body must be one this process would build itself (QQ, #347 review): otherwise nothing goes, whoever asked */
+      const chk = checkBody(buf);
+      if (!chk) return { ok: false, reason: "BODY_NOT_ALLOWED" };
       if (agent === true) { if (!agentSend()) return { ok: false, reason: "AGENT_SEND_OFF" }; }
       else {
         const p = permits.get(reviewId);
         if (!p || p.left <= 0 || now() > p.exp) return { ok: false, reason: "NOT_CONFIRMED" };
+        const files = chk.videoSha + "/" + (chk.audioSha || "-");
+        /* the first request is the prepared check the streamer's click named (its snapshot hash); a later one (two_pass) the same picture and sound */
+        if (p.files === null ? snapshotOf(chk) !== p.hash : files !== p.files) { permits.delete(reviewId); return { ok: false, reason: "HASH_MISMATCH" }; }
+        p.files = files;
         p.left--;
       }
-      const buf = Buffer.isBuffer(body) ? body : body instanceof Uint8Array ? Buffer.from(body.buffer, body.byteOffset, body.byteLength) : null;
-      if (!buf) return { ok: false, reason: "FAILED" };
       const k = key.open();
       if (!k) return { ok: false, reason: "NO_KEY" };
       const ctrl = new AbortController(); inFlight.set(reviewId, ctrl);
       try {
-        return await OR.post({ body: buf, key: k, request: request || (standin ? http.request : https.request), endpoint: standin, signal: ctrl.signal });
+        return await OR.post({ body: chk.body, key: k, request: request || (standin ? http.request : https.request), endpoint: standin, signal: ctrl.signal });
       } finally { inFlight.delete(reviewId); }
     },
   };
 }
 
+/** A request body → {body, prompt, videoSha, audioSha} when it is exactly what this process builds from its own constants (host, path,
+ *  model, provider: server/openrouter-review.js) around a prompt, an mp4 and a WAV; else null. Its prompt, video and sound are taken out
+ *  and the request is built again here: another model or provider, an extra field or anything else changed makes the bytes differ. */
+function checkBody(buf) {
+  let j; try { j = JSON.parse(buf.toString("utf8")); } catch { return null; }
+  if (!j || typeof j !== "object" || j.model !== OR.MODEL) return null;
+  const m = Array.isArray(j.messages) && j.messages.length === 1 ? j.messages[0] : null, c = m && Array.isArray(m.content) ? m.content : null;
+  if (!c) return null;
+  const text = c.find((x) => x && x.type === "text"), vid = c.find((x) => x && x.type === "video_url"), aud = c.find((x) => x && x.type === "input_audio");
+  const pre = "data:video/mp4;base64,", url = vid && vid.video_url && vid.video_url.url;
+  if (!text || typeof text.text !== "string" || typeof url !== "string" || !url.startsWith(pre)) return null;
+  const parts = { prompt: text.text, videoB64: url.slice(pre.length), audioB64: aud && aud.input_audio && typeof aud.input_audio.data === "string" ? aud.input_audio.data : null };
+  let again; try { again = OR.serialize(OR.buildBody(parts)); } catch { return null; }
+  if (!again.equals(buf)) return null;
+  return { body: again, prompt: parts.prompt, videoSha: OR.hashOf(Buffer.from(parts.videoB64, "base64")),
+    audioSha: parts.audioB64 ? OR.hashOf(Buffer.from(parts.audioB64, "base64")) : null };
+}
+/** The snapshot hash of a checked body: the same as server/video-bridge.js snapshotHash (both files and the first request's text). */
+const snapshotOf = (chk) => OR.hashOf("montclip-review-v2", chk.videoSha, chk.audioSha || "-", chk.prompt);
+
 /** The unblock box (wording to be finalized by JJ). Nothing is shown before a send (owner's decision 2026-11-15, #321 6888246693). */
 const BOX = Object.freeze({ cancel: "取消", unblock: "重新允许", unblockTitle: "审片",
   unblockMessage: "发往：" + OR.HOST + "\n上次的回执不是 Google AI Studio 或不是指定模型，这个工程的发送已停下。要重新允许发送吗？" });
 
-module.exports = { createReviewSender, BOX, KEY_FILE, SWITCH_FILE };
+module.exports = { createReviewSender, checkBody, snapshotOf, BOX, KEY_FILE, SWITCH_FILE };
