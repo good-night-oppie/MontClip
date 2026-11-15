@@ -6,7 +6,7 @@
 // sampling, max(120 s, 2 s per second of clip)), for spawnSync. Both are rounded up to whole milliseconds now.
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 const cp = require("node:child_process");
-const P = require("../prepare-media");
+const P = require("../server/prepare-media");
 
 const accepted = (timeout) => {   // what Node itself says of this timeout, with a child that exits at once
   try { cp.spawnSync(process.execPath, ["-e", "0"], { timeout }); return true; } catch (e) { if (e.code === "ERR_OUT_OF_RANGE") return false; throw e; }
@@ -26,12 +26,12 @@ test("prepare-media: the conversion's timeout is a whole number of ms, at least 
     a.ok(accepted(t), `${d} s → ${t}: Node takes it`);
   }
   a.equal(P.timeoutMs(7211.725), 10817588);
-  const src = fs.readFileSync(path.join(__dirname, "..", "prepare-media.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "server/prepare-media.js"), "utf8");
   a.match(src, /const timeout = timeoutMs\(range\.duration\);/, "prepareMedia uses it");
 });
 
 test("mcp-server: reframe's frame sampling timeout is a whole number of ms", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "mcp-server.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "server/mcp-server.js"), "utf8");
   const at = src.indexOf("function sampleTimeoutMs(");
   a.ok(at >= 0, "sampleTimeoutMs is there");
   const ctx = {}; vm.createContext(ctx); vm.runInContext(src.slice(at, src.indexOf("\n}", at) + 2), ctx);
@@ -44,7 +44,7 @@ test("mcp-server: reframe's frame sampling timeout is a whole number of ms", () 
 });
 
 test("a recording longer than 10 minutes imports (a synthetic 12-minute FLV: a 700 s break, so the file stays small)", async (t) => {
-  const FF = require("../ffmpeg-path");
+  const FF = require("../server/ffmpeg-path");
   if (!FF.available("ffmpeg") || !FF.available("ffprobe")) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   const os = require("node:os"), dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-long-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

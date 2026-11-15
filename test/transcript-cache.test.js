@@ -2,7 +2,7 @@
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 test('explicit background track refresh replaces a cached miss even without SSE', async () => {
-  const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '../app/app.js'), 'utf8');
   const cache = new Map([['/media/a#a1', false], ['/media/a', false]]);
   const context = { Map, Promise, encodeURIComponent, transcriptCache: cache, transcriptGen: 0,
     project: { media: [{ src: '/media/a', audioTrack: 0 }] }, MediaLib: { audioTrackOf: () => 0 },
@@ -16,7 +16,7 @@ test('explicit background track refresh replaces a cached miss even without SSE'
 });
 
 test('a transcription ticket keeps its captured audio track after the tab changes projects', async () => {
-  const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '../app/app.js'), 'utf8');
   let heard = false, result;
   const context = { MontClipTranscribe: { model: x => x }, trState: { busy: false },
     loadTranscript: async (src, force, track) => track === 1 ? null : { words: [['wrong track', 0, 1]] },

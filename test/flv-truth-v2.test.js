@@ -12,9 +12,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const { execFileSync } = require("node:child_process");
 // MontClip: paths only — SRC is this repo (skipped, like the other ffmpeg tests, when the bundled ffmpeg/ffprobe is missing)
-const SRC = require(path.join(__dirname, "..", "ffmpeg-path.js")).available("ffprobe") ? path.join(__dirname, "..") : null;
-const P = SRC ? require(path.join(SRC, "prepare-media.js")) : null;
-const FF = SRC ? require(path.join(SRC, "ffmpeg-path.js")) : null;
+const SRC = require(path.join(__dirname, "..", "server/ffmpeg-path.js")).available("ffprobe") ? path.join(__dirname, "..") : null;
+const P = SRC ? require(path.join(SRC, "server/prepare-media.js")) : null;
+const FF = SRC ? require(path.join(SRC, "server/ffmpeg-path.js")) : null;
 const FIX = path.join(__dirname, "fixtures", "flv-truth-v2");
 const { samplesAV } = require("./flv-fixtures");
 const run = (bin, args) => execFileSync(FF.path(bin), args, { encoding: "utf8", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "pipe"] });

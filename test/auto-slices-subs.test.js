@@ -24,23 +24,23 @@ test('JJ v2 section two, word for word', () => {
   a.equal(zh('as-sub-line', { n: 23 }), '字幕：23 句，是听写出来的，唱歌部分可能有错字');
 });
 test('the state comes from #70 (asrReady / openAsrSetup) where it is there; without it: not installed, no 〔去装〕', () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /function autoSubMode\(\) \{ return typeof asrReady === "function" && asrReady\(\) \? "local" : "none"; \}/);
   a.match(app, /typeof openAsrSetup === "function"/);
   a.match(app, /data-as-subs/);
   a.ok(!/as-sub-cloud/.test(app), 'no cloud state until cloud transcription exists');
 });
 test('step 2 lists 「听写成文字」 second, in the wording for the state', () => {
-  const app = read('app.js'), fn = app.slice(app.indexOf('function autoRunHtml('), app.indexOf('async function autoRun('));
+  const app = read('app/app.js'), fn = app.slice(app.indexOf('function autoRunHtml('), app.indexOf('async function autoRun('));
   a.match(fn, /const steps = \["read", "listen", "hot", "songs", "pick"\];/);
   a.match(fn, /as-run-listen-off/); a.match(fn, /as-run-listen-none/);
 });
 test('the export confirmation says there will be no subtitles when they are wanted and the model is not installed', () => {
-  const app = read('app.js'), fn = app.slice(app.indexOf('function autoExportConfirm('), app.indexOf('function autoExport('));
+  const app = read('app/app.js'), fn = app.slice(app.indexOf('function autoExportConfirm('), app.indexOf('function autoExport('));
   a.match(fn, /st\.subs && autoSubMode\(\) === "none"/); a.match(fn, /as-ex-nosub/);
 });
 test('placing adds captions over the placed slices only, in the same undo step, never replacing captions elsewhere', () => {
-  const app = read('app.js'), fn = app.slice(app.indexOf('function placeAutoSlices('), app.indexOf('function undoAutoSlices('));
+  const app = read('app/app.js'), fn = app.slice(app.indexOf('function placeAutoSlices('), app.indexOf('function undoAutoSlices('));
   a.ok(fn.indexOf('autoPlaceCaptions(') > fn.indexOf('pushUndo('), 'after the one undo snapshot');
   const cap = app.slice(app.indexOf('function autoPlaceCaptions('), app.indexOf('\n}\n', app.indexOf('function autoPlaceCaptions(')));
   a.ok(cap.length > 0 && !/pushUndo\(/.test(cap), 'no undo step of its own');

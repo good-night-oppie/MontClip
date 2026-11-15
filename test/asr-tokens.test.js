@@ -9,7 +9,7 @@
 // words. The segment-by-segment guard (test/asr-gaps.test.js) stays for anything else a model may do.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const ROOT=path.join(__dirname,'..');
-const L=require('../asr-local');
+const L=require('../server/asr-local');
 const sha=(f)=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const tmp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'montclip-tokens-'));
 
@@ -35,7 +35,7 @@ test('a tokens file with a token that is exactly "@": a copy with 「＠」, in 
 });
 
 test('the recognizer is made with the safe copy; 「＠」 never reaches the words',async()=>{
- const src=fs.readFileSync(path.join(ROOT,'asr-local.js'),'utf8');
+ const src=fs.readFileSync(path.join(ROOT,'server/asr-local.js'),'utf8');
  a.match(src,/tokens: safeTokens\(path\.join\(dir, "tokens\.txt"\), cacheDir\)/);
  // a recognizer that says 「＠」 among the words
  const rec={createStream:()=>({acceptWaveform(){}}),decodeAsync:async()=>({tokens:['你','＠','好'],timestamps:[0,0.3,0.6]})};
@@ -44,7 +44,7 @@ test('the recognizer is made with the safe copy; 「＠」 never reaches the wor
 });
 
 test('only decodeAsync: the synchronous decode() aborts the whole process on this token',()=>{
- const src=fs.readFileSync(path.join(ROOT,'asr-local.js'),'utf8').replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'');
+ const src=fs.readFileSync(path.join(ROOT,'server/asr-local.js'),'utf8').replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'');
  a.ok(/\.decodeAsync\(/.test(src));a.ok(!/\.decode\(/.test(src),'no decode() call');
 });
 

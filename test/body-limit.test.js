@@ -59,7 +59,7 @@ test("the project document may be larger than 1 MB (its own limit)", async (t) =
 });
 
 test("every readBody call goes through the limit; the large routes are named, the rest get 1 MB", () => {
-  const src = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "server/server.js"), "utf8");
   a.match(src, /const MAX_BODY = 1024 \* 1024;/);
   for (const route of ['"PUT /api/project"', '"POST /api/projects"', '"POST /api/transcript"', '"POST /api/export/frame"']) a.ok(src.includes(route), route);
   a.doesNotMatch(src, /req\.on\("data", \(c\) => chunks\.push\(c\)\)/, "no unbounded body reader left");

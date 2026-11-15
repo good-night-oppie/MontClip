@@ -12,6 +12,7 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 
 | 文件 | 成功标志 | 状态 |
 |---|---|---|
+| `roll-av-smoke.cjs` | `ROLL_AV_RESULT` 的 `ok:true` | 在用；#285，60 秒合成 A/B，64 组 roll/撤销重做/真实导出，L/R 静音、提示间隔和闪光同步；`MONTCLIP_ROLL_OUT` 必填；隐藏 Electron，不代替 Cindy 实窗验收 |
 | `agent-close-fault-smoke.cjs` | `MONTCLIP_SESSION_CLOSE_COMPLETE` | 在用 |
 | `agent-config-language-smoke.cjs` | `CONFIG_LANGUAGE_COMPLETE` | 在用（`MONTCLIP_SMOKE_NO_KEYSTORE=1` 时模拟没有钥匙串） |
 | `agent-errors-smoke.cjs` | `ERRORS_PASS` | 在用 |

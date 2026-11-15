@@ -6,8 +6,8 @@
    Each case first checks that ffprobe really sees the file that way, then what MontClip's probe makes of it. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
-const FF = require("../ffmpeg-path");
-const MediaProbe = require("../media-probe");
+const FF = require("../server/ffmpeg-path");
+const MediaProbe = require("../server/media-probe");
 const MediaLib = require("../media-lib");
 const { makeDataDir, seedProject, startMcp, readProject } = require("./helpers");
 
@@ -72,7 +72,7 @@ test("an MKV where nothing in the header or the streams says the length: read fr
 });
 
 test("the editor: Infinity from the browser is no length; which files are asked and what is taken is media-lib.js's rule", () => {
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.ok(app.includes("duration: Number.isFinite(el.duration) && el.duration > 0 ? el.duration : undefined,"), "probeAV drops Infinity / NaN / 0");
   const at = app.indexOf("async function refreshMediaInfo"), body = app.slice(at, at + 2400);
   a.match(body, /MediaLib\.needsInfo\(m\)/, "which files are asked: the same rule the tests check");

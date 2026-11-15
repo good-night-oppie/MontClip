@@ -18,7 +18,7 @@
   const LOUD_FULL = 24, LOUD_WEIGHT = 0.55, LOUD_MIN = 4;   // the highlight engine's loudness scale (highlight-candidates.js)
   /* Naming a part 「第 n 首歌」 waits for songs.js to be right often enough (Deja, 2026-11-03): on the acceptance set,
      precision@15 and recall@10 both at least 0.6. Until then a song card is 「{time} 那段」, 「可能在唱歌」. SONG_MEASURED is
-     the last measurement (real-tests/songs-golden.cjs: precision@15 on 15 recordings from 13 streamers, recall@10 on the
+     the last measurement (dev/real-tests/songs-golden.cjs: precision@15 on 15 recordings from 13 streamers, recall@10 on the
      4 held-out recordings from 4 streamers); update it when a new measurement is made. */
   const SONG_GATE = Object.freeze({ precision15: 0.6, recall10: 0.6 });
   const SONG_MEASURED = Object.freeze({ precision15: 0.12, recall10: 0.38 });

@@ -5,7 +5,7 @@
 // magnet() is VV's drag-time pull (±0.6 s). Pure; nothing is wired into the app.
 const test = require('node:test'), a = require('node:assert/strict');
 const B = require('../event-bounds');
-const H = require('../highlight-candidates');
+const H = require('../app/highlight-candidates');
 
 // A synthetic 6-minute chat stream: background music keeps the sound at −32 dBFS throughout (never silent), a joke whose
 // setup starts at 118.0 s and whose punchline ends at 149.2 s; louder 130–148 s; danmaku burst 140–160 s.

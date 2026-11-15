@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {execFileSync,spawnSync}=require('node:child_process');
-const FF=require('../ffmpeg-path'),EP=require('../encode-profiles');
+const FF=require('../server/ffmpeg-path'),EP=require('../server/encode-profiles');
 function wav(samples){const b=Buffer.alloc(44+samples*4);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVEfmt ',8);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(2,22);b.writeUInt32LE(48000,24);b.writeUInt32LE(192000,28);b.writeUInt16LE(4,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(samples*4,40);for(let i=0;i<samples;i++){const v=i>=samples-4801?Math.round(10000*Math.sin(i*2*Math.PI/48)):0;b.writeInt16LE(v,44+i*4);b.writeInt16LE(v,46+i*4);}return b;}
 for (const spec of [
   {name:'12s real tail and extra mix sample',frames:360,fps:30,extra:1},

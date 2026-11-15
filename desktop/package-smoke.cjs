@@ -102,7 +102,7 @@ async function main() {
       return { name: n, bom: b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf, crlf: !/[^\r]\n/.test(s), placeholders: (s.match(/\{[a-z0-9]+\}/g) || []).length, internal: /落地前|实施侧/.test(s), exeNamed: s.includes('MontClip.exe') }; });
     for (const r of out.readme) assert.ok(r.bom && r.crlf && !r.placeholders && !r.internal && r.exeNamed, 'notes: ' + JSON.stringify(r));
     // the URL line in the notes matches the packaged app: JJ's alternative when it hides + URL (#58), v3's otherwise
-    const ALT = require('./package-readme/url-hidden.json'), hides = fs.readFileSync(path.join(appDir, 'resources', 'app', 'app.js'), 'utf8').includes(ALT.marker);
+    const ALT = require('./package-readme/url-hidden.json'), hides = fs.readFileSync(path.join(appDir, 'resources', 'app', 'app/app.js'), 'utf8').includes(ALT.marker);
     out.readmeUrlLine = hides ? "JJ's alternative (app hides + URL)" : 'v3 (app shows + URL)';
     for (const [n, lang] of [['先看我-使用说明.txt', 'zh-CN'], ['README-first.txt', 'en']]) {
       const t = fs.readFileSync(path.join(appDir, n), 'utf8');
@@ -111,7 +111,7 @@ async function main() {
     // the export-copy line matches it too: gone when the packaged app has the fix that removes each export's copy
     const COPY = require('./package-readme/exports-fixed.json'), pkgRead = (f) => { try { return fs.readFileSync(path.join(appDir, 'resources', 'app', 'desktop', f), 'utf8'); } catch { return ''; } };
     const appRead = (f) => { try { return fs.readFileSync(path.join(appDir, 'resources', 'app', f), 'utf8'); } catch { return ''; } };
-    const copyGone = pkgRead('main.js').includes(COPY.marker) && pkgRead('main.js').includes(COPY.expects) && pkgRead('export-downloads.js').includes(COPY.removes) && appRead('server.js').includes(COPY.registers);
+    const copyGone = pkgRead('main.js').includes(COPY.marker) && pkgRead('main.js').includes(COPY.expects) && pkgRead('export-downloads.js').includes(COPY.removes) && appRead('server/server.js').includes(COPY.registers);
     out.readmeCopyLine = copyGone ? (!COPY['zh-CN'].to ? 'removed (app keeps no export copy)' : "JJ's replacement (app keeps no export copy)") : 'as written (app keeps export copies)';
     for (const [n, lang] of [['先看我-使用说明.txt', 'zh-CN'], ['README-first.txt', 'en']]) {
       const lines = fs.readFileSync(path.join(appDir, n), 'utf8').replace(/^\uFEFF/, '').split('\r\n'), has = lines.includes(COPY[lang].from);

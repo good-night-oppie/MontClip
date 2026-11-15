@@ -8,10 +8,10 @@ const GUARD = [
   "const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));",
   "if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');",
 ];
-const LAUNCHES = /require\(['"](\.\/main|\.\.\/desktop\/main)['"]\)/;
+const LAUNCHES = /require\(['"](?:\.\/main|(?:\.\.\/)+desktop\/main)['"]\)/;
 const WRITES = /\bconfigure\(|updateMontClipView\(|montclipViewSettings\.set\(|montclip:sessions:set|montclipSessions\.set\(/;
 
-const scripts = ['desktop', 'real-tests'].flatMap((d) => fs.readdirSync(path.join(ROOT, d)).filter((f) => f.endsWith('.cjs')).map((f) => `${d}/${f}`));
+const scripts = ['desktop', 'dev/real-tests'].flatMap((d) => fs.readdirSync(path.join(ROOT, d)).filter((f) => f.endsWith('.cjs')).map((f) => `${d}/${f}`));
 
 test('every script that starts the app or writes settings refuses to run without a fresh profile', () => {
   const missing = [];
@@ -30,6 +30,8 @@ test('every script that starts the app or writes settings refuses to run without
 });
 
 test('the scan sees the scripts it is meant for', () => {
-  for (const f of ['desktop/review-body-smoke.cjs', 'desktop/agent-errors-smoke.cjs', 'real-tests/deepseek-e2e-smoke.cjs'])
+  for (const f of ['desktop/review-body-smoke.cjs', 'desktop/agent-errors-smoke.cjs', 'dev/real-tests/deepseek-e2e-smoke.cjs'])
     a.ok(scripts.includes(f), f);
+  for (const f of ['dev/real-tests/deepseek-e2e-smoke.cjs', 'dev/real-tests/meta-demo-footage.cjs', 'dev/real-tests/meta-e2e-smoke.cjs'])
+    a.match(fs.readFileSync(path.join(ROOT, f), 'utf8'), LAUNCHES, f + ' must be recognised as an app launcher');
 });

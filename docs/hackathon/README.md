@@ -40,7 +40,7 @@ A four-hour stream turns into a few short clips, and the streamer usually cuts t
 |---|---|---|
 | **Meta Model API provider**: `api.meta.ai/v1/chat/completions`, model `muse-spark-1.1`, OpenAI-compatible tool calls mapped to MontClip edit operations | `desktop/agent-service.js`, [PR #128](https://github.com/good-night-oppie/MontClip/pull/128) | Merged |
 | **Tests with a local fake Meta endpoint**: request path, model and auth header; a tool call becomes one undoable edit; plain-language errors for a bad key (401) or a wrong model name | `test/agent-meta-provider.test.js` | Merged, runs in CI |
-| **Real end-to-end runs against Muse Spark**: desktop app in a hidden window on synthetic footage. Quote subtitles → request → review → approve → edit applied → Undo restores it. 2 of 2 desktop end-to-end flows passed; 15 of 15 format-stability calls returned a usable edit | `real-tests/run-meta-e2e.cjs`, `docs/validation/real-model-e2e-meta/` | Merged |
+| **Real end-to-end runs against Muse Spark**: desktop app in a hidden window on synthetic footage. Quote subtitles → request → review → approve → edit applied → Undo restores it. 2 of 2 desktop end-to-end flows passed; 15 of 15 format-stability calls returned a usable edit | `dev/real-tests/run-meta-e2e.cjs`, `docs/validation/real-model-e2e-meta/` | Merged |
 | **Review box shows the right count from the first frame** (it briefly said "0 quoted subtitles") | [PR #136](https://github.com/good-night-oppie/MontClip/pull/136) | Merged |
 | **Meta Omnilingual ASR** as an optional second local transcription model, with license-consent-before-download and one-click removal | [PR #133](https://github.com/good-night-oppie/MontClip/pull/133) | In review, not merged |
 

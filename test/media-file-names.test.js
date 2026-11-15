@@ -21,14 +21,14 @@ test('mediaFileName: Chinese kept, Windows-refused characters made full-width, t
  a.equal(m('‮gpj.mp4'),'gpj.mp4','a direction control cannot disguise the extension');
 });
 test('no media path keeps its own ASCII-only rule: upload, URL import and the MCP import all use mediaFileName',()=>{
- const server=read('server.js'),up=server.slice(server.indexOf('p === "/api/upload"'),server.indexOf('p === "/api/upload"')+600);
+ const server=read('server/server.js'),up=server.slice(server.indexOf('p === "/api/upload"'),server.indexOf('p === "/api/upload"')+600);
  a.match(up,/Delivery\.mediaFileName\(/);a.ok(!/safeName\(url\.searchParams/.test(up));
- const iu=read('import-url.js');a.match(iu,/function safeName\(name\) \{\n  return Delivery\.mediaFileName\(/);
- const mcp=read('mcp-server.js'),imp=mcp.slice(mcp.indexOf('case "fablecut_import_media"'),mcp.indexOf('case "fablecut_import_media"')+1500);
+ const iu=read('server/import-url.js');a.match(iu,/function safeName\(name\) \{\n  return Delivery\.mediaFileName\(/);
+ const mcp=read('server/mcp-server.js'),imp=mcp.slice(mcp.indexOf('case "fablecut_import_media"'),mcp.indexOf('case "fablecut_import_media"')+1500);
  a.match(imp,/Delivery\.mediaFileName\(path\.basename\(src\)\)/);a.ok(!/\[\^\\w\.\\- \(\)\\\[\\\]\]\+\/g, "_"/.test(imp));
 });
 test('a URL download keeps the Chinese name it was given',()=>{
- const {filenameFrom}=require('../import-url');
+ const {filenameFrom}=require('../server/import-url');
  const u=new URL('https://example.com/x');
  a.equal(filenameFrom(u,{'content-disposition':"attachment; filename*=UTF-8''"+encodeURIComponent('直播 录像.mp4')}),'直播 录像.mp4');
  a.equal(filenameFrom(new URL('https://example.com/'+encodeURIComponent('第二场 回放.mp4')),{}),'第二场 回放.mp4');
@@ -53,7 +53,7 @@ test('MCP fablecut_import_media copies a local file under its Chinese name',asyn
 });
 test('the reference video copied into media/ and the music taken from it keep Chinese names too',()=>{
  const old=/\[\^\w\.\- \(\)\\[\\]\]\+\/g, "_"/;
- a.ok(!old.test(read('analyze.js')),'analyze.js: the extracted music');
- a.ok(!old.test(read('mcp-server.js')),'mcp-server.js: the reference copied into media/');
- a.match(read('analyze.js'),/Delivery\.fileSafeName\(path\.basename\(file, path\.extname\(file\)\), "media"\)/);
+ a.ok(!old.test(read('server/analyze.js')),'analyze.js: the extracted music');
+ a.ok(!old.test(read('server/mcp-server.js')),'mcp-server.js: the reference copied into media/');
+ a.match(read('server/analyze.js'),/Delivery\.fileSafeName\(path\.basename\(file, path\.extname\(file\)\), "media"\)/);
 });

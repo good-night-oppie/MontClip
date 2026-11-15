@@ -13,8 +13,8 @@ const http = require("node:http");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
-const { createEmbed, TASK_TICKET_MS } = require("../embed");
-const { toolError } = require("../tool-error");
+const { createEmbed, TASK_TICKET_MS } = require("../server/embed");
+const { toolError } = require("../server/tool-error");
 const { redactProblem } = require("../problem-redact");
 const { makeDataDir, freePort, endTree } = require("./helpers");
 
@@ -54,7 +54,7 @@ test("a task's channel: 128 bits of an HMAC of its project and session, under a 
 /* ── the editor (app.js startHostChannel) ── */
 
 function hostChannel(env0 = {}) {
-  const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   const i = SRC.indexOf("function startHostChannel("), j = SRC.indexOf("\n}\n", i) + 3;
   assert.ok(i > 0, "app.js has startHostChannel");
   const channels = [], timers = [];
@@ -113,7 +113,7 @@ test("editor: it tells its own task's panel where the playhead is, takes its see
 });
 
 test("editor: the channel comes from the claim answer, not from the address or the page's own guess", () => {
-  const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   const conn = SRC.slice(SRC.indexOf('es.addEventListener("conn"'), SRC.indexOf('es.addEventListener("versions"'));
   assert.match(conn, /\/api\/embed\/claim/);
   assert.match(conn, /startHostChannel\(\w+\.channel\)/, "the claim's answer opens the channel");
@@ -129,7 +129,7 @@ async function engine(t, { embedded = true } = {}) {
   t.after(() => stop());
   const token = hex(), port = await freePort(), dir = makeDataDir(t);
   let out = "";
-  const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+  const child = spawn(process.execPath, [path.join(ROOT, "server/server.js")], {
     cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1",
       FABLECUT_CHROME: path.join(dir, "no-such-browser"), MONTCLIP_DESKTOP: "",

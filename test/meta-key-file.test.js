@@ -2,7 +2,7 @@
 // The Meta key file follows #124's rules: only ~/.meta-montclip (or MONTCLIP_META_KEY_FILE), refused when wider than 600,
 // another user's or on Windows; reasons never contain the key. Temporary files with a made-up key only.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const K=require('../real-tests/meta-key-file.cjs');
+const K=require('../dev/real-tests/meta-key-file.cjs');
 const FAKE='made-up-meta-key-for-this-test';
 function home(mode){const d=fs.mkdtempSync(path.join(os.tmpdir(),'meta-key-'));if(mode!=null){const f=path.join(d,K.DEFAULT_NAME);fs.writeFileSync(f,FAKE+'\n');fs.chmodSync(f,mode);}return d;}
 const posix=process.platform!=='win32';

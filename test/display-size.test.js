@@ -5,10 +5,10 @@
    they differ. The file is made here, with MontClip's own ffmpeg: a test picture, no people. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const MediaLib = require("../media-lib");
-const MediaProbe = require("../media-probe");
-const ProjectOps = require("../project-ops");
+const MediaProbe = require("../server/media-probe");
+const ProjectOps = require("../server/project-ops");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
 const skip = !have && "no ffmpeg / ffprobe here";
@@ -68,7 +68,7 @@ test("an entry that already has the stored size (imported before) is corrected t
   a.equal(MediaLib.displaySize(m, info), true);
   a.deepEqual([m.width, m.height], [2389, 1920]);
   a.equal(MediaLib.displaySize(m, info), false, "once");
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.match(app, /MediaLib\.displaySize\(m, i\)/, "refreshMediaInfo uses it");
 });
 

@@ -49,7 +49,7 @@ test('placed: the card\'s lines move onto the timeline with its clip, cut to the
 });
 
 test('the card\'s button: on a song card with words in its part; after calibrating, the placeholder 再对一遍 (JJ to word)', () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.ok(!/function autoLyricsAvailable\(\) \{\s*return false;/.test(app), 'no longer always off');
   a.match(app, /function autoLyricsAvailable\(c\) \{/);
   a.match(app, /data-as-act="lyrics"/);
@@ -69,7 +69,7 @@ test('the toast after calibrating: JJ\'s words, with 〔撤销〕 that stays 8 s
   a.equal(V.t('zh-CN', 'own.as-lyrics-done', { n: 2 }), "已按歌词改好 2 句。放到时间线上以后，用的就是改好的字幕。");
   a.equal(V.t('en', 'own.as-lyrics-done', { n: 2 }), "Corrected 2 lines from the lyrics. Once this part is on the timeline, these subtitles are used.");
   a.equal(V.t('zh-CN', 'own.as-lyrics-again', { n: 2 }), '再对一遍歌词（已改 2 句）', 'as-lyrics-again as it was');
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /autoToast\(uiText\("own\.as-lyrics-done", \{ n: card\.lyricN \}\)\);/, 'with 〔撤销〕 (undoable, the default)');
   a.match(app, /const UNDO_TOAST_MS = 8000;/);
   const at = app.slice(app.indexOf('function autoToast('), app.indexOf('function autoToast(') + 900);
@@ -83,14 +83,14 @@ test('the toast after calibrating: JJ\'s words, with 〔撤销〕 that stays 8 s
 // (#89's autoFocusCard); the button's tooltip says it is calibrated (a placeholder key until JJ words it); 〔再对一遍歌词〕
 // opens with the lyrics pasted last time — kept on the card in this window only, never in a record, never sent to the AI.
 test('after applying: the focus on the card\'s button, the card in view; undone: the focus there too', () => {
-  const app = read('app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
+  const app = read('app/app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
   a.match(open, /autoRender\("review"\); autoLyricFocus\(card\.id\);/);
   a.match(app, /function autoLyricFocus\(id\) \{[\s\S]*?autoFocusCard\(id\);[\s\S]*?data-as-act="lyrics"[\s\S]*?\.focus\(\{ preventScroll: true \}\)/);
   const undo = app.slice(app.indexOf('function autoUndo('), app.indexOf('\n}\n', app.indexOf('function autoUndo(')));
   a.match(undo, /autoLyricFocus\(/, 'an undone calibration puts the focus back on its button');
 });
 test('calibrated, the button\'s tooltip says so (placeholder key), not the transcript line', () => {
-  const app = read('app.js'), card = app.slice(app.indexOf('function autoCardHtml('), app.indexOf('function autoFooter('));
+  const app = read('app/app.js'), card = app.slice(app.indexOf('function autoCardHtml('), app.indexOf('function autoFooter('));
   a.match(card, /c\.lyricCues \? autoSay\("as-lyrics-again-title", \{ n: c\.lyricN \|\| 0 \}\)/);
   // JJ's final words (Deja, on #100), whole sentences; nothing of the transcript line is left in it
   a.equal(V.t('zh-CN', 'own.as-lyrics-again-title', { n: 2 }), "字幕已按歌词改过 2 句。再点一次会带上你上次贴的歌词，可以再对一遍；想回到改之前，撤销一步就行。");
@@ -98,7 +98,7 @@ test('calibrated, the button\'s tooltip says so (placeholder key), not the trans
   for (const l of ['zh-CN', 'en']) a.ok(!/听写出来|可能有错字|transcribed|wrong words/.test(V.t(l, 'own.as-lyrics-again-title', { n: 2 })), l);
 });
 test('the lyrics pasted last time: on the card in this window only, in no record and nothing sent', () => {
-  const app = read('app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
+  const app = read('app/app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
   a.match(open, /lyricsDialog\(\{ words: sc\.words, caps: sc\.caps, text: c\.lyricText \|\| "",/);
   a.match(open, /card\.lyricText = text;/);
   a.match(app, /function lyricsDialog\(\{ words, caps, stale, onApply, text = "" \}\)/);
@@ -112,7 +112,7 @@ test('the lyrics pasted last time: on the card in this window only, in no record
   a.match(fn('autoUndo'), /MontClipAutoSlices\.keepPasted\(st, JSON\.parse\(st\.hist\.pop\(\)\)\)/);
   const save = app.slice(app.indexOf('function projectJSONHere('), app.indexOf('function projectJSONHere(') + 4000);
   a.ok(!/autoState|lyricText|lyricCues/.test(save), 'not in the project file');
-  for (const f of ['agent-facts.js', 'agent-conversation.js', 'agent-pane.js', 'cindy-official.js', 'chat-proposal.js', 'agent-format.js'])
+  for (const f of ['app/agent-facts.js', 'app/agent-conversation.js', 'app/agent-pane.js', 'app/cindy-official.js', 'app/chat-proposal.js', 'agent-format.js'])
     a.ok(!/lyricText|lyricCues/.test(read(f)), f);
 });
 

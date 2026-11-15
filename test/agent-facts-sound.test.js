@@ -6,8 +6,8 @@
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawnSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const Facts=require('../agent-facts'),Cap=require('../capabilities'),F=require('../agent-format'),View=require('../ui-preferences');
-const FF=require('../ffmpeg-path');
+const Facts=require('../app/agent-facts'),Cap=require('../capabilities'),F=require('../agent-format'),View=require('../ui-preferences');
+const FF=require('../server/ffmpeg-path');
 
 const SECRETS=['我的直播 11月5日.mp4','/media/私密/唱歌.mp4','C:\\Users\\主播\\Videos\\a.flv','天空好想下雨'];
 const doc=(clips)=>({media:[{id:'m1',name:SECRETS[0],src:SECRETS[1],kind:'video',duration:600,originalSrc:SECRETS[2]}],
@@ -84,10 +84,10 @@ test('the review box: the line about the sound numbers, word for word, outside t
  const pane=read('agent-ui/pane.tsx'),at=pane.indexOf('<p data-facts-sound>');
  a.ok(at>pane.indexOf('</details>',pane.indexOf('<details data-facts-note>')),'outside the fold');
  a.match(pane,/n=W\.MontClipFacts\?\.soundSummary\(f\);return n\?<><p data-facts-sound>\{t\.factsSound\}<\/p>/);
- a.match(read('cindy-official.js'),/data-facts-sound/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-facts-sound/,'the bundle was rebuilt');
  // the numbers are fetched before the box is put together, and the page passes them in
  a.match(pane,/await options\.beforeReview\?\.\(\);try\{setReview\(conversation\.prepare\(\)\)/);
- const app=read('app.js');
+ const app=read('app/app.js');
  a.match(app,/ beforeReview:agentSoundFacts,/);
  a.match(app,/sound:soundFactsOn\(\)&&s&&s\.signature===JSON\.stringify\(MontClipFacts\.soundMedia\(doc\)\)\?s\.sound:null/);
  const fn=app.slice(app.indexOf('async function agentSoundFacts'),app.indexOf("const mcAgentPanel="));
@@ -118,8 +118,8 @@ test('synthetic sound (3 s silence + 5 s sine, made by ffmpeg): the singing part
   '-filter_complex','[0][1]concat=n=2:v=0:a=1','-c:a','pcm_s16le',file],{encoding:'utf8'});
  a.equal(r.status,0,r.stderr);
  // the server's own readers: the loudness every 0.5 s (signals.js) and the song scan's levels (song-scan.js)
- const L=await require('../signals').createSignals({dir:path.join(d,'signals')}).loudness(file);
- const scan=await require('../song-scan').createSongScan({dir:path.join(d,'songs')}).scan(file);
+ const L=await require('../server/signals').createSignals({dir:path.join(d,'signals')}).loudness(file);
+ const scan=await require('../server/song-scan').createSongScan({dir:path.join(d,'songs')}).scan(file);
  a.equal(L.values.length,16);
  // songs.js as the 「唱歌」 scan runs it, with its windows shrunk for an 8 s file (its defaults look for songs of 90 s and more)
  const songs=require('../songs').find(scan.rows.map(x=>x[0]),{complete:true,W:2,MIN_SONG:3,EDGE:1,MERGE:1});

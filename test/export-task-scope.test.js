@@ -13,12 +13,12 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const { spawn, spawnSync } = require("node:child_process");
-const { createExportJobs } = require("../export-jobs");
+const { createExportJobs } = require("../server/export-jobs");
 const { makeDataDir, freePort, startServer, endTree } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");
 let HAS_FFMPEG = false;
-try { HAS_FFMPEG = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch {}
+try { HAS_FFMPEG = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch {}
 const skip = HAS_FFMPEG ? false : "export requests need ffmpeg";
 
 /* ── the queue (export-jobs.js) ── */
@@ -80,7 +80,7 @@ test("a job that names no project is not ended by a project switch", (t) => {
 /* ── the editor tab (app.js runClaimedJob): the ticket's project is not the one the tab shows ── */
 
 test("an editor tab showing another project fails the ticket with EXPORT_PROJECT_CHANGED instead of rendering it", async () => {
-  const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   const at = app.indexOf("async function runClaimedJob(");
   const end = app.indexOf("\nasync function ", at + 10);
   const sent = [];
@@ -109,7 +109,7 @@ async function embedded(t) {
   t.after(() => stop());
   const token = hex(), port = await freePort();
   const dir = makeDataDir(t);
-  const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+  const child = spawn(process.execPath, [path.join(ROOT, "server/server.js")], {
     cwd: ROOT, stdio: "ignore",
     env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1",
       FABLECUT_CHROME: path.join(dir, "no-such-browser"), MONTCLIP_DESKTOP: "", MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token },

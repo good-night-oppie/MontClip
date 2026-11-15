@@ -5,7 +5,7 @@
    stops it. The files are made here, with MontClip's own ffmpeg, no people in them. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process"), crypto = require("node:crypto");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const MediaLib = require("../media-lib");
 const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
@@ -39,7 +39,7 @@ test.before(() => {
 });
 test.after(() => { if (dir) fs.rmSync(dir, { recursive: true, force: true }); });
 
-const makeEditable = (...x) => require("../make-editable").makeEditable(...x);
+const makeEditable = (...x) => require("../server/make-editable").makeEditable(...x);
 const playsFor = (file) => Number(probe(file).format.duration);
 
 test("cut.webm (VP8, cut off): a new MP4 with its length in the header; VP8 can't go into an MP4, so re-encoded", { skip }, async () => {
@@ -133,7 +133,7 @@ test("the words: JJ's, word for word (the English of the mark and the progress l
     a.doesNotMatch(V.t("en", k, { n: 40, name: "x" }), /[一-鿿]|undefined/, k);
     a.doesNotMatch(V.t("zh-CN", k, { n: 40, name: "x" }), /undefined|NaN/, k);
   }
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
   for (const old of ["修复成可以剪的视频", "帮我转成可以剪的视频", "Repair into a video", "Convert to a video you can cut", "own.convert-menu"])
     a.ok(!app.includes(old) && !ui.includes(old), "the old name is gone: " + old);
   const line = (s) => app.split("\n").filter((l) => l.includes(s));
@@ -146,14 +146,14 @@ test("the words: JJ's, word for word (the English of the mark and the progress l
 /* JJ (cases 1 and 2): a recording that plays but was cut off — its length read from its packets — can already be cut,
    only seeking may be slow. No dialog: a small mark on the file with JJ's hint, and 〔帮我修好…〕 in its menu. */
 test("a file whose length came from its packets: marked 'seeking may be slow' on the entry; the editor shows the mark", { skip }, async () => {
-  const MediaProbe = require("../media-probe");
+  const MediaProbe = require("../server/media-probe");
   const info = await MediaProbe.probeFile(made("cut.webm"));
   const e = MediaProbe.infoForEntry(info, { kind: "video" });
   a.equal(e.durationFrom, "packets", "kept on the entry");
   a.equal(MediaLib.slowToSeek({ kind: "video", duration: 2, durationFrom: "packets" }), true);
   a.equal(MediaLib.slowToSeek({ kind: "video", duration: 2 }), false);
   a.equal(MediaLib.slowToSeek({ kind: "video", durationUnknown: true }), false, "that one can't be cut at all: the other mark");
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.ok(app.split("\n").some((l) => l.includes("MediaLib.slowToSeek(m)") && l.includes("own.media-slow-mark")), "the mark and its hint");
   a.ok(app.includes('uiText("own.repair-menu")'), "〔帮我修好…〕 in the file's menu");
 });
@@ -165,7 +165,7 @@ test("no encoder can take it: refused (REPAIR_ENCODER_MISSING), nothing written"
 });
 
 test("the check after a remux is ±1 s against what the original holds, not more", () => {
-  const { lengthHolds } = require("../make-editable");
+  const { lengthHolds } = require("../server/make-editable");
   a.equal(lengthHolds(100, 100.9), true);
   a.equal(lengthHolds(100, 101.2), false, "1.2 s off is not the same recording");
   a.equal(lengthHolds(7200, 7201.5), false, "not a share of a long one either");

@@ -24,7 +24,7 @@ test('the words, in both languages, with the track and the count filled in; Engl
 });
 
 test('〔加字幕〕 says it through those strings: the track and the count are the real ones, nothing written in', () => {
-  const app = read('app.js'), place = app.slice(app.indexOf('function placeCaptions('), app.indexOf('\n}\n', app.indexOf('function placeCaptions(')));
+  const app = read('app/app.js'), place = app.slice(app.indexOf('function placeCaptions('), app.indexOf('\n}\n', app.indexOf('function placeCaptions(')));
   a.match(place, /MontClipView\.tp\(mcView\.get\(\)\.language, "own\.cap-added-replaced", \{ n: list\.length, m: old\.length \}, \{ n: list\.length, track, m: old\.length \}\)/);
   a.match(place, /MontClipView\.tp\(mcView\.get\(\)\.language, "own\.cap-added", \{ n: list\.length \}, \{ n: list\.length, track \}\)/);
   // the old English sentence is left only for an imported file (it names the file; not part of N3d)

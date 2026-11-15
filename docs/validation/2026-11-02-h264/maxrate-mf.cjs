@@ -7,7 +7,7 @@
 // cap goes past it. Reported: the average bitrate and the highest bitrate over any 1 s window,
 // against the cap. Writes maxrate.json and maxrate.md next to this file.
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), cp = require('node:child_process');
-const FF = require('../../../ffmpeg-path'), Delivery = require('../../../delivery');
+const FF = require('../../../server/ffmpeg-path'), Delivery = require('../../../delivery');
 if (!FF.available('ffmpeg')) throw new Error('bundled ffmpeg not installed: ' + FF.reason('ffmpeg'));
 const SECONDS = 8, W = 1920, H = 1080, FPS = 30;
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-maxrate-'));

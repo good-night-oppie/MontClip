@@ -7,7 +7,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { inspectFlv, prepareMedia } = require("../prepare-media");
+const { inspectFlv, prepareMedia } = require("../server/prepare-media");
 
 const fail = (code, cause) => Object.assign(new Error(code, cause ? { cause } : undefined), { code });
 /** Moves a job to its next step; `done` counts that step's bytes (or, converting, the share of the recording done). */

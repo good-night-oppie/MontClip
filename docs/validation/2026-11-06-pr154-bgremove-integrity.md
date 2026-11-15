@@ -52,7 +52,7 @@ $env:MONTCLIP_FFPROBE=(Get-Command ffprobe).Source
 node --test test/bgremove-consent.test.js test/font-consent.test.js
 npm test -- --test-concurrency=4 --test-timeout=120000
 $env:SMOKE_EVIDENCE_DIR=Join-Path (Get-Location) '.cache/pr154'
-node real-tests/bgremove-consent-browser-smoke.cjs
+node dev/real-tests/bgremove-consent-browser-smoke.cjs
 node .github/scripts/release-check.js
 ```
 

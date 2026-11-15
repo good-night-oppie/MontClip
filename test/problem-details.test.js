@@ -23,7 +23,7 @@ const LOG = [
 ].join("\n");
 const GONE = [
   // the raw error and its call stack
-  "Error:", "Invalid data found", "at Object", "anonymous", "server.js", "1234:56", "task_queues", "node:internal",
+  "Error:", "Invalid data found", "at Object", "anonymous", "server/server.js", "1234:56", "task_queues", "node:internal",
   // paths and file names
   "C:\\", "D:\\", "\\\\NAS", "/home/", "/Users/", "AppData", "Videos", "Movies", "直播 录像", "小梨生日会", "OBS Rec", "2026-11-04 20-00", "b.flv", "c.mov", "x.mp4",
   // the user, her accounts, keys, tokens, viewers
@@ -133,8 +133,8 @@ test("the version line: MontClip's version and the system's family — nothing s
       a.ok(!v.includes(g), `「${g}」 in the version line: ${v}`);
   }
   // the server reads package.json and the system; the page alone has no version to say
-  const server = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
-  a.match(server, /return require\("\.\/package\.json"\)\.version;/);
+  const server = fs.readFileSync(path.join(__dirname, "..", "server/server.js"), "utf8");
+  a.ok(server.includes('require("../package.json").version'), 'the version comes from package.json');
   a.match(server, /const app = \{ version, platform: process\.platform, release: os\.release\(\) \};/);
 });
 
@@ -149,7 +149,7 @@ test("the server looks each file's size up, and says the version", { timeout: 60
   const version = R.versionLine({ version: require("../package.json").version, platform: process.platform, release: require("node:os").release() }, "zh-CN");
   a.equal(text, ["MontClip 问题信息 v1", version, "这次没有做完。", "相关文件：一个 mp4 文件，1.2 MB", "相关文件：一个 mkv 文件，大小不明", "给开发者看（不用管）：FLV_PROBE_FAILED"].join("\n"));
   a.match(version, /^版本：MontClip \d+\.\d+\.\d+ · (Windows 11|Windows 10|Windows|macOS|Linux)$/);
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.match(app, /const p = \{ text: r\.what \|\| r\.text \|\| "", code: r\.code \|\| "", log: r\.log \|\| "" \}/, "the page sends what happened, the code and the raw error (read for its files only)");
   a.match(app, /MontClipRedact\.problemDetails\(\{ \.\.\.p, app: \{ platform: navigator\.platform \|\| "" \} \}, \{ platform: [^}]*, language \}\)/, "the page's own fallback, the same rules");
 });
@@ -267,7 +267,7 @@ test("samples of what is copied (the PR shows them)", (t) => {
 /* QQ (#161, security): a path the page sends is never looked at. A file's size is found by its name only, where the server
    keeps files (media/, exports/, the files the project's media entries point at); found nowhere there: 「大小不明」. */
 test("a file's size: never a path the page sent — only its name, only where the server keeps files", () => {
-  const PF = require("../problem-files");
+  const PF = require("../server/problem-files");
   const os = require("node:os");
   const where = { mediaDir: path.join(os.tmpdir(), "mc-media"), exportsDir: path.join(os.tmpdir(), "mc-exports"),
     srcs: ["/media/archive/rec.mkv", "/media/other.mp4"], resolve: (src) => path.join(os.tmpdir(), "mc-media", ...src.slice(7).split("/")) };
@@ -285,7 +285,7 @@ test("a file's size: never a path the page sent — only its name, only where th
   a.deepEqual(PF.candidates("D:\\anything\\rec.mkv", where), [path.join(where.mediaDir, "rec.mkv"), path.join(where.exportsDir, "rec.mkv"), path.join(where.mediaDir, "archive", "rec.mkv")]);
   a.deepEqual(PF.candidates("..", where), []);
   // and nothing in the server stats a path from the page any more
-  const server = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
+  const server = fs.readFileSync(path.join(__dirname, "..", "server/server.js"), "utf8");
   const body = server.slice(server.indexOf('if (p === "/api/problem-details"'), server.indexOf("/* {fresh:true} once for a file"));
   a.doesNotMatch(body, /isAbsolute|statSync\(name|statSync\(f\)/);
   a.match(body, /ProblemFiles\.sizeOf\(name, where, fs\.statSync\)/);
@@ -308,7 +308,7 @@ test("the server: a file named by an absolute path outside its folders has no si
 /* Deja (#161, QQ's 要改): a request that climbs out with ../ or names an absolute path gets no size, and nothing outside
    the server's folders is looked at — checked on the names as written and on what they resolve to. */
 test("a file's size: ../ and absolute names resolve inside the server's folders or are refused", () => {
-  const PF = require("../problem-files");
+  const PF = require("../server/problem-files");
   const os = require("node:os");
   const where = { mediaDir: path.join(os.tmpdir(), "mc-media"), exportsDir: path.join(os.tmpdir(), "mc-exports"), srcs: [] };
   for (const asked of ["../beside.mp4", "..\..\beside.mp4", "media/../../beside.mp4", "C:beside.mp4", "/tmp/../beside.mp4",

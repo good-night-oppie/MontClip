@@ -16,7 +16,7 @@ if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error(
 const profile = profileArg.slice('--user-data-dir='.length).trim();
 const shotsDir = process.env.MONTCLIP_SHOTS_OUT || null;
 if (shotsDir && !path.isAbsolute(shotsDir)) throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
-const ffmpeg = require('../ffmpeg-path').path('ffmpeg');
+const ffmpeg = require('../server/ffmpeg-path').path('ffmpeg');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const ZH = {
   barOne: '⚠ 「tone-b.mp4」找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。',

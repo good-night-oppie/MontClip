@@ -18,7 +18,7 @@ if (!outDir || !path.isAbsolute(outDir)) throw Error('MONTCLIP_AV_OUT (an absolu
 const SECONDS = Math.max(2, Number(process.env.MONTCLIP_AV_SECONDS) || 10), FPS = 30, FIRST = 6, EVERY = 15;
 const ENCODER = process.env.MONTCLIP_AV_ENCODER || 'h264_mf';
 const Measure = require('./av-sync-measure.cjs');
-const ffmpeg = require('../ffmpeg-path').path('ffmpeg');
+const ffmpeg = require('../server/ffmpeg-path').path('ffmpeg');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const events = () => { const e = []; for (let n = FIRST; n < SECONDS * FPS; n += EVERY) e.push(Math.round(n / FPS * 1e6) / 1e6); return e; };
 

@@ -4,7 +4,7 @@
 // profile "delivery" (libx264, which only the user's own FFmpeg has). A delivery choice must always export as a delivery.
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
-const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
 
 test("a delivery choice always sends a delivery spec: filled from the chosen preset when the dialog had none", () => {
   const fn = app.slice(app.indexOf("function startChosenExport("), app.indexOf("\n}\n", app.indexOf("function startChosenExport(")));

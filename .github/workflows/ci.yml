@@ -108,55 +108,12 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Syntax-check JavaScript
-        run: |
-          for f in *.js; do
-            echo "checking $f"
-            node --check "$f"
-          done
-
-      - name: Validate JSON files
-        run: |
-          for f in package.json manifest.json .mcp.json \
-                   .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
-            node -e "JSON.parse(require('fs').readFileSync('$f','utf8')); console.log('$f OK')"
-          done
-
-      - name: Check the data-dir split
-        # NB: under `node -e`, __dirname is "." — compare against process.cwd(),
-        # which is the repo root here and therefore paths.js's own __dirname.
-        run: |
-          # Default: everything beside the code, as it has always been.
-          node -e "
-            const p = require('./paths');
-            if (p.SPLIT) { console.error('expected SPLIT=false with no env'); process.exit(1); }
-            if (p.PROJECT_FILE !== require('path').join(process.cwd(), 'project.json')) {
-              console.error('default project path moved:', p.PROJECT_FILE); process.exit(1);
-            }
-            console.log('default layout OK');
-          "
-          # With FABLECUT_DATA_DIR: user data moves, app files do not.
-          FABLECUT_DATA_DIR=/tmp/fc-data node -e "
-            const path = require('path');
-            const fs = require('fs');
-            const p = require('./paths');
-            const want = path.resolve(process.env.FABLECUT_DATA_DIR);
-            if (!p.SPLIT) { console.error('expected SPLIT=true'); process.exit(1); }
-            for (const [k, v] of Object.entries({
-              PROJECT_FILE: 'project.json', MEDIA_DIR: 'media',
-              EXPORTS_DIR: 'exports', ANALYSIS_DIR: 'analysis', LIBRARY_DIR: 'library',
-            })) {
-              if (p[k] !== path.join(want, v)) {
-                console.error(k, 'did not move:', p[k]); process.exit(1);
-              }
-            }
-            if (p.APP_DIR !== process.cwd()) { console.error('APP_DIR moved:', p.APP_DIR); process.exit(1); }
-            p.ensureDirs();
-            if (!fs.existsSync(path.join(want, 'library/svg/sparkles.svg'))) {
-              console.error('library was not seeded'); process.exit(1);
-            }
-            console.log('split layout OK');
-          "
+      # Source checks moved into .github/scripts/ci-check.js (MontClip #281 prep PR):
+      # it lists tracked .js with `git ls-files`, fails on zero/shrunk lists, and
+      # carries the JSON and data-dir-split assertions word for word. Later phases
+      # change only that script, never this workflow.
+      - name: Source checks (syntax, JSON, data-dir split)
+        run: node .github/scripts/ci-check.js
 
   release:
     # What a release will ship — checked here, before a release, instead of
@@ -172,20 +129,10 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Versions, metadata, syntax, MCP tools vs manifest.json
-        run: node .github/scripts/release-check.js
-
-      - name: Pack and install the npm package, then check what it ships
-        run: |
-          set -euo pipefail
-          out="$RUNNER_TEMP/pkg"
-          mkdir -p "$out/app"
-          npm pack --pack-destination "$out"
-          cd "$out/app"
-          npm init -y > /dev/null
-          npm install --no-audit --no-fund "$out"/montclip-*.tgz
-          cd "$GITHUB_WORKSPACE"
-          node .github/scripts/release-check.js --installed "$out/app/node_modules/montclip"
+      # release-check.js and the npm-pack list check run from ci-check.js --release
+      # (MontClip #281 prep PR), so later phases change only that script.
+      - name: Release readiness (release-check + npm-pack list)
+        run: node .github/scripts/ci-check.js --release
 
       - name: Docs and playground are rebuilt from CLAUDE.md / the editor
         run: |

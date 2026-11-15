@@ -2,7 +2,7 @@
   "mcpServers": {
     "fablecut": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server.js"],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/mcp-server.js"],
       "env": {
         "FABLECUT_DATA_DIR": "${CLAUDE_PLUGIN_DATA}"
       }

@@ -17,7 +17,7 @@ const { makeDataDir, freePort, seedProject, endTree } = require("./helpers");
 const { makeProfile, dropProfile, sweepLeftovers, noteCleanupError } = require("./browser-procs");
 
 const ROOT = path.join(__dirname, "..");
-const browser = (() => { try { return require("../export-jobs").findBrowser(); } catch { return null; } })();
+const browser = (() => { try { return require("../server/export-jobs").findBrowser(); } catch { return null; } })();
 
 test("A/B in a real browser: two task editors on one engine and port, B's command never reaches A", { skip: browser ? false : "no Chrome / Edge", timeout: 120000 }, async (t) => {
   const token = crypto.randomBytes(32).toString("hex");
@@ -27,7 +27,7 @@ test("A/B in a real browser: two task editors on one engine and port, B's comman
   const stops = [];
   t.after(async () => { for (const stop of stops.reverse()) try { await stop(); } catch { } });
   const dir = makeDataDir(t, seedProject({ media: [], clips: [{ id: "c_t", kind: "text", mediaId: null, track: "V1", start: 0, duration: 8, props: { text: "synthetic" } }] }));
-  const engine = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+  const engine = spawn(process.execPath, [path.join(ROOT, "server/server.js")], {
     cwd: ROOT, stdio: "ignore",
     env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1",
       MONTCLIP_DESKTOP: "", MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token },

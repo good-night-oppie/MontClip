@@ -9,7 +9,7 @@ if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke requir
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const profile=profileArg.slice('--user-data-dir='.length).trim();
-const ffmpeg=require('../ffmpeg-path').path('ffmpeg'),ffprobe=require('../ffmpeg-path').path('ffprobe'),SECONDS=6;
+const ffmpeg=require('../server/ffmpeg-path').path('ffmpeg'),ffprobe=require('../server/ffmpeg-path').path('ffprobe'),SECONDS=6;
 const outside=[],realFetch=globalThis.fetch;
 globalThis.fetch=async(url,opts)=>{if(/^http:\/\/127\.0\.0\.1:/.test(String(url)))return realFetch(url,opts);outside.push(String(url));throw Error('NETWORK');};
 

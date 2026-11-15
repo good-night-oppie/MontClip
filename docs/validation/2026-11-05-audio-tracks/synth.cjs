@@ -2,7 +2,7 @@
 // Track 0 「游戏声」 220 Hz all 20 s · track 1 「麦克风」 silent 0–5 s, 440 Hz 5–15 s, silent 15–20 s · track 2 BGM 880 Hz, quiet.
 "use strict";
 const path = require("path"), fs = require("fs"), { execFileSync } = require("child_process");
-const ffmpeg = require("../../../ffmpeg-path").path("ffmpeg");
+const ffmpeg = require("../../../server/ffmpeg-path").path("ffmpeg");
 const out = path.resolve(process.argv[2] || "."); fs.mkdirSync(out, { recursive: true });
 const run = (...a) => execFileSync(ffmpeg, ["-v", "error", "-y", ...a]);
 const V = ["-f", "lavfi", "-i", "color=c=gray:s=320x180:r=30:d=20"];

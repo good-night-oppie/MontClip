@@ -9,11 +9,11 @@ const { startServer, makeDataDir } = require('./helpers');
 test('Whisper, transformers.js and the browser worker are gone; the editor asks the local server to transcribe', () => {
   a.ok(!fs.existsSync(path.join(ROOT, 'transcribe-worker.js')), 'no browser worker');
   a.ok(!fs.existsSync(path.join(ROOT, 'desktop', 'transcribe-manifest.json')) && !fs.existsSync(path.join(ROOT, 'desktop', 'fetch-transcribe.cjs')));
-  for (const f of ['app.js', 'transcribe.js', 'index.html', 'server.js']) {
+  for (const f of ['app/app.js', 'transcribe.js', 'index.html', 'server/server.js']) {
     const s = read(f);
     a.ok(!/whisper|transformers\.min|onnxruntime-web|transcribe-worker|transcribe-assets|jsdelivr\.net\/npm\/@huggingface/i.test(s), f + ' still mentions the old browser path');
   }
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /fetch\("\/api\/asr\/transcribe", \{ method: "POST"/);
   a.ok(!/new Worker\(/.test(app.slice(app.indexOf('async function transcribeFile('), app.indexOf('async function transcribeSrcs('))));
 });
@@ -37,7 +37,7 @@ test('the server: model status, one transcription at a time, cancel; it reads mo
   const asrDir = path.join(dataDir, 'asr'); fs.mkdirSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node'), { recursive: true });
   fs.writeFileSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node', 'package.json'), '{}');
   // and its native part for this computer (P8: without it the engine is not ready)
-  const native = path.join(asrDir, 'engine', 'node_modules', require('../asr-local').nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, 'package.json'), '{}');
+  const native = path.join(asrDir, 'engine', 'node_modules', require('../server/asr-local').nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, 'package.json'), '{}');
   fs.writeFileSync(path.join(asrDir, 'silero_vad.onnx'), Buffer.alloc(643854));
   const s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: asrDir, MONTCLIP_ASR_MODELS_DIR: path.join(dataDir, 'no-models') });
   const st = await (await fetch(s.base + '/api/asr/status')).json();
@@ -97,8 +97,8 @@ test('licences: sherpa-onnx, onnxruntime, Paraformer, CT-Transformer, silero VAD
   a.match(read('desktop/package-win.cjs'), /licenses', 'asr'/);
 });
 test('the real engine on the model\'s own public test sentence (only where desktop/fetch-asr.cjs --models asr has run)', { skip: !fs.existsSync(path.join(ROOT, 'vendor', 'asr', 'models', 'asr', 'model.int8.onnx')) && 'vendor/asr models not fetched here' }, async () => {
-  const { createAsr } = require('../asr-local');
-  const asr = createAsr({ asrDir: path.join(ROOT, 'vendor', 'asr'), modelsDir: path.join(ROOT, 'vendor', 'asr', 'models'), ffmpeg: require('../ffmpeg-path').path('ffmpeg') });
+  const { createAsr } = require('../server/asr-local');
+  const asr = createAsr({ asrDir: path.join(ROOT, 'vendor', 'asr'), modelsDir: path.join(ROOT, 'vendor', 'asr', 'models'), ffmpeg: require('../server/ffmpeg-path').path('ffmpeg') });
   a.equal(asr.status().asr.ready, true);
   const wav = path.join(ROOT, 'vendor', 'asr', 'test_wavs', '0.wav');
   const r = await asr.transcribe(wav, {});
@@ -124,7 +124,7 @@ test('JJ v2: the download states and the empty panel, word for word', () => {
   a.equal(zh('tr-empty'), '还没有文稿。点「听写选中的」，把选中的片段听写成文字。');
   for (const k of ['asr-missing', 'asr-download', 'asr-downloading', 'asr-ready', 'asr-interrupted', 'asr-no-space', 'asr-check-failed', 'asr-resume', 'asr-later', 'asr-again', 'asr-download-cancel', 'tr-empty'])
     a.ok(V.text.en['own.' + k] && !/[一-鿿]/.test(V.text.en['own.' + k]), k + ' in English');
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.ok(!/data-tr-asr-punct/.test(app), 'the transcript tab offers no punctuation download (Settings › 听写 does: test/asr-jj3.test.js)');
   a.match(app, /data-tr-asr-cancel/); a.match(app, /data-tr-asr-later/);
 });

@@ -14,12 +14,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT, makeDataDir, startServer, seedProject } = require("./helpers");
-const Approval = require("../agent-approval");
+const Approval = require("../app/agent-approval");
 const Host = require("../host-embed");
 const View = require("../ui-preferences");
 const { withPage } = require("./browser-contrast");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
-const browser = (() => { try { return require("../export-jobs").findBrowser(); } catch { return null; } })();
+const browser = (() => { try { return require("../server/export-jobs").findBrowser(); } catch { return null; } })();
 const skip = !browser ? "no Chrome / Edge to run the page in" : typeof WebSocket !== "function" ? "needs Node's WebSocket (Node 22)" : false;
 
 const decision = (o = {}) => ({ ticket: "t1", choices: ["once", "session", "deny"], label: "保留所选范围", risk: "undoable", ...o });
@@ -74,7 +74,7 @@ test("her line names none of the code's words: agentApprovals, embedded, 内置,
   }
 });
 test("the editor shows her line when ask() is denied inside Cindy — held like a 〔撤销〕 toast (VV, #221)", () => {
-  const app = read("app.js");
+  const app = read("app/app.js");
   assert.match(app, /embedded:\(\)=>agentEmbedded,onEmbedded:\(\)=>toastHeld\(uiText\('own\.ap-embedded-declined'\)\)\}\);/);
   assert.ok(Number(app.match(/const UNDO_TOAST_MS = (\d+);/)[1]) >= 8000, "it stays 8 s or more");
   const held = app.slice(app.indexOf("function toastHeld("), app.indexOf("function toast(msg)"));
@@ -152,8 +152,11 @@ test("inside Cindy the built-in assistant sends nothing: no bridge call, no requ
   assert.equal(out.embedded, true);
   t.diagnostic(`embedded: ${out.calls.length} bridge calls, ${out.newRequests.length} requests and ${out.newFetches.length} fetches while poking the assistant, ${out.foreign.length} to another origin, ${out.assistantFetches.length} sound-fact fetches`);
   assert.deepEqual(out.calls, [], "the assistant's bridges: no key read, no service, no message, no mode");
-  assert.deepEqual(out.newRequests, [], "no request at all while the assistant is poked");
-  assert.deepEqual(out.newFetches, [], "no fetch while the assistant is poked");
+  // MontClip#244: on a loaded machine the editor's own undo-history sync (written 300 ms after a save) can land in
+  // this window; it is not the assistant, so it is not counted. Everything else still has to be empty.
+  const isUndoSync = (u) => String(u).replace(/^https?:\/\/[^/]+/, "").split("?")[0] === "/api/ui/undo-stack";
+  assert.deepEqual(out.newRequests.filter((u) => !isUndoSync(u)), [], "no request at all while the assistant is poked: " + JSON.stringify(out.newRequests));
+  assert.deepEqual(out.newFetches.filter((u) => !isUndoSync(u)), [], "no fetch while the assistant is poked: " + JSON.stringify(out.newFetches));
   assert.deepEqual(out.foreign, [], "nothing to another origin, from load on");
   assert.deepEqual(out.assistantFetches, [], "no sound facts read");
   assert.equal(out.paneMounted, 0, "the pane is not mounted");

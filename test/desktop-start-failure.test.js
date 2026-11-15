@@ -5,7 +5,7 @@
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { ROOT, makeDataDir, startServer } = require('./helpers');
-const WriterLock = require('../writer-lock');
+const WriterLock = require('../server/writer-lock');
 const { dataDirInUse, exitedAtStart, startFailureBox } = require('../desktop/startup-failure');
 const N = require('../desktop/native-text');
 const main = fs.readFileSync(path.join(ROOT, 'desktop', 'main.js'), 'utf8');
@@ -50,7 +50,7 @@ test("the plugin's engine first: the desktop app sees the live lock before it st
 test('both at the same moment: the server refuses with DATA_DIR_IN_USE, and its stderr is told apart', async (t) => {
   const dir = makeDataDir(t);
   await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_SHELL: 'cindy' });
-  const second = spawnSync(process.execPath, [path.join(ROOT, 'server.js')], { cwd: ROOT, encoding: 'utf8', timeout: 20000,
+  const second = spawnSync(process.execPath, [path.join(ROOT, 'server/server.js')], { cwd: ROOT, encoding: 'utf8', timeout: 20000,
     env: { ...process.env, PORT: '0', HOST: '127.0.0.1', FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: '1' } });
   a.notEqual(second.status, 0);
   const e = exitedAtStart(second.stderr);
@@ -66,7 +66,7 @@ test('the other one is the desktop app: told apart the same way, before the star
   const dir = makeDataDir(t);
   await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_SHELL: 'desktop' });
   a.equal(startFailureBox(dataDirInUse(dir, WriterLock.holder), N.nativeText('zh-CN')).message, JJ['zh-CN'].desktop);
-  const second = spawnSync(process.execPath, [path.join(ROOT, 'server.js')], { cwd: ROOT, encoding: 'utf8', timeout: 20000,
+  const second = spawnSync(process.execPath, [path.join(ROOT, 'server/server.js')], { cwd: ROOT, encoding: 'utf8', timeout: 20000,
     env: { ...process.env, PORT: '0', HOST: '127.0.0.1', FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: '1', MONTCLIP_SHELL: 'cindy' } });
   const e = exitedAtStart(second.stderr);
   a.equal(e.holder.shell, 'desktop');
@@ -77,7 +77,7 @@ test('the other one is the desktop app: told apart the same way, before the star
 
 test('main.js: checks the lock before starting the server, reads its stderr when it stops, and shows the box for the key', () => {
   const start = main.slice(main.indexOf('async function start()'));
-  const check = start.indexOf('dataDirInUse(env.FABLECUT_DATA_DIR, require("../writer-lock").holder)');
+  const check = start.indexOf('dataDirInUse(env.FABLECUT_DATA_DIR, require("../server/writer-lock").holder)');
   a.ok(check > 0 && check < start.indexOf('utilityProcess.fork('), 'before the fork');
   a.ok(start.includes('if (inUse) throw inUse;'));
   a.ok(start.includes('setTimeout(() => reject(exitedAtStart(startErr)), 100)'));

@@ -12,7 +12,7 @@ const SCREEN = /desktopCapturer|getDisplayMedia|getSources\s*\(|CopyFromScreen|B
 
 function scripts() {
   const out = [];
-  for (const [dir, re] of [["desktop", /\.(c?js)$/], ["real-tests", /\.(c?js)$/]]) {
+  for (const [dir, re] of [["desktop", /\.(c?js)$/], ["dev/real-tests", /\.(c?js)$/]]) {
     const abs = path.join(ROOT, dir);
     if (!fs.existsSync(abs)) continue;
     for (const f of fs.readdirSync(abs)) if (re.test(f)) out.push(dir + "/" + f);

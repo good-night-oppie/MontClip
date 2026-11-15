@@ -4,7 +4,7 @@
 // (docs/decisions/2026-11-02-h264-encoder.md) says for exports and proxies. With none, the import is refused
 // with a code of its own instead of a failed encode.
 const test = require("node:test"), a = require("node:assert/strict");
-const P = require("../prepare-media");
+const P = require("../server/prepare-media");
 
 test("the transcode arguments name the chosen encoder and never libx264 or libopenh264", () => {
   for (const e of ["h264_nvenc", "h264_qsv", "h264_amf", "h264_videotoolbox", "h264_mf"]) {
@@ -31,7 +31,7 @@ test("the usable encoders: hardware first, then h264_mf, each one answering, nev
 test("prepareMedia refuses with FLV_ENCODER_MISSING when no H.264 encoder works, before running ffmpeg", async () => {
   a.ok(P.PUBLIC_CODES.has("FLV_ENCODER_MISSING"));
   a.deepEqual(P.publicPreparationError({ code: "FLV_ENCODER_MISSING" }), { code: "FLV_ENCODER_MISSING", error: "FLV_ENCODER_MISSING" });
-  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "prepare-media.js"), "utf8");
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "server/prepare-media.js"), "utf8");
   // Deja, 2026-11-04: the encoders are asked for only when something has to be re-encoded, and none means a refusal first
   a.match(src, /const pick = async \(\) => \(encoders \?\?= \[\]\.concat\(await \(chooseEncoder \|\| usableH264\)\(\)\)\.filter\(Boolean\)\);\n  if \(reencode && !\(await pick\(\)\)\.length\) throw failure\("FLV_ENCODER_MISSING", originalSrc\);/);
   // QQ on #130 / Deja 2026-11-05: drift no longer re-encodes the picture (the sound is filled instead)

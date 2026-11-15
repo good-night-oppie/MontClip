@@ -22,7 +22,7 @@ function world(range) {
   const child = { execFile(cmd, args, opts, cb) { cb(null, JSON.stringify({ streams, format: { duration: range.duration } }), ''); return { once() {}, stdout: null }; } };
   const mod = { exports: {} };
   const console = { error: (...x) => lines.push(x.join(' ')), log: (...x) => lines.push(x.join(' ')), warn: (...x) => lines.push(x.join(' ')), info: (...x) => lines.push(x.join(' ')) };
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'prepare-media.js'), 'utf8'), {
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'server/prepare-media.js'), 'utf8'), {
     module: mod, exports: mod.exports, console,
     require: (id) => id === './ffmpeg-path' ? { path: (n) => n, available: () => true } : id === 'fs' ? fakeFs
       : id === 'node:child_process' ? child
@@ -58,14 +58,14 @@ test('an FLV import with breaks and drift logs no part of the file name or its f
 });
 
 test('a real FLV import with breaks and drift writes no part of the file name to stderr (synthetic recording)', async (t) => {
-  const FF = require('../ffmpeg-path');
+  const FF = require('../server/ffmpeg-path');
   if (!FF.available('ffmpeg') || !FF.available('ffprobe')) { t.skip('ffmpeg/ffprobe unavailable'); return; }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), '账号123456-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const { make, V, A } = require('./flv-fixtures');
   // small picture and sound drops, and the sound's clock creeping 120 ms behind the picture: imported as is, logged
   const { file } = make(dir, NAME, [V(9500, 67), V(22500, 34), A(31600, 58), ['creep', { from: 35000, to: 45000, by: 120 }]]);
-  const P = require('../prepare-media');
+  const P = require('../server/prepare-media');
   const lines = [], orig = { error: console.error, warn: console.warn, log: console.log, write: process.stderr.write };
   console.error = console.warn = console.log = (...x) => lines.push(x.join(' '));
   process.stderr.write = (chunk, ...rest) => { lines.push(String(chunk)); return true; };

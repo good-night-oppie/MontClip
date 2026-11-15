@@ -7,21 +7,21 @@ const crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const { makeDataDir, startServer, startMcp, readProject } = require("./helpers");
 // the bundled ffmpeg/ffprobe (ffmpeg-path.js), never PATH (#28)
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const available = () => FF.available("ffmpeg") && FF.available("ffprobe");
 const hash = file => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 // The H.264 encoders that work here (prepare-media.js usableH264: graphics card, then Windows' h264_mf). QQ (#28,
 // 5c986adf): on Windows there is always h264_mf, so an empty list there is a broken check and fails the test; elsewhere
 // (a Linux runner without a graphics card) the test is skipped.
 async function h264Here(t) {
-  const encoders = await require("../prepare-media").usableH264();
+  const encoders = await require("../server/prepare-media").usableH264();
   if (encoders.length) return encoders;
   if (process.platform === "win32") assert.fail("usableH264() found no H.264 encoder on Windows (h264_mf should always work)");
   t.skip("no H.264 encoder works here, so this H.264 path cannot run");
   return null;
 }
 test("public preparation errors sanitize unknown paths and distinguish confirmed disk errors", () => {
-  const {publicPreparationError} = require("../prepare-media");
+  const {publicPreparationError} = require("../server/prepare-media");
   const error = Object.assign(new Error("C:/private/user/file failed"), {code:"EACCES"});
   assert.deepEqual(publicPreparationError(error), {code:"IMPORT_FAILED", error:"IMPORT_FAILED"});
   assert.equal(publicPreparationError({code:"ENOSPC"}).code, "FLV_DISK_FULL");

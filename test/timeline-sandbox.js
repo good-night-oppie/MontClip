@@ -14,7 +14,7 @@ const fs = require("node:fs");
 const { ROOT } = require("./helpers");
 const MontClipEdit = require("../edit-ops.js");
 
-const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
 
 function slice(startMarker, endMarker) {
   const a = SRC.indexOf(startMarker);

@@ -62,7 +62,7 @@ async function main() {
     if (fs.statSync(vadTo).size !== vad.size || sha256(vadTo) !== vad.sha256) throw new Error(vad.file + ": does not match its SHA-256");
     // the models, the way the app gets them
     if (models.length) {
-      const { createStore } = require("../asr-models"), { fetchFile } = require("../asr-download");
+      const { createStore } = require("../server/asr-models"), { fetchFile } = require("../asr-download");
       const store = createStore({ manifest, roots: [], userDir: path.join(stage, "models") });
       for (const m of models) {
         const r = await store.download(m, { fetchFile });

@@ -12,7 +12,7 @@ const rules=[];{let depth=0,start=0,sel='';for(let i=0;i<css.length;i++){const c
  else if(c==='}'){depth--;if(depth===0){rules.push([sel,css.slice(start,i)]);start=i+1;}else if(depth<0)depth=0;}}}
 const at=(sel)=>rules.findIndex(([s])=>s.split(',').map(x=>x.trim()).includes(sel));
 // every <dialog> the page makes, by its class
-const app=read('app.js');
+const app=read('app/app.js');
 const made=[...app.matchAll(/(\w+)\s*=\s*document\.createElement\("dialog"\)[\s\S]{0,400}?\1\.className\s*=\s*"([\w-]+)"/g)].map(m=>m[2]);
 const classes=[...new Set([...made,'cindy-confirm'])];
 
@@ -31,7 +31,7 @@ test('no box is taller than the window; the tall ones scroll their middle, not t
   a.ok(rules.some(([s,b])=>s.split(',').map(x=>x.trim()).includes(sel)&&/display:\s*flex/.test(b)&&/flex-direction:\s*column/.test(b)),sel+' is a column');
  const body=rules.find(([s])=>/\.dialog-body/.test(s));a.ok(body);a.match(body[1],/overflow:\s*auto/);a.match(body[1],/min-height:\s*0/);
  a.match(read('index.html'),/<h2 id="settingsTitle"[^>]*>[^<]*<\/h2>\s*<div class="dialog-body">[\s\S]*?<\/div>\s*<div class="dialog-actions"><button class="btn primary" id="btnCloseSettings"/);
- const app=read('app.js');
+ const app=read('app/app.js');
  a.match(app,/function wrapDialogBody\(dialog\)/);a.match(app,/asrSetup\.dialog\.innerHTML = html;\s*wrapDialogBody\(asrSetup\.dialog\);/);
 });
 test('one rule after the reset centres every modal dialog and darkens the page behind it',()=>{
@@ -65,7 +65,7 @@ test('every dialog wears the editor’s colours: its own text colour, panel back
 // so el.contains(activeElement) alone never moved it to the first button. Every place that puts the focus inside a box
 // on opening also does so when the box itself has it.
 test('opening a box moves the focus in when the box itself has it, not only when it is outside',()=>{
- const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+ const app=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
  a.match(app,/const a = document\.activeElement;\s*if \(a === asrSetup\.dialog \|\| !asrSetup\.dialog\.contains\(a\)\) asrSetup\.dialog\.querySelector\("\.dialog-actions button"\)\?\.focus\(\);/);
  a.match(app,/const a = document\.activeElement;\s*if \(a === els\.exportSetup \|\| !els\.exportSetup\.contains\(a\)\) \$\("exportRangeSel"\)\?\.focus\(\);/);
  a.ok(!/if \(!\w+(?:\.\w+)*\.contains\(document\.activeElement\)\)[^;]*\.focus\(/.test(app),'no other box checks contains() alone before focusing');

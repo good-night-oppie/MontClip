@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {execFileSync,spawnSync}=require('node:child_process');
-const FF=require('../ffmpeg-path'),EP=require('../encode-profiles');
+const FF=require('../server/ffmpeg-path'),EP=require('../server/encode-profiles');
 for(const [label,fps] of [['decimal 23.976',23.976],['rational 24000/1001',24000/1001]])test('ProRes one-sample boundary: '+label,t=>{
   if(!FF.available('ffmpeg')||!FF.available('ffprobe'))return t.skip('ffmpeg/ffprobe unavailable');
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mc-sample-edge-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));

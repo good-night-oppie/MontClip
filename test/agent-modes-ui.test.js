@@ -25,7 +25,7 @@ test('four fixed channels, each behind the sender / frame / origin guard; Yolo a
 });
 
 test('the page asks only with the capability and the project: the reply’s words are never passed to decide',()=>{
- const app=read('app.js');
+ const app=read('app/app.js');
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:response\.type,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
  // an approval is the host box's answer through its ticket, nothing else
  a.match(app,/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/);
@@ -37,7 +37,7 @@ test('the page asks only with the capability and the project: the reply’s word
 });
 
 test('the approval card shows the plain sentence and the domain or project, never an internal name', () => {
- const Approval=require('../agent-approval'),cards=Approval.create(),result={};
+ const Approval=require('../app/agent-approval'),cards=Approval.create(),result={};
  void cards.ask({ticket:'t',label:'保留几段',risk:'project',choices:['once','session','deny']},{result});
  void cards.ask({ticket:'u',label:'发给 AI',risk:'external',target:'openrouter.ai',choices:['once','deny']},{result,content:'原文'});
  const say=(k,v)=>t('zh-CN',k,v),[c1,c2]=cards.view(result,say,'今晚');
@@ -46,7 +46,7 @@ test('the approval card shows the plain sentence and the domain or project, neve
  for(const c of [c1,c2])a.ok(!/keep_|fablecut_|capability/.test(JSON.stringify(c)));
 });
 test('自动 / Yolo apply only after a CAS on the project, as one undo step; per_range (exports) always opens the dialog',()=>{
- const app=read('app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
+ const app=read('app/app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
  a.match(body,/MontClipProposal\.current\(proposal,projectJSON\(\),/);
  a.match(body,/project\.revision!==result\.context\.revision/);
  a.ok(body.indexOf("outputMode==='per_range'")<body.indexOf('commitRangePlan('),'slices go to the dialog first');
@@ -54,7 +54,7 @@ test('自动 / Yolo apply only after a CAS on the project, as one undo step; per
 });
 
 test('a step approved through the card never says 「没有问你」; only a direct run (auto/Yolo) may (issuecomment-6644967814)',()=>{
- const app=read('app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
+ const app=read('app/app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
  // #134 (JJ): asked now → approved; allowed earlier for this chat → allowed; only a direct run (自动/Yolo) → 「没有问你」
  a.match(body,/const asked=d\.action==='ask';/);
  a.match(body,/toastAction\(asked\?uiText\('own\.ap-applied-approved'\):d\.byApproval\?uiText\('own\.ap-applied-allowed'\):uiText\('own\.ap-applied',/,'the applied toast picks the approved wording after the card, the direct wording only on run');
@@ -84,7 +84,7 @@ test('the switch sits at the top of the assistant; the Yolo mark is in the pane 
  a.ok(pane.indexOf('data-agent-modes')<pane.indexOf('cindy-thread'),'above the thread');
  a.match(pane,/options\.getMode\?\.\(\)==='yolo'&&<p className="agent-yolo-on" role="status" data-yolo-on title=\{t\.yoloOn\}>/);
  a.match(html,/<span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own\.ap-yolo-on">/);
- a.match(read('cindy-official.js'),/data-agent-modes/,'the bundle was rebuilt');
+ a.match(read('app/cindy-official.js'),/data-agent-modes/,'the bundle was rebuilt');
 });
 
 test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows the interface language',()=>{
@@ -102,7 +102,7 @@ test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows 
 });
 
 test('no approval box over the page any more: the card is in the stream (v7.2 §2; Deja, step 3)',()=>{
- const app=read('app.js'),css=read('style.css');
+ const app=read('app/app.js'),css=read('style.css');
  a.ok(!app.includes('data-agent-approval')&&!app.includes("className='agent-approval'"),'the old box is gone');
  a.ok(!/\.agent-approval[ :{]/.test(css));
  a.ok(read('agent-ui/pane.tsx').includes('<HostCard key={c.id} card={c}'));
@@ -116,7 +116,7 @@ test('Yolo (v7.2; Deja, 2026-11-04): the bar, and the mode tip in JJ final words
 });
 
 test('the approval card has one main button: 〔只批准这次〕 (VV on #84 53f641d; 「这个聊天中都批准」 outlined, 〔不同意〕 plain)',()=>{
- const Approval=require('../agent-approval'),cards=Approval.create(),result={};
+ const Approval=require('../app/agent-approval'),cards=Approval.create(),result={};
  void cards.ask({ticket:'t',label:'L',risk:'project',choices:['deny','session','once']},{result});
  a.deepEqual(cards.view(result,(k)=>k)[0].actions.map(x=>[x.id,x.kind]),[['once','primary'],['session','secondary'],['deny','plain']]);
  const card=read('agent-ui/HostCard.tsx');

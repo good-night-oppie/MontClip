@@ -32,7 +32,7 @@ test('main and preload: one fixed channel each way, plain values only', () => {
 });
 
 test('the queue: its button, Save on each item and Saved come from the interface language; no English left in them', () => {
-  const app = read('app.js'), html = read('index.html');
+  const app = read('app/app.js'), html = read('index.html');
   a.doesNotMatch(app, /download>Open<\/a>/, 'no hard-coded Open');
   a.doesNotMatch(app, /`Queue · \$\{/, 'no hard-coded Queue · n');
   a.match(app, /btnOpen\.textContent = exportQueue\.length \? uiText\("own\.q-list-n", \{ n: pending \|\| exportQueue\.length \}\) : uiText\("own\.q-list"\);/);
@@ -43,12 +43,12 @@ test('the queue: its button, Save on each item and Saved come from the interface
 });
 
 test("the queue's Save saves this export again: it names itself, so only a completed save removes the copy", () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /renderQueue\(\); saveDownload\(q\.src, q\.file \|\| decodeURIComponent\(q\.src\.split\("\/"\)\.pop\(\)\), \{ exportFile: true \}\); return; \}/);
 });
 
 test('the page: success only once saved; a cancel says how to save again; captions say so too', () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   const fn = app.slice(app.indexOf('function saveDownload('), app.indexOf('\n}\n', app.indexOf('function saveDownload(')));
   a.match(fn, /if \(exportFile\) \{ window\.montclipDownloads\.expect\(name\); pendingExports\.add\(name\);/);
   a.match(fn, /if \(kind\) pendingKinds\.set\(name, kind\);/);
@@ -65,7 +65,7 @@ test('the page: success only once saved; a cancel says how to save again; captio
 });
 
 test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved item shows only 已保存, no path", () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /if \(s\) \{ if \(q\.saving\) return; q\.saving = true; renderQueue\(\); saveDownload\(/, 'a second click does nothing while the first save is open');
   a.match(app, /for \(const q of exportQueue\) if \(q\.file === name\) \{ q\.saving = false; if \(removed\) q\.saved = true; \}/, 'the end of that save frees the button');
   a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? ` disabled/);
@@ -73,7 +73,7 @@ test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved 
 });
 
 test('VV on 2333c24: Save is greyed while any save of that export is open, with the reason; a refused one says so', () => {
-  const app = read('app.js'), ui = read('ui-preferences.js');
+  const app = read('app/app.js'), ui = read('ui-preferences.js');
   a.ok(ui.includes('"save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"]'));
   a.match(app, /if \(exportFile\) \{ window\.montclipDownloads\.expect\(name\); pendingExports\.add\(name\); for \(const q of exportQueue\) if \(q\.file === name\) q\.saving = true; renderQueue\(\); \}/, 'the export flow\'s own save greys the row too');
   a.match(app, /if \(state === "refused"\) \{ toast\(uiText\("own\.save-busy"\)\); return; \}/);

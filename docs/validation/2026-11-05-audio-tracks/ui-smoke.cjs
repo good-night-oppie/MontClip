@@ -10,7 +10,7 @@ const after=[];const t={after:(f)=>after.push(f)};const sleep=(ms)=>new Promise(
     {id:'c_cap',mediaId:null,kind:'text',track:'V2',start:5,in:0,duration:2,name:'Caption',props:{text:'改过的字幕',captionMade:'原来的字幕',caption:true,captionStyle:'subtitle',wordTimes:[[0,1]]}}]});
  fs.writeFileSync(path.join(dir,'project.json'),JSON.stringify(proj));fs.mkdirSync(path.join(dir,'media'));
  const mic="sine=frequency=440:sample_rate=48000:duration=20,volume=enable='lt(t,5)+gte(t,15)':volume=0";
- spawnSync(require('../../../ffmpeg-path').path('ffmpeg'),['-v','error','-y','-f','lavfi','-i','color=c=gray:s=320x180:r=30:d=20','-f','lavfi','-i','sine=frequency=220:sample_rate=48000:duration=20','-f','lavfi','-i',mic,
+ spawnSync(require('../../../server/ffmpeg-path').path('ffmpeg'),['-v','error','-y','-f','lavfi','-i','color=c=gray:s=320x180:r=30:d=20','-f','lavfi','-i','sine=frequency=220:sample_rate=48000:duration=20','-f','lavfi','-i',mic,
   '-map','0:v','-map','1:a','-map','2:a','-c:v','mpeg4','-c:a','aac','-ac','2','-metadata:s:a:0','title=Game','-metadata:s:a:1','title=Mic',path.join(dir,'media','r.mkv')]);
  const {base}=await H.startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1'});
  const prof=fs.mkdtempSync(path.join(os.tmpdir(),'mc-chr-'));

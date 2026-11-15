@@ -11,7 +11,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
-const J = require("../export-jobs");
+const J = require("../server/export-jobs");
 const V = require("../ui-preferences");
 const { makeDataDir, seedProject, startServer, startMcp } = require("./helpers");
 
@@ -116,7 +116,7 @@ test("the page has plain Chinese for both new codes", () => {
 });
 
 test("a tab running a job keeps answering while it works", () => {
-  const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
   const at = app.indexOf("async function runExportJob(");
   const body = app.slice(at, at + 2500);
   assert.match(body, /setInterval\(/, "a heartbeat while the job runs");
@@ -227,7 +227,7 @@ for (const [tool, args] of [["fablecut_scopes", { time: 1 }], ["fablecut_frame",
 test("a host giving up on callTool (its AbortSignal) cancels the job, and a later export is accepted", async (t) => {
   const { dir, base, port, tab } = await boot(t);
   Object.assign(process.env, { FABLECUT_PORT: String(port), FABLECUT_DATA_DIR: dir, FABLECUT_NO_AUTOSTART: "1" });
-  const { callTool } = require("../mcp-server.js");
+  const { callTool } = require("../server/mcp-server.js");
   const ac = new AbortController();
   const call = callTool("fablecut_frame", { time: 1 }, { signal: ac.signal }).then(() => null, (e) => e);
   const ticket = await tab.next();
@@ -287,7 +287,7 @@ test('a hidden owner returning to the front is preserved and foreign heartbeats 
 for (const skipped of [true,false]) test(`transcription reports retain the claiming tab identity (skipped=${skipped})`, async () => {
   const q=queue(); try {
     const j=q.jobs.request({kind:'transcribe'}); q.jobs.claim(j.id,{tabId:'a',hidden:false});
-    const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+    const app=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8');
     const code=app.slice(app.indexOf('async function runTranscribeJob('),app.indexOf('function clearSilences('));
     let cancelled=false;
     const ctx={exportTabId:'a',document:{hidden:false},MontClipTranscribe:{model:()=>({})},trState:{busy:false},
@@ -301,7 +301,7 @@ for (const skipped of [true,false]) test(`transcription reports retain the claim
 });
 
 test('tab identity initializes without secure-context randomUUID', () => {
-  const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+  const app=fs.readFileSync(path.join(ROOT,'app/app.js'),'utf8');
   const declaration=app.match(/^const exportTabId = .*;$/m)[0];
   const ctx={crypto:{},Date,Math};
   require('node:vm').runInNewContext(declaration+';this.id=exportTabId;',ctx);

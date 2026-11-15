@@ -1,0 +1,12 @@
+# SUMMARY ONLY — this is not the complete TAP log.
+# Full log is preserved in this task checkout: .artifacts/issue285/full-public-green.tap
+# Full preserved log SHA-256: 267170b0d73f332e59d524b381172f715fc9df947829e3f7a376b3a700e47f9a
+# Environment: Windows 11, Node 22.15.1; synthetic document only, no private media.
+# Command: node --test test/roll-replaced-picture.test.js test/trim-tools.test.js test/timeline-controls.test.js
+# Runtime files match the candidate receipt; includes direct, patch and MCP saved-document paths.
+# tests 192
+# pass 192
+# fail 0
+# skipped 0
+# Coverage: mixed-source in/out ±.1/±.04/±.5/±2; continuity, locks, unlink, source limits, legacy orphan refusal and saved MCP readback.
+# To obtain the complete log: ask Cindy/QQ to read the preserved local path above; it is retained byte for byte.

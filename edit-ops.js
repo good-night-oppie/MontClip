@@ -32,6 +32,9 @@
   const CROSSFADE_DUR = 1;
   const GAP_EPS = 1e-4;
   const TRIM_EPS = 1e-3;
+  // Split/trim store source In and edges to four decimals. Allow their
+  // independent rounding, not a frame-sized gap or a different source window.
+  const ROLL_TIME_EPS = 1.5e-4;
   const XF_EPS = 0.02;
   const TRIM_LOCKED = "Locked — unlock the clip or its track to edit";
   const DEFAULT_TRACKS = [
@@ -244,14 +247,33 @@
       const near = (a, b) => Math.abs((+a || 0) - (+b || 0)) < 1e-3;
       // A denoised copy of a file (media.derivedFrom) still pairs with its picture.
       const baseOf = (id) => getMedia(id)?.derivedFrom || id;
+      // A picture-only replacement keeps its recorded companions. Never infer
+      // mixed-source links from overlap: an existing AV group is the evidence.
+      const saved = new Map();
+      for (const c of project.clips) if (c.linkGroup && c.unlinked !== true) {
+        if (!saved.has(c.linkGroup)) saved.set(c.linkGroup, []);
+        saved.get(c.linkGroup).push(c);
+      }
+      const kept = new Set();
+      for (const group of saved.values()) {
+        const videos = group.filter(c => c.kind === "video");
+        if (videos.length !== 1) continue;
+        const v = videos[0], audio = group.filter(c => c.kind === "audio");
+        if (!audio.length || audio.length + 1 !== group.length ||
+            new Set(group.map(c => c.track)).size !== group.length ||
+            !audio.some(a => baseOf(a.mediaId) !== v.mediaId) ||
+            !audio.every(a => near(a.start, v.start) && near(a.duration, v.duration) &&
+              audio.every(b => b.mediaId !== a.mediaId || near(a.in, b.in)))) continue;
+        for (const c of group) kept.add(c.id);
+      }
       for (const c of project.clips) {
-        delete c.linkGroup;
+        if (!kept.has(c.id)) delete c.linkGroup;
         delete c.linkedId;
       }
       const audios = project.clips.filter((c) => c.kind === "audio" && c.mediaId && c.unlinked !== true);
-      const used = new Set();
+      const used = new Set(kept);
       for (const v of project.clips) {
-        if (v.kind !== "video" || !v.mediaId || v.unlinked === true) continue;
+        if (v.kind !== "video" || !v.mediaId || v.unlinked === true || kept.has(v.id)) continue;
         const partners = audios.filter((a) =>
           !used.has(a.id) &&
           baseOf(a.mediaId) === v.mediaId &&
@@ -857,6 +879,43 @@
       const left = side === "out" ? c : adjacentClip(c, "in");
       const right = side === "out" ? adjacentClip(c, "out") : c;
       if ([left, right].some((x) => x && isGroupLocked(x))) return TRIM_LOCKED;
+      const groups = [left, right].map(x => x ? withLinked([x]) : []);
+      const mixed = groups.some(g => {
+        const v = g.find(x => x.kind === "video");
+        return v && g.some(x => x.kind === "audio" && (getMedia(x.mediaId)?.derivedFrom || x.mediaId) !== v.mediaId);
+      });
+      const continuityRefusal = "这一段的画面换过了，声音还是原来的。这次移动没法让声音保持连着，所以没有改。";
+      // Older saves may already have lost the replacement's links. Matching
+      // channel timing is not proof of ownership: refuse, never recruit it or
+      // silently move just the other side's sound. An explicit unlink opts out.
+      for (const v of [left, right]) if (v?.kind === "video" && v.unlinked !== true &&
+          !withLinked([v]).some(x => x.kind === "audio") && P().clips.some(a =>
+            a.kind === "audio" && a.unlinked !== true && !a.linkGroup &&
+            Number.isInteger(a.props?.audioChannel) && a.mediaId !== v.mediaId &&
+            Math.abs(a.start - v.start) <= ROLL_TIME_EPS &&
+            Math.abs(a.duration - v.duration) <= ROLL_TIME_EPS)) return continuityRefusal;
+      if (mixed) {
+        // Check every channel before touching either edge. A ramp or different
+        // source rate cannot use the linear head/tail trims below losslessly.
+        if (!left || !right || groups.some((g, i) => g.some(x => hasSpeedRamp(x) ||
+            !(sourceLen(x) > 0) || clipSpeed(x) !== clipSpeed(i ? right : left) ||
+            Math.abs(x.start - (i ? right : left).start) > ROLL_TIME_EPS ||
+            ((getMedia(x.mediaId)?.derivedFrom || x.mediaId) === (i ? right : left).mediaId &&
+              Math.abs(x.in - (i ? right : left).in) > ROLL_TIME_EPS) ||
+            Math.abs(x.duration - (i ? right : left).duration) > ROLL_TIME_EPS))) return continuityRefusal;
+        const audio = groups.map(g => g.filter(x => x.kind === "audio"));
+        // Source In belongs to each file. A replacement picture may start at
+        // zero while its original sound starts late in a different recording.
+        if (audio.some(g => g.some(a => g.some(b => b.mediaId === a.mediaId &&
+            Math.abs(a.in - b.in) > ROLL_TIME_EPS)))) return continuityRefusal;
+        if (audio[0].length !== audio[1].length) return continuityRefusal;
+        for (const a of audio[0]) {
+          const matches = audio[1].filter(b => b.track === a.track && b.mediaId === a.mediaId &&
+            b.props?.audioChannel === a.props?.audioChannel && clipSpeed(b) === clipSpeed(a));
+          if (matches.length !== 1 || Math.abs(timeAt(a, clipEnd(a)) - matches[0].in) > ROLL_TIME_EPS)
+            return continuityRefusal;
+        }
+      }
       let lo = -Infinity, hi = Infinity;
       if (left) { lo = MIN_DUR - left.duration; hi = groupMaxDur(left) - left.duration; }
       else lo = -freeRoom(right, "in");
@@ -865,6 +924,9 @@
         lo = Math.max(lo, -groupHeadRoom(right));
       } else hi = Math.min(hi, freeRoom(left, "out"));
       const d = clampD(delta, lo, hi);
+      // A replacement roll is all-or-nothing; a shorter move hides missing
+      // source handles from the caller. Ordinary trims keep their old limits.
+      if (mixed && Math.abs(d - delta) > 1e-9) return continuityRefusal;
       if (Math.abs(d) < 1e-9) return 0;
       if (left) trimGroupTail(left, left.duration + d);
       if (right) trimGroupHead(right, d, true);
@@ -878,18 +940,19 @@
       if (isGroupLocked(c)) return TRIM_LOCKED;
       const sp = clipSpeed(c);
       const group = withLinked([c]);
-      // The shared In may go no later than the tightest member allows: each one
-      // consumes its own span of source (speed can differ across the group).
-      let maxIn = Infinity;
+      // Move by common source seconds, retaining each member's own In. The
+      // tightest head/tail limits the group; speeds affect each source span.
+      let loShift = -Infinity, hiShift = Infinity;
       for (const x of group) {
         if (!hasSourceTime(x)) continue;
+        loShift = Math.max(loShift, -Math.max(0, x.in));
         const len = sourceLen(x);
-        if (len > 0) maxIn = Math.min(maxIn, Math.max(0, len - (timeAt(x, clipEnd(x)) - x.in)));
+        if (len > 0) hiShift = Math.min(hiShift, Math.max(0, len - timeAt(x, clipEnd(x))));
       }
-      const newIn = clampD(c.in - delta * sp, 0, maxIn);
-      const d = (c.in - newIn) / sp;
+      const shift = clampD(-delta * sp, loShift, hiShift);
+      const d = -shift / sp;
       if (Math.abs(d) < 1e-9) return 0;
-      for (const x of group) x.in = +newIn.toFixed(4);
+      for (const x of group) if (hasSourceTime(x)) x.in = +(x.in + shift).toFixed(4);
       return d;
     }
     /** Slide: move c along its track; the clip before it lengthens or

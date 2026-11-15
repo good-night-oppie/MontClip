@@ -12,7 +12,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const { makeDataDir, seedProject, startServer } = require("./helpers");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 
 const ROOT = path.join(__dirname, "..");
 const PLAT = `${process.platform}-${process.arch}`;

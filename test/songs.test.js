@@ -79,7 +79,7 @@ test('two levels only, 「估的」 and 「比较可能」 (Deja: the measured p
  a.throws(()=>S.entry({key:'k',complete:true,scanned:1,songs:[{...song,confidence:'sure'}]}),/SONGS_INVALID/);
  a.equal(S.entry({key:'k',complete:true,scanned:1,songs:[{...song,confidence:'likely'}]}).songs[0].confidence,'likely');
  const read=f=>require('node:fs').readFileSync(require('node:path').join(__dirname,'..',f),'utf8');
- const tool=require('../mcp-tools').find(t=>t.name==='fablecut_songs').description;
+ const tool=require('../server/mcp-tools').find(t=>t.name==='fablecut_songs').description;
  a.ok(!/\bsure\b/.test(tool)&&/likely/.test(tool),'the MCP description says likely, never sure');
  a.ok(!/准/.test(require('../capabilities').get('fablecut_songs').summary['zh-CN']));
  const doc=read('CLAUDE.md');const sec=doc.slice(doc.indexOf('### Songs in a recording'),doc.indexOf('\n## ',doc.indexOf('### Songs in a recording')));
@@ -93,7 +93,7 @@ test('the capability says 可能在唱歌, and the AI is told to say 可能在�
   const Cap = require('../capabilities'), c = Cap.get('fablecut_songs');
   a.equal(c.summary['zh-CN'], '找出录像里可能在唱歌的段落，标出估的地方');
   a.equal(c.summary.en, 'Find the parts of a recording that are possibly singing, marking the guessed spots');
-  const tool = require('../mcp-tools').find((t) => t.name === 'fablecut_songs').description;
+  const tool = require('../server/mcp-tools').find((t) => t.name === 'fablecut_songs').description;
   const fs = require('node:fs'), path = require('node:path');
   const sec = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8').split('### Songs in a recording (MontClip)')[1].split('\n## ')[0].split('\n### ')[0];
   for (const [where, s] of [['MCP description', tool], ['CLAUDE.md', sec]]) {

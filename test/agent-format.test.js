@@ -4,7 +4,7 @@
 // button appears only for a usable proposal; errors are told apart; OpenRouter is a third
 // fixed service. Unit tests: no network, substitutes only.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const S=require('../desktop/agent-service'),F=require('../agent-format'),C=require('../agent-conversation');
+const S=require('../desktop/agent-service'),F=require('../agent-format'),C=require('../app/agent-conversation');
 const pane=fs.readFileSync(path.join(__dirname,'../agent-ui/pane.tsx'),'utf8'),view=require('../ui-preferences').text;
 const payload=(content='keep these')=>({version:1,requestId:'r1',projectId:'p',sequenceId:'s',revision:1,gen:0,messages:[{role:'user',content}]});
 const service=(request,extra={})=>{const s=S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:'nvidia/x-vl:free',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>'test-key',request,providers:S.ALL_PROVIDERS,...extra});return s;}; // OpenRouter: the test switch (agent-providers.test.js)
@@ -66,9 +66,9 @@ test('errors are told apart: key, rate limit, upstream, network, timeout',async(
 });
 
 test('real-model tests are opt-in and never part of the default or CI run',()=>{
- const real=fs.readdirSync(path.join(__dirname,'..','real-tests'));
+ const real=fs.readdirSync(path.join(__dirname,'..','dev/real-tests'));
  for(const f of real)a.ok(!/\.test\.[cm]?js$|-test\.|_test\.|^test-/.test(f),f+' must not match node --test defaults');
- for(const f of real.filter(f=>/openrouter|deepseek/.test(f))){const src=fs.readFileSync(path.join(__dirname,'..','real-tests',f),'utf8');a.match(src,/MONTCLIP_REAL_MODELS/,f);}
+ for(const f of real.filter(f=>/openrouter|deepseek/.test(f))){const src=fs.readFileSync(path.join(__dirname,'..','dev/real-tests',f),'utf8');a.match(src,/MONTCLIP_REAL_MODELS/,f);}
  const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');a.ok(!/MONTCLIP_REAL_MODELS|openrouter-token|openrouter-montclip|OPENROUTER_KEY_FILE|deepseek/i.test(ci),'CI never enables them or holds their keys');
  const pkg=require('../package.json');a.equal(pkg.scripts.test,'node --test');
 });

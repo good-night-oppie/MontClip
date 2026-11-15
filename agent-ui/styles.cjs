@@ -20,7 +20,7 @@ const SKIP = ['__tests__'];
 // a part's box (parts.tsx), Radix popovers and tooltips, Cindy's MorphPopover panel, its confirm dialog and that dialog's scrim
 const SCOPE = ':where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)';
 // the variables MontClip's own page uses or sets
-const OWN = ['style.css', 'app.js', 'index.html', 'agent-ui/pane.tsx'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
+const OWN = ['style.css', 'app/app.js', 'index.html', 'agent-ui/pane.tsx'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 const montclipNames = () => new Set(OWN.flatMap((t) => [...t.matchAll(/var\(\s*--([\w-]+)|(?:^|[{;\s'"])--([\w-]+)\s*:|setProperty\(\s*['"]--([\w-]+)/g)].map((m) => m[1] || m[2] || m[3])));
 // where a selector's first compound ends (at a combinator or a pseudo-element), so SCOPE can go on that element itself
 function firstCompoundEnd(s) {

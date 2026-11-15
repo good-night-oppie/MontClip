@@ -8,9 +8,9 @@ const fs = require("node:fs"), os = require("node:os"), path = require("node:pat
 const { spawn, fork } = require("node:child_process");
 const crypto = require("node:crypto");
 const Close = require("../desktop/export-close");
-const Cleanup = require("../export-cleanup");
+const Cleanup = require("../server/export-cleanup");
 const { makeDataDir } = require("./helpers");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 test("the prompt: JJ's final copy, 「继续导出」 the default and what Enter / Esc mean", () => {
@@ -69,7 +69,7 @@ test("main.js asks on every close (× and Alt+F4 are the same window close) befo
   a.match(main, /require\("\.\/export-close"\)/);
   a.match(main, /\/api\/export\/active/);
   a.match(main, /exportCloseState/);
-  a.match(read("app.js"), /function exportCloseState\(\) \{/);
+  a.match(read("app/app.js"), /function exportCloseState\(\) \{/);
 });
 
 test("main.js holds every quit until the service has exited (a second quit used to cut its cleanup short)", () => {
@@ -120,7 +120,7 @@ test("past the time limit it gives up, says which paths are left, and does not h
 // The desktop server, as main.js runs it (token, IPC "shutdown"), during a real export.
 async function desktopServer(t, dir) {
   const token = crypto.randomBytes(32).toString("hex");
-  const child = fork(path.join(__dirname, "..", "server.js"), [], { env: { ...process.env, PORT: "0", HOST: "127.0.0.1",
+  const child = fork(path.join(__dirname, "..", "server/server.js"), [], { env: { ...process.env, PORT: "0", HOST: "127.0.0.1",
     MONTCLIP_DESKTOP: "1", MONTCLIP_SESSION_TOKEN: token, FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1" }, stdio: ["ignore", "ignore", "pipe", "ipc"] });
   let exited = false; child.on("exit", () => { exited = true; });
   t.after(() => { if (!exited) child.kill(); });
@@ -316,7 +316,7 @@ test("the server deletes only copies this session exported, by base name; unrela
 test("a copy being saved (q.saving) is not counted as not saved, in the page and in the main process", () => {
   const queue = [{ status: "done", file: "a.mp4" }, { status: "done", file: "b.mp4", saving: true }, { status: "done", file: "c.mp4", saved: true }];
   a.equal(Close.unsavedCount(queue), 1);
-  const app = read("app.js"), i = app.indexOf("function exportCloseState()"), fn = app.slice(i, app.indexOf("\n}", i) + 2);
+  const app = read("app/app.js"), i = app.indexOf("function exportCloseState()"), fn = app.slice(i, app.indexOf("\n}", i) + 2);
   const state = new Function("exportQueue", "state", "bgExportBusy", fn + "return exportCloseState();")(queue, { exporting: false }, () => false);
   a.deepEqual(state, { exporting: false, unsaved: 1, files: ["a.mp4"] });
   // a background export (#263) counts as exporting: closing the window would stop it
@@ -333,7 +333,7 @@ test("a file the server refuses to delete counts as not deleted: it is named, th
   a.equal(k.asked[2].detail.split("\n")[0], U.files[1], "still named while it is refused");
 });
 test("the cleanup log and stderr show no user name: paths are masked", () => {
-  const server = read("server.js"), i = server.indexOf("function logCleanupLeft("), fn = server.slice(i, server.indexOf("\n}", i) + 2);
+  const server = read("server/server.js"), i = server.indexOf("function logCleanupLeft("), fn = server.slice(i, server.indexOf("\n}", i) + 2);
   a.match(fn, /X\.maskUserPath\(p\)/, "each path is masked before it is written or printed");
   a.ok(!/not removed: \$\{p\}/.test(fn));
 });

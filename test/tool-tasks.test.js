@@ -4,7 +4,7 @@ const a = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { tmpDir } = require('./helpers');
-const { createToolTasks } = require('../tool-tasks');
+const { createToolTasks } = require('../server/tool-tasks');
 
 test('MC-04: a simulated 65 second job returns a ticket before the 60 second host limit', async t => {
   if (Number(process.versions.node.split('.')[0]) >= 20) t.mock.timers.enable({ apis: ['setTimeout'] });
@@ -75,8 +75,8 @@ test('terminal receipt write failure stays uncertain without exposing unrelated 
   const dir = tmpDir(t), mod = { exports: {} };
   const io = Object.create(fs);
   io.renameSync = () => { throw Object.assign(new Error('disk full at C:/Users/private-account/unrelated'), {code:'ENOSPC'}); };
-  require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../tool-tasks.js'), 'utf8'), {
-    module: mod, require: id => id === 'node:fs' ? io : id === './tool-error' ? require('../tool-error') : require(id), process, setTimeout, clearTimeout,
+  require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../server/tool-tasks.js'), 'utf8'), {
+    module: mod, require: id => id === 'node:fs' ? io : id === './tool-error' ? require('../server/tool-error') : require(id), process, setTimeout, clearTimeout,
   });
   const tasks = mod.exports.createToolTasks({dir});
   let mutations = 0;
@@ -95,8 +95,8 @@ test('a Windows reader briefly holding the receipt does not fail a successful mu
     if (++attempts <= 2) throw Object.assign(new Error('reader still holds destination'), {code:'EPERM'});
     return fs.renameSync(...args);
   };
-  require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../tool-tasks.js'), 'utf8'), {
-    module:mod, require:id => id === 'node:fs' ? io : id === './tool-error' ? require('../tool-error') : require(id), process, setTimeout, clearTimeout,
+  require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../server/tool-tasks.js'), 'utf8'), {
+    module:mod, require:id => id === 'node:fs' ? io : id === './tool-error' ? require('../server/tool-error') : require(id), process, setTimeout, clearTimeout,
   });
   const input = {scope:'p',name:'captions',args:{},key:'reader',waitForCompletion:true};
   const r = await mod.exports.createToolTasks({dir}).call(input, update => { update({done:1,total:1}); return ++mutations; });

@@ -20,18 +20,18 @@ const { execFileSync } = require("node:child_process");
 const T = require("../transcribe.js");
 
 const RATE = 16000;
-const ffmpeg = () => require("../ffmpeg-path").path("ffmpeg");
+const ffmpeg = () => require("../server/ffmpeg-path").path("ffmpeg");
 const BEEPS = [1, 3.5, 6, 8.5];
 
 /* ── the shared reader ── */
 
 test("readArgs: whole, a window from before 3 s (no -ss), a later window (-ss); every read through #149's clock filter", () => {
-  const { readArgs: readAudioArgs, SEEK_MIN, CLOCK_FILTER } = require("../asr-local.js");
+  const { readArgs: readAudioArgs, SEEK_MIN, CLOCK_FILTER } = require("../server/asr-local.js");
   a.equal(SEEK_MIN, 3);
   a.ok(!fs.existsSync(path.join(__dirname, "..", "audio-read.js")), "no second shared reader next to #149's");
   // #149 is merged: asr-local.js uses the very CLOCK_FILTER audio-window.js exports, imported, never a copy (Deja,
   // 2026-11-05) — checked by what asr-local picks up when audio-window exports something else, not by the strings
-  const awPath = require.resolve("../audio-window.js"), alPath = require.resolve("../asr-local.js");
+  const awPath = require.resolve("../server/audio-window.js"), alPath = require.resolve("../server/asr-local.js");
   const realAw = require(awPath), sentinel = "clock-filter-" + Math.random().toString(36).slice(2);
   try {
     delete require.cache[alPath];
@@ -41,7 +41,7 @@ test("readArgs: whole, a window from before 3 s (no -ss), a later window (-ss); 
     const r = fresh.readArgs({ file: "f", from: 5, to: 6 });
     a.equal(r.args[r.args.indexOf("-af") + 1], sentinel, "and reads through it");
   } finally { require.cache[awPath].exports = realAw; delete require.cache[alPath]; }
-  const src = fs.readFileSync(path.join(__dirname, "..", "asr-local.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", "server/asr-local.js"), "utf8");
   a.match(src, /require\("\.\/audio-window"\)/, "asr-local.js imports it");
   a.doesNotMatch(src, /CLOCK_FILTER = "aresample/, "no copy of the string left");
   const whole = readAudioArgs({ file: "f.flv" });
@@ -87,15 +87,15 @@ function beepSherpa() {
   return { Vad, OfflineRecognizer: { createAsync: async () => rec }, OfflinePunctuation: class {} };
 }
 function engine(t) {
-  const { manifest } = require("../asr-models");
+  const { manifest } = require("../server/asr-models");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-clock-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const nm = path.join(dir, "engine", "node_modules");
-  for (const p of ["sherpa-onnx-node", require("../asr-local").nativePackage()]) { fs.mkdirSync(path.join(nm, p), { recursive: true }); fs.writeFileSync(path.join(nm, p, "package.json"), "{}"); }
+  for (const p of ["sherpa-onnx-node", require("../server/asr-local").nativePackage()]) { fs.mkdirSync(path.join(nm, p), { recursive: true }); fs.writeFileSync(path.join(nm, p, "package.json"), "{}"); }
   const vad = path.join(dir, manifest.engine.vad.file); fs.writeFileSync(vad, ""); fs.truncateSync(vad, manifest.engine.vad.size);
   fs.mkdirSync(path.join(dir, "model"));
   const store = { dir: (k) => (k === "asr" ? path.join(dir, "model") : null), status: () => ({ asr: { ready: true, missing: [], bad: [] }, punct: { ready: false, missing: [], bad: [] } }) };
-  const asr = require("../asr-local").createAsr({ asrDir: dir, store, ffmpeg: ffmpeg(), sherpa: beepSherpa() });
+  const asr = require("../server/asr-local").createAsr({ asrDir: dir, store, ffmpeg: ffmpeg(), sherpa: beepSherpa() });
   return { dir, asr };
 }
 /** 10 s, beeps of 0.2 s at BEEPS; `audioLate` delays the sound track, `videoLate` the picture. */

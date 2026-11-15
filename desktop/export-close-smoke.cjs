@@ -44,7 +44,7 @@ const fakeDialog = { ...electron.dialog, showMessageBox: async (...args) => {
 
 function recording() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-close-rec-')), file = path.join(dir, 'rec.mp4');
-  execFileSync(require('../ffmpeg-path').path('ffmpeg'), ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=20',
+  execFileSync(require('../server/ffmpeg-path').path('ffmpeg'), ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=20',
     '-f', 'lavfi', '-i', 'sine=f=440:d=20:sample_rate=48000', '-c:v', process.env.MONTCLIP_CLOSE_ENCODER || 'h264_mf', '-pix_fmt', 'yuv420p', '-g', '30', '-movflags', '+faststart', '-c:a', 'aac', '-shortest', file], { windowsHide: true });
   const bytes = fs.readFileSync(file); fs.rmSync(dir, { recursive: true, force: true }); return bytes;
 }

@@ -8,7 +8,7 @@
 // compared with its flash. Requirement (Deja, 2026-11-02): |offset| ≤ 40 ms everywhere.
 // Writes sync.json and sync.md, and a 6 s stream-copied sample into samples/.
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), cp = require('node:child_process'), net = require('node:net');
-const FF = require('../../../ffmpeg-path');
+const FF = require('../../../server/ffmpeg-path');
 if (!FF.available('ffmpeg')) throw new Error('bundled ffmpeg not installed: ' + FF.reason('ffmpeg'));
 const ROOT = path.join(__dirname, '..', '..', '..');
 const MINUTES = Number(process.argv[2]) || 10, FPS = 30, W = 1280, H = 720, PERIOD = 2, FIRST = 0.5, RATE = 48000;

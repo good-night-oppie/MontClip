@@ -5,7 +5,7 @@
   (`desktop/agent-service.js`, fixed endpoint `https://openrouter.ai/api/v1/chat/completions`).
   `MONTCLIP_REAL_MODELS=1 npm run test:integration`, on europa only. Key only from `~/.openrouter-montclip`
   (mode 600), or the file `MONTCLIP_OPENROUTER_KEY_FILE` names; a file with wider permissions is refused and the tests
-  are skipped with the reason (`real-tests/key-file.cjs`); so is a file another user owns. There is no fallback
+  are skipped with the reason (`dev/real-tests/key-file.cjs`); so is a file another user owns. There is no fallback
   file. `MONTCLIP_OPENROUTER_KEY_FILE` is only for a local override on europa.
 - **e2e**: DeepSeek Flash (`deepseek-flash`, from `api.deepseek.com/models`) in the real desktop
   app, visible window, fresh profile. `MONTCLIP_REAL_MODELS=1 npm run test:e2e`. Key only from
@@ -37,8 +37,8 @@ Only synthetic subtitles were sent.
   is applied by the editor's own `commitRangePlan` as one undo step and undone. 401 → AUTH (「密钥不对或没有权限…」),
   a wrong model name (400/404 "model … does not exist") → MODEL_INVALID (「模型名称不对…」). Made-up keys only.
   `test/meta-key-file.test.js` — the key-file rules below.
-- **e2e**: `MONTCLIP_REAL_MODELS=1 xvfb-run -a npm run test:e2e:meta` on europa (`real-tests/run-meta-e2e.cjs`).
-  Key only from `~/.meta-montclip`, mode 600, the owner's own file (`real-tests/meta-key-file.cjs`, the rules of
+- **e2e**: `MONTCLIP_REAL_MODELS=1 xvfb-run -a npm run test:e2e:meta` on europa (`dev/real-tests/run-meta-e2e.cjs`).
+  Key only from `~/.meta-montclip`, mode 600, the owner's own file (`dev/real-tests/meta-key-file.cjs`, the rules of
   #124: wider than 600, another user's, or Windows → not read, skipped with the reason). First two checks through
   the product's request path (a made-up key must read AUTH; a made-up model MODEL_INVALID), then the real app:
   new project with a synthetic 10 s recording and three subtitles, Meta chosen in the settings; (1) two subtitles
@@ -61,7 +61,7 @@ No screenshot is taken while the settings (with the key field) are open.
 
 ### keep_sentences format, how steady (2026-11-04, europa, `muse-spark-1.1`)
 
-`MONTCLIP_REAL_MODELS=1 node real-tests/meta-format-stability.cjs` — each run one request through the product's path
+`MONTCLIP_REAL_MODELS=1 node dev/real-tests/meta-format-stability.cjs` — each run one request through the product's path
 (format note first, the quoted subtitles as references), read as the pane reads it and checked as Apply checks it.
 
 | Request (subtitles quoted) | Runs | Usable keep_sentences | Kept what was asked | Code fence | Median |

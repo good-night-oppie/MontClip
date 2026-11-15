@@ -41,7 +41,7 @@ test("every preset is a valid, distinct chain", () => {
 
 /* fx-worklet.js in a fake AudioWorkletGlobalScope */
 const procs = {};
-vm.runInNewContext(fs.readFileSync(path.join(ROOT, "fx-worklet.js"), "utf8"), {
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, "app/fx-worklet.js"), "utf8"), {
   AudioWorkletProcessor: class { }, registerProcessor: (n, c) => { procs[n] = c; },
   sampleRate: 48000, Math, Float32Array, Array,
 });

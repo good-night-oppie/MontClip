@@ -91,5 +91,5 @@ earlier "OpenRouter for tests only" (#26).
   outbound-list side is for QQ.
 - Mainland China access to OpenRouter and DeepSeek, and the models used in CapCut / 剪映, are a separate research
   item (the owner asked for it); nothing here depends on it.
-- Tests: `test/agent-providers.test.js`. The real-model tests (`real-tests/`, off unless
+- Tests: `test/agent-providers.test.js`. The real-model tests (`dev/real-tests/`, off unless
   `MONTCLIP_REAL_MODELS=1`, never in CI) construct the service with the test providers explicitly.

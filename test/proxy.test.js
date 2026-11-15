@@ -10,16 +10,16 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { makeDataDir, startServer, rawGet } = require("./helpers");
-const { createProxies, findProxies } = require("../proxy");
+const { createProxies, findProxies } = require("../server/proxy");
 
 const hasFfmpeg = () => {
-  try { execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }); return true; } catch { return false; }
+  try { execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }); return true; } catch { return false; }
 };
 const NO_FFMPEG = !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** A short 1280×720 test clip with a frame counter in the picture. */
 function makeClip(file, seconds = 2) {
-  execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-y", "-f", "lavfi", "-i", `testsrc2=size=1280x720:rate=25:duration=${seconds}`,
+  execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-y", "-f", "lavfi", "-i", `testsrc2=size=1280x720:rate=25:duration=${seconds}`,
     "-f", "lavfi", "-i", `sine=frequency=440:duration=${seconds}`, "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-shortest", file]);
 }
@@ -76,14 +76,14 @@ test("/api/proxy makes a frame-accurate H.264 proxy, serves it, reports it, dele
   const file = path.join(dir, "analysis", "proxies", decodeURIComponent(st.src.slice("/proxies/".length)));
   assert.ok(fs.existsSync(file));
   // the same frames at the same times: frame 25 of the original is frame 25 of the proxy
-  const probe = JSON.parse(execFileSync(require("../ffmpeg-path").path("ffprobe"), ["-v", "error", "-show_streams", "-of", "json", file], { encoding: "utf8" }));
+  const probe = JSON.parse(execFileSync(require("../server/ffmpeg-path").path("ffprobe"), ["-v", "error", "-show_streams", "-of", "json", file], { encoding: "utf8" }));
   const v = probe.streams.find((s) => s.codec_type === "video");
   assert.equal(v.codec_name, "h264");
   assert.equal(v.avg_frame_rate, "25/1");
   assert.ok(probe.streams.some((s) => s.codec_type === "audio"), "keeps the sound");
   const db = (s) => { const m = /average:([0-9.]+|inf)/.exec(s); return m ? (m[1] === "inf" ? 99 : +m[1]) : NaN; };
   const getDb = (ta, tb) => {
-    const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-hide_banner", "-ss", String(ta), "-i", path.join(dir, "media", "clip a.mp4"), "-ss", String(tb), "-i", file,
+    const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-hide_banner", "-ss", String(ta), "-i", path.join(dir, "media", "clip a.mp4"), "-ss", String(tb), "-i", file,
       "-filter_complex", "[0:v]scale=960:540,format=yuv420p,setpts=0[x];[1:v]format=yuv420p,setpts=0[y];[x][y]psnr", "-frames:v", "1", "-f", "null", "-"], { encoding: "utf8" });
     return db(r.stderr);
   };

@@ -14,7 +14,7 @@ const { spawnSync } = require("node:child_process");
 const { makeDataDir, seedProject, startServer, startMcp } = require("./helpers");
 
 let HAS_FFMPEG = false;
-try { HAS_FFMPEG = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch {}
+try { HAS_FFMPEG = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch {}
 const skip = HAS_FFMPEG ? false : "export requests need ffmpeg on PATH";
 
 /* An open editor tab, as far as the server can tell: an SSE subscriber. */

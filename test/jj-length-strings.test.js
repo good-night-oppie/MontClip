@@ -17,18 +17,18 @@ test("JJ's three sentences, word for word", () => {
 });
 
 test("dragging such a file onto the timeline says own.media-cannot-cut, with its name", () => {
-  const app = read("app.js"), at = app.indexOf("function addClipFromMedia"), body = app.slice(at, at + 700);
+  const app = read("app/app.js"), at = app.indexOf("function addClipFromMedia"), body = app.slice(at, at + 700);
   a.match(body, /if \(MediaLib\.cannotCut\(m\)\) \{ toast\(uiText\("own\.media-cannot-cut", \{ name: m\.name \}\)\); return null; \}/);
 });
 
 test("the agent's import notes never reach the interface", () => {
-  const src = read("mcp-server.js");
+  const src = read("server/mcp-server.js");
   const at = src.indexOf("function importNote"), body = src.slice(at, src.indexOf("\n}\n", at));
   // every sentence importNote can say
   const said = [...body.matchAll(/(?:"|`)(Note: [^"`$]{12,60})/g)].map((m) => m[1]);
   a.ok(said.length >= 4, "found the notes: " + said.length);
   // where the interface's words live: none of them holds one of these
-  for (const f of ["app.js", "index.html", "ui-preferences.js", "ui-terms.js", "capabilities.js", "capabilities-page.js"]) {
+  for (const f of ["app/app.js", "index.html", "ui-preferences.js", "ui-terms.js", "capabilities.js", "app/capabilities-page.js"]) {
     if (!fs.existsSync(path.join(__dirname, "..", f))) continue;
     const text = read(f);
     for (const s of said) a.ok(!text.includes(s.slice(0, 40)), `${f} shows an agent note: ${s}`);
@@ -38,5 +38,5 @@ test("the agent's import notes never reach the interface", () => {
   a.equal(uses, 2, "its definition and the import tool's reply");
   a.match(src, /return `Imported → \$\{JSON\.stringify\(entry\)\}\\n` \+\s*importNote\(entry, probed\)( \+ audioTracksNote\(entry\))?;/);   // + the audio tracks (#177)
   // and the editor never shows a tool's text to the user: the server has no route that passes it on
-  a.doesNotMatch(read("server.js"), /importNote/);
+  a.doesNotMatch(read("server/server.js"), /importNote/);
 });

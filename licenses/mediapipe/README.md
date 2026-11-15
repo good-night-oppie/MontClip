@@ -37,7 +37,7 @@ On 2026-11-06 the user authorized downloading this exact tarball for byte verifi
 and static inspection only. The 4,049,373-byte tarball matched the npm SHA-512 above;
 all nine extracted runtime files matched the committed sizes/SHA-256. The extracted
 package.json declares Apache-2.0; the archive has no LICENSE/NOTICE or gitHead.
-`node real-tests/bgremove-assets-byte-audit.cjs .cache/pr154-mediapipe` accepted and
+`node dev/real-tests/bgremove-assets-byte-audit.cjs .cache/pr154-mediapipe` accepted and
 resolved all nine real files byte-for-byte, then rejected corruption of each before
 creating any executable URL (the empty data file uses a one-byte addition).
 No third-party JS, WASM or model was executed, installed or redistributed.

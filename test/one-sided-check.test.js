@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
-const FF = require("../ffmpeg-path");
+const FF = require("../server/ffmpeg-path");
 const Delivery = require("../delivery.js");
 
 const skip = !FF.available("ffmpeg") || !FF.available("ffprobe") ? "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" : false;

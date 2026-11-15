@@ -31,7 +31,7 @@ recommended) **ffmpeg on PATH** for fast export and upload remuxing.
 | File | What it is |
 | --- | --- |
 | `server.js` | HTTP server: static hosting, REST API, SSE, ffmpeg export pipeline |
-| `app.js` | The editor — timeline UI, compositor, keyframes, text engine, SVG rasterizer, chroma key, exporters |
+| `app/app.js` | The editor — timeline UI, compositor, keyframes, text engine, SVG rasterizer, chroma key, exporters |
 | `index.html` / `style.css` | Single-page UI + dark theme |
 | `mcp-server.js` | stdio MCP server exposing the editor to AI agents |
 | `CLAUDE.md` | The agent manual — schema, semantics, recipes. **Keep this in sync with any schema change.** |

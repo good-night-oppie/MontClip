@@ -6,7 +6,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { createProjects } = require("../projects");
+const { createProjects } = require("../server/projects");
 const { makeDataDir, readProject, seedProject, startServer, startMcp } = require("./helpers");
 
 const NO_WATCH = { FABLECUT_NO_FS_WATCH: "1" };

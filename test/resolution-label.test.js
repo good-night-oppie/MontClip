@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm");
 const V = require("../ui-preferences"), M = require("../media-lib");
-const app = fs.readFileSync(require.resolve("../app"), "utf8");
+const app = fs.readFileSync(require.resolve("../app/app"), "utf8");
 test("stored resolution is localized in every editor view; the agent keeps its English description", () => {
   const body = app.match(/function mediaResolution\(m\) \{[\s\S]*?\n\}/);
   const description = app.match(/function mediaDescription\(m\) \{[\s\S]*?\n\}/);

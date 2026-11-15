@@ -11,10 +11,10 @@ const os = require("node:os");
 const { spawnSync, execFileSync } = require("node:child_process");
 const { ROOT } = require("./helpers");
 
-const ep = require(path.join(ROOT, "encode-profiles.js"));
+const ep = require(path.join(ROOT, "server/encode-profiles.js"));
 
 const vfOf = (args) => args[args.indexOf("-vf") + 1];
-const has = (bin) => require("../ffmpeg-path").available(bin);   // the bundled build, never PATH
+const has = (bin) => require("../server/ffmpeg-path").available(bin);   // the bundled build, never PATH
 
 test("the colour filter stamps primaries and transfer from the profile", () => {
   const color = { matrix: "bt709", primaries: "bt2020", trc: "smpte2084", range: "tv" };
@@ -36,7 +36,7 @@ test("exported H.264 is tagged BT.709 end to end", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-color-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   // JPEG frames, the way Fast export pipes them in
-  const jpeg = execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=s=160x90:r=30:d=0.2",
+  const jpeg = execFileSync(require("../server/ffmpeg-path").path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=s=160x90:r=30:d=0.2",
     "-f", "image2pipe", "-c:v", "mjpeg", "-"], { maxBuffer: 1 << 24 });
   const out = path.join(dir, "tags.mp4");
   const profile = {
@@ -44,9 +44,9 @@ test("exported H.264 is tagged BT.709 end to end", (t) => {
     args: ["-c:v", h264.encoder, "-pix_fmt", h264.pix],
     color: { ...ep.DEFAULT_COLOR },
   };
-  const r = spawnSync(require("../ffmpeg-path").path("ffmpeg"), ep.buildExportArgs(profile, { fps: 30, outPath: out }), { input: jpeg });
+  const r = spawnSync(require("../server/ffmpeg-path").path("ffmpeg"), ep.buildExportArgs(profile, { fps: 30, outPath: out }), { input: jpeg });
   assert.equal(r.status, 0, r.stderr.toString().slice(-400));
-  const tags = JSON.parse(execFileSync(require("../ffmpeg-path").path("ffprobe"), ["-v", "error", "-select_streams", "v:0", "-show_entries",
+  const tags = JSON.parse(execFileSync(require("../server/ffmpeg-path").path("ffprobe"), ["-v", "error", "-select_streams", "v:0", "-show_entries",
     "stream=color_space,color_primaries,color_transfer,color_range", "-of", "json", out]).toString()).streams[0];
   assert.deepEqual(tags, {
     color_range: ep.DEFAULT_COLOR.range, color_space: ep.DEFAULT_COLOR.matrix,

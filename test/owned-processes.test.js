@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const cp = require("node:child_process");
 const { once } = require("node:events");
-const { trackOwnedProcesses } = require("../owned-processes");
+const { trackOwnedProcesses } = require("../server/owned-processes");
 const fs = require("node:fs");
 const vm = require("node:vm");
 
@@ -29,14 +29,14 @@ test("shutdown interrupts a pending denoise probe without blocking the service",
   const tracker = trackOwnedProcesses(cp);
   let child;
   const module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync(require.resolve("../denoise"), "utf8"), {
+  vm.runInNewContext(fs.readFileSync(require.resolve("../server/denoise"), "utf8"), {
     module, require: (name) => name === "child_process" ? {
       spawnSync() { throw new Error("probe must not block shutdown"); },
       execFile(_file, _args, options, callback) {
         child = cp.execFile(process.execPath, ["-e", "setInterval(() => {}, 1000)"], options, callback);
         return child;
       },
-    } : require(name.startsWith("./") ? require("node:path").join(__dirname, "..", name) : name),
+    } : require(name.startsWith("./") ? require("node:path").join(__dirname, "..", "server", name) : name),
   });
   try {
     const pending = module.exports.denoiseFile("missing-input.wav", "missing-output", "medium");

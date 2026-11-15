@@ -9,7 +9,7 @@ const { makeDataDir, rawGet } = require("./helpers");
 
 async function desktop(t) {
   const token = crypto.randomBytes(32).toString("hex");
-  const child = fork(path.join(__dirname, "../server.js"), [], {
+  const child = fork(path.join(__dirname, "../server/server.js"), [], {
     env: { ...process.env, PORT: "0", HOST: "127.0.0.1", FABLECUT_DATA_DIR: makeDataDir(t),
       FABLECUT_NO_FS_WATCH: "1", MONTCLIP_DESKTOP: "1", MONTCLIP_SESSION_TOKEN: token },
     stdio: ["ignore", "ignore", "pipe", "ipc"],

@@ -37,7 +37,7 @@ test('JJ v2, section one, word for word', () => {
   a.equal(en('setup-local-punct'), 'Captions have no punctuation by default; install a punctuation model (a download of about 60 MB) to get it.');
 });
 test('the page: three states of the choice and five of the download, from the same functions as the Transcript tab', () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.match(app, /function openAsrSetup\(state\) \{/);
   for (const st of ['dl', 'done', 'net', 'space', 'bad']) a.match(app, new RegExp(`"${st}"`), st);
   a.match(app, /setup-local-n/, 'the {n} line is there');
@@ -48,7 +48,7 @@ test('the page: three states of the choice and five of the download, from the sa
   a.match(app, /function maybeOpenAsrSetup\(\) \{/);
 });
 test('Settings › 听写: the state, and 〔去装〕 opens the page', () => {
-  const html = read('index.html'), app = read('app.js');
+  const html = read('index.html'), app = read('app/app.js');
   a.match(html, /<div class="settings-section hidden" id="setAsr">/);
   a.match(app, /\$\("btnAsrSetup"\)\.addEventListener\("click", \(\) => openAsrSetup\(\)\)/);
   a.equal(zh('setup-settings-title'), '听写'); a.equal(zh('asr-go-install'), '去装'); a.equal(zh('asr-not-installed'), '还没装听写');

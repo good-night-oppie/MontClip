@@ -5,7 +5,7 @@
 // dialog says in the interface language.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences'), Plan = require('../range-plan');
-const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const app = fs.readFileSync(path.join(__dirname, '..', 'app/app.js'), 'utf8');
 const at = app.indexOf('async function showSentenceSelection('), body = app.slice(at, app.indexOf('\n}\n', at));
 const KEYS = ['sd-busy', 'sd-busy-save', 'sd-no-captions', 'sd-title', 'sd-intro', 'sd-ranges', 'sd-preview', 'sd-apply', 'sd-cancel', 'sd-range-line',
   'sd-summary', 'sd-partial', 'sd-partial-many', 'sd-changed', 'sd-done', 'rp-invalid', 'rp-exceeds', 'rp-locked', 'rp-nested', 'rp-short-media', 'rp-source-changed', 'rp-source-invalid', 'rp-source-loop'];

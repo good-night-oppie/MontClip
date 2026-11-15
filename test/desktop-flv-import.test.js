@@ -181,7 +181,7 @@ test("packaged: the FLV import in the main process runs MontClip's own FFmpeg, a
   assert.ok(setsOwn > 0, "the main process sets the packaged FFmpeg for itself");
   assert.ok(setsOwn < creates, "before the FLV import service starts");
   assert.match(main, /process\.env\.MONTCLIP_FFMPEG_DIR = env\.MONTCLIP_FFMPEG_DIR;/);
-  const FF = require("../ffmpeg-path");
+  const FF = require("../server/ffmpeg-path");
   const r = FF.resolveTool("ffmpeg", { env: { MONTCLIP_FFMPEG_PACKAGED: "1", MONTCLIP_FFMPEG_DIR: path.resolve("R", "ffmpeg") }, platform: "win32", exists: () => true });
   assert.equal(r.path, path.join(path.resolve("R", "ffmpeg"), "ffmpeg.exe"));
 });

@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 test('concurrent same-name uploads never replace another upload or existing source',async()=>{
- const source=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');const begin=source.indexOf('  if (p === "/api/upload"'),end=source.indexOf('  if (p === "/api/prepare-media"',begin);const files=new Map(),pending=[],responses=[];
+ const source=fs.readFileSync(path.join(__dirname,'../server/server.js'),'utf8');const begin=source.indexOf('  if (p === "/api/upload"'),end=source.indexOf('  if (p === "/api/prepare-media"',begin);const files=new Map(),pending=[],responses=[];
  const io={existsSync:p=>files.has(p),writeFileSync(p,body,options){if(options?.flag==='wx'&&files.has(p))throw Object.assign(Error('exists'),{code:'EEXIST'});files.set(p,body.toString());},mkdirSync(){},linkSync(from,to){if(files.has(to))throw Object.assign(Error("exists"),{code:"EEXIST"});files.set(to,files.get(from));},rmSync(p){files.delete(p);}};
  const run=body=>vm.runInNewContext('(async()=>{'+source.slice(begin,end)+'})()',{fs:io,path,p:'/api/upload',req:{method:'POST'},res:{},MEDIA_DIR:'/owned',url:new URL('http://local?name=clip.mp4'),safeName:x=>x,Delivery:require('../delivery'),bodyToFile:(_req,file)=>new Promise(r=>pending.push(()=>{files.set(file,body);r(body.length);})),UPLOADS_DIR:"/staging",crypto:require("node:crypto"),faststart:async()=>{},prepareMedia:async p=>({src:p}),sendJSON:(_,status,value)=>responses.push({status,value}),publicPreparationError:e=>({code:e.code})});
  const first=run('first'),second=run('second');pending[0]();await first;pending[1]();await second;

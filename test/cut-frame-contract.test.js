@@ -6,12 +6,12 @@ const {test}=require('node:test');
 const a=require('node:assert/strict');
 const crypto=require('node:crypto');
 const Edit=require('../edit-ops');
-const MP4=require('../mp4-demux');
-const Events=require('../agent-events');
+const MP4=require('../app/mp4-demux');
+const Events=require('../app/agent-events');
 const {SRC}=require('./timeline-sandbox');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {execFileSync}=require('node:child_process');
-const ffPath=require('../ffmpeg-path');
+const ffPath=require('../server/ffmpeg-path');
 
 function world() {
   const shot=(id,start,inn)=>['V1','A1'].map(track=>({id:id+track,track,

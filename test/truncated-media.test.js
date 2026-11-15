@@ -9,8 +9,8 @@
    Each case first checks that ffprobe really sees the file that way, then what MontClip makes of it. */
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
-const FF = require("../ffmpeg-path");
-const MediaProbe = require("../media-probe");
+const FF = require("../server/ffmpeg-path");
+const MediaProbe = require("../server/media-probe");
 const MediaLib = require("../media-lib");
 const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
@@ -65,7 +65,7 @@ for (const name of ["cut.webm", "cut.mkv"]) {
 }
 
 test("cut.webm: fablecut_frame shows a moment inside it, and a moment past it says the real end, not 0 s", { skip }, async () => {
-  const { frame } = require("../analyze");
+  const { frame } = require("../server/analyze");
   const info = await MediaProbe.probeFile(made("cut.webm"));
   const r = await frame(made("cut.webm"), { t: 1, width: 160, stats: false });
   a.ok(r.jpeg && r.jpeg.length > 100, "a picture at 1 s");
@@ -150,7 +150,7 @@ test("media-lib: a length arriving clears the mark, an unknown one sets it; the 
   a.equal(MediaLib.cannotCut({ kind: "video" }), false, "not probed yet is not the same as unknown");
   a.equal(MediaLib.cannotCut({ kind: "image", durationUnknown: true }), false);
 
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const at = app.indexOf("function addClipFromMedia"), body = app.slice(at, at + 600);
   a.match(body, /MediaLib\.cannotCut\(m\)/, "the editor refuses to place it");
   a.match(body, /own.media-cannot-cut/, "and says why, in JJ's words");
@@ -195,6 +195,6 @@ test("the mark on a file that can't be cut: JJ's sentence, shown on it in the bi
   const V = require("../ui-preferences");
   a.equal(V.t("zh-CN", "own.media-incomplete"), "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
   a.doesNotMatch(V.t("en", "own.media-incomplete"), /[一-鿿]/);
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   a.match(app, /MediaLib\.cannotCut\(m\)[^\n]*own\.media-incomplete|own\.media-incomplete[^\n]*MediaLib\.cannotCut\(m\)/, "the bin marks it with that sentence");
 });
