@@ -1,0 +1,257 @@
+"use strict";
+/* MontClip#321 (ADR docs/decisions/2026-11-14-review-openrouter-outbound.md): the OpenRouter request, the main process's sender, and the
+   doors an agent must not have. Every network request here goes to an in-process stand-in; nothing leaves the computer. Synthetic data only. */
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { EventEmitter } = require("node:events");
+const { execFileSync, spawnSync } = require("node:child_process");
+const OR = require("../server/openrouter-review");
+const VB = require("../server/video-bridge");
+const { createReviewSender, confirmText } = require("../desktop/review-sender");
+
+const FAKE_KEY = "sk-or-v1-FAKEKEYSENTINEL0123456789abcdef";   // a fake key: it must never show up anywhere but the Authorization header
+const NICK = "合成昵称哨兵_小测试";                                  // a synthetic viewer nickname: it must never reach the disk
+const tmp = (t) => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "mcor-")); t.after(() => VB.rmForce(d)); return d; };
+const RECEIPT = (o = {}) => ({ id: "gen-x", provider: "Google AI Studio", model: "google/gemini-4-carbon", choices: [{ message: { content: '{"verdict":"pass"}' } }],
+  usage: { prompt_tokens: 100, prompt_tokens_details: { audio_tokens: 50 } }, ...o });
+
+/** A stand-in for https.request: records the options and the body, answers with status/json (or never answers). */
+function standin({ status = 200, json = RECEIPT(), hang = false, fail = false } = {}) {
+  const calls = [];
+  const request = (opts, onRes) => {
+    const req = new EventEmitter();
+    const call = { opts, body: null };
+    calls.push(call);
+    req.destroy = () => { req.destroyed = true; };
+    req.end = (body) => {
+      call.body = body;
+      if (fail) { setImmediate(() => req.emit("error", new Error("ECONNRESET"))); return; }
+      if (hang) return;
+      setImmediate(() => {
+        const res = new EventEmitter(); res.statusCode = status;
+        onRes(res);
+        res.emit("data", Buffer.from(typeof json === "string" ? json : JSON.stringify(json))); res.emit("end");
+      });
+    };
+    return req;
+  };
+  return { request, calls };
+}
+const fakeSafeStorage = (backend = "dpapi") => ({ isEncryptionAvailable: () => true, getSelectedStorageBackend: () => backend,
+  encryptString: (s) => Buffer.from("enc:" + Buffer.from(s).toString("base64")), decryptString: (b) => Buffer.from(String(b).slice(4), "base64").toString() });
+
+/* ---- the request ---- */
+test("the request: model fixed, provider locked to google-ai-studio, no fallbacks, data_collection deny; video without sound + a WAV", () => {
+  const body = OR.buildBody({ prompt: "p", videoB64: "AAAA", audioB64: "BBBB" });
+  assert.equal(body.model, "google/gemini-4-carbon");
+  assert.deepEqual(body.provider, { order: ["google-ai-studio"], allow_fallbacks: false, data_collection: "deny" });
+  assert.equal(body.stream, false);
+  const c = body.messages[0].content;
+  assert.equal(c[1].type, "video_url"); assert.ok(c[1].video_url.url.startsWith("data:video/mp4;base64,"));
+  assert.deepEqual(c[2], { type: "input_audio", input_audio: { data: "BBBB", format: "wav" } });
+  assert.equal(OR.buildBody({ prompt: "p", videoB64: "AAAA" }).messages[0].content.length, 2, "picture only: no audio part");
+  assert.equal(OR.HOST, "openrouter.ai"); assert.equal(OR.AUDIO.sampleRate, 48000); assert.equal(OR.AUDIO.channels, 2);
+});
+
+test("one request body is at most 16 MB: over it is refused before anything is sent", () => {
+  const big = "A".repeat(OR.MAX_BODY_BYTES);
+  assert.throws(() => OR.serialize(OR.buildBody({ prompt: "p", videoB64: big })), (e) => e.code === "BODY_TOO_LARGE");
+  assert.ok(OR.serialize(OR.buildBody({ prompt: "p", videoB64: "A".repeat(1000) })).length < OR.MAX_BODY_BYTES);
+  assert.ok(OR.estimateBytes({ seconds: 40, videoBytes: VB.MAX_SAMPLE_BYTES }) <= OR.MAX_BODY_BYTES, "30 s + 10 s lead-in fits");
+  assert.ok(OR.estimateBytes({ seconds: 60, videoBytes: VB.MAX_SAMPLE_BYTES }) > OR.MAX_BODY_BYTES, "a minute of 48 kHz stereo does not");
+});
+
+/* ---- one POST ---- */
+test("post: https to openrouter.ai, the key only in the Authorization header, TLS left as Node checks it", async () => {
+  const s = standin();
+  const r = await OR.post({ body: Buffer.from("{}"), key: FAKE_KEY, request: s.request });
+  assert.equal(r.ok, true);
+  assert.equal(s.calls.length, 1);
+  const o = s.calls[0].opts;
+  assert.equal(o.protocol, "https:"); assert.equal(o.hostname, "openrouter.ai"); assert.equal(o.port, 443); assert.equal(o.path, "/api/v1/chat/completions");
+  assert.equal(o.headers.Authorization, "Bearer " + FAKE_KEY);
+  for (const k of ["rejectUnauthorized", "ca", "agent", "checkServerIdentity"]) assert.equal(k in o, false, `no ${k}`);
+  assert.ok(!JSON.stringify(r).includes(FAKE_KEY), "the key is not in the answer");
+});
+
+test("post: no retry — 500, 401, 429, a network error and a timeout each end after ONE request with a fixed code", async () => {
+  for (const [opt, code] of [[{ status: 500 }, "FAILED"], [{ status: 401 }, "AUTH_FAILED"], [{ status: 403 }, "AUTH_FAILED"], [{ status: 429 }, "RATE_LIMITED"], [{ fail: true }, "FAILED"], [{ json: "not json" }, "BAD_OUTPUT"]]) {
+    const s = standin(opt);
+    const r = await OR.post({ body: Buffer.from("{}"), key: FAKE_KEY, request: s.request });
+    assert.deepEqual([r.ok, r.reason, s.calls.length], [false, code, 1], JSON.stringify(opt));
+  }
+  const h = standin({ hang: true });
+  const r = await OR.post({ body: Buffer.from("{}"), key: FAKE_KEY, request: h.request, timeoutMs: 50 });
+  assert.deepEqual([r.reason, h.calls.length], ["TIMEOUT", 1]);
+  const c = standin({ hang: true }), ac = new AbortController();
+  const p = OR.post({ body: Buffer.from("{}"), key: FAKE_KEY, request: c.request, signal: ac.signal });
+  ac.abort();
+  assert.equal((await p).reason, "CANCELLED");
+  assert.equal(OR.TIMEOUT_MS, 360000);
+});
+
+test("receipt: another provider, no provider, or another model is a DESTINATION_MISMATCH", async () => {
+  for (const json of [RECEIPT({ provider: "Google Vertex" }), RECEIPT({ provider: undefined }), RECEIPT({ model: "google/gemini-2.5-pro" }), RECEIPT({ model: undefined })]) {
+    const s = standin({ json });
+    const r = await OR.post({ body: Buffer.from("{}"), key: FAKE_KEY, request: s.request });
+    assert.deepEqual([r.ok, r.reason], [false, "DESTINATION_MISMATCH"], JSON.stringify(json.provider) + " " + json.model);
+  }
+  assert.equal(OR.readReceipt(RECEIPT()).ok, true);
+  assert.equal(OR.audioTokens({ prompt_tokens_details: { audio_tokens: 0 } }), 0);
+  assert.equal(OR.audioTokens(null), null);
+});
+
+/* ---- the main process's sender ---- */
+test("sender: the switch is OFF by default; off means nothing goes", async (t) => {
+  const d = tmp(t), s = standin();
+  const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request });
+  assert.deepEqual(snd.switch.get(), { ok: true, on: false });
+  snd.key.set(FAKE_KEY); snd.permit("r_000000000001", 1);
+  assert.equal((await snd.send({ reviewId: "r_000000000001", body: Buffer.from("{}") })).reason, "REVIEW_SEND_OFF");
+  assert.equal(s.calls.length, 0);
+  assert.equal(snd.switch.set("yes").ok, false, "a boolean only");
+});
+
+test("sender: only a check the streamer confirmed in the box goes, and only as many requests as it has", async (t) => {
+  const d = tmp(t), s = standin();
+  const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request });
+  snd.switch.set(true); snd.key.set(FAKE_KEY);
+  assert.equal((await snd.send({ reviewId: "r_000000000002", body: Buffer.from("{}") })).reason, "NOT_CONFIRMED");
+  snd.permit("r_000000000002", 1);
+  assert.equal((await snd.send({ reviewId: "r_000000000002", body: Buffer.from("{}") })).ok, true);
+  assert.equal((await snd.send({ reviewId: "r_000000000002", body: Buffer.from("{}") })).reason, "NOT_CONFIRMED", "the permit is used up");
+  assert.equal(s.calls.length, 1);
+});
+
+test("sender: the team's agent sends without a box only when the owner set MONTCLIP_REVIEW_AGENT_SEND=1 on this process", async (t) => {
+  const d = tmp(t), s = standin();
+  const off = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: {} });
+  off.switch.set(true); off.key.set(FAKE_KEY);
+  assert.equal((await off.send({ reviewId: "r_000000000003", agent: true, body: Buffer.from("{}") })).reason, "AGENT_SEND_OFF");
+  const on = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: { MONTCLIP_REVIEW_AGENT_SEND: "1" } });
+  assert.equal((await on.send({ reviewId: "r_000000000003", agent: true, body: Buffer.from("{}") })).ok, true);
+  assert.equal(s.calls.length, 1);
+});
+
+test("sender: the key is sealed (refused without encryption), never returned, and a fake-key sentinel appears nowhere on disk in clear", async (t) => {
+  const d = tmp(t);
+  assert.equal(createReviewSender({ root: d, safeStorage: fakeSafeStorage("basic_text") }).key.set(FAKE_KEY).code, "KEY_STORE_UNAVAILABLE");
+  const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage() });
+  assert.equal(snd.key.status().configured, false);
+  const r = snd.key.set(FAKE_KEY);
+  assert.deepEqual(r, { ok: true, configured: true });
+  assert.ok(!JSON.stringify(snd.key.status()).includes(FAKE_KEY));
+  for (const f of fs.readdirSync(d)) assert.ok(!fs.readFileSync(path.join(d, f), "utf8").includes(FAKE_KEY), f);
+  assert.equal(snd.key.set("x").code, "KEY_INVALID");
+  snd.key.clear(); assert.equal(snd.key.status().configured, false);
+});
+
+test("sender: a local stand-in is honoured only in an unpackaged smoke run, and only on 127.0.0.1", (t) => {
+  const d = tmp(t), env = { MONTCLIP_REVIEW_STANDIN: "http://127.0.0.1:4567" };
+  assert.equal(createReviewSender({ root: d, safeStorage: fakeSafeStorage(), env, isPackaged: false, smoke: true }).standin, "http://127.0.0.1:4567");
+  assert.equal(createReviewSender({ root: d, safeStorage: fakeSafeStorage(), env, isPackaged: true, smoke: true }).standin, null, "packaged: never");
+  assert.equal(createReviewSender({ root: d, safeStorage: fakeSafeStorage(), env, isPackaged: false, smoke: false }).standin, null, "not a smoke run: never");
+  assert.equal(createReviewSender({ root: d, safeStorage: fakeSafeStorage(), env: { MONTCLIP_REVIEW_STANDIN: "http://evil.example:80" }, isPackaged: false, smoke: true }).standin, null);
+});
+
+test("the box: 「发往：openrouter.ai」 is the first line of the message (shown without expanding); model, upstream and 「无法核实」 in the detail", () => {
+  const b = confirmText({ to: { host: "openrouter.ai" }, seconds: 13, audio: true, videoBytes: 2_000_000, audioBytes: 2_500_000, requests: 1, what: "x" });
+  assert.equal(b.message.split("\n")[0], "发往：openrouter.ai");
+  assert.match(b.detail, /google\/gemini-4-carbon/); assert.match(b.detail, /Google AI Studio/); assert.match(b.detail, /是否遵守无法核实/);
+  assert.match(b.message, /不带声音/); assert.match(b.message, /WAV/);
+});
+
+/* ---- doors an agent must not have (reverse tests) ---- */
+test("reverse: no HTTP route, MCP tool, page bridge or preload can set DEST_CONFIRMED, AGENT_SEND, the review switch or key from an agent", () => {
+  const root = path.join(__dirname, "..");
+  const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
+  const server = read("server/server.js"), mcp = read("server/mcp-server.js"), preload = read("desktop/view-preload.js");
+  /* the server only reads them from its own environment */
+  for (const name of ["MONTCLIP_REVIEW_DEST_CONFIRMED", "MONTCLIP_REVIEW_AGENT_SEND"]) {
+    assert.ok(!new RegExp("process\\.env\\." + name + "\\s*=(?!=)").test(server), `server.js never assigns ${name}`);
+    assert.ok(!mcp.includes(name + '"') || !/inputSchema[\s\S]{0,400}MONTCLIP_REVIEW_/.test(mcp), `no MCP tool takes ${name}`);
+    assert.ok(!preload.includes(name), `the page bridge has no ${name}`);
+  }
+  /* the review routes: no settings endpoint; send and unblock need the main process's secret */
+  const routes = [...server.matchAll(/action === "([a-z/]+)"/g)].map((m) => m[1]);
+  for (const bad of ["config", "settings", "confirm", "destination", "agent-send", "switch", "key"]) assert.ok(!routes.includes(bad), `no /api/review/${bad}`);
+  assert.match(server, /action === "send"[\s\S]{0,400}isMainReq\(req\)/);
+  assert.match(server, /action === "unblock"[\s\S]{0,300}isMainReq\(req\)/);
+  /* the switch reaches the server only from the main process (parentPort), never over HTTP */
+  assert.match(server, /data\?\.type === "review-switch"/);
+  assert.ok(!/reviewSendSwitch\s*=\s*(?:body|req|q\()/.test(server));
+  /* the page's review bridge passes only an id, a token, a hash and a boolean */
+  assert.match(preload, /send:v=>ipcRenderer\.invoke\('montclip:review:send',\{reviewId:String\(v\?\.reviewId\|\|''\),token:String\(v\?\.token\|\|''\),hash:String\(v\?\.hash\|\|''\),assistant:v\?\.assistant===true\}\)/);
+  /* the agy path is gone */
+  for (const f of ["server/video-bridge.js", "server/review-service.js", "server/server.js"]) assert.ok(!/findAgy|runAgy|MONTCLIP_AGY_BIN/.test(read(f)), f);
+  assert.equal(fs.existsSync(path.join(root, "test", "fixtures", "fake-agy.js")), false);
+});
+
+test("reverse: whatever an agent puts in a prepare request, it cannot confirm the destination or turn sending on", (t) => {
+  const { createReviewStore } = require("../server/review-store");
+  const { createReviewService } = require("../server/review-service");
+  const d = tmp(t);
+  const mk = (env, on) => createReviewService({ store: createReviewStore({ dir: d }), bridge: VB, readProject: () => ({}), activeProject: () => "p1",
+    requestSample: () => { throw new Error("must not render"); }, getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x",
+    env, sender: async () => ({ ok: true }), sendSwitch: () => on, agentSendEnabled: () => env.MONTCLIP_REVIEW_AGENT_SEND === "1" });
+  const req = { start: 0, end: 5, destConfirmed: true, MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", agentSend: true, MONTCLIP_REVIEW_AGENT_SEND: "1" };
+  assert.throws(() => mk({}, false).prepare(req), (e) => e.code === "REVIEW_SEND_OFF");
+  assert.throws(() => mk({}, true).prepare(req), (e) => e.code === "DESTINATION_UNVERIFIED");
+  assert.throws(() => mk({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }, true).prepare(req), (e) => e.code === "DESTINATION_UNVERIFIED", "the old address confirms nothing");
+  assert.throws(() => mk({ MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai" }, true).prepare({ ...req, agent: true, autoSend: true }), (e) => e.code === "AGENT_SEND_OFF" || e.code === "CLICK_REQUIRED");
+});
+
+/* ---- sentinels ---- */
+test("sentinel: a synthetic viewer nickname the model quotes is shown for this check but never written to the record on disk", (t) => {
+  const { createReviewStore } = require("../server/review-store");
+  const d = tmp(t), store = createReviewStore({ dir: d });
+  const v = VB.parseVerdict(JSON.stringify({ verdict: "issues", summary: `弹幕里 ${NICK} 说了话`, windowDigest: NICK, dimensions: { fact: { state: "issues", reason: NICK }, subtitle: { state: "passed", reason: "" }, pacing: { state: "passed", reason: "" }, packaging: { state: "passed", reason: "" } },
+    findings: [{ t: 2, type: "speaker_swapped", dimension: "fact", text: `${NICK} 的名牌`, suggestion: NICK }] }), { durationSec: 10, sentAudio: true, usage: { prompt_tokens_details: { audio_tokens: 9 } } });
+  const rec = store.add("p1", { reviewId: "r_1", status: "issues", range: { start: 0, end: 10 }, findings: v.findings.map((f, id) => ({ id, ...f })), summary: v.summary, windowDigest: v.windowDigest, dimensions: v.dimensions, states: v.states });
+  assert.ok(JSON.stringify(rec).includes(NICK), "shown for this check");
+  for (const f of fs.readdirSync(d)) assert.ok(!fs.readFileSync(path.join(d, f), "utf8").includes(NICK), "never on disk: " + f);
+});
+
+/* the synthetic fixture for the V23 first send: the pass-phrase is ONLY in the sound. Here the stand-in "hears" it by reading the WAV that
+   went with the request; the mp4 that went has no sound stream at all. Whether the real model hears it is V23's job (not run here). */
+const FF = require("../server/ffmpeg-path");
+let HAS_FFMPEG = false;
+try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch { }
+test("fixture: a pass-phrase only in the sound — the mp4 that goes has no sound, the WAV is 48 kHz stereo and carries it", { skip: HAS_FFMPEG ? false : "needs ffmpeg" }, async (t) => {
+  const d = tmp(t), src = path.join(d, "fixture.mp4");
+  /* the pass-phrase: three tones (880, 1320, 660 Hz) in the sound only; the picture is a test pattern with no text */
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=6",
+    "-f", "lavfi", "-i", "sine=f=880:duration=2", "-f", "lavfi", "-i", "sine=f=1320:duration=2", "-f", "lavfi", "-i", "sine=f=660:duration=2",
+    "-filter_complex", "[1:a][2:a][3:a]concat=n=3:v=0:a=1[a]", "-map", "0:v", "-map", "[a]", "-c:v", "mpeg4", "-c:a", "aac", "-shortest", src], { windowsHide: true });
+  const staged = await VB.stage({ ffmpeg: FF.path("ffmpeg"), ffprobe: FF.path("ffprobe"), sampleFile: src, tmpRoot: d });
+  t.after(() => VB.rmForce(staged.dir));
+  const probe = JSON.parse(execFileSync(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-of", "json", staged.video.file], { encoding: "utf8" }));
+  assert.deepEqual(probe.streams.map((s) => s.codec_type), ["video"], "the mp4 that goes carries no sound");
+  const wav = fs.readFileSync(staged.audio.file);
+  assert.equal(wav.toString("ascii", 0, 4), "RIFF"); assert.equal(wav.readUInt16LE(22), 2, "stereo"); assert.equal(wav.readUInt32LE(24), 48000, "48 kHz");
+  /* the stand-in model: it can only know the phrase from the WAV in the request (zero crossings per second of each 2 s third) */
+  const heard = [];
+  const send = async (body) => {
+    const req = JSON.parse(body.toString("utf8"));
+    const parts = req.messages[0].content;
+    assert.equal(parts.filter((p) => p.type === "input_audio").length, 1);
+    const pcm = Buffer.from(parts.find((p) => p.type === "input_audio").input_audio.data, "base64");
+    const data = pcm.subarray(44), frames = Math.floor(data.length / 4);
+    for (let k = 0; k < 3; k++) {
+      let z = 0, prev = 0;
+      for (let i = Math.floor(frames * k / 3) + 4800; i < Math.floor(frames * (k + 1) / 3) - 4800; i++) { const s = data.readInt16LE(i * 4); if ((s >= 0) !== (prev >= 0)) z++; prev = s; }
+      heard.push(Math.round(z / 2 / ((frames / 3 - 9600) / 48000) / 220) * 220);
+    }
+    return { ok: true, receipt: { text: JSON.stringify({ verdict: "pass", summary: "口令 " + heard.join("-"), windowDigest: "", findings: [],
+      dimensions: { fact: { state: "passed" }, subtitle: { state: "passed" }, pacing: { state: "passed" }, packaging: { state: "passed" } } }),
+      provider: "Google AI Studio", model: "google/gemini-4-carbon", usage: { prompt_tokens_details: { audio_tokens: 150 } } } };
+  };
+  const r = await VB.checkSample({ staged, offset: 0, rangeStart: 0, send });
+  assert.deepEqual(heard, [880, 1320, 660], "the phrase is in the WAV that went");
+  assert.equal(r.audioVerified, true);
+  assert.equal(r.status, "passed");
+  assert.match(r.summary, /880-1320-660/);
+});
