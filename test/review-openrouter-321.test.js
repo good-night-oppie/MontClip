@@ -169,6 +169,22 @@ test("the send: no box before it (owner's decision 2026-11-15, #321 6888246693);
   assert.ok(h.indexOf("reviewSender.permit(") < h.indexOf('"/api/review/send"') && h.indexOf('"/api/review/send"') < h.indexOf("reviewSender.revoke("));
 });
 
+test("Settings › 审片发送: the one line under the switch is JJ's, word for word in both languages, on the interface language switch", () => {
+  const root = path.join(__dirname, "..");
+  const ZH = "默认关。开启后，点检查按钮时，这段画面和声音（包括里面的弹幕和观众昵称）会发给你设置的 AI 服务，发送前不再另外询问。";
+  const EN = "Off by default. When this is on, clicking the check button sends that stretch of picture and sound (including any chat messages and viewer names on screen) to the AI service you set up, with no further prompt before it goes.";
+  for (const f of ["ui-preferences.js", "docs/demo/ui-preferences.js"]) {
+    const ui = fs.readFileSync(path.join(root, f), "utf8");
+    assert.ok(ui.includes('"rv-set-note": [' + JSON.stringify(EN) + ", " + JSON.stringify(ZH) + "]"), f);
+  }
+  for (const f of ["index.html", "docs/demo/index.html"]) {
+    const html = fs.readFileSync(path.join(root, f), "utf8");
+    const box = html.slice(html.indexOf('id="setReview"'), html.indexOf('id="setSlices"'));
+    assert.ok(box.includes('<span class="settings-hint" data-i18n="own.rv-set-note">' + EN + "</span>"), f);
+    assert.ok(!/收不回|检查这 10 秒/.test(box), f + ": the replaced sentence is gone");
+  }
+});
+
 /* ---- doors an agent must not have (reverse tests) ---- */
 test("reverse: no HTTP route, MCP tool, page bridge or preload can set DEST_CONFIRMED, AGENT_SEND, the review switch or key from an agent", () => {
   const root = path.join(__dirname, "..");
