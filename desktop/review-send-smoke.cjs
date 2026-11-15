@@ -48,7 +48,9 @@ function start() {
       await read(`document.getElementById('btnSettings').click();true`); await wait(600);
       const before = await read(`({on:document.getElementById('setReviewEnabled').checked,shown:!document.getElementById('setReview').classList.contains('hidden')})`);
       if (!before.shown || before.on) throw Error('SWITCH_NOT_OFF_BY_DEFAULT ' + JSON.stringify(before));
-      step('设置里「审片时把片段发到 openrouter.ai」默认关');
+      const note = await read(`document.querySelector('#setReview [data-i18n="own.rv-set-note"]').textContent`);
+      if (note !== '默认关。开启后，点检查按钮时，这段画面和声音（包括里面的弹幕和观众昵称）会发给你设置的 AI 服务，发送前不再另外询问。') throw Error('SWITCH_NOTE ' + note);
+      step('设置里「审片时把片段发到 openrouter.ai」默认关；开关下的说明：' + note);
       await read(`document.getElementById('setReviewEnabled').click();true`); await wait(400);
       await read(`(()=>{const f=document.getElementById('setReviewKey');f.value='sk-or-v1-dummy-standin-only';document.getElementById('btnReviewKeySave').click();return true;})()`); await wait(400);
       const after = await read(`({on:document.getElementById('setReviewEnabled').checked,key:document.getElementById('setReviewKeyState').textContent})`);
