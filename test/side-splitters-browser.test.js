@@ -8,9 +8,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { makeDataDir, seedProject, startServer } = require("./helpers");
 const { withPage } = require("./browser-contrast");
-const L = require("../narrow-layout");
+const L = require("../app/narrow-layout");
 
-const browser = (() => { try { return require("../export-jobs").findBrowser(); } catch { return null; } })();
+const browser = (() => { try { return require("../server/export-jobs").findBrowser(); } catch { return null; } })();
 const skip = !browser ? "no Chrome / Edge to run the page in" : typeof WebSocket !== "function" ? "needs Node's WebSocket (Node 22)" : false;
 
 const LAYOUT = `(() => {
