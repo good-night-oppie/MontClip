@@ -331,14 +331,23 @@ test("the four verdicts: right names with a caption that explains the joke is is
   assert.deepEqual(spoiled.findings.map((f) => f.type), ["punchline_spoiled", "over_explained_caption"]);
 });
 
-test("destination: one function says where it goes; only the owner's exact openrouter.ai confirms it — the old address's value confirms nothing", () => {
-  const a = VB.destination({}), b = VB.destination({});
-  assert.deepEqual(a, b); assert.equal(a.verified, false); assert.equal(a.source, "docs");
+test("destination: one function says where it goes, fixed and confirmed by the owner's authorisation; no environment variable changes it (#321 6921163328)", () => {
+  const a = VB.destination(), b = VB.destination();
+  assert.deepEqual(a, b); assert.equal(a.verified, false); assert.equal(a.source, "owner-authorised"); assert.equal(a.confirmed, true);
+  assert.equal(a.status, "主人授权，运行时未抓包核实", "the owner authorised it; no capture of a real run has checked it (#321 6921163328)");
   assert.deepEqual([a.service, a.host, a.model, a.provider], ["OpenRouter", "openrouter.ai", "google/gemini-4-carbon", "Google AI Studio"]);
   assert.ok(Object.isFrozen(a) && Object.isFrozen(VB.DESTINATION));
-  const ok = VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai" });
-  assert.deepEqual([ok.verified, ok.source], [true, "owner-confirmed"]);
-  for (const bad of ["daily-cloudcode-pa.googleapis.com", "OPENROUTER.AI", "openrouter.ai ", "https://openrouter.ai", ""]) assert.equal(VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: bad }).verified, false, bad);
+  /* the removed start-up variables change nothing, whatever they hold */
+  const saved = { d: process.env.MONTCLIP_REVIEW_DEST_CONFIRMED, g: process.env.MONTCLIP_REVIEW_AGENT_SEND };
+  try {
+    for (const v of ["openrouter.ai", "daily-cloudcode-pa.googleapis.com", "", "0"]) {
+      process.env.MONTCLIP_REVIEW_DEST_CONFIRMED = v; process.env.MONTCLIP_REVIEW_AGENT_SEND = v;
+      assert.deepEqual(VB.destination(), a, v);
+    }
+  } finally {
+    if (saved.d === undefined) delete process.env.MONTCLIP_REVIEW_DEST_CONFIRMED; else process.env.MONTCLIP_REVIEW_DEST_CONFIRMED = saved.d;
+    if (saved.g === undefined) delete process.env.MONTCLIP_REVIEW_AGENT_SEND; else process.env.MONTCLIP_REVIEW_AGENT_SEND = saved.g;
+  }
 });
 
 test("Windows: entries a process started as administrator gives its own files (SYSTEM, Administrators, broad groups) are taken off, only the current user is left", { skip }, async (t) => {
