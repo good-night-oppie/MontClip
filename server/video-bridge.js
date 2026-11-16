@@ -17,15 +17,19 @@ const OR = require("./openrouter-review");
 const MAX_SAMPLE_BYTES = 3_200_000;
 const MIN_SAMPLE_BYTES = 200_000;
 /* Where what is sent goes: ONE function, used for what the streamer is shown, for the check made again at the moment of sending,
-   and for what the record says. Nothing can be sent while verified is false (QQ, #328): it becomes true only when the owner has
-   confirmed the address herself with MONTCLIP_REVIEW_DEST_CONFIRMED=openrouter.ai (exactly); the value set for the old address
-   confirms nothing. No HTTP, MCP or page interface writes it. */
+   and for what the record says. The host, path, model and provider are fixed in openrouter-review.js. The owner's own authorisation is
+   what confirms them (confirmed:true): 2026-11-16, "我要走Gemini，这个门禁可以删掉了", PG's decision
+   https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6921163328. Before that the owner had to set
+   MONTCLIP_REVIEW_DEST_CONFIRMED on the server process; that variable is gone and no environment variable changes this answer.
+   verified stays false: no packet capture of a real run has shown it (V23), and status says so in plain words. Nothing can be sent
+   while confirmed is false (QQ, #328: fails closed) — review-service checks it before rendering and again at the moment of sending,
+   and the desktop main process checks every receipt's provider and model (DESTINATION_MISMATCH). */
 const DEST_HOST = OR.HOST;
-function destination(env = process.env) {
-  const verified = env.MONTCLIP_REVIEW_DEST_CONFIRMED === DEST_HOST;
-  return Object.freeze({ ...OR.DESTINATION_INFO, source: verified ? "owner-confirmed" : "docs", verified });
+const DEST_STATUS = "主人授权，运行时未抓包核实";
+function destination() {
+  return Object.freeze({ ...OR.DESTINATION_INFO, source: "owner-authorised", confirmed: true, verified: false, status: DEST_STATUS });
 }
-const DESTINATION = destination({});
+const DESTINATION = destination();
 const DEFAULT_MODEL = OR.MODEL;
 const IS_WIN = process.platform === "win32";
 
