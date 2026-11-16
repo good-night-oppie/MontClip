@@ -17,7 +17,7 @@ let HAS_FFMPEG = false;
 try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch { }
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 const tmp = (t, p = "mcrv-") => { const d = fs.mkdtempSync(path.join(os.tmpdir(), p)); t.after(() => VB.rmForce(d)); return d; };
-const envFor = (mode, opts = {}) => ({ ...process.env, MONTCLIP_AGY_BIN: process.execPath, SECRET_TOKEN_FOR_TEST: "s3cret-value", ...(opts.noConfirm ? {} : { MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }),
+const envFor = (mode, opts = {}) => ({ ...process.env, MONTCLIP_AGY_BIN: process.execPath, SECRET_TOKEN_FOR_TEST: "s3cret-value",
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.calls ? [`--calls=${opts.calls}`] : []), "--"]) });
 function makeSample(dir, sec = 8) {
   const f = path.join(dir, "sample.mp4");
@@ -83,7 +83,7 @@ function setup(t, mode, extra = {}) {
   const store = createReviewStore({ dir: path.join(d, "reviews") });
   let doc = DOC(), jobs = 0, cancelled = [];
   const svc = createReviewService({
-    store, bridge: extra.bridge || VB, readProject: () => doc, activeProject: () => (extra.active ? extra.active() : "p1"), pollMs: 20, agentSendEnabled: () => !!extra.agentSend,
+    store, bridge: extra.bridge || VB, readProject: () => doc, activeProject: () => (extra.active ? extra.active() : "p1"), pollMs: 20,
     requestSample: ({ range }) => { jobs++; return { id: "x_" + jobs, range }; },
     getJob: () => ({ status: extra.jobStatus || "done", progress: 1, src: "/previews/sample.mp4" }),
     cancelJob: (id) => cancelled.push(id), sampleFile: () => sample,
@@ -128,11 +128,8 @@ test("timeline seconds: the sample starts lead seconds before the stretch", { sk
   assert.equal(lead.t, 22.5); assert.equal(lead.inLead, true);
 });
 
-test("an agent's request with send:true is OFF by default; with the switch on it is sent when ready; a page cannot ask for that", { skip }, async (t) => {
-  const off = setup(t, "pass");
-  assert.throws(() => off.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.status === 403 && e.code === "AGENT_SEND_OFF");
-  assert.equal(off.jobsMade(), 0, "nothing is rendered either");
-  const S = setup(t, "pass", { agentSend: true });
+test("an agent's request with send:true is sent when ready, with no switch (the owner, #321 6921163328); a page cannot ask for that", { skip }, async (t) => {
+  const S = setup(t, "pass");
   assert.throws(() => S.svc.prepare({ start: 24, end: 29, agent: false, autoSend: true }), (e) => e.status === 403 && e.code === "CLICK_REQUIRED");
   const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
   const done = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "done" && s; });
@@ -182,7 +179,7 @@ test("bad ranges, a too long stretch and a bad scope are refused before anything
 test("without the tool installed: NO_BRIDGE before rendering", { skip }, (t) => {
   const S = setup(t, "pass");
   const svc = createReviewService({ store: S.store, bridge: VB, readProject: S.doc, activeProject: () => "p1", requestSample: () => { throw new Error("must not render"); },
-    getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x", env: { MONTCLIP_AGY_BIN: path.join(S.d, "none"), MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" } });
+    getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x", env: { MONTCLIP_AGY_BIN: path.join(S.d, "none") } });
   assert.throws(() => svc.prepare({ start: 1, end: 5 }), (e) => e.status === 409 && e.code === "NO_BRIDGE");
 });
 
@@ -231,7 +228,7 @@ test("the page sees what is sent: how many requests, how many taste notes, to wh
   const w = S.svc.status(v.reviewId).willSend;
   assert.equal(w.requests, 2); assert.equal(w.tasteNotes, 2);
   assert.match(w.what, /2 requests/); assert.match(w.what, /2 saved taste notes/);
-  assert.deepEqual(w.to, { ...VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }) }, "what is shown is the one decision");
+  assert.deepEqual(w.to, { ...VB.destination() }, "what is shown is the one decision");
   const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
   assert.deepEqual(rec.destination, w.to, "the record says what was shown");
   assert.equal(rec.mode, "two_pass"); assert.equal(rec.requests, 2); assert.equal(rec.tasteNotes, 2);
@@ -244,7 +241,7 @@ test("the page sees what is sent: how many requests, how many taste notes, to wh
 
 test("where it goes is checked again at the moment of sending: a change since it was shown stops the send", { skip }, async (t) => {
   let host = "daily-cloudcode-pa.googleapis.com";
-  const moving = { ...VB, destination: () => Object.freeze({ service: "Google Gemini", host, source: "owner-confirmed", verified: true }) };
+  const moving = { ...VB, destination: () => Object.freeze({ ...VB.destination(), host }) };
   const S = setup(t, "pass", { bridge: moving });
   const v = S.svc.prepare({ start: 24, end: 29 });
   await until(() => S.svc.status(v.reviewId).state === "ready");
@@ -313,7 +310,7 @@ test("what goes out is what was shown: a project switched, a word edited or a no
   assert.ok(!prompt.includes("NOTE-ADDED-AFTER-THE-QUESTION"), "a note added since is not sent");
   /* an edit after the sample was made: the picture is stale, so nothing is sent */
   fs.rmSync(S.report, { force: true });
-  const e = S.svc.prepare({ start: 21, end: 26, scope: "full" });
+  const e = S.svc.prepare({ start: 21, end: 26, scope: "full", recheck: true });   // the streamer asks again on purpose (#321: else the earlier result is used)
   await until(() => S.svc.status(e.reviewId).state === "ready");
   const tokenE = S.svc.tokenFor(e.reviewId);
   const doc2 = JSON.parse(JSON.stringify(S.doc())); doc2.clips.find((c) => c.id === "t1").props.text = "SECRET-OF-ANOTHER-EDIT"; S.setDoc(doc2);
@@ -322,7 +319,7 @@ test("what goes out is what was shown: a project switched, a word edited or a no
   /* another project open now: the old token is refused and nothing starts */
   fs.rmSync(S.report, { force: true });
   S.setDoc(JSON.parse(JSON.stringify(DOC())));
-  const b = S.svc.prepare({ start: 21, end: 26, scope: "full" });
+  const b = S.svc.prepare({ start: 21, end: 26, scope: "full", recheck: true });
   await until(() => S.svc.status(b.reviewId).state === "ready");
   const token = S.svc.tokenFor(b.reviewId);
   active = "p2";
@@ -353,21 +350,19 @@ test("gate: a later check of a smaller part that found a problem takes the pass 
   assert.equal(g(0, 30) === false && s.gate("p", { key: "OTHER", start: 0, end: 10 }).passed, false, "another content has no pass");
 });
 
-test("fail closed: an address nobody confirmed means nothing is rendered or sent, and a wrong confirmation confirms nothing", { skip }, async (t) => {
-  for (const bad of [undefined, "", "somewhere.else.example", "DAILY-CLOUDCODE-PA.GOOGLEAPIS.COM", "daily-cloudcode-pa.googleapis.com "]) {
+test("fail closed: an address that is not confirmed means nothing is rendered or sent, for a person and an agent; the old variable, whatever its value, decides nothing", { skip }, async (t) => {
+  for (const conf of [false, undefined, null, 0, "yes"]) {
     const d = tmp(t), sample = makeSample(d), report = path.join(d, "report.json");
-    const env = { ...envFor("pass", { report, noConfirm: true }), ...(bad === undefined ? {} : { MONTCLIP_REVIEW_DEST_CONFIRMED: bad }) };
+    const env = { ...envFor("pass", { report }), MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" };
+    const bridge = { ...VB, destination: () => Object.freeze({ ...VB.destination(), confirmed: conf }) };
     let jobs = 0;
-    const svc = createReviewService({ store: createReviewStore({ dir: path.join(d, "reviews") }), bridge: VB, readProject: DOC, activeProject: () => "p1", agentSendEnabled: () => true,
+    const svc = createReviewService({ store: createReviewStore({ dir: path.join(d, "reviews") }), bridge, readProject: DOC, activeProject: () => "p1",
       requestSample: () => { jobs++; return { id: "x" }; }, getJob: () => ({ status: "done", src: "/previews/s.mp4" }), cancelJob() { }, sampleFile: () => sample,
       ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env });
-    assert.throws(() => svc.prepare({ start: 24, end: 29 }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED" && e.destination.verified === false, String(bad));
+    assert.throws(() => svc.prepare({ start: 24, end: 29 }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED" && e.destination.confirmed === conf, String(conf));
     assert.throws(() => svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.code === "DESTINATION_UNVERIFIED");
     assert.equal(jobs, 0, "nothing was rendered"); assert.equal(fs.existsSync(report), false, "and nothing was started");
   }
-  const d = VB.destination({});
-  assert.deepEqual([d.verified, d.source], [false, "docs"]);
-  assert.deepEqual([VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).verified, VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).source], [true, "owner-confirmed"]);
 });
 
 /* ---- QQ (#328): the model's words never reach the disk ---- */
@@ -492,7 +487,7 @@ test("what is sent is capped per project: past the cap nothing is started", { sk
   assert.ok(rec.sentBytes > 0 && rec.sentBytes <= 3_200_000 && Array.isArray(rec.passes) && rec.passes[0].kind === "check", JSON.stringify(rec.passes));
   assert.ok(!JSON.stringify(rec.passes).includes("SENTINEL"), "kinds and sizes only");
   fs.rmSync(S.report, { force: true });
-  const w = small.prepare({ start: 24, end: 29 });
+  const w = small.prepare({ start: 24, end: 29, recheck: true });   // the streamer asks again on purpose (#321: else the earlier result is used)
   await until(() => small.status(w.reviewId).state === "ready");
   await assert.rejects(small.send(w.reviewId, small.tokenFor(w.reviewId)), (e) => e.status === 409 && e.code === "SEND_LIMIT");
   assert.equal(fs.existsSync(S.report), false, "nothing was started");
@@ -705,8 +700,8 @@ test("#333/#334: a ledger removed because its old words could not be cleaned awa
 });
 
 /* QQ's ruling on #321 (6874674433): an agent may send without a click, and every such send is written to the local record: where, which kinds, how many bytes, who started it, when; no free text */
-test("an agent's send (switch on) is recorded on disk with service and domain, kinds, bytes, initiator and time, and no free text", { skip }, async (t) => {
-  const S = setup(t, "issues", { agentSend: true });
+test("an agent's send is recorded on disk with service and domain, kinds, bytes, initiator and time, and no free text", { skip }, async (t) => {
+  const S = setup(t, "issues");
   const v = S.svc.prepare({ start: 24, end: 29, scope: "full", agent: true, autoSend: true });
   const rec = await until(() => { const x = S.store.list("p1", 5)[0]; return x && x.reviewId === v.reviewId ? x : null; });
   const disk = JSON.parse(fs.readFileSync(path.join(S.d, "reviews", "p1.json"), "utf8")), onDisk = disk.records.find((r) => r.reviewId === v.reviewId);
@@ -741,4 +736,190 @@ test("with no ledger yet the first send goes as usual, and is counted", { skip }
   const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
   assert.equal(rec.status, "passed"); assert.equal(fs.existsSync(S.report), true, "the tool ran");
   assert.ok(S.store.sentTotal("p1") > 0);
+});
+
+/* #321 PG 6921163328 (the owner, 2026-11-16: "我要走Gemini，这个门禁可以删掉了"): the two start-up switches are gone. An agent's check sends with neither
+   MONTCLIP_REVIEW_DEST_CONFIRMED nor MONTCLIP_REVIEW_AGENT_SEND set; everything else that guards the send stays and is checked here on the agent path. */
+const noSwitches = (mode, opts) => { const e = envFor(mode, opts); delete e.MONTCLIP_REVIEW_DEST_CONFIRMED; delete e.MONTCLIP_REVIEW_AGENT_SEND; return e; };
+function agentSetup(t, { bridge = VB, sendCapBytes } = {}) {
+  const d = tmp(t), sample = makeSample(d), report = path.join(d, "report.json");
+  const store = createReviewStore({ dir: path.join(d, "reviews") });
+  let release = false, jobs = 0;
+  const svc = createReviewService({ store, bridge, readProject: DOC, activeProject: () => "p1", pollMs: 20, ...(sendCapBytes ? { sendCapBytes } : {}),
+    requestSample: () => { jobs++; return { id: "x_" + jobs }; },
+    /* the render finishes only when the test says so, so something can change between prepare and the send that follows it */
+    getJob: () => (release ? { status: "done", progress: 1, src: "/previews/s.mp4" } : { status: "running", progress: 0.5 }),
+    cancelJob() { }, sampleFile: () => sample, ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: noSwitches("pass", { report }) });
+  return { d, svc, store, report, release: () => { release = true; }, jobsMade: () => jobs };
+}
+test("#321 owner's word: the Gemini address is fixed in code and confirmed by the owner's authorisation; the status says it was not captured at run time; the old variables change nothing", () => {
+  const want = { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "owner-authorised", confirmed: true, verified: false, status: "主人授权，运行时未抓包核实" };
+  for (const env of [{}, { MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }, { MONTCLIP_REVIEW_DEST_CONFIRMED: "somewhere.else.example" }]) {
+    const d = VB.destination(env);
+    for (const [k, v] of Object.entries(want)) assert.equal(d[k], v, k + " with " + JSON.stringify(env));
+    assert.ok(Object.isFrozen(d));
+  }
+});
+test("#321 ①: with neither start-up variable set, an agent's check (send:true) is rendered and sent when ready, and recorded as the agent's", { skip }, async (t) => {
+  const S = agentSetup(t);
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  S.release();
+  const done = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "done" && s; });
+  assert.equal(done.result.status, "passed"); assert.equal(done.result.source, "agent");
+  assert.equal(done.result.destination.host, "daily-cloudcode-pa.googleapis.com");
+  assert.ok(fs.existsSync(S.report), "the tool really ran");
+  assert.ok(S.store.sentTotal("p1") > 0, "and what went out is counted");
+});
+test("#321 ② kept: on the agent path, a destination that changed between prepare and the send stops it; nothing is started and nothing moves elsewhere", { skip }, async (t) => {
+  let host = "daily-cloudcode-pa.googleapis.com";
+  const moving = { ...VB, destination: () => Object.freeze({ ...VB.destination(), host }) };
+  const S = agentSetup(t, { bridge: moving });
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  host = "somewhere.else.example";
+  S.release();
+  const failed = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.equal(failed.reason, "DESTINATION_CHANGED");
+  assert.equal(fs.existsSync(S.report), false, "the tool was never started");
+  assert.deepEqual(S.store.list("p1", 5), [], "no record of a send that did not happen");
+});
+test("#321 ② kept: an address that is not confirmed still fails closed (nothing rendered, nothing sent)", { skip }, (t) => {
+  const unconfirmed = { ...VB, destination: () => Object.freeze({ ...VB.destination(), confirmed: false }) };
+  const S = agentSetup(t, { bridge: unconfirmed });
+  assert.throws(() => S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED");
+  assert.throws(() => S.svc.prepare({ start: 24, end: 29 }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED");
+  assert.equal(S.jobsMade(), 0); assert.equal(fs.existsSync(S.report), false);
+});
+test("#321 ③ kept: on the agent path, a local record that cannot be read stops the send before anything leaves", { skip }, async (t) => {
+  const S = agentSetup(t);
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  fs.mkdirSync(path.join(S.d, "reviews"), { recursive: true });
+  const f = path.join(S.d, "reviews", "p1.json"); fs.writeFileSync(f, "{ not json");
+  S.release();
+  const failed = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.equal(failed.reason, "LEDGER_UNREADABLE");
+  assert.equal(fs.existsSync(S.report), false, "the tool was never started");
+  assert.equal(fs.readFileSync(f, "utf8"), "{ not json", "the record is not replaced");
+});
+test("#321 ④ kept: on the agent path the size limits still refuse — 30 s per check, 10 s lead-in, and the per-project cap", { skip }, async (t) => {
+  const S = agentSetup(t);
+  assert.throws(() => S.svc.prepare({ start: 0, end: 31, agent: true, autoSend: true }), (e) => e.status === 400 && e.code === "TOO_LONG");
+  assert.throws(() => S.svc.prepare({ start: 0, end: 5, lead: 11, agent: true, autoSend: true }), (e) => e.status === 400 && e.code === "BAD_LEAD");
+  assert.equal(S.jobsMade(), 0, "nothing rendered");
+  const C = agentSetup(t, { sendCapBytes: 3_300_000 });
+  C.store.countSent("p1", 1_000_000);   // already sent this much: one more sample (up to 3.2 MB) would pass the cap
+  const v = C.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  C.release();
+  const failed = await until(() => { const s = C.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.equal(failed.reason, "SEND_LIMIT");
+  assert.equal(fs.existsSync(C.report), false, "the tool was never started");
+});
+
+/* #321 PG 6922461279 (B): the two protections that main did not have yet. (1) the same stretch of the same content that already has a
+   result is not sent again — the result is used; only the streamer's own 重新检查 (recheck, from the page) sends it again. (2) a budget:
+   every request is counted as $1 (a conservative estimate: agy gives no real cost), a check may cost at most $2 and a day at most $10;
+   the count is written before anything leaves, and a count that cannot be read or written means nothing is sent. */
+function reuseSetup(t, { d = tmp(t), doc = DOC, now, report, calls, mode = "pass" } = {}) {
+  report = report || path.join(d, "report.json"); calls = calls || path.join(d, "calls.jsonl");
+  const sample = fs.existsSync(path.join(d, "sample.mp4")) ? path.join(d, "sample.mp4") : makeSample(d);
+  const store = createReviewStore({ dir: path.join(d, "reviews"), ...(now ? { now } : {}) });
+  let release = true, jobs = 0;
+  const svc = createReviewService({ store, bridge: VB, readProject: doc, activeProject: () => "p1", pollMs: 20, ...(now ? { now } : {}),
+    requestSample: () => { jobs++; return { id: "x_" + jobs }; },
+    getJob: () => (release ? { status: "done", progress: 1, src: "/previews/s.mp4" } : { status: "running", progress: 0.5 }),
+    cancelJob() { }, sampleFile: () => { const c = path.join(d, "copy-" + jobs + "-" + Math.random().toString(36).slice(2) + ".mp4"); fs.copyFileSync(sample, c); return c; },
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: noSwitches(mode, { report, calls }) });
+  return { d, svc, store, report, calls, hold: () => { release = false; }, release: () => { release = true; }, jobsMade: () => jobs,
+    sends: () => (fs.existsSync(calls) ? fs.readFileSync(calls, "utf8").trim().split("\n").filter(Boolean).length : 0) };
+}
+const agentCheck = async (S, a = {}) => {
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true, ...a });
+  return until(() => { const s = S.svc.status(v.reviewId); return (s.state === "done" || s.state === "failed") && { ...s, first: v }; });
+};
+test("#321 B1: an agent asking twice for the same stretch of the same content gets the first result; the clip goes out once", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  const a = await agentCheck(S);
+  assert.equal(a.state, "done"); assert.equal(S.sends(), 1);
+  const second = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  assert.equal(second.state, "done", "answered at once"); assert.equal(second.reused, true);
+  assert.equal(second.reviewId, a.result.reviewId, "the earlier check");
+  assert.equal(second.result.status, a.result.status);
+  assert.equal(S.svc.status(second.reviewId).state, "done", "status of the reused id answers too (what fablecut_review polls)");
+  assert.equal(S.jobsMade(), 1, "nothing rendered again"); assert.equal(S.sends(), 1, "nothing sent again");
+  assert.equal(S.store.spentToday().requests, 1, "and nothing counted again");
+});
+test("#321 B1: the reuse survives a restart (it comes from the record on disk), and an agent's recheck is not honoured", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  await agentCheck(S);
+  const R = reuseSetup(t, { d: S.d, report: S.report, calls: S.calls });   // a new process: new store and service over the same folder
+  const again = R.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true, recheck: true });
+  assert.equal(again.reused, true); assert.equal(R.jobsMade(), 0); assert.equal(S.sends(), 1);
+});
+test("#321 B1: the streamer's own recheck from the page sends again; another stretch, other content or another kind of check is not a reuse", { skip }, async (t) => {
+  let doc = DOC();
+  const S = reuseSetup(t, { doc: () => doc });
+  await agentCheck(S);
+  const page = S.svc.prepare({ start: 24, end: 29, recheck: true });
+  assert.notEqual(page.reused, true); assert.equal(S.jobsMade(), 2, "the page's recheck renders a new sample");
+  S.svc.cancel(page.reviewId);
+  const plain = S.svc.prepare({ start: 24, end: 29 });
+  assert.equal(plain.reused, true, "the page without recheck sees the earlier result too");
+  for (const other of [{ start: 24, end: 28 }, { start: 24, end: 29, scope: "full" }, { start: 24, end: 29, mode: "two_pass" }, { start: 24, end: 29, lead: 1 }]) {
+    const v = S.svc.prepare({ ...other, agent: true });
+    assert.notEqual(v.reused, true, JSON.stringify(other)); S.svc.cancel(v.reviewId);
+  }
+  doc = { ...DOC(), clips: [...DOC().clips, { id: "c9", start: 40, duration: 1, kind: "video" }] };
+  const edited = S.svc.prepare({ start: 24, end: 29, agent: true });
+  assert.notEqual(edited.reused, true, "the content changed"); S.svc.cancel(edited.reviewId);
+});
+test("#321 B1: a check that came back with no result is not a result; it may be sent again", { skip }, (t) => {
+  const S = reuseSetup(t);
+  S.store.add("p1", { reviewId: "r_old", status: "no_result", reason: "FAILED", range: { start: 24, end: 29 }, lead: 3, scope: "window", mode: "single", contentKey: contentKey(DOC()), findings: [] });
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true });
+  assert.notEqual(v.reused, true); assert.equal(S.jobsMade(), 1); S.svc.cancel(v.reviewId);
+});
+test("#321 B2: each request is counted ($1) before it goes out; past $10 today nothing is rendered or sent and the reason is plain words", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  await agentCheck(S, { mode: "two_pass" });
+  const spent = S.store.spentToday();
+  assert.deepEqual({ requests: spent.requests, usd: spent.usd }, { requests: 2, usd: 2 }, "two requests, $2");
+  S.store.reserveSpend({ requests: 7, usd: 7 });   // $9 spent today
+  let refused = null; try { S.svc.prepare({ start: 1, end: 5, agent: true, autoSend: true, mode: "two_pass" }); } catch (e) { refused = e; }
+  assert.ok(refused, "two more requests would make $11");
+  assert.equal(refused.status, 409); assert.equal(refused.code, "DAILY_LIMIT");
+  assert.match(refused.message, /今天的检查额度用完了/);
+  assert.match(refused.message, /每天最多 \$10（每次发送按 \$1 保守估算，今天已用 \$9）/, refused.message);
+  assert.equal(S.jobsMade(), 1, "nothing rendered for it");
+  const one = await agentCheck(S, { start: 1, end: 5 });   // one request ($1) still fits: $10 exactly
+  assert.equal(one.state, "done"); assert.equal(S.store.spentToday().usd, 10);
+  assert.throws(() => S.svc.prepare({ start: 6, end: 9, agent: true, autoSend: true }), (e) => e.code === "DAILY_LIMIT");
+  assert.throws(() => S.svc.prepare({ start: 6, end: 9 }), (e) => e.code === "DAILY_LIMIT", "the streamer's own check is in the same budget");
+  assert.equal(S.sends(), 3, "2 + 1 requests went out, no more");
+});
+test("#321 B2: a check costs at most $2 (two requests); yesterday's spending does not count today", { skip }, async (t) => {
+  const day = 24 * 3600 * 1000, today = Date.now();
+  const d = tmp(t);
+  const Y = createReviewStore({ dir: path.join(d, "reviews"), now: () => today - day });
+  Y.reserveSpend({ requests: 10, usd: 10 });
+  assert.equal(Y.spentToday().usd, 10);
+  const S = reuseSetup(t, { d, now: () => today });
+  assert.equal(S.store.spentToday().usd, 0, "a new day");
+  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass", agent: true }); S.svc.cancel(v.reviewId);
+  const { BUDGET } = require("../server/review-service");
+  assert.deepEqual([BUDGET.usdPerRequest, BUDGET.usdPerCheck, BUDGET.usdPerDay], [1, 2, 10]);
+  assert.ok(BUDGET.usdPerRequest * 2 <= BUDGET.usdPerCheck, "the largest check (two requests) fits the per-check limit");
+});
+test("#321 B2: a spending record that cannot be read refuses before rendering; one that cannot be written at the moment of sending stops the send", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  const f = path.join(S.d, "reviews", "spend.daily.json");
+  fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, "{ not json");
+  assert.throws(() => S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.code === "LEDGER_UNREADABLE" && !String(e.message).includes(S.d));
+  assert.equal(S.jobsMade(), 0);
+  fs.rmSync(f);
+  S.hold();
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  fs.mkdirSync(f);   // now the record can be neither read nor replaced
+  S.release();
+  const failed = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.ok(["LEDGER_UNREADABLE", "LEDGER_UNWRITABLE"].includes(failed.reason), failed.reason);
+  assert.equal(S.sends(), 0, "the tool was never started"); assert.equal(fs.existsSync(S.report), false);
 });

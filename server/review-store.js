@@ -96,6 +96,22 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       marks: rest.marks.map((x, i) => ({ ...x, note: (m.notes[i] || "") })), correction: rest.correction ? { ...rest.correction, text: m.correction || "" } : null };
   };
   const sentFloor = new Map();
+  /* #321 (PG 6922461279): what has been spent on checks today, across every project. One small file beside the project ledgers
+     (its name is not a project id, and scrubAll does not read it): {version, days:{"YYYY-MM-DD": {requests, usd}}}, the last 31 days.
+     No words, no ranges, no project ids. A file that cannot be read is an error (never "nothing spent"), and this process keeps a floor
+     of what it counted itself, so a file removed while it runs does not hand out the day's budget again. */
+  const spendFile = () => path.join(dir, "spend.daily.json");
+  const dayOf = (t) => { const x = new Date(t); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); };
+  const spendFloor = new Map();   // day → {requests, usd} counted by this process
+  function readSpend() {
+    let d = null;
+    try { d = JSON.parse(fs.readFileSync(spendFile(), "utf8")); }
+    catch (e) { if (e && e.code === "ENOENT") return { version: 1, days: {} }; throw httpError(500, "the record of today's checks could not be read", { code: "LEDGER_UNREADABLE" }); }
+    if (!d || typeof d.days !== "object" || d.days === null || Array.isArray(d.days)) throw httpError(500, "the record of today's checks could not be read", { code: "LEDGER_UNREADABLE" });
+    return d;
+  }
+  const spentOn = (d, day) => { const disk = d.days[day] || {}, fl = spendFloor.get(day) || {};
+    return { requests: Math.max(Number(disk.requests) || 0, fl.requests || 0), usd: Math.max(Number(disk.usd) || 0, fl.usd || 0) }; };
   const sumSent = (d) => (d.records || []).reduce((a, r) => a + (Number(r.sentBytes) || 0), 0);
   return {
     contentKey,
@@ -127,6 +143,34 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       const disk = d ? (d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d)) : 0;
       sentFloor.set(projectId, Math.max(disk, sentFloor.get(projectId) || 0) + b);
       try { if (!d) return; d.sentBytesTotal = (d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d)) + b; write(projectId, d); } catch { }
+    },
+    /** What has been spent on checks today (this computer's local date), every project together. Throws LEDGER_UNREADABLE rather than guess. */
+    spentToday() { const day = dayOf(now()); return { day, ...spentOn(readSpend(), day) }; },
+    /** Counts requests that are about to go out, BEFORE they go: if this cannot be written (LEDGER_UNREADABLE / LEDGER_UNWRITABLE), nothing is sent. */
+    reserveSpend({ requests, usd }) {
+      const day = dayOf(now()), d = readSpend(), cur = spentOn(d, day);
+      const next = { requests: cur.requests + (Number(requests) || 0), usd: +(cur.usd + (Number(usd) || 0)).toFixed(2) };
+      d.days[day] = next;
+      for (const k of Object.keys(d.days).sort().slice(0, -31)) delete d.days[k];
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        const tmp = spendFile() + "." + process.pid + ".tmp";
+        fs.writeFileSync(tmp, JSON.stringify(d)); fs.renameSync(tmp, spendFile());
+      } catch { throw httpError(500, "the record of today's checks could not be written", { code: "LEDGER_UNWRITABLE" }); }
+      spendFloor.set(day, next);
+      return { day, ...next };
+    },
+    /** #321 (PG 6922461279): the newest check of exactly this request — same stretch, lead-in, scope and mode — of this very content that came
+     *  back with a result (passed or issues; no_result is not a result). The caller uses it instead of sending the same clip again. */
+    findResult(projectId, { key, start, end, lead, scope, mode }) {
+      const recs = read(projectId).records;
+      for (let i = recs.length - 1; i >= 0; i--) {
+        const r = recs[i];
+        if (r.contentKey !== key || !r.range || r.status === "no_result" || !r.status) continue;
+        if (r.range.start !== start || r.range.end !== end || (r.lead ?? null) !== lead || (r.scope || "window") !== scope || (r.mode || "single") !== mode) continue;
+        return view(r, projectId);
+      }
+      return null;
     },
     add(projectId, rec) {
       const doc = read(projectId);

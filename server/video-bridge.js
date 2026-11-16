@@ -28,12 +28,15 @@ const DEFAULT_TIMEOUT_S = 420;
    moment of sending, and for what the record says. The address is the one the hand-run bridge's notes give: `agy` decides
    where it connects and tells us nothing about it, so it is NOT checked at run time (verified:false) — whoever shows it must say so. */
 const DOC_HOST = "daily-cloudcode-pa.googleapis.com";
-/** Nothing can be sent while verified is false (QQ, #328: an address that cannot be confirmed fails closed, no exception). It becomes true
- *  only when the owner has confirmed the address herself (a packet capture on a real run) and says so with
- *  MONTCLIP_REVIEW_DEST_CONFIRMED=<that exact host>; a different value confirms nothing. */
-function destination(env = process.env) {
-  const verified = env.MONTCLIP_REVIEW_DEST_CONFIRMED === DOC_HOST;
-  return Object.freeze({ service: "Google Gemini", host: DOC_HOST, source: verified ? "owner-confirmed" : "docs", verified });
+/** The host is fixed here, and the owner's own authorisation is what confirms it (confirmed:true): 2026-11-16, "我要走Gemini，这个门禁可以删掉了",
+ *  PG's decision https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6921163328. Before that the owner had to set
+ *  MONTCLIP_REVIEW_DEST_CONFIRMED on the server process; that variable is gone and no environment variable changes this answer.
+ *  verified stays false: no packet capture of a real run has shown where `agy` connects (V23), and status says so in plain words.
+ *  Nothing can be sent while confirmed is false (QQ, #328: fails closed) — review-service still checks it before rendering and again at the
+ *  moment of sending, together with the host. */
+const DEST_STATUS = "主人授权，运行时未抓包核实";
+function destination() {
+  return Object.freeze({ service: "Google Gemini", host: DOC_HOST, source: "owner-authorised", confirmed: true, verified: false, status: DEST_STATUS });
 }
 const DESTINATION = destination({});
 

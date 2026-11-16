@@ -17,6 +17,12 @@ const DEFAULT_LEAD_S = 3;
 const TOKEN_TTL_MS = 10 * 60 * 1000;
 const RENDER_TIMEOUT_MS = 10 * 60 * 1000;
 const CONTEXT_MAX = 6000;
+/* #321 (PG 6922461279): the budget. agy says nothing about cost, so every request is counted at a conservative estimate: one request carries at
+   most ~40 s of compact video (3.2 MB) and the fixed prompt, well under $0.10 at Gemini's published prices, so $1 a request leaves more than
+   10x room. It is an estimate, never checked against a bill. A check is at most 2 requests (two_pass) = $2 = the per-check limit; a day is
+   at most $10 = 10 requests, every project and both paths (agent and streamer) together, counted before anything leaves. */
+const BUDGET = Object.freeze({ usdPerRequest: 1, usdPerCheck: 2, usdPerDay: 10 });
+const dailyLimitText = (spent) => `今天的检查额度用完了：每天最多 $${BUDGET.usdPerDay}（每次发送按 $${BUDGET.usdPerRequest} 保守估算，今天已用 $${spent}）。明天再检查；导出照常可以写 bypassReason 继续。`;
 
 /** The project's own words and cut points inside [from, to], as one plain text (reference for the model, never an instruction). */
 function skeleton(doc, from, to) {
@@ -41,7 +47,7 @@ function skeleton(doc, from, to) {
 }
 
 function createReviewService({ store, bridge, readProject, activeProject, requestSample, getJob, cancelJob, sampleFile, ffmpeg, ffprobe, env = process.env,
-  agyOverride = null, agentSendEnabled = () => false, sendCapBytes = 104857600, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
+  agyOverride = null, sendCapBytes = 104857600, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
   const reviews = new Map();           // reviewId → in-flight state (finished ones live in the store)
   /* a check that was shown but never confirmed does not hold the project forever: after its token ran out it is expired and its sample removed */
   const sweep = () => { for (const r of reviews.values()) if (r.state === "ready" && now() > r.tokenExp) { r.state = "expired"; r.reason = "EXPIRED"; r.token = null; dropSample(r); onChange(r); } };
@@ -99,7 +105,15 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     /* a ledger that cannot be read: nothing is sent, the tool is not started (it would go out with no record and no count) */
     let sentSoFar; try { sentSoFar = store.sentTotal(r.project); } catch (e) { r.state = "failed"; r.reason = "LEDGER_UNREADABLE"; r.token = null; dropSample(r); onChange(r); throw e; }
     { const need = (r.mode === "two_pass" ? 2 : 1) * bridge.MAX_SAMPLE_BYTES; if (sentSoFar + need > sendCapBytes) { r.state = "failed"; r.reason = "SEND_LIMIT"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "this project has reached its limit for video sent out", { code: "SEND_LIMIT" }); } }
-    if (!destination().verified || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
+    /* kept (PG #321 6921163328, item 4): where it goes is checked again at the moment of sending; not confirmed, or not the one shown → nothing goes */
+    if (destination().confirmed !== true || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
+    /* #321 budget, at the moment of sending: still within today's $10, and counted BEFORE the tool starts; a count that cannot be
+       read or written means nothing goes out */
+    { const requests = r.mode === "two_pass" ? 2 : 1, usd = requests * BUDGET.usdPerRequest;
+      const stop = (reason) => { r.state = "failed"; r.reason = reason; r.token = null; dropSample(r); onChange(r); };
+      let spent; try { spent = store.spentToday(); } catch (e) { stop(e.code || "LEDGER_UNREADABLE"); throw e; }
+      if (spent.usd + usd > BUDGET.usdPerDay) { stop("DAILY_LIMIT"); throw httpError(409, dailyLimitText(spent.usd), { code: "DAILY_LIMIT", budget: { ...BUDGET, spentToday: spent.usd } }); }
+      try { store.reserveSpend({ requests, usd }); } catch (e) { stop(e.code || "LEDGER_UNWRITABLE"); throw e; } }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
     const from = r.range.start - r.lead;
@@ -133,7 +147,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   return {
     skeleton,
     /** Renders the sample. For a person at the editor this is all that happens: she sees what would be sent and clicks. */
-    prepare({ start, end, lead, scope = "window", mode = "single", where, agent = false, autoSend = false }) {
+    prepare({ start, end, lead, scope = "window", mode = "single", where, agent = false, autoSend = false, recheck = false }) {
       sweep();
       const s = num(start), e = num(end);
       if (s == null || e == null || s < 0 || e <= s) throw httpError(400, "start and end are seconds with 0 <= start < end", { code: "BAD_RANGE" });
@@ -143,12 +157,25 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       if (scope !== "window" && scope !== "full") throw httpError(400, 'scope is "window" or "full"', { code: "BAD_SCOPE" });
       if (mode !== "single" && mode !== "two_pass") throw httpError(400, 'mode is "single" or "two_pass"', { code: "BAD_MODE" });
       if (autoSend && !agent) throw httpError(403, "only a person's click at the editor sends a sample", { code: "CLICK_REQUIRED" });
-      /* off until the owner's authorisation for an agent to send on the streamer's behalf is on file and QQ has verified it (Deja, #321) */
-      if (autoSend && !agentSendEnabled()) throw httpError(403, "an agent may not send a sample yet: it is off until the owner's authorisation is verified; use prepare, and the streamer sends with her click", { code: "AGENT_SEND_OFF" });
+      /* an agent's send:true needs no switch any more: the owner's word (2026-11-16, PG #321 6921163328) removed MONTCLIP_REVIEW_AGENT_SEND.
+         Every check below, and every check doSend makes, still applies to it. */
       const project = activeProject();
+      /* #321 (PG 6922461279): the same stretch of the same content, asked the same way, that already has a result is not sent again: the result is
+         used. Only the streamer's own 重新检查 (recheck, from the page; an agent's recheck counts for nothing) sends it again. */
+      if (!(recheck === true && !agent)) {
+        const doc0 = readProject() || {}, from0 = Math.max(0, s - l);
+        const prev = store.findResult(project, { key: store.contentKey(doc0), start: s, end: e, lead: +(s - from0).toFixed(3), scope, mode });
+        if (prev) return { reviewId: prev.reviewId, state: "done", reused: true, reason: "ALREADY_CHECKED", project, range: prev.range, result: prev,
+          note: "这一段这份内容已经检查过，用的是上次的结果，没有再发送；要再发一次，请主播在页面上点「重新检查」。" };
+      }
       if (busy(project)) throw httpError(409, "another check of this project is still running; cancel it or wait", { code: "BUSY", busy: view(busy(project)) });
-      /* fail closed: an address nobody has confirmed is not one anything is rendered for, let alone sent to */
-      if (!destination().verified) throw httpError(409, "where this would be sent has not been confirmed (the owner's confirmation is missing), so nothing is prepared or sent", { code: "DESTINATION_UNVERIFIED", destination: destination() });
+      /* fail closed: an address nobody has confirmed is not one anything is rendered for, let alone sent to (the Gemini host is confirmed by the owner's authorisation, video-bridge.js) */
+      if (destination().confirmed !== true) throw httpError(409, "where this would be sent has not been confirmed, so nothing is prepared or sent", { code: "DESTINATION_UNVERIFIED", destination: destination() });
+      /* #321 budget: refused before anything is rendered; checked again, and counted, at the moment of sending */
+      { const usd = (mode === "two_pass" ? 2 : 1) * BUDGET.usdPerRequest;
+        if (usd > BUDGET.usdPerCheck) throw httpError(409, `一次检查最多 $${BUDGET.usdPerCheck}，这次估算要 $${usd}，不发送。`, { code: "CHECK_BUDGET" });
+        const spent = store.spentToday();   // a record that cannot be read throws LEDGER_UNREADABLE: nothing is guessed, nothing is sent
+        if (spent.usd + usd > BUDGET.usdPerDay) throw httpError(409, dailyLimitText(spent.usd), { code: "DAILY_LIMIT", budget: { ...BUDGET, spentToday: spent.usd } }); }
       if (!agyOverride && !bridge.findAgy(env)) throw httpError(409, "the video check tool is not installed on this computer", { code: "NO_BRIDGE" });
       const doc = readProject() || {};
       const from = Math.max(0, s - l);
@@ -189,8 +216,8 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       return view(r);
     },
     destination,
-    limits: { MAX_SPAN_S, MAX_LEAD_S, DEFAULT_LEAD_S, TOKEN_TTL_MS, CONTEXT_MAX },
+    limits: { MAX_SPAN_S, MAX_LEAD_S, DEFAULT_LEAD_S, TOKEN_TTL_MS, CONTEXT_MAX, BUDGET },
   };
 }
 
-module.exports = { createReviewService, skeleton, MAX_SPAN_S, DEFAULT_LEAD_S };
+module.exports = { createReviewService, skeleton, MAX_SPAN_S, DEFAULT_LEAD_S, BUDGET };

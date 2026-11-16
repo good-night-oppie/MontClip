@@ -16,7 +16,7 @@ try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" 
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 
 const PAGE_SECRET = "a1b2c3d4".repeat(8);   // what the Electron main process hands the server at start and adds to the editor window's own requests
-const agyEnv = (mode, report, more = {}) => ({ MONTCLIP_REVIEW_PAGE_SECRET: PAGE_SECRET, MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com", FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
+const agyEnv = (mode, report, more = {}) => ({ MONTCLIP_REVIEW_PAGE_SECRET: PAGE_SECRET, FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", MONTCLIP_AGY_BIN: process.execPath, ...more,
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(report ? [`--report=${report}`] : []), "--"]) });
 /* The editor page is the Electron window: the main process adds the page secret to its own requests to /api/review/ (it never travels over HTTP to anyone else,
    and a header like Origin proves nothing: a local process can write any header). */
@@ -104,7 +104,7 @@ test("the whole way on a real server: page prepares, the tab renders, only the p
 
 test("an agent's check sends when ready (send:true); a page cannot ask that; marks never make a pass; the gate says no without a pass", { skip, timeout: 120_000 }, async (t) => {
   const dir = makeDataDir(t, seedProject({ revision: 3 }));
-  const { base } = await startServer(t, dir, agyEnv("pass", undefined, { MONTCLIP_REVIEW_AGENT_SEND: "1" })); await asPage(base);
+  const { base } = await startServer(t, dir, agyEnv("pass")); await asPage(base);
   const before = fs.readFileSync(path.join(dir, "project.json"), "utf8");
   const tab = fakeTab(t, base); await tab.connected();
 
@@ -115,6 +115,9 @@ test("an agent's check sends when ready (send:true); a page cannot ask that; mar
   await playTab(base, tab);
   const done = await until(async () => { const r = await call(base, "GET", "/api/review/status?id=" + prep.body.reviewId); return r.body.state === "done" && r.body; });
   assert.equal(done.result.status, "passed"); assert.equal(done.result.source, "agent");
+  /* #321 (PG 6922461279): asked again, the same stretch of the same content is not sent again — an agent cannot force it with recheck either */
+  const again = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab", send: true, recheck: true });
+  assert.equal(again.status, 200); assert.equal(again.body.reused, true); assert.equal(again.body.reviewId, done.result.reviewId);
 
   const gate = (s, e) => call(base, "GET", `/api/review/gate?start=${s}&end=${e}`).then((r) => r.body);
   assert.equal((await gate(1, 3)).passed, true);
@@ -140,17 +143,14 @@ test("refusals before anything is rendered: bad range, too long, no tool", { ski
   assert.equal((await call(a.base, "GET", "/api/review/status?id=nope")).status, 404);
   assert.equal((await call(a.base, "POST", "/api/review/nothing", {})).status, 404);
   const dir2 = makeDataDir(t);
-  const b = await startServer(t, dir2, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com", MONTCLIP_AGY_BIN: path.join(dir2, "none") });
+  const b = await startServer(t, dir2, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_AGY_BIN: path.join(dir2, "none") });
   const r = await call(b.base, "POST", "/api/review/prepare", { start: 1, end: 3 });
   assert.equal(r.status, 409); assert.equal(r.body.code, "NO_BRIDGE");
 });
 
-test("an agent's send:true is off unless the switch is on; taste notes by route; the page and the agent see the same notes", { skip, timeout: 60_000 }, async (t) => {
+test("taste notes by route; the page and the agent see the same notes", { skip, timeout: 60_000 }, async (t) => {
   const dir = makeDataDir(t);
   const { base } = await startServer(t, dir, agyEnv("pass")); await asPage(base);
-  const off = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true });
-  assert.equal(off.status, 403); assert.equal(off.body.code, "AGENT_SEND_OFF");
-  assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], [], "nothing was rendered");
   assert.equal((await call(base, "POST", "/api/review/taste/add", { kind: "positive", text: "all good" })).status, 400, "a positive note says what");
   const add = await call(base, "POST", "/api/review/taste/add", { kind: "positive", aspect: "pacing", text: "the pause before the reply" });
   assert.equal(add.status, 200, JSON.stringify(add.body));
@@ -162,15 +162,19 @@ test("an agent's send:true is off unless the switch is on; taste notes by route;
   assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, mode: "three" })).body.code, "BAD_MODE");
 });
 
-test("fail closed over HTTP: without the owner's confirmation of the address, prepare is refused (409) and nothing is rendered", { skip, timeout: 60_000 }, async (t) => {
+test("#321: with neither MONTCLIP_REVIEW_DEST_CONFIRMED nor MONTCLIP_REVIEW_AGENT_SEND set, a page's and an agent's check are prepared; what is shown names the owner-authorised Gemini host and says it was not captured at run time", { skip, timeout: 60_000 }, async (t) => {
   const dir = makeDataDir(t);
-  const env = agyEnv("pass"); delete env.MONTCLIP_REVIEW_DEST_CONFIRMED;
-  const { base } = await startServer(t, dir, env); await asPage(base);
-  for (const headers of [undefined, PAGE]) {
-    const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3 }, headers);
-    assert.equal(r.status, 409); assert.equal(r.body.code, "DESTINATION_UNVERIFIED");
+  const env = agyEnv("pass"); delete env.MONTCLIP_REVIEW_DEST_CONFIRMED; delete env.MONTCLIP_REVIEW_AGENT_SEND;
+  const { base } = await startServer(t, dir, { ...env, MONTCLIP_REVIEW_DEST_CONFIRMED: "", MONTCLIP_REVIEW_AGENT_SEND: "" }); await asPage(base);
+  const tab = fakeTab(t, base); await tab.connected();
+  for (const headers of [PAGE, undefined]) {
+    const prep = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab" }, headers);
+    assert.equal(prep.status, 200, JSON.stringify(prep.body));
+    await playTab(base, tab);
+    const ready = await until(async () => { const r = await call(base, "GET", "/api/review/status?id=" + prep.body.reviewId, undefined, headers); return r.body.state === "ready" && r.body; });
+    assert.deepEqual(ready.willSend.to, { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "owner-authorised", confirmed: true, verified: false, status: "主人授权，运行时未抓包核实" });
+    assert.equal((await call(base, "POST", "/api/review/cancel", { id: prep.body.reviewId }, headers)).status, 200);
   }
-  assert.deepEqual(fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [], []);
 });
 
 test("the checks of /api/export/request apply here too: an end past the timeline, or a sample (lead-in included) over 30 s, is refused with its reason", { skip, timeout: 60_000 }, async (t) => {
@@ -209,7 +213,7 @@ test("a header is not a page: Origin, Sec-Fetch-Site, a cookie or a guessed secr
     const seen = (await call(base, "GET", "/api/review/status?id=" + id, undefined, h)).body;
     assert.equal(seen.sendToken, undefined, "no token for " + JSON.stringify(Object.keys(h)));
     assert.equal((await call(base, "POST", "/api/review/send", { id, token: "0".repeat(48) }, h)).status, 403);
-    assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, h)).body.code, "AGENT_SEND_OFF", "an agent, and the agent switch is off");
+    assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, h)).body.code, "BUSY", "an agent's send:true starts no second check while this one waits");
   }
   assert.equal(fs.existsSync(report), false, "nothing was sent");
   const real = await asPage(base);
@@ -262,15 +266,6 @@ test("the review answers only to this computer: a connection through the machine
   let r; try { r = await via(ip.address); } catch { return t.skip("the machine's address is not reachable from itself here"); }
   assert.equal(r.status, 403); assert.equal(JSON.parse(r.body).code, "NOT_LOCAL");
   assert.equal((await fetch("http://127.0.0.1:" + port + "/api/review/records")).status, 200, "this computer itself is fine");
-});
-
-test("409 DESTINATION_UNVERIFIED carries the destination, so the page can say where it would have gone and that it is not confirmed", { skip, timeout: 60_000 }, async (t) => {
-  const dir = makeDataDir(t);
-  const env = agyEnv("pass"); delete env.MONTCLIP_REVIEW_DEST_CONFIRMED;
-  const { base } = await startServer(t, dir, env);
-  const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3 });
-  assert.equal(r.status, 409); assert.equal(r.body.code, "DESTINATION_UNVERIFIED");
-  assert.deepEqual(r.body.destination, { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "docs", verified: false });
 });
 
 test("the 60 s gate: an agent's full export of more than a minute is refused until a video check passed over it, or the owner's bypass (recorded, the words are not)", { skip, timeout: 120_000 }, async (t) => {

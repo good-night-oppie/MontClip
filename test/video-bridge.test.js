@@ -239,7 +239,8 @@ test("the four verdicts: right names with a caption that explains the joke is is
 
 test("destination: one function says where it goes, and it says plainly that this is not checked at run time", () => {
   const a = VB.destination({}), b = VB.destination({});
-  assert.deepEqual(a, b); assert.equal(a.verified, false); assert.equal(a.source, "docs");
+  assert.deepEqual(a, b); assert.equal(a.verified, false); assert.equal(a.source, "owner-authorised"); assert.equal(a.confirmed, true);
+  assert.equal(a.status, "主人授权，运行时未抓包核实", "the owner authorised it; no capture of a real run has checked it (#321 6921163328)");
   assert.ok(Object.isFrozen(a) && Object.isFrozen(VB.DESTINATION));
 });
 
