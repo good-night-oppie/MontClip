@@ -121,8 +121,16 @@ const $=id=>document.getElementById(id);
 const set=(el,o,tx=0,ty=0,s=1)=>{el.style.opacity=o;el.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;el.style.visibility=o<=0.001?'hidden':'visible'};
 const pad=n=>String(n).padStart(4,'0');
 const SHOTS=[[0,4,'01 · HOOK','#F59E0B'],[4,11,'02 · PERCEIVE','#3B82F6'],[11,17,'03 · CROP · ZOOM · COVER','#EF4444'],[17,22,'04 · SHIP','#22C55E']];
+// ?cut=short: the 15-second first-screen cut of the same run. It plays three shots of the full film unchanged
+// (hook, crop/zoom/cover, ship) and skips "perceive"; every frame is still a frame of the full film.
+const CUT=new URLSearchParams(location.search).get('cut');
+if(CUT&&CUT!=='short')throw new Error('unknown cut: '+CUT);
+const SHORT_MAP=[[0,4,0],[4,10,11],[10,15,17]];   // [cut start, cut end, full-film start]
+const CDUR=CUT?15:DUR;
+const CSHOTS=CUT?[[0,4,'01 · HOOK','#F59E0B'],[4,10,'02 · CROP · ZOOM · COVER','#EF4444'],[10,15,'03 · SHIP','#22C55E']]:SHOTS;
+const toFull=tc=>{if(!CUT)return tc;for(const[a,b,f] of SHORT_MAP)if(tc>=a&&tc<b)return f+(tc-a);return 22;};
 // timeline segments (static)
-{const W=1280-56;let h='';for(const[a,b,,c] of SHOTS){h+=`<div class="abs" style="left:${28+W*a/DUR+1}px;width:${W*(b-a)/DUR-2}px;top:684px;height:6px;border-radius:3px;background:${c};opacity:.28" data-a="${a}" data-b="${b}"></div>`;}$('segs').innerHTML=h;}
+{const W=1280-56;let h='';for(const[a,b,,c] of CSHOTS){h+=`<div class="abs" style="left:${28+W*a/CDUR+1}px;width:${W*(b-a)/CDUR-2}px;top:684px;height:6px;border-radius:3px;background:${c};opacity:.28" data-a="${a}" data-b="${b}"></div>`;}$('segs').innerHTML=h;}
 // symbolic lanes (static html, animated per t)
 const CLIPS=[['V1',0,.38,'video m_…','#3B82F6'],['V1',.42,.62,'image sheet','#3B82F6'],['V1',.66,.95,'video crop','#EF4444'],['V2',.1,.5,'text','#64748B'],['V2',.55,.8,'image detail','#3B82F6'],['V3',0,1,'text caption','#64748B']];
 {let h='<div class="lab abs" style="left:0;top:96px;color:#64748B">symbolic timeline · from fablecut_get_project</div>';
@@ -157,11 +165,12 @@ const typeLines=(el,L,t)=>{el.innerHTML=L.map(([t0,h])=>{const o=eo(seg(t,t0,t0+
 
 async function setImg(el,src){if(el.getAttribute('src')!==src){el.src=src;try{await el.decode()}catch(e){}}}
 
-window.__seek=async function(t){
-  // chrome
-  const W=1280-56; $('ph').style.left=(28+W*t/DUR-1)+'px';
-  const cur=SHOTS.find(s=>t>=s[0]&&t<s[1])||SHOTS[3]; $('shotlab').textContent=cur[2]; $('shotlab').style.color=cur[3];
-  document.querySelectorAll('#segs > div').forEach(d=>{d.style.opacity=(t>=+d.dataset.a&&t<+d.dataset.b)?1:.28});
+window.__seek=async function(tc){
+  // chrome: follows the cut's own clock
+  const W=1280-56; $('ph').style.left=(28+W*tc/CDUR-1)+'px';
+  const cur=CSHOTS.find(s=>tc>=s[0]&&tc<s[1])||CSHOTS[CSHOTS.length-1]; $('shotlab').textContent=cur[2]; $('shotlab').style.color=cur[3];
+  document.querySelectorAll('#segs > div').forEach(d=>{d.style.opacity=(tc>=+d.dataset.a&&tc<+d.dataset.b)?1:.28});
+  const t=toFull(tc);   // everything below draws the full film at time t
 
   // ===== S1 0-4
   const in1=1, out1=eio(seg(t,3.65,4.0));
@@ -245,7 +254,7 @@ window.__seek=async function(t){
   const pulse=t>20.3?1+.025*Math.sin((t-20.3)*5):1;
   set($('ctas'),c3,0,(1-c3)*16,(.9+.1*c3)*pulse);
 };
-window.__duration=DUR;
+window.__duration=CDUR;
 document.fonts.ready.then(()=>window.__seek(0)).then(()=>{window.__ready=true});
 </script>
 </body></html>

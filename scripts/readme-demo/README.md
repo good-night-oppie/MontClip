@@ -32,6 +32,23 @@ Three passes:
 `mcp-call.cjs` drives `mcp-server.js` over stdio. Each MCP call is saved next to its output in the work
 directory; a failed call stops the build.
 
+### The 15-second first-screen cut
+
+```bash
+DEMO_CUT=short scripts/readme-demo/build.sh /tmp/readme-demo-short
+```
+
+Same three passes and the same kind of run: MontClip makes the materials, the page shows only this run's
+frames and MCP replies, MontClip exports the result (`montclip-demo-15s.{mp4,webm}`). The page is opened
+with `?cut=short` and plays three shots of the full film unchanged (hook, crop / zoom / cover, ship),
+skipping "perceive"; the progress bar and shot labels follow the 15-second clock. Every frame of the cut
+is a frame of the full film, so the cut can never show something the full film does not.
+
+### Reviewing a film
+
+Before a film goes into the README, someone who did not make it reviews it against
+[`review-rubric.md`](review-rubric.md), two rounds, and the answers go into the PR.
+
 Limits shown in the video itself: the live room is synthetic (placeholder streamer and viewer
 names) and no stream repair is demonstrated.
 
