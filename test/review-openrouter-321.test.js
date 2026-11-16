@@ -214,7 +214,7 @@ test("sender: a local stand-in is honoured only in an unpackaged smoke run, and 
   assert.equal(createReviewSender({ root: d, safeStorage: fakeSafeStorage(), env: { MONTCLIP_REVIEW_STANDIN: "http://evil.example:80" }, isPackaged: false, smoke: true }).standin, null);
 });
 
-test("the send: no box before it (owner's decision 2026-11-15, #321 6888246693); the click is the consent, the assistant needs approve-all or Yolo", () => {
+test("the send: no box before it (owner's decision 2026-11-15, #321 6888246693); the click is the consent; the page's assistant flag never replaces the real click (#326)", () => {
   const main = fs.readFileSync(path.join(__dirname, "..", "desktop", "main.js"), "utf8");
   const a = main.indexOf('ipcMain.handle("montclip:review:send"'), b = main.indexOf('ipcMain.handle("montclip:review:unblock"');
   assert.ok(a > 0 && b > a);
@@ -226,8 +226,10 @@ test("the send: no box before it (owner's decision 2026-11-15, #321 6888246693);
   assert.match(h, /v\.assistant === true[\s\S]{0,120}agentPolicy\.decide\(\{ sessionId: "review", capability: "fablecut_review", target: \{ kind: "origin"/);
   assert.match(h, /d\.action !== "run"\) return \{ ok: false, code: "NEEDS_CLICK" \}/);
   assert.ok(!/mode !== "auto"/.test(h), "the auto mode no longer lets the assistant send");
-  /* the streamer's own send needs a real input this window got in the 2 s before; a script's call is not a click */
-  assert.match(h, /\} else if \(!takeReviewGesture\(\)\) return \{ ok: false, code: "NEEDS_CLICK" \};/);
+  /* every send from the page needs a real input this window got in the 2 s before, the page's own assistant flag included (#326: the flag
+     is not trusted, so it never replaces the click; the click is checked first); a script's call is not a click */
+  assert.match(h, /\n    if \(!takeReviewGesture\(\)\) return \{ ok: false, code: "NEEDS_CLICK" \};\n    if \(v\.assistant === true\) \{/);
+  assert.ok(!/\} else if \(!takeReviewGesture/.test(h), "the assistant flag is not a way around the click");
   assert.match(main, /win\.webContents\.on\("input-event", \(_e, input\) => \{[\s\S]{0,260}input\.type === "mouseUp" \|\| \(input\.type === "keyUp"[\s\S]{0,120}reviewGesture = Date\.now\(\);/);
   assert.match(main, /const takeReviewGesture = \(\) => \{ const ok = reviewGesture > 0 && Date\.now\(\) - reviewGesture <= 2000; reviewGesture = 0; return ok; \};/);
   assert.ok(h.indexOf("reviewSender.permit(") < h.indexOf('"/api/review/send"') && h.indexOf('"/api/review/send"') < h.indexOf("reviewSender.revoke("));
