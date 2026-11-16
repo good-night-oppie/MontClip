@@ -310,7 +310,7 @@ test("what goes out is what was shown: a project switched, a word edited or a no
   assert.ok(!prompt.includes("NOTE-ADDED-AFTER-THE-QUESTION"), "a note added since is not sent");
   /* an edit after the sample was made: the picture is stale, so nothing is sent */
   fs.rmSync(S.report, { force: true });
-  const e = S.svc.prepare({ start: 21, end: 26, scope: "full" });
+  const e = S.svc.prepare({ start: 21, end: 26, scope: "full", recheck: true });   // the streamer asks again on purpose (#321: else the earlier result is used)
   await until(() => S.svc.status(e.reviewId).state === "ready");
   const tokenE = S.svc.tokenFor(e.reviewId);
   const doc2 = JSON.parse(JSON.stringify(S.doc())); doc2.clips.find((c) => c.id === "t1").props.text = "SECRET-OF-ANOTHER-EDIT"; S.setDoc(doc2);
@@ -319,7 +319,7 @@ test("what goes out is what was shown: a project switched, a word edited or a no
   /* another project open now: the old token is refused and nothing starts */
   fs.rmSync(S.report, { force: true });
   S.setDoc(JSON.parse(JSON.stringify(DOC())));
-  const b = S.svc.prepare({ start: 21, end: 26, scope: "full" });
+  const b = S.svc.prepare({ start: 21, end: 26, scope: "full", recheck: true });
   await until(() => S.svc.status(b.reviewId).state === "ready");
   const token = S.svc.tokenFor(b.reviewId);
   active = "p2";
@@ -487,7 +487,7 @@ test("what is sent is capped per project: past the cap nothing is started", { sk
   assert.ok(rec.sentBytes > 0 && rec.sentBytes <= 3_200_000 && Array.isArray(rec.passes) && rec.passes[0].kind === "check", JSON.stringify(rec.passes));
   assert.ok(!JSON.stringify(rec.passes).includes("SENTINEL"), "kinds and sizes only");
   fs.rmSync(S.report, { force: true });
-  const w = small.prepare({ start: 24, end: 29 });
+  const w = small.prepare({ start: 24, end: 29, recheck: true });   // the streamer asks again on purpose (#321: else the earlier result is used)
   await until(() => small.status(w.reviewId).state === "ready");
   await assert.rejects(small.send(w.reviewId, small.tokenFor(w.reviewId)), (e) => e.status === 409 && e.code === "SEND_LIMIT");
   assert.equal(fs.existsSync(S.report), false, "nothing was started");
@@ -812,4 +812,114 @@ test("#321 ④ kept: on the agent path the size limits still refuse — 30 s per
   const failed = await until(() => { const s = C.svc.status(v.reviewId); return s.state === "failed" && s; });
   assert.equal(failed.reason, "SEND_LIMIT");
   assert.equal(fs.existsSync(C.report), false, "the tool was never started");
+});
+
+/* #321 PG 6922461279 (B): the two protections that main did not have yet. (1) the same stretch of the same content that already has a
+   result is not sent again — the result is used; only the streamer's own 重新检查 (recheck, from the page) sends it again. (2) a budget:
+   every request is counted as $1 (a conservative estimate: agy gives no real cost), a check may cost at most $2 and a day at most $10;
+   the count is written before anything leaves, and a count that cannot be read or written means nothing is sent. */
+function reuseSetup(t, { d = tmp(t), doc = DOC, now, report, calls, mode = "pass" } = {}) {
+  report = report || path.join(d, "report.json"); calls = calls || path.join(d, "calls.jsonl");
+  const sample = fs.existsSync(path.join(d, "sample.mp4")) ? path.join(d, "sample.mp4") : makeSample(d);
+  const store = createReviewStore({ dir: path.join(d, "reviews"), ...(now ? { now } : {}) });
+  let release = true, jobs = 0;
+  const svc = createReviewService({ store, bridge: VB, readProject: doc, activeProject: () => "p1", pollMs: 20, ...(now ? { now } : {}),
+    requestSample: () => { jobs++; return { id: "x_" + jobs }; },
+    getJob: () => (release ? { status: "done", progress: 1, src: "/previews/s.mp4" } : { status: "running", progress: 0.5 }),
+    cancelJob() { }, sampleFile: () => { const c = path.join(d, "copy-" + jobs + "-" + Math.random().toString(36).slice(2) + ".mp4"); fs.copyFileSync(sample, c); return c; },
+    ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: noSwitches(mode, { report, calls }) });
+  return { d, svc, store, report, calls, hold: () => { release = false; }, release: () => { release = true; }, jobsMade: () => jobs,
+    sends: () => (fs.existsSync(calls) ? fs.readFileSync(calls, "utf8").trim().split("\n").filter(Boolean).length : 0) };
+}
+const agentCheck = async (S, a = {}) => {
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true, ...a });
+  return until(() => { const s = S.svc.status(v.reviewId); return (s.state === "done" || s.state === "failed") && { ...s, first: v }; });
+};
+test("#321 B1: an agent asking twice for the same stretch of the same content gets the first result; the clip goes out once", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  const a = await agentCheck(S);
+  assert.equal(a.state, "done"); assert.equal(S.sends(), 1);
+  const second = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  assert.equal(second.state, "done", "answered at once"); assert.equal(second.reused, true);
+  assert.equal(second.reviewId, a.result.reviewId, "the earlier check");
+  assert.equal(second.result.status, a.result.status);
+  assert.equal(S.svc.status(second.reviewId).state, "done", "status of the reused id answers too (what fablecut_review polls)");
+  assert.equal(S.jobsMade(), 1, "nothing rendered again"); assert.equal(S.sends(), 1, "nothing sent again");
+  assert.equal(S.store.spentToday().requests, 1, "and nothing counted again");
+});
+test("#321 B1: the reuse survives a restart (it comes from the record on disk), and an agent's recheck is not honoured", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  await agentCheck(S);
+  const R = reuseSetup(t, { d: S.d, report: S.report, calls: S.calls });   // a new process: new store and service over the same folder
+  const again = R.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true, recheck: true });
+  assert.equal(again.reused, true); assert.equal(R.jobsMade(), 0); assert.equal(S.sends(), 1);
+});
+test("#321 B1: the streamer's own recheck from the page sends again; another stretch, other content or another kind of check is not a reuse", { skip }, async (t) => {
+  let doc = DOC();
+  const S = reuseSetup(t, { doc: () => doc });
+  await agentCheck(S);
+  const page = S.svc.prepare({ start: 24, end: 29, recheck: true });
+  assert.notEqual(page.reused, true); assert.equal(S.jobsMade(), 2, "the page's recheck renders a new sample");
+  S.svc.cancel(page.reviewId);
+  const plain = S.svc.prepare({ start: 24, end: 29 });
+  assert.equal(plain.reused, true, "the page without recheck sees the earlier result too");
+  for (const other of [{ start: 24, end: 28 }, { start: 24, end: 29, scope: "full" }, { start: 24, end: 29, mode: "two_pass" }, { start: 24, end: 29, lead: 1 }]) {
+    const v = S.svc.prepare({ ...other, agent: true });
+    assert.notEqual(v.reused, true, JSON.stringify(other)); S.svc.cancel(v.reviewId);
+  }
+  doc = { ...DOC(), clips: [...DOC().clips, { id: "c9", start: 40, duration: 1, kind: "video" }] };
+  const edited = S.svc.prepare({ start: 24, end: 29, agent: true });
+  assert.notEqual(edited.reused, true, "the content changed"); S.svc.cancel(edited.reviewId);
+});
+test("#321 B1: a check that came back with no result is not a result; it may be sent again", { skip }, (t) => {
+  const S = reuseSetup(t);
+  S.store.add("p1", { reviewId: "r_old", status: "no_result", reason: "FAILED", range: { start: 24, end: 29 }, lead: 3, scope: "window", mode: "single", contentKey: contentKey(DOC()), findings: [] });
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true });
+  assert.notEqual(v.reused, true); assert.equal(S.jobsMade(), 1); S.svc.cancel(v.reviewId);
+});
+test("#321 B2: each request is counted ($1) before it goes out; past $10 today nothing is rendered or sent and the reason is plain words", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  await agentCheck(S, { mode: "two_pass" });
+  const spent = S.store.spentToday();
+  assert.deepEqual({ requests: spent.requests, usd: spent.usd }, { requests: 2, usd: 2 }, "two requests, $2");
+  S.store.reserveSpend({ requests: 7, usd: 7 });   // $9 spent today
+  let refused = null; try { S.svc.prepare({ start: 1, end: 5, agent: true, autoSend: true, mode: "two_pass" }); } catch (e) { refused = e; }
+  assert.ok(refused, "two more requests would make $11");
+  assert.equal(refused.status, 409); assert.equal(refused.code, "DAILY_LIMIT");
+  assert.match(refused.message, /今天的检查额度用完了/);
+  assert.match(refused.message, /每天最多 \$10（每次发送按 \$1 保守估算，今天已用 \$9）/, refused.message);
+  assert.equal(S.jobsMade(), 1, "nothing rendered for it");
+  const one = await agentCheck(S, { start: 1, end: 5 });   // one request ($1) still fits: $10 exactly
+  assert.equal(one.state, "done"); assert.equal(S.store.spentToday().usd, 10);
+  assert.throws(() => S.svc.prepare({ start: 6, end: 9, agent: true, autoSend: true }), (e) => e.code === "DAILY_LIMIT");
+  assert.throws(() => S.svc.prepare({ start: 6, end: 9 }), (e) => e.code === "DAILY_LIMIT", "the streamer's own check is in the same budget");
+  assert.equal(S.sends(), 3, "2 + 1 requests went out, no more");
+});
+test("#321 B2: a check costs at most $2 (two requests); yesterday's spending does not count today", { skip }, async (t) => {
+  const day = 24 * 3600 * 1000, today = Date.now();
+  const d = tmp(t);
+  const Y = createReviewStore({ dir: path.join(d, "reviews"), now: () => today - day });
+  Y.reserveSpend({ requests: 10, usd: 10 });
+  assert.equal(Y.spentToday().usd, 10);
+  const S = reuseSetup(t, { d, now: () => today });
+  assert.equal(S.store.spentToday().usd, 0, "a new day");
+  const v = S.svc.prepare({ start: 24, end: 29, mode: "two_pass", agent: true }); S.svc.cancel(v.reviewId);
+  const { BUDGET } = require("../server/review-service");
+  assert.deepEqual([BUDGET.usdPerRequest, BUDGET.usdPerCheck, BUDGET.usdPerDay], [1, 2, 10]);
+  assert.ok(BUDGET.usdPerRequest * 2 <= BUDGET.usdPerCheck, "the largest check (two requests) fits the per-check limit");
+});
+test("#321 B2: a spending record that cannot be read refuses before rendering; one that cannot be written at the moment of sending stops the send", { skip }, async (t) => {
+  const S = reuseSetup(t);
+  const f = path.join(S.d, "reviews", "spend.daily.json");
+  fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, "{ not json");
+  assert.throws(() => S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.code === "LEDGER_UNREADABLE" && !String(e.message).includes(S.d));
+  assert.equal(S.jobsMade(), 0);
+  fs.rmSync(f);
+  S.hold();
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  fs.mkdirSync(f);   // now the record can be neither read nor replaced
+  S.release();
+  const failed = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.ok(["LEDGER_UNREADABLE", "LEDGER_UNWRITABLE"].includes(failed.reason), failed.reason);
+  assert.equal(S.sends(), 0, "the tool was never started"); assert.equal(fs.existsSync(S.report), false);
 });
