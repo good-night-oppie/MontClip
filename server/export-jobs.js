@@ -147,7 +147,7 @@ function createExportJobs(opts) {
   const view = (j) => ({
     id: j.id, project: j.project, session: j.session, kind: j.kind, status: j.status, via: j.via, range: j.range, preview: !!j.preview, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
     time: j.time ?? null, progress: j.progress, src: j.src || null, result: j.result || null, error: j.error || null,
-    code: j.errorCode || null, created: j.created, updated: j.updated,
+    code: j.errorCode || null, created: j.created, updated: j.updated, memUnknown: j.memUnknown || null,
   });
 
   function closeBrowser(j) {
@@ -184,9 +184,35 @@ function createExportJobs(opts) {
     j.memAt = now;
     let used = null;
     try { used = opts.treeMemory ? opts.treeMemory(j.browser.proc.pid) : j.browser.mem ? j.browser.mem.read() : treeAnonBytes(j.browser.proc.pid); } catch { used = null; }
-    if (used == null) return false;
+    if (used == null) { if (j.browser.win) checkWatch(j); return false; }
     j.memBytes = used;
     return used > memoryLimit;
+  }
+  /* #364, QQ on #365: on Windows a missing reading has many causes (PowerShell blocked, the watcher gone, CIM failing for
+     a while — likeliest when memory runs short), and none of them may switch the limit off without a word. A watcher that
+     could not start or ended while the browser runs is started again once; after that, or when no reading has come for
+     the watcher's STALE_MS, the job carries memUnknown (it shows in the job and in fablecut_export's answer) and the log
+     gets one line. The export goes on: an unknown size never stops one. */
+  const UNKNOWN_WHY = { unavailable: "the memory watcher could not be started", exited: "the memory watcher stopped",
+    gone: "the memory watcher stopped", stale: "no memory reading came in time" };
+  function startWatch(j) {
+    try { j.browser.mem = (opts.watchMemory || require("./win-tree-memory").watchTreeMemory)(j.browser.proc.pid); }   // loaded only here: Windows, headless
+    catch { j.browser.mem = null; }
+  }
+  function checkWatch(j) {
+    const m = j.browser.mem;
+    let h = "unavailable";
+    try { if (m) h = typeof m.health === "function" ? m.health() : "starting"; } catch {}
+    if (h === "ok" || h === "starting") return;
+    if (h !== "stale" && !j.memRestarted) {
+      j.memRestarted = true;
+      try { if (m) m.stop(); } catch {}
+      startWatch(j);
+      return;
+    }
+    if (j.memUnknown) return;
+    j.memUnknown = UNKNOWN_WHY[h] ? h : "unavailable";
+    try { (opts.log || console.warn)(`export: the memory limit could not be measured (${UNKNOWN_WHY[j.memUnknown]}); the export goes on without it`); } catch {}
   }
   function endOverMemory(j) {
     const mib = (n) => Math.round(n / 1048576);
@@ -239,8 +265,10 @@ function createExportJobs(opts) {
     const started = Date.now();
     j.browser = { proc, profileDir, keep: !!kept };
     // #364: Windows has no /proc; a watcher reads this browser's tree instead (nothing when the limit is off, or tests measure)
-    if (memoryLimit > 0 && !opts.treeMemory && (opts.platform || process.platform) === "win32" && Number.isInteger(proc.pid))
-      try { j.browser.mem = (opts.watchMemory || require("./win-tree-memory").watchTreeMemory)(proc.pid); } catch {}   // loaded only here: Windows, headless
+    if (memoryLimit > 0 && !opts.treeMemory && (opts.platform || process.platform) === "win32" && Number.isInteger(proc.pid)) {
+      j.browser.win = true;
+      startWatch(j);
+    }
     proc.on("error", (e) => end(j, "failed", { error: "could not start the headless browser: " + e.message }));
     // the page crashed with its browser (MC-15): this job ends, said in the interface language (EXPORT_PAGE_CRASHED); the
     // engine and the queue carry on
