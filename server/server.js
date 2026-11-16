@@ -1119,6 +1119,7 @@ const server = http.createServer((req, res) => {
     else { try { res.end(); } catch { } }
   });
 });
+const { nonCanonicalApi } = require("./api-path");
 async function handleRequest(req, res) {
   if (embed) {
     res.setHeader("Referrer-Policy", "no-referrer");  // embedded pages never pass their address on
@@ -1128,6 +1129,11 @@ async function handleRequest(req, res) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
   }
+  /* an /api/ route is named by one plain spelling only (QQ, #326 review 5927365621): a percent-encoded (/api/%72eview/…), upper-case
+     (/API/Review/…), doubled-slash (//api/…, /api//review/…), backslash or dot-segment (/api/x/../review/…) spelling could reach — or be
+     mistaken for — a route by whoever reads the raw path differently from this server. Any request that could mean an /api/ route must
+     already be in that spelling; nothing is guessed. None of the API's paths needs encoding. */
+  if (nonCanonicalApi(req.url)) { sendJSON(res, 400, { code: "NONCANONICAL_PATH", error: "API paths must be plain: lower case, no encoding, no // or dot segments" }); return; }
   const url = new URL(req.url, "http://localhost");
   const p = decodeURIComponent(url.pathname);
   req.bodyLimit = bodyLimit(req, p);
