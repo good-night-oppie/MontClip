@@ -990,6 +990,8 @@ const freshExports = new Set();
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
+  // #247: the sentence names the program she opened — Cindy (the plugin), MontClip (the Windows app), else "this program"
+  host: EMBED ? "cindy" : DESKTOP ? "montclip" : "",
   // embedded: a one-time ticket the page trades for the session cookie — the token itself stays off the command line
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
@@ -1034,9 +1036,6 @@ function reviews() {
     getJob: (id) => exportJobs.get(id), cancelJob: (id) => exportJobs.cancel(id),
     sampleFile: (src) => { const n = path.basename(decodeURIComponent(String(src).split("?")[0])); const f = path.join(PREVIEWS_DIR, n); try { return fs.statSync(f).isFile() ? f : null; } catch { return null; } },
     ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"),
-    /* dev side (ADR #341, owner 2026-11-14 in #341 6882174429): the team's own agent may send without a click or a box when the owner
-       has set MONTCLIP_REVIEW_AGENT_SEND=1 on this server; off by default, and nothing over HTTP, MCP or the page can set it */
-    agentSendEnabled: () => process.env.MONTCLIP_REVIEW_AGENT_SEND === "1",
     /* the streamer's switch and the sender are the desktop main process's: it holds the key and makes the one HTTPS call */
     sendSwitch: () => reviewSendSwitch, sender: process.parentPort ? reviewSender : null, cancelSend: (id) => { try { process.parentPort?.postMessage({ type: "review-cancel", reviewId: id }); } catch { } },
     onChange: (r) => { try { broadcast("review", JSON.stringify({ id: r.id, state: r.state })); } catch { } },
@@ -1069,7 +1068,8 @@ const isMainReq = (req) => { const h = req.headers["x-montclip-main"]; return !!
    handed out (a script that makes one more request would get it too: QQ, #328). The page is the Electron window: the desktop main process mints a secret at every
    start, gives it to this server only through its environment, and adds it as X-MontClip-Page to the editor window's own requests to /api/review/. It is never
    sent over HTTP to anyone. A server started any other way (no secret) has no page: every caller is an agent, so no send token is ever shown and nothing is sent
-   from there. The review's other doors (the owner's confirmation of the address, the agent switch) do not depend on this one. */
+   from there by a click; an agent's own send:true still goes, with every other check. The review's other doors (the destination checked at prepare and
+   again at the moment of sending, the local record, the size limits) do not depend on this one. */
 const REVIEW_PAGE_SECRET = /^[a-f0-9]{64}$/.test(process.env.MONTCLIP_REVIEW_PAGE_SECRET || "") ? process.env.MONTCLIP_REVIEW_PAGE_SECRET : null;
 delete process.env.MONTCLIP_REVIEW_PAGE_SECRET;   // nothing this server starts inherits it
 const isPageReq = (req) => { const h = req.headers["x-montclip-page"]; return !!REVIEW_PAGE_SECRET && typeof h === "string" && h.length === REVIEW_PAGE_SECRET.length && sameSecret(h, REVIEW_PAGE_SECRET) && !(embed && embed.worker(req)); };
@@ -1830,7 +1830,11 @@ async function handleRequest(req, res) {
        POST /api/review/correct {id, digest}                                   GET  /api/review/gate?start=&end= → {passed, recordId, …}
        GET  /api/review/taste · POST /api/review/taste/add {kind: positive|negative, aspect (fact|subtitle|pacing|packaging; required for positive), text} · /taste/remove {id}
        prepare also takes mode: "single" (default) | "two_pass" (a blind first look, then the full check: the same clip is sent in 2 requests).
-       An agent's send:true answers 403 AGENT_SEND_OFF unless MONTCLIP_REVIEW_AGENT_SEND=1.
+       The same stretch of the same content, asked the same way, that already has a result answers {state:"done", reused:true, result} and sends
+       nothing; only the page's recheck:true sends it again. Every request counts $1 (estimate) toward $2 a check and $10 a day: past that,
+       409 DAILY_LIMIT (or CHECK_BUDGET) with the reason in plain words.
+       An agent's send:true needs no owner switch any more (MONTCLIP_REVIEW_AGENT_SEND is gone: the owner, 2026-11-16, PG #321 6921163328); the
+       streamer's own review-send switch, the destination, the record, the budget and the size checks still apply.
        "passed" is only ever written by a check that passed; mark refuses it (400). */
   if (p.startsWith("/api/review/")) {
     /* the review reaches this computer's own clips: only from this computer, whatever HOST the server was started with */
@@ -1843,7 +1847,8 @@ async function handleRequest(req, res) {
       const q = (k) => url.searchParams.get(k);
       if (action === "prepare" && req.method === "POST") {
         if (body.send === true && !agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample" }); return; }
-        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, audio: body.audio == null ? true : body.audio, where: body.where, agent, autoSend: body.send === true }));
+        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, audio: body.audio == null ? true : body.audio, where: body.where, agent, autoSend: body.send === true,
+          recheck: body.recheck === true && !agent }));   // 重新检查 is the streamer's, from the page only (#321 PG 6922461279)
       } else if (action === "status" && req.method === "GET") {
         const v = svc.status(q("id") || undefined);
         if ((!agent || isMainReq(req)) && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
