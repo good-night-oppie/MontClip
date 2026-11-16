@@ -1036,8 +1036,6 @@ function reviews() {
     getJob: (id) => exportJobs.get(id), cancelJob: (id) => exportJobs.cancel(id),
     sampleFile: (src) => { const n = path.basename(decodeURIComponent(String(src).split("?")[0])); const f = path.join(PREVIEWS_DIR, n); try { return fs.statSync(f).isFile() ? f : null; } catch { return null; } },
     ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"),
-    /* an agent sending on the streamer's behalf is OFF unless MONTCLIP_REVIEW_AGENT_SEND=1 (set only after QQ has verified the owner's authorisation) */
-    agentSendEnabled: () => process.env.MONTCLIP_REVIEW_AGENT_SEND === "1",
     onChange: (r) => { try { broadcast("review", JSON.stringify({ id: r.id, state: r.state })); } catch { } },
   });
   return reviewSvc;
@@ -1046,7 +1044,8 @@ function reviews() {
    handed out (a script that makes one more request would get it too: QQ, #328). The page is the Electron window: the desktop main process mints a secret at every
    start, gives it to this server only through its environment, and adds it as X-MontClip-Page to the editor window's own requests to /api/review/. It is never
    sent over HTTP to anyone. A server started any other way (no secret) has no page: every caller is an agent, so no send token is ever shown and nothing is sent
-   from there. The review's other doors (the owner's confirmation of the address, the agent switch) do not depend on this one. */
+   from there by a click; an agent's own send:true still goes, with every other check. The review's other doors (the destination checked at prepare and
+   again at the moment of sending, the local record, the size limits) do not depend on this one. */
 const REVIEW_PAGE_SECRET = /^[a-f0-9]{64}$/.test(process.env.MONTCLIP_REVIEW_PAGE_SECRET || "") ? process.env.MONTCLIP_REVIEW_PAGE_SECRET : null;
 delete process.env.MONTCLIP_REVIEW_PAGE_SECRET;   // nothing this server starts inherits it
 const isPageReq = (req) => { const h = req.headers["x-montclip-page"]; return !!REVIEW_PAGE_SECRET && typeof h === "string" && h.length === REVIEW_PAGE_SECRET.length && sameSecret(h, REVIEW_PAGE_SECRET) && !(embed && embed.worker(req)); };
@@ -1807,7 +1806,7 @@ async function handleRequest(req, res) {
        POST /api/review/correct {id, digest}                                   GET  /api/review/gate?start=&end= → {passed, recordId, …}
        GET  /api/review/taste · POST /api/review/taste/add {kind: positive|negative, aspect (fact|subtitle|pacing|packaging; required for positive), text} · /taste/remove {id}
        prepare also takes mode: "single" (default) | "two_pass" (a blind first look, then the full check: the same clip is sent in 2 requests).
-       An agent's send:true answers 403 AGENT_SEND_OFF unless MONTCLIP_REVIEW_AGENT_SEND=1.
+       An agent's send:true needs no switch (the owner, 2026-11-16, PG #321 6921163328); the destination, record and size checks still apply.
        "passed" is only ever written by a check that passed; mark refuses it (400). */
   if (p.startsWith("/api/review/")) {
     /* the review reaches this computer's own clips: only from this computer, whatever HOST the server was started with */
