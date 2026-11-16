@@ -32,8 +32,10 @@ const KIND_NAME = { scopes: "scope reading", track: "tracking job", transcribe: 
    only its own job: when the anonymous memory of the browser and everything under it passes the limit, the job is
    stopped (EXPORT_MEMORY_LIMIT, said to the streamer) and not retried. 2 GiB for now (Deja, #320): the longest export
    measured after #348 peaked at 0.85 GiB (275 s, 1080x1920, one layer, AD); before it, 3.1 GiB. Set
-   MONTCLIP_EXPORT_MEMORY_MAX_MIB to change it, 0 to turn it off. Measured where /proc says it (Linux); elsewhere the
-   limit is not applied (nothing is measured, so nothing is stopped). */
+   MONTCLIP_EXPORT_MEMORY_MAX_MIB to change it, 0 to turn it off. Measured from /proc on Linux, and on Windows (#364)
+   by a watcher started next to the browser (win-tree-memory.js: the private bytes of the browser and everything under
+   it). Same limit, same code, same sentence on both. Elsewhere (macOS) the limit is not applied (nothing is measured,
+   so nothing is stopped). */
 const MEMORY_LIMIT_MIB = 2048;
 const MEMORY_POLL_MS = 3_000;
 function memoryLimitBytes(env = process.env) {
@@ -152,6 +154,7 @@ function createExportJobs(opts) {
     const b = j.browser;
     if (!b) return;
     j.browser = null;
+    if (b.mem) { try { b.mem.stop(); } catch {} }
     try { b.proc.kill(); } catch {}
     if (b.keep) return;
     // The profile dir is locked until the browser exits.
@@ -180,7 +183,7 @@ function createExportJobs(opts) {
     if (j.browser.proc.exitCode !== null && j.browser.proc.exitCode !== undefined || j.browser.proc.signalCode !== null && j.browser.proc.signalCode !== undefined) return false;
     j.memAt = now;
     let used = null;
-    try { used = (opts.treeMemory || treeAnonBytes)(j.browser.proc.pid); } catch { used = null; }
+    try { used = opts.treeMemory ? opts.treeMemory(j.browser.proc.pid) : j.browser.mem ? j.browser.mem.read() : treeAnonBytes(j.browser.proc.pid); } catch { used = null; }
     if (used == null) return false;
     j.memBytes = used;
     return used > memoryLimit;
@@ -235,11 +238,15 @@ function createExportJobs(opts) {
     const proc = spawn(exe, args, { stdio: "ignore", windowsHide: true });
     const started = Date.now();
     j.browser = { proc, profileDir, keep: !!kept };
+    // #364: Windows has no /proc; a watcher reads this browser's tree instead (nothing when the limit is off, or tests measure)
+    if (memoryLimit > 0 && !opts.treeMemory && (opts.platform || process.platform) === "win32" && Number.isInteger(proc.pid))
+      try { j.browser.mem = (opts.watchMemory || require("./win-tree-memory").watchTreeMemory)(proc.pid); } catch {}   // loaded only here: Windows, headless
     proc.on("error", (e) => end(j, "failed", { error: "could not start the headless browser: " + e.message }));
     // the page crashed with its browser (MC-15): this job ends, said in the interface language (EXPORT_PAGE_CRASHED); the
     // engine and the queue carry on
     proc.on("exit", (code) => {
       if (!j.browser) return;
+      if (j.browser.mem) { try { j.browser.mem.stop(); } catch {} }
       j.browser = null;
       if (isEnded(j)) return;
       const ms = Date.now() - started;
