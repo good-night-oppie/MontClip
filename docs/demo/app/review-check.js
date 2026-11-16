@@ -75,6 +75,15 @@
       why_STORE_FAILED: "再检查一次，内容会再发出去一次。",   // JJ #326 (STORE_FAILED final)
       storeFailed: "内容可能已经发到对方那边了，但检查的结果没能保存下来，这次没有结果可看。这不代表没问题。",   // JJ #326: the headline when #328 says STORE_FAILED (after the clip may have gone out)
       why_DESTINATION_CHANGED: "要发去的地址变了。请重新检查。",   // JJ #326 6872083423 / 6872139855
+      why_REVIEW_SEND_OFF: "设置里的「审片发送」没有打开，什么都没有发出去。",   // draft (#347), JJ to finalize
+      why_NO_KEY: "还没有保存审片用的密钥，什么都没有发出去。",   // draft (#347), JJ to finalize
+      why_NO_SENDER: "要在 MontClip 桌面窗口里才能发送，什么都没有发出去。",   // draft (#347), JJ to finalize
+      why_DESTINATION_BLOCKED: "上次的回执不是指定的服务，这个项目的发送已停下，什么都没有发出去。",   // draft (#347), JJ to finalize
+      why_DAILY_LIMIT: "今天的检查额度用完了，什么都没有发出去。明天再检查。",   // draft (#347), JJ to finalize
+      why_CHECK_BUDGET: "这次检查超过了单次的额度，什么都没有发出去。",   // draft (#347), JJ to finalize
+      why_BODY_TOO_LARGE: "这一段太大，发不出去。请选短一点的一段。",   // draft (#347), JJ to finalize
+      why_SAMPLE_CHANGED: "准备好以后要发的内容变了，什么都没有发出去。请重新检查。",   // draft (#347), JJ to finalize
+      reused: "这一段这份内容已经检查过，这里是上次的结果，没有再发送。要再发一次，请点「再检查一次」。",   // draft (#347), JJ to finalize
       previewText: "点「发送检查」会发出去的文字：",                // draft (PG 6871888446 (2): show the real text): willSend.projectText
       previewNotes: "点「发送检查」会发出去的好坏例子：",            // draft: willSend.notes
       previewNoText: "这一段没有字幕文字要发。",                     // JJ #326 6872083423 / 6872139855: 「发送检查」 with no subtitle touching the stretch
@@ -168,6 +177,15 @@
       why_STORE_FAILED: "Checking again will send the content again.",
       storeFailed: "The content may already have reached the recipient, but the check result couldn't be saved, so there is no result to view this time. That doesn't mean there's no problem.",
       why_DESTINATION_CHANGED: "The address it would be sent to has changed. Please check again.",
+      why_REVIEW_SEND_OFF: "Review sending is off in Settings. Nothing was sent.",   // draft (#347), JJ to finalize
+      why_NO_KEY: "No key for reviews is saved yet. Nothing was sent.",   // draft (#347), JJ to finalize
+      why_NO_SENDER: "Sending only works in the MontClip desktop window. Nothing was sent.",   // draft (#347), JJ to finalize
+      why_DESTINATION_BLOCKED: "The last answer did not come from the expected service, so sending is stopped for this project. Nothing was sent.",   // draft (#347), JJ to finalize
+      why_DAILY_LIMIT: "Today's checks are used up. Nothing was sent. Try again tomorrow.",   // draft (#347), JJ to finalize
+      why_CHECK_BUDGET: "This check is over the limit for one check. Nothing was sent.",   // draft (#347), JJ to finalize
+      why_BODY_TOO_LARGE: "This stretch is too large to send. Please choose a shorter one.",   // draft (#347), JJ to finalize
+      why_SAMPLE_CHANGED: "What would be sent changed after it was prepared. Nothing was sent. Please check again.",   // draft (#347), JJ to finalize
+      reused: "This stretch of this content was already checked; this is that result, and nothing was sent again. To send it again, click “Check again”.",   // draft (#347), JJ to finalize
       previewText: "Text that “Send for a check” would send:",
       previewNotes: "Examples that “Send for a check” would send:",
       previewNoText: "There is no subtitle text in this part to send.",
@@ -223,7 +241,8 @@
     "protected_region_occluded", "other"];   // #328 video-bridge.js FINDING_TYPES
   const DIMENSIONS = ["fact", "subtitle", "pacing", "packaging"];             // #328 video-bridge.js DIMENSIONS
   const DIM_STATES = ["passed", "issues", "insufficient_evidence"];
-  const WHY = ["PROJECT_EDITED","PROJECT_CHANGED","SEND_LIMIT","NOT_LOCAL","LEDGER_UNREADABLE","LEDGER_UNWRITABLE","STORE_FAILED","DESTINATION_CHANGED"];
+  const WHY = ["PROJECT_EDITED","PROJECT_CHANGED","SEND_LIMIT","NOT_LOCAL","LEDGER_UNREADABLE","LEDGER_UNWRITABLE","STORE_FAILED","DESTINATION_CHANGED",
+    "REVIEW_SEND_OFF","NO_KEY","NO_SENDER","DESTINATION_BLOCKED","DAILY_LIMIT","CHECK_BUDGET","BODY_TOO_LARGE","SAMPLE_CHANGED"];   // + #347
   const STATUSES = ["passed", "issues", "no_result"];
 
   function lang_(l) { return text[l] ? l : (String(l || "").startsWith("zh") ? "zh-CN" : "en"); }
@@ -309,12 +328,14 @@
     return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes, lost, fixed };
   }
 
-  /** The receiver, as the engine reports it: a name and a host, and whether anyone confirmed that host (#328: verified). */
+  /** The receiver, as the engine reports it: a name and a host; confirmed = the engine will send there (#347: the owner's authorisation,
+   *  confirmed:true), verified = a capture of a real run has shown it (#347: false until V23). Sending needs confirmed; 「未验证」 stays
+   *  next to the domain while verified is false, so an unchecked domain is never shown as checked. */
   function destinationOf(d) {
     if (!d || typeof d !== "object") return null;
     const service = clip(String(d.service || "").trim(), 60), host = clip(String(d.host || "").trim(), 120);
     if (!service || !host || /[\s/\\]/.test(host)) return null;
-    return { service, host, verified: d.verified === true };
+    return { service, host, verified: d.verified === true, confirmed: d.confirmed === true || d.verified === true };
   }
   /** 「发给：…」 — with 「未验证」 next to the domain unless the engine says it was confirmed (Deja, #328: never shown as confirmed). */
   const toLine = (lang, dest) => (dest ? t(lang, dest.verified ? "to" : "toUnverified", dest) : t(lang, "noDestination"));
@@ -340,17 +361,17 @@
       if (pay.requests > 1) lines.push(t(lang, "whatTwice", { k: pay.requests }));
       lines.push(t(lang, "whatDanmaku"));
     } else lines.push(t(lang, "noPayload"));
-    if (dest && !dest.verified) lines.push(t(lang, "unverifiedBlock"));
+    if (dest && !dest.confirmed) lines.push(t(lang, "unverifiedBlock"));
     const token = view && typeof view.sendToken === "string" && view.sendToken ? view.sendToken : null;
     const id = view && typeof view.reviewId === "string" && view.reviewId ? view.reviewId : null;
-    const canSend = !!(pay && dest && dest.verified && id && token && view.state === "ready");
+    const canSend = !!(pay && dest && dest.confirmed && id && token && view.state === "ready");
     // #328 85d9e8d1: only the desktop window's own requests are the page; anywhere else (the Cindy plugin, a browser tab) no token is shown.
     // PG #321 6872395398: there it is view-only — no send button that does nothing, one plain line instead; the clip can still be looked at.
-    const viewOnly = !!(pay && dest && dest.verified && id && !token && view.state === "ready");
+    const viewOnly = !!(pay && dest && dest.confirmed && id && !token && view.state === "ready");
     if (viewOnly) lines.push(t(lang, "noPage", { n }));
     return {
       title: t(lang, "title", { n }), n, lines, payload: pay,
-      blocked: !pay ? "noPayload" : !dest ? "noDestination" : !dest.verified ? "unverified" : null,
+      blocked: !pay ? "noPayload" : !dest ? "noDestination" : !dest.confirmed ? "unverified" : null,
       to: toLine(lang, dest), warn: !dest || !dest.verified,
       training: t(lang, "training"),
       destination: dest, canSend,
@@ -367,7 +388,7 @@
   function unverifiedModel(dest, lang, range) {
     const d = destinationOf(dest), n = range ? spanOf(range) : SPAN;
     return { title: t(lang, "title", { n }), n, lines: [t(lang, "intro", { n }), t(lang, "unverifiedBlock")],
-      to: toLine(lang, d ? { ...d, verified: false } : null), warn: true, training: t(lang, "training"), destination: d, canSend: false,
+      to: toLine(lang, d ? { ...d, verified: false, confirmed: false } : null), warn: true, training: t(lang, "training"), destination: d, canSend: false,
       buttons: [
         { id: "preview", label: t(lang, "previewBtn"), enabled: false },
         { id: "full", label: t(lang, "sendFull"), enabled: false },
@@ -424,6 +445,7 @@
     if (status === "no_result" && why) notes.push(t(lang, "why_" + why));
     if (status !== "no_result" && r.scope === "window") notes.push(t(lang, "windowOnly", { n: span }));
     if (!r.textAvailable) notes.push(t(lang, "textGone"));
+    if (raw && raw.reused === true) notes.push(t(lang, "reused"));   // PG 6922461279: an earlier result, nothing sent
     const dims = r.dimensions && !(raw && raw.sendError === true) ? DIMENSIONS.map((k) => ({ key: k, state: r.dimensions[k].state,
       line: t(lang, "dimLine", { label: t(lang, "dim_" + k), state: t(lang, "dimState_" + (r.dimensions[k].state || "unknown")) })
         + (r.dimensions[k].reason ? t(lang, "dimReason", { text: r.dimensions[k].reason }) : "") })) : [];
@@ -439,6 +461,14 @@
     const s = typeof src === "string" ? src : src && typeof src.src === "string" ? src.src : "";
     return /^\/previews\/[\w.%\-]+(\?[\w=&.\-]*)?$/.test(s) ? s : null;
   }
+
+  /* #347: answers from the main process or the engine that mean the request was never made — nothing left this computer. Anything else
+     after the send was asked for may have reached the receiver (JJ #326 sendFailed). */
+  const NOT_SENT = ["NEEDS_CLICK", "NOT_READY", "BAD_REQUEST", "REVIEW_FORBIDDEN", "REVIEW_SEND_OFF", "NO_KEY", "NO_SENDER", "DESTINATION_CHANGED",
+    "DESTINATION_BLOCKED", "DAILY_LIMIT", "CHECK_BUDGET", "SEND_LIMIT", "PROJECT_EDITED", "PROJECT_CHANGED", "SAMPLE_CHANGED", "LEDGER_UNREADABLE",
+    "LEDGER_UNWRITABLE", "NOT_CONFIRMED", "CLICK_REQUIRED"];
+  /** the desktop window's bridge to the main process (desktop/view-preload.js); absent in a browser tab or the Cindy plugin */
+  const sender = () => (typeof globalThis !== "undefined" && globalThis.montclipReview && typeof globalThis.montclipReview.send === "function" ? globalThis.montclipReview : null);
 
   /** The page's own server, #328's /api/review/* routes. A route that isn't there (an engine without #321) reads as 「not present」. */
   function httpApi(fetchImpl) {
@@ -456,9 +486,19 @@
       async available() {
         try { const res = await f("/api/review/taste", { cache: "no-store" }); return !!res.ok; } catch { return false; }
       },
-      prepare: (b) => post("/api/review/prepare", b),
+      prepare: (b) => post("/api/review/prepare", b),   // {start, end, scope, recheck?}
       status: (id) => req("/api/review/status?id=" + encodeURIComponent(id)),
-      send: (id, token) => post("/api/review/send", { id, token }),
+      /** #347: only the desktop main process sends; it checks the real click itself. → the record, or throws with a code and
+       *  sent:false when it is certain nothing left this computer (refused before the request was made). */
+      async send(view) {
+        const bridge = sender();
+        if (!bridge) { const e = new Error("NO_SENDER"); e.code = "NO_SENDER"; e.notSent = true; throw e; }
+        const hash = view && view.willSend && typeof view.willSend.hash === "string" ? view.willSend.hash : "";
+        const r = await bridge.send({ reviewId: view.reviewId, token: view.sendToken, hash });
+        if (r && r.ok === true && r.record) return r.record;
+        const code = (r && typeof r.code === "string" && r.code) || "FAILED";
+        const e = new Error(code); e.code = code; e.notSent = NOT_SENT.includes(code); throw e;
+      },
       cancel: (id) => post("/api/review/cancel", { id }),
       mark: (b) => post("/api/review/mark", b),
     };
@@ -484,12 +524,14 @@
     const emit = () => { for (const fn of listeners) fn(s); };
     const set = (patch) => { Object.assign(s, patch); emit(); };
     /** prepare (renders on this computer, nothing leaves), then read the status until the clip is ready → the view, or why not */
-    async function prepareView(range, scope, gen) {
+    async function prepareView(range, scope, gen, recheck) {
       let v;
-      try { v = await api.prepare({ start: range.start, end: range.end, scope }); }
+      try { v = await api.prepare({ start: range.start, end: range.end, scope, ...(recheck ? { recheck: true } : {}) }); }
       catch (e) { return gen !== s.gen ? { stale: true } : { failed: errReason(e), why: whyOf(e && e.code), dest: e && e.body && e.body.destination }; }
       if (gen !== s.gen) { if (v && v.reviewId) api.cancel(v.reviewId).catch(() => {}); return { stale: true }; }
       if (!v || typeof v.reviewId !== "string") return { failed: "PREPARE_FAILED" };
+      // #321 (PG 6922461279): this stretch of this content was already checked the same way — the engine answers with that result, sends nothing
+      if (v.reused === true && v.state === "done" && v.result && typeof v.result === "object") return { reused: v.result };
       s.prep = v;   // what 「不发了」 cancels while it renders
       while (v && v.state === "rendering") {
         await wait(pollMs);
@@ -504,12 +546,13 @@
       if (reason === "DESTINATION_UNVERIFIED") set({ phase: "unverified", prep: null, dest: dest || null });
       else set({ phase: "result", prep: null, raw: { status: "no_result", reason, why: why || null, findings: [] } });
     }
-    async function check(range) {
+    async function check(range, recheck = false) {
       const gen = ++s.gen;
       set({ phase: "preparing", range, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false });
-      const got = await prepareView(range, "full", gen);
+      const got = await prepareView(range, "full", gen, recheck);
       if (got.stale || gen !== s.gen) return;
       if (got.failed) return fail(got.failed, got.dest, got.why);
+      if (got.reused) return set({ phase: "result", prep: null, raw: { ...got.reused, reused: true } });
       set({ phase: "confirm", prep: got.view });
     }
     function preview() {
@@ -522,18 +565,19 @@
     async function switchToWindow(gen) {
       const old = s.prep;
       set({ phase: "preparing", previewSrc: null });
-      api.cancel(old.reviewId).catch(() => {});
+      try { await api.cancel(old.reviewId); } catch { /* it runs out on its own; the engine may still say BUSY, which is reported, never sent */ }
+      if (gen !== s.gen) return null;
       const got = await prepareView(s.range, "window", gen);
       if (got.stale || gen !== s.gen) return null;
       if (got.failed) { fail(got.failed, got.dest, got.why); return null; }
+      if (got.reused) { set({ phase: "result", prep: null, raw: { ...got.reused, reused: true } }); return null; }
       const a = payloadOf(old), b = payloadOf(got.view);
       const da = destinationOf(old.willSend && old.willSend.to), db = destinationOf(got.view.willSend && got.view.willSend.to);
       // what 「只发这 10 秒」 said in the box is what goes: the same seconds, receiver and number of requests, and no words (payloadOf) — else show the box again
       const same = !!(a && b && b.scope === "window" && near_(a.video.start, b.video.start) && near_(a.video.end, b.video.end) && a.requests === b.requests
-        && da && db && da.service === db.service && da.host === db.host && da.verified && db.verified);
-      if (!same) { set({ phase: "confirm", prep: got.view, changed: true }); return null; }
-      s.prep = got.view;
-      return got.view;
+        && da && db && da.service === db.service && da.host === db.host && da.confirmed && db.confirmed && da.verified === db.verified);
+      set({ phase: "confirm", prep: got.view, changed: !same });
+      return null;
     }
     async function send(scope) {
       if (s.phase !== "confirm" || !s.prep) return false;
@@ -543,13 +587,19 @@
       if (!m.canSend || !btn || !btn.enabled) return false;
       const gen = s.gen;
       let view = s.prep;
-      if (scope === "window" && view.scope !== "window") { view = await switchToWindow(gen); if (!view) return false; }
+      if (scope === "window" && view.scope !== "window") { await switchToWindow(gen); return false; }
       if (gen !== s.gen) return false;
       set({ phase: "sending", scope, previewSrc: null });
       let raw;
-      try { raw = await api.send(view.reviewId, view.sendToken); }
-      // the request itself failed: it may or may not have reached the receiver (JJ #326 sendFailed) — never 「没发出去」
-      catch (e) { raw = { status: "no_result", reason: (e && e.code) || "SEND_FAILED", why: whyOf(e && e.code), sendError: true, findings: [] }; }
+      try { raw = await api.send(view); }
+      catch (e) {
+        if (gen !== s.gen) return false;
+        // refused before the request was made (e.g. no real click): nothing left this computer; the box stays, the token is still good
+        if (e && e.notSent === true && (e.code === "NEEDS_CLICK" || e.code === "NOT_READY")) { set({ phase: "confirm", prep: view, changed: false }); return false; }
+        // the request itself failed: it may or may not have reached the receiver (JJ #326 sendFailed) — never 「没发出去」
+        raw = e && e.notSent === true ? { status: "no_result", reason: e.code, why: whyOf(e.code), findings: [] }
+          : { status: "no_result", reason: (e && e.code) || "SEND_FAILED", why: whyOf(e && e.code), sendError: true, findings: [] };
+      }
       if (gen !== s.gen) return false;
       set({ phase: "result", raw: { ...raw, scope: raw && raw.scope ? raw.scope : scope } });
       return true;
@@ -574,14 +624,15 @@
       set({ raw: { ...raw, findings } });
       return true;
     }
-    return { state: s, check, preview, send, cancel, close, markFixed, recheck: () => (s.range ? check(s.range) : null),
+    // 「再检查一次」 is the streamer's own: it asks the engine for a new check even when this stretch already has a result (PG 6922461279)
+    return { state: s, check, preview, send, cancel, close, markFixed, recheck: () => (s.range ? check(s.range, true) : null),
       on(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
   }
 
   /** A stand-in for the engine (#328's /api/review/* shapes): tests and nothing else. No network. */
   function stubApi(opts = {}) {
     const calls = [];
-    const dest = opts.destination === undefined ? { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "owner-confirmed", verified: true } : opts.destination;
+    const dest = opts.destination === undefined ? { service: "OpenRouter", host: "openrouter.ai", source: "owner-authorised", confirmed: true, verified: false, status: "主人授权，运行时未抓包核实" } : opts.destination;
     let n = 0;
     const live = new Map();
     const result = opts.result || ((scope, range) => ({ status: "issues", range, scope, findings: [
@@ -593,7 +644,7 @@
         leadIn: r.lead > 0 ? { from: +(r.range.start - r.lead).toFixed(2), to: r.range.start, seconds: r.lead } : null,
         ...(opts.standards ? { standards: { ...opts.standards, carriedBy: "only" } } : {}), ...(opts.tasteLost != null ? { tasteLost: r.scope === "full" ? opts.tasteLost : 0 } : {}),
         projectText: r.scope === "full" ? (opts.projectText != null ? opts.projectText : "18.00-21.50s text: 前面那句\n22.00-26.00s text: 这一句") : "", notes: r.notes,
-        seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
+        hash: "a".repeat(64), seconds: +(r.range.end - r.range.start + r.lead).toFixed(2), tokenExpiresAt: "2026-11-14T00:10:00Z" } : undefined,
       previewSrc: r.state === "ready" ? "/previews/preview_" + r.id + ".mp4" : undefined,
       sendToken: r.state === "ready" && !opts.noPage ? r.token : undefined });
     return {
@@ -601,6 +652,7 @@
       async available() { calls.push(["available"]); return opts.available !== false; },
       async prepare(b) {
         calls.push(["prepare", b]);
+        if (opts.reused && !b.recheck) return { reviewId: "r_old", state: "done", reused: true, reason: "ALREADY_CHECKED", result: { reviewId: "r_old", source: "streamer", ...result(b.scope || "full", { start: b.start, end: b.end }) } };
         if (opts.prepareError) { const e = new Error(opts.prepareError); e.code = opts.prepareError; if (opts.prepareError === "DESTINATION_UNVERIFIED") e.body = { destination: dest }; throw e; }
         const id = "r_" + (++n), lead = +Math.min(3, b.start).toFixed(3);
         const k = (b.scope || "window") === "full" || opts.windowTaste ? opts.taste || 0 : 0;
@@ -616,14 +668,16 @@
         if (r.state === "rendering" && --r.polls <= 0) r.state = opts.renderFails ? "failed" : "ready";
         return view(r);
       },
-      async send(id, token) {
+      async send(v) {   // the main process's answer, as montclipReview.send gives it (#347)
+        const id = v && v.reviewId, token = v && v.sendToken;
         calls.push(["send", id, token]);
+        if (opts.sendRefused) { const e = new Error(opts.sendRefused); e.code = opts.sendRefused; e.notSent = true; throw e; }
         const r = live.get(id);
-        if (!r || r.state !== "ready" || r.token !== token) { const e = new Error("not confirmed"); e.code = "NOT_CONFIRMED"; throw e; }
+        if (!r || r.state !== "ready" || r.token !== token) { const e = new Error("not ready"); e.code = "NOT_READY"; e.notSent = true; throw e; }
         r.state = "done"; live.delete(id);
         return { reviewId: id, source: "streamer", ...result(r.scope, r.range) };
       },
-      async cancel(id) { calls.push(["cancel", id]); const r = live.get(id); if (r) { r.state = "cancelled"; live.delete(id); } return { reviewId: id, state: "cancelled" }; },
+      async cancel(id) { calls.push(["cancel", id]); if (opts.cancelDelay) await new Promise((res) => setTimeout(res, opts.cancelDelay)); const r = live.get(id); if (r) { r.state = "cancelled"; live.delete(id); } return { reviewId: id, state: "cancelled" }; },
       async mark(b) { calls.push(["mark", b]); if (b.mark === "passed") { const e = new Error("no"); e.status = 400; throw e; } return { ok: true }; },
     };
   }
