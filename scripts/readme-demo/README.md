@@ -40,9 +40,10 @@ DEMO_CUT=short scripts/readme-demo/build.sh /tmp/readme-demo-short
 
 Same three passes and the same kind of run: MontClip makes the materials, the page shows only this run's
 frames and MCP replies, MontClip exports the result (`montclip-demo-15s.{mp4,webm}`). The page is opened
-with `?cut=short` and plays three shots of the full film unchanged (hook, crop / zoom / cover, ship),
-skipping "perceive"; the progress bar and shot labels follow the 15-second clock. Every frame of the cut
-is a frame of the full film, so the cut can never show something the full film does not.
+with `?cut=short` and plays three shots of the full film (hook, crop / zoom / cover, ship), skipping
+"perceive"; the crop shot ends a second early with its own fade, and the last second holds the film's final
+frame. The progress bar and shot labels follow the 15-second clock. The cut shows only what the full film
+shows: the same run's frames and MCP replies, in the same layout.
 
 ### Reviewing a film
 
