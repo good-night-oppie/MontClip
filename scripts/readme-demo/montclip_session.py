@@ -9,7 +9,7 @@ polling cannot prove a negative, so that case is a stated limit, not a guarantee
 subreaper, so descendants that double-fork stay in its process tree.
 
 - fresh_dir(): the work directory must not exist yet, or be an empty real directory (no symlink).
-- Session: starts `node server.js` (HOST=127.0.0.1) with its own FABLECUT_DATA_DIR, then before any request:
+- Session: starts `node server/server.js` (HOST=127.0.0.1) with its own FABLECUT_DATA_DIR, then before any request:
   (1) the socket listening on the port must be one the server process holds (/proc inode check), and
   (2) the server must serve a random proof file written into this run's data directory (authentication of
       this run's service, not just "something answers 200"). The proof stays for the whole session and
@@ -166,7 +166,7 @@ class Session:
                     "HOST": "127.0.0.1", "FABLECUT_NO_AUTOSTART": "1", "MONTCLIP_SRC": str(self.src),
                     "MONTCLIP_EXTERNAL_FFMPEG_SETTINGS": str(ext)}
         self.log = self.work / "server.log"
-        self.srv = subprocess.Popen(["node", "server.js"], cwd=self.src, env=self.env,
+        self.srv = subprocess.Popen(["node", "server/server.js"], cwd=self.src, env=self.env,
                                     stdout=open(self.log, "w"), stderr=subprocess.STDOUT)
         try:
             self._wait_until_ours()
