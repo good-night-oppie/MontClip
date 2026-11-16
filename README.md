@@ -15,6 +15,7 @@ Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT)
 
 - **Import local recordings**: add video files from your computer to a project.
 - **Export MP4**: export the finished clip as MP4.
+- **Crop, zoom in and cover**: in a clip's properties, crop the picture's edges by percentage, zoom in with Scale, or put an opaque shape over an area; the export includes them.
 
 Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
 
