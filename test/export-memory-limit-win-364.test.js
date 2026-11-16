@@ -88,8 +88,8 @@ test("Windows: a browser under the limit keeps its job, and an unknown size stop
 });
 
 test("no watcher when the limit is off, off Windows, or for an open tab", (t) => {
-  for (const [label, opts, where, editors] of [["limit 0", { platform: "win32", memoryLimit: 0 }, "headless", 0], ["Linux", { platform: "linux", memoryLimit: 2 * GiB }, "headless", 0],
-    ["macOS", { platform: "darwin", memoryLimit: 2 * GiB }, "headless", 0], ["a tab", { platform: "win32", memoryLimit: 2 * GiB }, "tab", 1]]) {
+  for (const [label, opts, where, editors] of [["limit 0", { platform: "win32", memoryLimit: 0 }, "headless", 0], ["Linux", { platform: "linux", memoryLimit: 2 * GiB, treeMemory: () => null }, "headless", 0],
+    ["macOS", { platform: "darwin", memoryLimit: 2 * GiB, treeMemory: () => null }, "headless", 0], ["a tab", { platform: "win32", memoryLimit: 2 * GiB }, "tab", 1]]) {
     const { J } = freshJobs(t, fakeBrowser);
     let started = 0;
     const q = queue(t, J, { ...opts, editors: () => editors, watchMemory: () => { started++; return { read: () => 99 * GiB, stop() {} }; } });
@@ -147,12 +147,14 @@ test("the Windows watcher ends by itself when the browser is gone, and reads not
   await until(() => w.read() != null, 30_000, "a reading");
   const ps = w.pid;
   root.kill();
-  await until(() => !alive(ps), 15_000, "the watcher ends after the browser");
+  await until(() => !alive(ps) && w.health() !== "starting" && w.health() !== "ok", 15_000, "the watcher ends after the browser (and node has its exit)");
   const gone = W.watchTreeMemory(root.pid, { every: 500 });
   t.after(() => gone.stop());
   const gp = gone.pid;
-  await until(() => !gp || !alive(gp), 15_000, "a watcher for a missing process ends at once");
+  await until(() => gone.health() !== "starting", 15_000, "a watcher for a missing process ends at once");
   assert.equal(gone.read(), null);
+  assert.equal(w.health(), "gone", "a browser that is gone is said as gone, not as a watcher that died");
+  assert.equal(gone.health(), "gone");
   assert.equal(W.watchTreeMemory(root.pid, { platform: "linux" }).read(), null, "off Windows nothing is started");
 });
 
@@ -176,4 +178,141 @@ test("end to end on Windows: the queue with the real watcher stops an over-limit
   await until(() => !ps || !alive(ps), 10_000, "its watcher is stopped");
   assert.ok(alive(other.pid), "the unrelated process is untouched");
   assert.ok(alive(process.pid));
+});
+
+/* QQ on #365: when the memory cannot be measured on Windows the limit must not go quietly. The export goes on (an unknown
+   size never stops one), but a watcher that could not start or ended is started again once, and after that — or when no
+   reading comes in time — the job carries memUnknown and the log gets exactly one line. */
+const UNKNOWN_LINE = /^export: the memory limit could not be measured \((the memory watcher could not be started|the memory watcher stopped|no memory reading came in time)\); the export goes on without it$/;
+function unknownQueue(t, factory) {
+  const { J, browsers } = freshJobs(t, fakeBrowser);
+  let calls = 0;
+  const q = queue(t, J, { platform: "win32", memoryLimit: 2 * GiB, watchMemory: (pid) => factory(calls++, pid) });
+  const first = q.jobs.request({ where: "headless" });
+  const poll = () => { q.tick(J.MEMORY_POLL_MS + 1); return sweepVia(q.jobs); };
+  return { q, first, poll, browsers, calls: () => calls };
+}
+const handle = (health, read = () => null) => { const h = { stops: 0, health, read, stop() { h.stops++; } }; return h; };
+
+test("Windows: a watcher that cannot start is tried once more, then the job says memUnknown and the log one line; the export goes on", (t) => {
+  const u = unknownQueue(t, () => { throw new Error("blocked by policy"); });
+  assert.equal(u.calls(), 1);
+  u.poll();
+  assert.equal(u.calls(), 2, "started again once");
+  assert.equal(u.q.logged.length, 0, "nothing said yet: the second try may work");
+  for (let i = 0; i < 4; i++) {
+    const e = u.poll();
+    assert.equal(e.errorCode, "JOB_BUSY", "the job is still running: the next request is refused as before");
+  }
+  const j = u.q.jobs.get(u.first.id);
+  assert.equal(j.status, "pending", "the export goes on");
+  assert.equal(j.memUnknown, "unavailable");
+  assert.equal(u.calls(), 2, "not started a third time");
+  assert.equal(u.q.logged.length, 1, "one line per job, not one per look");
+  assert.match(u.q.logged[0], UNKNOWN_LINE);
+  assert.ok(!/[\\/]/.test(u.q.logged[0]), "no paths in the log line");
+  assert.equal(u.browsers[0].kills, 0, "its browser is left alone");
+});
+
+test("Windows: a watcher that ends while the browser runs is started again once; when the new one reads, nothing is said", (t) => {
+  const made = [];
+  const u = unknownQueue(t, (n) => { const h = n === 0 ? handle(() => "exited") : handle(() => "ok", () => 100 * MiB); made.push(h); return h; });
+  u.poll(); u.poll(); u.poll();
+  assert.equal(u.calls(), 2);
+  assert.equal(made[0].stops, 1, "the dead one is let go");
+  assert.equal(u.q.jobs.get(u.first.id).memUnknown, null);
+  assert.equal(u.q.logged.length, 0);
+});
+
+test("Windows: a watcher that ends twice, or stays quiet, leaves memUnknown and one line; a reading that comes back still enforces the limit", (t) => {
+  for (const [label, factory, want, calls] of [
+    ["ended twice", () => handle(() => "exited"), "exited", 2],
+    ["the browser looked gone twice", () => handle(() => "gone"), "gone", 2],
+    ["no reading in time (CIM failing)", () => handle(() => "stale"), "stale", 1],
+  ]) {
+    const u = unknownQueue(t, factory);
+    u.poll(); u.poll(); u.poll();
+    const j = u.q.jobs.get(u.first.id);
+    assert.equal(j.status, "pending", label + ": the export goes on");
+    assert.equal(j.memUnknown, want, label);
+    assert.equal(u.calls(), calls, label + ": a quiet watcher is not restarted, a dead one once");
+    assert.equal(u.q.logged.length, 1, label);
+    assert.match(u.q.logged[0], UNKNOWN_LINE, label);
+  }
+  let size = null;
+  const u = unknownQueue(t, () => handle(() => (size == null ? "stale" : "ok"), () => size));
+  u.poll();
+  assert.equal(u.q.jobs.get(u.first.id).memUnknown, "stale");
+  size = 3 * GiB;   // WMI answers again
+  const next = u.poll();
+  assert.equal(u.q.jobs.get(u.first.id).code, "EXPORT_MEMORY_LIMIT", "the limit holds again as soon as there is a reading");
+  assert.equal(next.status, "pending");
+  assert.equal(u.q.logged.length, 2, "the unknown line, then the over-limit line");
+});
+
+/* the watcher itself, with a stand-in PowerShell: what each line and each way of ending means */
+function fakePs() {
+  const c = new EventEmitter();
+  c.stdout = new EventEmitter(); c.stdout.setEncoding = () => {};
+  c.stdin = { written: "", on() {}, end(s) { c.stdin.written += s; } };
+  c.exitCode = null; c.signalCode = null; c.kill = () => { c.killed = true; };
+  c.say = (line) => c.stdout.emit("data", line + "\r\n");
+  c.die = () => { c.exitCode = 0; c.emit("exit", 0); };
+  return c;
+}
+test("the watcher: failed queries keep it going, quiet past STALE_MS is stale, ended is told apart from gone, no PowerShell is unavailable", () => {
+  const W = require("../server/win-tree-memory");
+  let clock = 1_000_000, ps = null, how = null;
+  const spawn = (exe, args, o) => { how = { exe, args, o }; ps = fakePs(); return ps; };
+  const w = W.watchTreeMemory(4242, { platform: "win32", spawn, now: () => clock });
+  assert.deepEqual(how.args, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "-"], "fixed switches only: no -ExecutionPolicy Bypass, no script on the command line");
+  assert.match(how.exe, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe$/);
+  assert.equal(how.o.env.MONTCLIP_WATCH_ROOT, "4242");
+  assert.ok(ps.stdin.written.startsWith(W.SCRIPT) && ps.stdin.written.endsWith("\n\n"), "the script goes in on stdin");
+  assert.match(W.SCRIPT, /catch \{ \[Console\]::Out\.WriteLine\('err'\)[^}]*continue \}/, "a failed query writes err and the loop goes on");
+  assert.match(W.SCRIPT, /\$_\.CreationDate -eq \$born/, "the browser is known by its id and the time it was born");
+  assert.equal(w.health(), "starting");
+  ps.say("err"); ps.say("err");
+  assert.equal(w.errors(), 2);
+  assert.equal(w.read(), null);
+  clock += W.STALE_MS + 1;
+  assert.equal(w.health(), "stale", "no reading for STALE_MS");
+  ps.say("mem 1048576000 12");
+  assert.equal(w.health(), "ok");
+  assert.equal(w.read(), 1048576000);
+  assert.equal(w.procs(), 12);
+  ps.die();
+  assert.equal(w.health(), "exited", "ended without saying the browser is gone");
+
+  const g = W.watchTreeMemory(4242, { platform: "win32", spawn, now: () => clock });
+  ps.say("gone"); ps.die();
+  assert.equal(g.health(), "gone");
+
+  const s = W.watchTreeMemory(4242, { platform: "win32", spawn, now: () => clock });
+  s.stop(); ps.die();
+  assert.equal(s.health(), "starting", "a watcher stopped on purpose is not a dead one");
+
+  assert.equal(W.watchTreeMemory(4242, { platform: "win32", spawn: () => { throw new Error("EACCES"); } }).health(), "unavailable");
+  const e = W.watchTreeMemory(4242, { platform: "win32", spawn });
+  ps.emit("error", new Error("ENOENT"));
+  assert.equal(e.health(), "unavailable");
+  assert.equal(W.watchTreeMemory(4242, { platform: "linux" }).health(), "unavailable");
+});
+
+test("the Windows watcher on a real machine: a WQL query that fails is an err line and the watcher keeps going", { skip: !WIN && "it asks Windows (CIM)", timeout: 60_000 }, async (t) => {
+  // the real script, with the first query made to fail every time (an invalid class): it must say err and stay up, not exit
+  const W = require("../server/win-tree-memory");
+  const broken = W.SCRIPT.replace("Get-CimInstance Win32_Process -Filter \"ProcessId=$root\"", "Get-CimInstance Win32_NoSuchClass -Filter \"ProcessId=$root\"");
+  assert.notEqual(broken, W.SCRIPT);
+  const root = cp.spawn(process.execPath, hold(10), { stdio: "ignore" });
+  t.after(() => { try { root.kill(); } catch {} });
+  const ps = cp.spawn(W.powershellPath(), ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "-"], { stdio: ["pipe", "pipe", "ignore"], windowsHide: true,
+    env: { ...process.env, MONTCLIP_WATCH_ROOT: String(root.pid), MONTCLIP_WATCH_ENGINE: String(process.pid), MONTCLIP_WATCH_EVERY_MS: "300" } });
+  t.after(() => { try { ps.kill(); } catch {} });
+  let out = "";
+  ps.stdout.on("data", (d) => { out += d; });
+  ps.stdin.end(broken + "\n\n");
+  await until(() => (out.match(/^err\r?$/gm) || []).length >= 3, 30_000, "three err lines");
+  assert.ok(alive(ps.pid), "still running after failed queries");
+  assert.ok(!/gone|mem /.test(out), "never mistook a failed query for a gone browser");
 });
