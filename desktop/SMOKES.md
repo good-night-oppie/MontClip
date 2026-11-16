@@ -65,6 +65,7 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 | `agent-outgoing-smoke.cjs` | `OUTGOING_PASS` | 在用 |
 | `agent-off-smoke.cjs` | `AGENT_OFF_PASS` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |
+| `review-send-smoke.cjs` | `REVIEW_SEND_PASS` | 在用 |
 | `review-count-smoke.cjs` | `REVIEW_COUNT_PASS` | 在用：发送确认框一打开（第一帧）就要写对引用的字幕条数 |
 | `sentence-button-smoke.cjs` | `SENTENCE_BUTTON_COMPLETE` | 在用 |
 | `sentence-dialog-smoke.cjs` | `SD_PASS` | 在用 |

@@ -564,6 +564,20 @@
       </label>
       <div class="settings-row"><button class="btn" id="btnAiNotice" type="button" data-i18n="own.ai-set-notice" data-i18n-title="own.ai-set-notice-tip" title="See again who gets your data, what is sent, and whether it may be used for training">Data notice</button></div>
     </div>
+    <!-- #321 (ADR #341): the review's own switch and key, kept by the desktop main process. Wording to be finalized by JJ. -->
+    <div class="settings-section hidden" id="setReview">
+      <h3 data-i18n="own.rv-set-title">Send for review</h3>
+      <label class="settings-row">
+        <input type="checkbox" id="setReviewEnabled">
+        <span>
+          <span class="settings-label" data-i18n="own.rv-set-enabled">Send the clip to openrouter.ai when reviewing</span>
+          <span class="settings-hint" data-i18n="own.rv-set-note">Off by default. When this is on, clicking the check button sends that stretch of picture and sound (including any chat messages and viewer names on screen) to the AI service you set up, with no further prompt before it goes.</span>
+        </span>
+      </label>
+      <div class="settings-row"><input type="password" id="setReviewKey" autocomplete="off" spellcheck="false" placeholder="OpenRouter key (used only for review)" data-i18n-placeholder="own.rv-set-key-ph">
+        <button class="btn" id="btnReviewKeySave" type="button" data-i18n="own.rv-set-key-save">Save key</button><button class="btn" id="btnReviewKeyClear" type="button" data-i18n="own.rv-set-key-clear">Delete key</button>
+        <span class="settings-hint" id="setReviewKeyState"></span></div>
+    </div>
     <div class="settings-section hidden" id="setSlices">
       <h3 data-i18n="own.as-set-title">Auto slices</h3>
       <div class="settings-row settings-row-mid"><button class="btn" type="button" data-learn-open data-i18n="own.as-learn-title">Remember my editing habits</button> <span class="settings-hint" data-learn-state></span></div>

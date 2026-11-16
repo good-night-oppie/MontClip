@@ -43,7 +43,7 @@ const MEM_MAX = 200;
 function structured(r) {
   const o = { ...r };
   delete o.summary; delete o.windowDigest; delete o.observation;
-  o.findings = (r.findings || []).map((f) => ({ id: f.id, t: f.t, type: f.type, inLead: !!f.inLead, mark: f.mark || null }));
+  o.findings = (r.findings || []).map((f) => ({ id: f.id, t: f.t, type: f.type, state: f.state || null, inLead: !!f.inLead, mark: f.mark || null }));
   if (r.dimensions) o.dimensions = Object.fromEntries(Object.entries(r.dimensions).map(([k, v]) => [k, { state: v && v.state }]));
   o.marks = (r.marks || []).map((m) => ({ id: m.id, mark: m.mark, at: m.at }));
   o.correction = r.correction ? { at: r.correction.at } : null;
@@ -144,6 +144,11 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       sentFloor.set(projectId, Math.max(disk, sentFloor.get(projectId) || 0) + b);
       try { if (!d) return; d.sentBytesTotal = (d.sentBytesTotal != null ? Number(d.sentBytesTotal) || 0 : sumSent(d)) + b; write(projectId, d); } catch { }
     },
+    /** A receipt from someone other than Google AI Studio (or another model) stops this project's later sends (QQ's ruling on #341):
+     *  kept in the ledger, so a restart does not lift it. Only the streamer's confirmation (unblock) does. A ledger that cannot be read throws. */
+    blocked(projectId) { const b = read(projectId).blocked; return b && b.reason ? { reason: b.reason, at: b.at } : null; },
+    block(projectId, { reason }) { const d = read(projectId); d.blocked = { reason: String(reason || "DESTINATION_MISMATCH"), at: new Date(now()).toISOString() }; write(projectId, d); return d.blocked; },
+    unblock(projectId) { const d = read(projectId); const was = !!d.blocked; delete d.blocked; write(projectId, d); return { unblocked: was }; },
     /** What has been spent on checks today (this computer's local date), every project together. Throws LEDGER_UNREADABLE rather than guess. */
     spentToday() { const day = dayOf(now()); return { day, ...spentOn(readSpend(), day) }; },
     /** Counts requests that are about to go out, BEFORE they go: if this cannot be written (LEDGER_UNREADABLE / LEDGER_UNWRITABLE), nothing is sent. */
@@ -160,14 +165,15 @@ function createReviewStore({ dir, now = () => Date.now() }) {
       spendFloor.set(day, next);
       return { day, ...next };
     },
-    /** #321 (PG 6922461279): the newest check of exactly this request — same stretch, lead-in, scope and mode — of this very content that came
-     *  back with a result (passed or issues; no_result is not a result). The caller uses it instead of sending the same clip again. */
-    findResult(projectId, { key, start, end, lead, scope, mode }) {
+    /** #321 (PG 6922461279): the newest check of exactly this request — same stretch, lead-in, scope, mode and sound (picture and sound, or
+     *  picture only; a record that does not say is not reused) — of this very content that came back with a result (passed or issues;
+     *  no_result is not a result). The caller uses it instead of sending the same clip again. */
+    findResult(projectId, { key, start, end, lead, scope, mode, audio }) {
       const recs = read(projectId).records;
       for (let i = recs.length - 1; i >= 0; i--) {
         const r = recs[i];
         if (r.contentKey !== key || !r.range || r.status === "no_result" || !r.status) continue;
-        if (r.range.start !== start || r.range.end !== end || (r.lead ?? null) !== lead || (r.scope || "window") !== scope || (r.mode || "single") !== mode) continue;
+        if (r.range.start !== start || r.range.end !== end || (r.lead ?? null) !== lead || (r.scope || "window") !== scope || (r.mode || "single") !== mode || r.audio !== audio) continue;
         return view(r, projectId);
       }
       return null;

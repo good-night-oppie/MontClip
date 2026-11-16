@@ -31,8 +31,9 @@ app.on("web-contents-created", (_, contents) => {
 async function start() {
   const token = crypto.randomBytes(32).toString("hex");
   const pageSecret = crypto.randomBytes(32).toString("hex");   // who the editor page is, for /api/review/ (QQ, #328): the server gets it in its environment, only this window's requests carry it
+  const mainSecret = crypto.randomBytes(32).toString("hex");   // #321: who may make the server send a review sample — this process only, after the streamer's click (never on any page request)
   const env = { ...process.env, PORT: "0", HOST: "127.0.0.1", MONTCLIP_DESKTOP: "1",
-    MONTCLIP_SESSION_TOKEN: token, MONTCLIP_REVIEW_PAGE_SECRET: pageSecret, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
+    MONTCLIP_SESSION_TOKEN: token, MONTCLIP_REVIEW_PAGE_SECRET: pageSecret, MONTCLIP_REVIEW_MAIN_SECRET: mainSecret, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
   delete env.NODE_OPTIONS;
   delete env.NODE_PATH;
   // The server runs only the FFmpeg shipped in resources/ffmpeg once packaged
@@ -72,6 +73,28 @@ async function start() {
       if (msg?.type !== "montclip-ready" || !/^http:\/\/127\.0\.0\.1:\d+$/.test(msg.origin)) return;
       clearTimeout(timeout); startErr = null; resolve(msg.origin);
     });
+  });
+  /* #321 (ADR #341): the review sender. The server hands over one request body at a time; this process holds the key, decides whether it may
+     go (the streamer's box, or the owner's dev-side switch) and makes the one HTTPS call (desktop/review-sender.js). */
+  const reviewSender = require("./review-sender").createReviewSender({ root: app.getPath("userData"), safeStorage, env: process.env, isPackaged: app.isPackaged, smoke });
+  worker.postMessage({ type: "review-switch", on: reviewSender.switch.get().on });
+  worker.on("message", async (msg) => {
+    if (msg?.type === "review-cancel" && typeof msg.reviewId === "string") { reviewSender.cancel(msg.reviewId); return; }
+    if (msg?.type !== "review-send" || typeof msg.reqId !== "string") return;
+    let result;
+    try { result = await reviewSender.send({ reviewId: msg.reviewId, agent: msg.agent === true, body: msg.body }); } catch { result = { ok: false, reason: "FAILED" }; }
+    try { worker.postMessage({ type: "review-sent", reqId: msg.reqId, result }); } catch { }
+  });
+  /* the engine, asked by this process for a check it is about to confirm: the page's and this process's secrets (the session token too) */
+  const engine = (method, p, body) => new Promise((resolve) => {
+    const u = new URL(p, origin), data = body ? Buffer.from(JSON.stringify(body)) : null;
+    const req = require("node:http").request({ hostname: "127.0.0.1", port: Number(u.port), path: u.pathname + u.search, method,
+      headers: { "X-MontClip-Session": token, "X-MontClip-Page": pageSecret, "X-MontClip-Main": mainSecret, ...(data ? { "Content-Type": "application/json", "Content-Length": data.length } : {}) } }, (res) => {
+      const chunks = []; res.on("data", (c) => chunks.push(c));
+      res.on("end", () => { let j = null; try { j = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { } resolve({ status: res.statusCode, json: j }); });
+    });
+    req.on("error", () => resolve({ status: 0, json: null }));
+    req.end(data || undefined);
   });
   const ses = session.fromPartition("persist:montclip");
   ses.setPermissionRequestHandler((_, __, callback) => callback(false));
@@ -156,6 +179,16 @@ async function start() {
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,
       preload: path.join(__dirname, "view-preload.js"), contextIsolation: true, nodeIntegration: false, webSecurity: true, devTools: !app.isPackaged } });
   win.removeMenu();
+  /* #321 (QQ, #347 review 5909445232): a review send the streamer starts needs a real input — the last mouse button let go, or Enter / Space
+     let go, that this window got from the system in the 2 s before. A page script calling montclipReview.send on its own is not a click.
+     One input lets one send go. */
+  let reviewGesture = 0;
+  win.webContents.on("input-event", (_e, input) => {
+    if (!input) return;
+    const k = input.keyCode || input.key;
+    if (input.type === "mouseUp" || (input.type === "keyUp" && (k === "Enter" || k === "Return" || k === "Space" || k === " "))) reviewGesture = Date.now();
+  });
+  const takeReviewGesture = () => { const ok = reviewGesture > 0 && Date.now() - reviewGesture <= 2000; reviewGesture = 0; return ok; };
   const settings = createStore(app.getPath("userData"));
   for (const operation of ["get", "set"]) ipcMain.on("montclip:view:" + operation, (event, value) => {
     event.returnValue = settingsAllowed(event, win, origin)
@@ -334,6 +367,52 @@ async function start() {
       if (smoke) process.stdout.write('MONTCLIP_YOLO_CONSENT ' + JSON.stringify({ title: t.title, message: t.message, answered: answer.response }) + '\n');
       return answer.response === 1;
     },
+  });
+  /* #321: the review's switch and key (Settings), and the send — the page names a check by its id, token and hash only; this process checks
+     them against the engine's prepared check before it lets that one check go (the words of the unblock box are in review-sender.js) */
+  ipcMain.handle("montclip:review:switchGet", (event) => settingsAllowed(event, win, origin) ? reviewSender.switch.get() : { ok: false, code: "REVIEW_FORBIDDEN" });
+  ipcMain.handle("montclip:review:switchSet", (event, on) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };
+    const r = reviewSender.switch.set(on);
+    if (r.ok) { try { worker.postMessage({ type: "review-switch", on: r.on }); } catch { } }
+    return r;
+  });
+  ipcMain.handle("montclip:review:keyStatus", (event) => settingsAllowed(event, win, origin) ? reviewSender.key.status() : { ok: false, code: "REVIEW_FORBIDDEN" });
+  ipcMain.handle("montclip:review:keySet", (event, value) => settingsAllowed(event, win, origin) ? reviewSender.key.set(value) : { ok: false, code: "REVIEW_FORBIDDEN" });
+  ipcMain.handle("montclip:review:keyClear", (event) => settingsAllowed(event, win, origin) ? reviewSender.key.clear() : { ok: false, code: "REVIEW_FORBIDDEN" });
+  ipcMain.handle("montclip:review:send", async (event, value) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };
+    const v = value && typeof value === "object" ? value : {};
+    const id = typeof v.reviewId === "string" && /^r_[a-f0-9]{12}$/.test(v.reviewId) ? v.reviewId : null;
+    if (!id || typeof v.token !== "string" || typeof v.hash !== "string" || !/^[a-f0-9]{64}$/.test(v.hash)) return { ok: false, code: "BAD_REQUEST" };
+    if (!reviewSender.switch.get().on) return { ok: false, code: "REVIEW_SEND_OFF" };
+    if (!reviewSender.key.status().configured) return { ok: false, code: "NO_KEY" };
+    const st = await engine("GET", "/api/review/status?id=" + encodeURIComponent(id));
+    const w = st.json && st.json.willSend;
+    if (st.status !== 200 || st.json.state !== "ready" || !w || st.json.sendToken !== v.token || w.hash !== v.hash) return { ok: false, code: "NOT_READY" };
+    /* owner's decision 2026-11-15 (#321 6888246693): nothing is shown before a send; the streamer's own click on the check is the consent —
+       a real input this window got in the 2 s before (takeReviewGesture), not a script's call.
+       A request the assistant makes goes only when the permission modes say run for fablecut_review to openrouter.ai (QQ, #347 review
+       5909445232): approve-all is the approval card's session choice, not the auto mode; in manual and auto an external step is asked until
+       then, and a review send is never asked in a card, so it is NEEDS_CLICK. The page's own `assistant` flag is checked in #326. */
+    if (v.assistant === true) {
+      let d = null;
+      try { d = agentPolicy.decide({ sessionId: "review", capability: "fablecut_review", target: { kind: "origin", value: "https://" + require("../server/openrouter-review").HOST }, bytes: Number(w.videoBytes) || 0 }); } catch { }
+      if (!d || d.ok !== true || d.action !== "run") return { ok: false, code: "NEEDS_CLICK" };
+    } else if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
+    reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1, w.hash);
+    const sent = await engine("POST", "/api/review/send", { id, token: v.token, hash: v.hash });
+    reviewSender.revoke(id);
+    return sent.status === 200 ? { ok: true, record: sent.json } : { ok: false, code: (sent.json && sent.json.code) || "FAILED" };
+  });
+  ipcMain.handle("montclip:review:unblock", async (event) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };
+    const RS = require("./review-sender");
+    const r = smoke ? { response: process.env.MONTCLIP_SMOKE_REVIEW_UNBLOCK === "1" ? 1 : 0 }
+      : await dialog.showMessageBox(win, { type: "warning", title: RS.BOX.unblockTitle, message: RS.BOX.unblockMessage, buttons: [RS.BOX.cancel, RS.BOX.unblock], defaultId: 0, cancelId: 0, noLink: true });
+    if (r.response !== 1) return { ok: false, code: "CANCELLED" };
+    const u = await engine("POST", "/api/review/unblock", {});
+    return u.status === 200 ? { ok: true } : { ok: false, code: "FAILED" };
   });
   ipcMain.handle('montclip:policy:get', (event) => settingsAllowed(event, win, origin) ? agentPolicy.getMode() : { ok: false, code: 'POLICY_FORBIDDEN' });
   ipcMain.handle('montclip:policy:setMode', (event, mode) => settingsAllowed(event, win, origin) ? agentPolicy.setMode(mode) : { ok: false, code: 'POLICY_FORBIDDEN' });

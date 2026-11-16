@@ -435,6 +435,18 @@
     "ai-set-hint": ["When it's off, the assistant sends nothing; editing works as usual.", "关掉以后，助手不会往外发任何东西；剪辑照常能用。"],
     "ai-set-notice": ["Data notice", "数据说明"],
     "ai-set-notice-tip": ["See again who gets your data, what is sent, and whether it may be used for training", "再看一遍：发给谁、发什么、会不会被拿去训练"],
+    // 设置 › 审片发送 (#321): the one line under the switch, JJ 定稿 2026-11-15 (#321; replaces 6888392707), word for word
+    "rv-set-note": ["Off by default. When this is on, clicking the check button sends that stretch of picture and sound (including any chat messages and viewer names on screen) to the AI service you set up, with no further prompt before it goes.", "默认关。开启后，点检查按钮时，这段画面和声音（包括里面的弹幕和观众昵称）会发给你设置的 AI 服务，发送前不再另外询问。"],
+    // the rest of 设置 › 审片发送, JJ 定稿 2026-11-15 (#347): English added, the Chinese unchanged
+    "rv-set-title": ["Send for review", "审片发送"],
+    "rv-set-enabled": ["Send the clip to openrouter.ai when reviewing", "审片时把片段发到 openrouter.ai"],
+    "rv-set-key-ph": ["OpenRouter key (used only for review)", "OpenRouter 密钥（只用于审片）"],
+    "rv-set-key-save": ["Save key", "保存密钥"],
+    "rv-set-key-clear": ["Delete key", "删除密钥"],
+    "rv-key-saved": ["Key saved", "已保存密钥"],
+    "rv-key-none": ["No key yet", "还没有密钥"],
+    "rv-key-unsealed": ["This computer can't store the key encrypted, so it was not saved.", "这台电脑不能加密保存密钥，没有保存"],
+    "rv-key-bad": ["The key format is not valid, so it was not saved.", "密钥格式不对，没有保存"],
     // a recording nothing could read the length of, not even its packets' times (cut off before it was saved: europa P3).
     // media-incomplete is JJ's sentence (定稿 2026-11-05, her review of the trial), on the file in the bin; the English
     // is a draft for JJ.

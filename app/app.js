@@ -25385,4 +25385,18 @@ if(!EXPORT_WORKER)setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
     $("btnSettings")?.addEventListener("click",()=>{void show();});
     void show();
   } }
+/* 设置 › 审片发送 (#321, ADR #341): the switch (off by default) and the review's own OpenRouter key, both kept by the main process. The key goes
+   in once and is never read back; the page only learns whether one is saved. Desktop only. */
+{ const box=$("setReview"),on=$("setReviewEnabled"),rv=agentEmbedded?null:window.montclipReview;
+  if(box&&rv?.switchGet){
+    box.classList.remove("hidden");
+    const keyState=async()=>{const k=await rv.keyStatus();$("setReviewKeyState").textContent=uiText(k?.configured?"own.rv-key-saved":"own.rv-key-none");};
+    const show=async()=>{const r=await rv.switchGet();on.checked=r?.on===true;await keyState();};
+    on.addEventListener("change",async()=>{const r=await rv.switchSet(on.checked);on.checked=r?.on===true;});
+    $("btnReviewKeySave").addEventListener("click",async()=>{const f=$("setReviewKey"),r=await rv.keySet(f.value);f.value="";
+      $("setReviewKeyState").textContent=uiText(r?.ok?"own.rv-key-saved":r?.code==="KEY_STORE_UNAVAILABLE"?"own.rv-key-unsealed":"own.rv-key-bad");});
+    $("btnReviewKeyClear").addEventListener("click",async()=>{await rv.keyClear();await keyState();});
+    $("btnSettings")?.addEventListener("click",()=>{void show();});
+    void show();
+  } }
 if(window.montclipAgentPolicy&&!agentEmbedded)void loadAgentMode();

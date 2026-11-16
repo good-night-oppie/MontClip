@@ -1036,10 +1036,34 @@ function reviews() {
     getJob: (id) => exportJobs.get(id), cancelJob: (id) => exportJobs.cancel(id),
     sampleFile: (src) => { const n = path.basename(decodeURIComponent(String(src).split("?")[0])); const f = path.join(PREVIEWS_DIR, n); try { return fs.statSync(f).isFile() ? f : null; } catch { return null; } },
     ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"),
+    /* the streamer's switch and the sender are the desktop main process's: it holds the key and makes the one HTTPS call */
+    sendSwitch: () => reviewSendSwitch, sender: process.parentPort ? reviewSender : null, cancelSend: (id) => { try { process.parentPort?.postMessage({ type: "review-cancel", reviewId: id }); } catch { } },
     onChange: (r) => { try { broadcast("review", JSON.stringify({ id: r.id, state: r.state })); } catch { } },
   });
   return reviewSvc;
 }
+/* #321 (ADR #341): the request is sent by the desktop main process, which holds the key; this server only hands it the body, after the
+   ledger counted it. One message out, one answer back, matched by a one-off id. The main process decides whether it may go (the
+   streamer's click let that prepared check go, or the owner's dev-side switch is on), and it sends only a body it would build itself; this
+   server cannot make it send anything else. */
+let reviewSendSwitch = false;   // off until the main process says the streamer switched it on
+const reviewPending = new Map();
+function reviewSender(body, { reviewId, kind, agent }) {
+  return new Promise((resolve) => {
+    const reqId = crypto.randomBytes(12).toString("hex");
+    reviewPending.set(reqId, resolve);
+    try { process.parentPort.postMessage({ type: "review-send", reqId, reviewId, kind, agent: !!agent, body: new Uint8Array(body) }); }
+    catch { reviewPending.delete(reqId); resolve({ ok: false, reason: "FAILED" }); }
+  });
+}
+process.parentPort?.on("message", ({ data }) => {
+  if (data?.type === "review-switch") reviewSendSwitch = data.on === true;
+  else if (data?.type === "review-sent" && reviewPending.has(data.reqId)) { const r = reviewPending.get(data.reqId); reviewPending.delete(data.reqId); r(data.result && typeof data.result === "object" ? data.result : { ok: false, reason: "FAILED" }); }
+});
+/* Who sends? Only the main process, after the streamer's click: it alone knows this secret (given at start through the environment, like the page's). */
+const REVIEW_MAIN_SECRET = /^[a-f0-9]{64}$/.test(process.env.MONTCLIP_REVIEW_MAIN_SECRET || "") ? process.env.MONTCLIP_REVIEW_MAIN_SECRET : null;
+delete process.env.MONTCLIP_REVIEW_MAIN_SECRET;
+const isMainReq = (req) => { const h = req.headers["x-montclip-main"]; return !!REVIEW_MAIN_SECRET && typeof h === "string" && h.length === REVIEW_MAIN_SECRET.length && sameSecret(h, REVIEW_MAIN_SECRET); };
 /* Who is the editor page? Not whoever writes Origin / Sec-Fetch-Site (a local process can put any header on a request), and not whoever shows a cookie the server
    handed out (a script that makes one more request would get it too: QQ, #328). The page is the Electron window: the desktop main process mints a secret at every
    start, gives it to this server only through its environment, and adds it as X-MontClip-Page to the editor window's own requests to /api/review/. It is never
@@ -1809,7 +1833,8 @@ async function handleRequest(req, res) {
        The same stretch of the same content, asked the same way, that already has a result answers {state:"done", reused:true, result} and sends
        nothing; only the page's recheck:true sends it again. Every request counts $1 (estimate) toward $2 a check and $10 a day: past that,
        409 DAILY_LIMIT (or CHECK_BUDGET) with the reason in plain words.
-       An agent's send:true needs no switch (the owner, 2026-11-16, PG #321 6921163328); the destination, record and size checks still apply.
+       An agent's send:true needs no owner switch any more (MONTCLIP_REVIEW_AGENT_SEND is gone: the owner, 2026-11-16, PG #321 6921163328); the
+       streamer's own review-send switch, the destination, the record, the budget and the size checks still apply.
        "passed" is only ever written by a check that passed; mark refuses it (400). */
   if (p.startsWith("/api/review/")) {
     /* the review reaches this computer's own clips: only from this computer, whatever HOST the server was started with */
@@ -1822,15 +1847,20 @@ async function handleRequest(req, res) {
       const q = (k) => url.searchParams.get(k);
       if (action === "prepare" && req.method === "POST") {
         if (body.send === true && !agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample" }); return; }
-        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, where: body.where, agent, autoSend: body.send === true,
+        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, audio: body.audio == null ? true : body.audio, where: body.where, agent, autoSend: body.send === true,
           recheck: body.recheck === true && !agent }));   // 重新检查 is the streamer's, from the page only (#321 PG 6922461279)
       } else if (action === "status" && req.method === "GET") {
         const v = svc.status(q("id") || undefined);
-        if (!agent && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
+        if ((!agent || isMainReq(req)) && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
         sendJSON(res, 200, v);
       } else if (action === "send" && req.method === "POST") {
-        if (agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample; an agent asks with send:true in prepare" }); return; }
-        sendJSON(res, 200, await svc.send(String(body.id || ""), body.token));
+        /* the click goes through the main process (IPC montclip:review:send with the token and the hash); a request from the page, an agent or
+           anything else that does not carry the main process's secret sends nothing */
+        if (!isMainReq(req)) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only the streamer's click in the app sends a sample" }); return; }
+        sendJSON(res, 200, await svc.send(String(body.id || ""), body.token, body.hash));
+      } else if (action === "unblock" && req.method === "POST") {
+        if (!isMainReq(req)) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only the streamer, in the app's own box, can allow sending again" }); return; }
+        sendJSON(res, 200, svc.unblock());
       } else if (action === "cancel" && req.method === "POST") {
         sendJSON(res, 200, svc.cancel(String(body.id || "")));
       } else if (action === "records" && req.method === "GET") {
