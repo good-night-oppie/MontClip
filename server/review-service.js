@@ -41,7 +41,7 @@ function skeleton(doc, from, to) {
 }
 
 function createReviewService({ store, bridge, readProject, activeProject, requestSample, getJob, cancelJob, sampleFile, ffmpeg, ffprobe, env = process.env,
-  agyOverride = null, agentSendEnabled = () => false, sendCapBytes = 104857600, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
+  agyOverride = null, sendCapBytes = 104857600, now = () => Date.now(), pollMs = 400, onChange = () => { } }) {
   const reviews = new Map();           // reviewId → in-flight state (finished ones live in the store)
   /* a check that was shown but never confirmed does not hold the project forever: after its token ran out it is expired and its sample removed */
   const sweep = () => { for (const r of reviews.values()) if (r.state === "ready" && now() > r.tokenExp) { r.state = "expired"; r.reason = "EXPIRED"; r.token = null; dropSample(r); onChange(r); } };
@@ -99,7 +99,8 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     /* a ledger that cannot be read: nothing is sent, the tool is not started (it would go out with no record and no count) */
     let sentSoFar; try { sentSoFar = store.sentTotal(r.project); } catch (e) { r.state = "failed"; r.reason = "LEDGER_UNREADABLE"; r.token = null; dropSample(r); onChange(r); throw e; }
     { const need = (r.mode === "two_pass" ? 2 : 1) * bridge.MAX_SAMPLE_BYTES; if (sentSoFar + need > sendCapBytes) { r.state = "failed"; r.reason = "SEND_LIMIT"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "this project has reached its limit for video sent out", { code: "SEND_LIMIT" }); } }
-    if (!destination().verified || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
+    /* kept (PG #321 6921163328, item 4): where it goes is checked again at the moment of sending; not confirmed, or not the one shown → nothing goes */
+    if (destination().confirmed !== true || !sameDestination(r.destination, destination())) { r.state = "failed"; r.reason = "DESTINATION_CHANGED"; r.token = null; dropSample(r); onChange(r); throw httpError(409, "where this goes changed since it was shown; prepare again", { code: "DESTINATION_CHANGED" }); }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
     const from = r.range.start - r.lead;
@@ -143,12 +144,12 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       if (scope !== "window" && scope !== "full") throw httpError(400, 'scope is "window" or "full"', { code: "BAD_SCOPE" });
       if (mode !== "single" && mode !== "two_pass") throw httpError(400, 'mode is "single" or "two_pass"', { code: "BAD_MODE" });
       if (autoSend && !agent) throw httpError(403, "only a person's click at the editor sends a sample", { code: "CLICK_REQUIRED" });
-      /* off until the owner's authorisation for an agent to send on the streamer's behalf is on file and QQ has verified it (Deja, #321) */
-      if (autoSend && !agentSendEnabled()) throw httpError(403, "an agent may not send a sample yet: it is off until the owner's authorisation is verified; use prepare, and the streamer sends with her click", { code: "AGENT_SEND_OFF" });
+      /* an agent's send:true needs no switch any more: the owner's word (2026-11-16, PG #321 6921163328) removed MONTCLIP_REVIEW_AGENT_SEND.
+         Every check below, and every check doSend makes, still applies to it. */
       const project = activeProject();
       if (busy(project)) throw httpError(409, "another check of this project is still running; cancel it or wait", { code: "BUSY", busy: view(busy(project)) });
-      /* fail closed: an address nobody has confirmed is not one anything is rendered for, let alone sent to */
-      if (!destination().verified) throw httpError(409, "where this would be sent has not been confirmed (the owner's confirmation is missing), so nothing is prepared or sent", { code: "DESTINATION_UNVERIFIED", destination: destination() });
+      /* fail closed: an address nobody has confirmed is not one anything is rendered for, let alone sent to (the Gemini host is confirmed by the owner's authorisation, video-bridge.js) */
+      if (destination().confirmed !== true) throw httpError(409, "where this would be sent has not been confirmed, so nothing is prepared or sent", { code: "DESTINATION_UNVERIFIED", destination: destination() });
       if (!agyOverride && !bridge.findAgy(env)) throw httpError(409, "the video check tool is not installed on this computer", { code: "NO_BRIDGE" });
       const doc = readProject() || {};
       const from = Math.max(0, s - l);
