@@ -135,19 +135,26 @@ test("sender: only a check the streamer clicked to send goes (a permit from the 
   assert.equal(s.calls.length, 1);
 });
 
-test("sender: the team's agent sends without a box only when the owner set MONTCLIP_REVIEW_AGENT_SEND=1 on this process", async (t) => {
+test("sender: the team's agent sends without a click or a box and needs no owner start-up variable any more (PG #321 6921163328); the streamer's switch, the key and the body check still decide", async (t) => {
   const d = tmp(t), s = standin();
-  const off = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: {} });
-  off.switch.set(true); off.key.set(FAKE_KEY);
-  assert.equal((await off.send({ reviewId: "r_000000000003", agent: true, body: bodyOf().body })).reason, "AGENT_SEND_OFF");
-  const on = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: { MONTCLIP_REVIEW_AGENT_SEND: "1" } });
-  assert.equal((await on.send({ reviewId: "r_000000000003", agent: true, body: bodyOf().body })).ok, true);
-  assert.equal(s.calls.length, 1);
+  for (const env of [{}, { MONTCLIP_REVIEW_AGENT_SEND: "0" }, { MONTCLIP_REVIEW_AGENT_SEND: "" }]) {
+    const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env });
+    snd.switch.set(false); snd.key.clear();
+    assert.equal((await snd.send({ reviewId: "r_000000000003", agent: true, body: bodyOf().body })).reason, "REVIEW_SEND_OFF", "the streamer's switch is off by default and decides");
+    snd.switch.set(true);
+    assert.equal((await snd.send({ reviewId: "r_000000000003", agent: true, body: bodyOf().body })).reason, "NO_KEY");
+    snd.key.set(FAKE_KEY);
+    const b = JSON.parse(bodyOf().body.toString("utf8")); b.model = "openai/other-model";
+    assert.equal((await snd.send({ reviewId: "r_000000000003", agent: true, body: Buffer.from(JSON.stringify(b)) })).reason, "BODY_NOT_ALLOWED");
+    assert.equal(s.calls.length, 0, JSON.stringify(env) + ": nothing went yet");
+    assert.equal((await snd.send({ reviewId: "r_000000000003", agent: true, body: bodyOf().body })).ok, true, JSON.stringify(env));
+    assert.equal(s.calls.length, 1); s.calls.length = 0;
+  }
 });
 
 test("reverse (QQ, #347 review): the main process sends only a body it would build itself, for the check the click confirmed — a changed body reaches the stand-in 0 times", async (t) => {
   const d = tmp(t), s = standin();
-  const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: { MONTCLIP_REVIEW_AGENT_SEND: "1" } });
+  const snd = createReviewSender({ root: d, safeStorage: fakeSafeStorage(), request: s.request, env: {} });
   snd.switch.set(true); snd.key.set(FAKE_KEY);
   const good = bodyOf(), j = () => JSON.parse(good.body.toString("utf8"));
   const changed = [
@@ -307,11 +314,11 @@ test("reverse: the review key is used only for review — only review-sender ope
 });
 
 /* ---- doors an agent must not have (reverse tests) ---- */
-test("reverse: no HTTP route, MCP tool, page bridge or preload can set DEST_CONFIRMED, AGENT_SEND, the review switch or key from an agent", () => {
+test("reverse: no HTTP route, MCP tool, page bridge or preload can set the review switch or key from an agent, nor the removed DEST_CONFIRMED / AGENT_SEND", () => {
   const root = path.join(__dirname, "..");
   const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
   const server = read("server/server.js"), mcp = read("server/mcp-server.js"), preload = read("desktop/view-preload.js");
-  /* the server only reads them from its own environment */
+  /* gone (PG #321 6921163328): nothing assigns them, and nothing takes them */
   for (const name of ["MONTCLIP_REVIEW_DEST_CONFIRMED", "MONTCLIP_REVIEW_AGENT_SEND"]) {
     assert.ok(!new RegExp("process\\.env\\." + name + "\\s*=(?!=)").test(server), `server.js never assigns ${name}`);
     assert.ok(!mcp.includes(name + '"') || !/inputSchema[\s\S]{0,400}MONTCLIP_REVIEW_/.test(mcp), `no MCP tool takes ${name}`);
@@ -332,18 +339,26 @@ test("reverse: no HTTP route, MCP tool, page bridge or preload can set DEST_CONF
   assert.equal(fs.existsSync(path.join(root, "test", "fixtures", "fake-agy.js")), false);
 });
 
-test("reverse: whatever an agent puts in a prepare request, it cannot confirm the destination or turn sending on", (t) => {
+test("reverse: whatever an agent puts in a prepare request or the environment holds, it cannot turn sending on; the destination is the fixed, owner-authorised one", (t) => {
   const { createReviewStore } = require("../server/review-store");
   const { createReviewService } = require("../server/review-service");
   const d = tmp(t);
+  let renders = 0;
   const mk = (env, on) => createReviewService({ store: createReviewStore({ dir: d }), bridge: VB, readProject: () => ({}), activeProject: () => "p1",
-    requestSample: () => { throw new Error("must not render"); }, getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x",
-    env, sender: async () => ({ ok: true }), sendSwitch: () => on, agentSendEnabled: () => env.MONTCLIP_REVIEW_AGENT_SEND === "1" });
+    requestSample: () => { renders++; return { id: "x" }; }, getJob: () => ({ status: "running", progress: 0 }), cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x",
+    env, sender: async () => ({ ok: true }), sendSwitch: () => on });
   const req = { start: 0, end: 5, destConfirmed: true, MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", agentSend: true, MONTCLIP_REVIEW_AGENT_SEND: "1" };
-  assert.throws(() => mk({}, false).prepare(req), (e) => e.code === "REVIEW_SEND_OFF");
-  assert.throws(() => mk({}, true).prepare(req), (e) => e.code === "DESTINATION_UNVERIFIED");
-  assert.throws(() => mk({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }, true).prepare(req), (e) => e.code === "DESTINATION_UNVERIFIED", "the old address confirms nothing");
-  assert.throws(() => mk({ MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai" }, true).prepare({ ...req, agent: true, autoSend: true }), (e) => e.code === "AGENT_SEND_OFF" || e.code === "CLICK_REQUIRED");
+  for (const env of [{}, { MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", MONTCLIP_REVIEW_AGENT_SEND: "1" }]) {
+    assert.throws(() => mk(env, false).prepare(req), (e) => e.code === "REVIEW_SEND_OFF");
+    assert.throws(() => mk(env, false).prepare({ ...req, agent: true, autoSend: true }), (e) => e.code === "REVIEW_SEND_OFF");
+  }
+  assert.equal(renders, 0, "nothing rendered while the streamer's switch is off");
+  for (const env of [{}, { MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }]) {
+    const svc = mk(env, true), v = svc.prepare({ ...req, agent: true });
+    assert.deepEqual(svc.destination(), VB.destination(), "the same fixed destination whatever the environment says");
+    svc.cancel(v.reviewId);
+  }
+  assert.equal(renders, 2);
 });
 
 /* ---- sentinels ---- */
