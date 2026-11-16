@@ -13,7 +13,9 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
 /* The image rounds its own corners (9px = panel radius minus border). Leaving that to the panel's clip gave a
    slightly different corner edge on each render (#268: 177/900 frames differed; with this, 0/900). */
 .panel img{display:block;width:100%;height:100%;object-fit:cover;border-radius:9px}
-.chip{position:absolute;font:600 13px/1 JBM,monospace;letter-spacing:.04em;padding:7px 10px;border-radius:6px;white-space:nowrap}
+/* Text a viewer needs is at least 20px (18px for the cover note): the README shows the film about 390px wide on
+   a phone, where 13px became ~4px (#268 review round 1, item 6). Terminal and code text stay small as decoration. */
+.chip{position:absolute;font:600 20px/1 JBM,monospace;letter-spacing:.03em;padding:8px 12px;border-radius:7px;white-space:nowrap}
 .mono{font-family:JBM,monospace}
 .term{position:absolute;background:#0B1220;border:1px solid #1E293B;border-radius:10px;overflow:hidden}
 .term .bar{height:34px;border-bottom:1px solid #1E293B;display:flex;align-items:center;gap:7px;padding:0 14px;font:500 12px JBM;color:#64748B}
@@ -29,11 +31,11 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
 
 <!-- ===== persistent chrome ===== -->
 <div id="brand" class="abs mono" style="left:28px;top:20px;font:700 14px JBM;letter-spacing:.12em;color:#94A3B8">MONTCLIP<span style="color:#3B82F6"> ▍</span></div>
-<div id="shotlab" class="abs lab" style="right:28px;top:22px;color:#64748B"></div>
+<div id="shotlab" class="abs lab" style="right:28px;top:18px;font-size:18px;color:#64748B"></div>
 <div id="track" class="abs" style="left:28px;right:28px;top:684px;height:6px;border-radius:3px;background:#111827"></div>
 <div id="segs"></div>
 <div id="ph" class="abs" style="top:678px;width:2px;height:18px;background:#3B82F6;box-shadow:0 0 0 3px #3B82F633"></div>
-<div id="foot" class="abs mono" style="left:28px;right:28px;top:654px;font-size:13px;color:#94A3B8;text-align:right">合成直播间 · 非真实录像 · 观众名均为占位符 &nbsp;·&nbsp; synthetic live room, placeholder viewers · materials from real MontClip MCP calls</div>
+<div id="foot" class="abs mono" style="left:28px;right:28px;top:616px;font-size:20px;line-height:24px;color:#94A3B8;text-align:right">合成直播间 · 非真实录像 · 观众名均为占位符<br>synthetic live room, placeholder viewers · materials from real MontClip MCP calls</div>
 
 <!-- ===== S1 hook ===== -->
 <div id="s1" class="abs" style="inset:0">
@@ -45,7 +47,7 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
   <div id="p1l" class="panel" style="left:60px;top:170px;width:540px;height:304px"><img id="srcimg"></div>
   <div id="p1r" class="panel" style="left:680px;top:170px;width:540px;height:304px;border-color:#3B82F6"><img id="rzimg1"></div>
   <div id="c_raw" class="chip" style="left:60px;top:486px;background:#1E293B;color:#CBD5E1">RAW · SYNTHETIC LIVE ROOM</div>
-  <div id="c_key" class="chip" style="left:290px;top:486px;background:#EF444422;color:#FCA5A5;border:1px solid #EF4444">NICKNAME VISIBLE</div>
+  <div id="c_key" class="chip" style="left:412px;top:486px;background:#EF444422;color:#FCA5A5;border:1px solid #EF4444">NICKNAME VISIBLE</div>
   <div id="c_out" class="chip" style="left:680px;top:486px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">MONTCLIP EXPORT · CROP + ZOOM + COVER</div>
   <div id="arrow" class="abs mono" style="left:604px;top:300px;width:72px;text-align:center;font:700 13px JBM;color:#F59E0B">MCP<br><span style="font-size:26px">→</span></div>
   <div id="edited" class="abs h1" style="left:60px;top:560px;color:#F59E0B">Edited by MontClip.</div>
