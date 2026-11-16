@@ -180,7 +180,7 @@ Successfully processed 1 files; Failed processing 0 files
 
 **PG 决定里列了、但 main 上原来没有代码的两项：** 「单片 $2 / 每天 $10 预算」和「同一段不反复外发」在 main（925eddd6）里找不到实现。PG 6922461279 定为在同一个 PR 里补上，见下一节。
 
-只动 Gemini（`agy`）这条路；#347（OpenRouter）不在这次范围内。
+只动 Gemini（`agy`）这条路；#347（OpenRouter）不在这次范围内。（后续：主人 2026-11-16 定 OpenRouter 路径也删这两道门禁，#321 6926823489（https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6926823489），这一句对 OpenRouter 不再适用；见 `2026-11-14-review-openrouter-outbound.md` 文末「授权更新」。）
 
 ### 补上：不反复外发和预算（2026-11-16，PG 决定 #321 6922461279）
 
