@@ -130,9 +130,13 @@ const SHOTS=[[0,4,'01 · HOOK','#F59E0B'],[4,11,'02 · PERCEIVE','#3B82F6'],[11,
 // (OUT3) and the last second holds the film's final frame. The pictures shown are the same run's.
 const CUT=new URLSearchParams(location.search).get('cut');
 if(CUT&&CUT!=='short')throw new Error('unknown cut: '+CUT);
-const SHORT_MAP=[[0,4,0],[4,10,11],[10,15,17]];   // [cut start, cut end, full-film start]
+// The crop shot is 5 s here, not 6: its last second only repeated the finished zoom (#268 review round 1,
+// item 12). It fades out at full-film 15.7-16 instead of 16.7-17 (OUT3). The ship shot then plays to the
+// film's last frame (cut 14 s = full 22 s) and holds it for the final second, so the closing line stays longer.
+const SHORT_MAP=[[0,4,0],[4,9,11],[9,14,17]];   // [cut start, cut end, full-film start]; after the map: hold t=22
+const OUT3=CUT?[15.7,16.0]:[16.7,17.0];
 const CDUR=CUT?15:DUR;
-const CSHOTS=CUT?[[0,4,'01 · HOOK','#F59E0B'],[4,10,'02 · CROP · ZOOM · COVER','#EF4444'],[10,15,'03 · SHIP','#22C55E']]:SHOTS;
+const CSHOTS=CUT?[[0,4,'01 · HOOK','#F59E0B'],[4,9,'02 · CROP · ZOOM · COVER','#EF4444'],[9,15,'03 · SHIP','#22C55E']]:SHOTS;
 const toFull=tc=>{if(!CUT)return tc;for(const[a,b,f] of SHORT_MAP)if(tc>=a&&tc<b)return f+(tc-a);return 22;};
 // timeline segments (static)
 {const W=1280-56;let h='';for(const[a,b,,c] of CSHOTS){h+=`<div class="abs" style="left:${28+W*a/CDUR+1}px;width:${W*(b-a)/CDUR-2}px;top:684px;height:6px;border-radius:3px;background:${c};opacity:.28" data-a="${a}" data-b="${b}"></div>`;}$('segs').innerHTML=h;}
@@ -231,7 +235,7 @@ window.__seek=async function(tc){
   set($('detlab'),eo(seg(t,9.8,10.1))*(1-out2));
 
   // ===== S3 11-17
-  const in3=eo(seg(t,11.0,11.4)), out3=eio(seg(t,16.7,17.0));
+  const in3=eo(seg(t,11.0,11.4)), out3=eio(seg(t,OUT3[0],OUT3[1]));
   $('s3').style.visibility=(t>=10.95&&t<17.05)?'visible':'hidden';
   set($('s3h'),in3*(1-out3),0,(1-in3)*16-out3*30);
   set($('mini'),in3*(1-out3),(1-in3)*-30,-out3*30);
