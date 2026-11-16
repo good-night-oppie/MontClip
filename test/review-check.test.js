@@ -2,7 +2,7 @@
 // 「检查这 10 秒」 (#321 step 2, Deja): the box and the result list, against a stand-in with the shapes of Cindy's step 1
 // (MontClip#328, /api/review/*). The real server is exercised against #328's own routes before this goes in; Win11 by hand.
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const R = require('../review-check');
+const R = require('../app/review-check');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const zh = (k, v) => R.t('zh-CN', k, v);
 const tick = () => new Promise((r) => setImmediate(r));
@@ -100,7 +100,7 @@ test('a check (#328): prepare is local, status is read until the clip is ready, 
 test("the box says what is sent, to whom, and that it may train a model", async () => {
   const m = R.confirmModel(await readyView(), 'zh-CN');
   a.equal(m.lines[0], '联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 10 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。');
-  a.equal(m.to, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com）');
+  a.equal(m.to, '发给：OpenRouter（openrouter.ai，未验证）');
   a.equal(m.training, '对方可能用这段内容训练模型');
   a.deepEqual(m.buttons.map((b) => b.label), ['先看要发的内容', '发送检查', '只发这 10 秒', '不发了'], 'the four buttons as before');
   a.ok(m.canSend && m.buttons.every((b) => b.enabled));
@@ -165,6 +165,11 @@ test("JJ #326: whole seconds with no lead, the fallback said in both boxes", asy
 test('「只发这 10 秒」 (#328: scope is fixed at prepare): a clip without the text is made and sent only if it matches what the box said', async () => {
   const api = R.stubApi(), s = session(api);
   await s.check({ start: 20, end: 30 });
+  // #347: the main process sends only right after a real click, and the window clip takes a while to make — so the first click makes it and
+  // shows it in the box, the next click on 「只发这 10 秒」 sends it
+  a.equal(await s.send('window'), false);
+  a.equal(s.state.phase, 'confirm'); a.equal(s.state.changed, false); a.equal(s.state.prep.scope, 'window');
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0, 'nothing sent on the click that made the window clip');
   a.ok(await s.send('window'));
   a.deepEqual(api.calls.map((c) => c[0] + (c[1] && c[1].scope ? ':' + c[1].scope : '')), ['prepare:full', 'status', 'cancel', 'prepare:window', 'status', 'send']);
   a.deepEqual(api.calls.find((c) => c[0] === 'cancel'), ['cancel', 'r_1'], 'the clip with text is dropped first');
@@ -210,6 +215,7 @@ test('「只发这 10 秒」 (#328: scope is fixed at prepare): a clip without t
   a.equal(api5.calls.filter((c) => c[0] === 'send').length, 0);
   // with notes saved, 「发送检查」 says and sends them; 「只发这 N 秒」 sends a clip with none
   const api6 = R.stubApi({ taste: 3 }), s6 = session(api6); await s6.check({ start: 20, end: 30 });
+  a.equal(await s6.send('window'), false, 'the first click makes the window clip');
   a.ok(await s6.send('window'));
   a.deepEqual(api6.calls.find((c) => c[0] === 'send'), ['send', 'r_2', 'tok_2']);
 });
@@ -396,7 +402,7 @@ test('「已修好」 is written as fixed — never as passed — and does not t
   a.ok(await s.markFixed(0));
   a.deepEqual(api.calls.find((c) => c[0] === 'mark')[1], { id: 'r_1', finding: 0, mark: 'fixed' });
   a.equal(R.resultModel(s.state.raw, 'zh-CN').passed, false);
-  a.ok(!/"passed"/.test(read('review-check.js').split('function markFixed')[1].split('return {')[0]));
+  a.ok(!/"passed"/.test(read('app/review-check.js').split('function markFixed')[1].split('return {')[0]));
 });
 
 test('the page talks only to its own /api/review routes (#328 shapes); a server without them shows no button', async () => {
@@ -407,14 +413,25 @@ test('the page talks only to its own /api/review routes (#328 shapes); a server 
   seen.length = 0;
   const ok = R.httpApi(fakeFetch(200, {}));
   a.equal(await ok.available(), true);
-  await ok.prepare({ start: 1, end: 2, scope: 'full' }); await ok.status('r 1'); await ok.send('r_1', 'tok'); await ok.cancel('r_1'); await ok.mark({ id: 'r_1', finding: 0, mark: 'fixed' });
+  await ok.prepare({ start: 1, end: 2, scope: 'full' }); await ok.status('r 1'); await ok.cancel('r_1'); await ok.mark({ id: 'r_1', finding: 0, mark: 'fixed' });
   a.deepEqual(seen.map(([u, m]) => m + ' ' + u), ['GET /api/review/taste', 'POST /api/review/prepare', 'GET /api/review/status?id=r%201',
-    'POST /api/review/send', 'POST /api/review/cancel', 'POST /api/review/mark']);
-  a.deepEqual(JSON.parse(seen[3][2]), { id: 'r_1', token: 'tok' }, 'send carries the id and the one-time token');
-  a.deepEqual(JSON.parse(seen[4][2]), { id: 'r_1' });
+    'POST /api/review/cancel', 'POST /api/review/mark']);
+  a.deepEqual(JSON.parse(seen[3][2]), { id: 'r_1' });
+  /* #347: the send is the desktop main process's (montclipReview.send: id, token, hash); never an HTTP request from the page */
+  const view = { reviewId: 'r_1', sendToken: 'tok', willSend: { hash: 'b'.repeat(64) } };
+  await a.rejects(ok.send(view), (e) => e.code === 'NO_SENDER' && e.notSent === true, 'no desktop window: nothing to send with');
+  const got = [];
+  globalThis.montclipReview = { send: async (v) => { got.push(v); return got.length === 1 ? { ok: true, record: { reviewId: 'r_1', status: 'passed' } } : { ok: false, code: got.length === 2 ? 'NEEDS_CLICK' : 'FAILED' }; } };
+  try {
+    a.deepEqual(await ok.send(view), { reviewId: 'r_1', status: 'passed' });
+    a.deepEqual(got[0], { reviewId: 'r_1', token: 'tok', hash: 'b'.repeat(64) }, 'only the id, the one-time token and the hash');
+    await a.rejects(ok.send(view), (e) => e.code === 'NEEDS_CLICK' && e.notSent === true, 'refused before the request: certainly not sent');
+    await a.rejects(ok.send(view), (e) => e.code === 'FAILED' && e.notSent === false, 'anything else may have reached the receiver');
+  } finally { delete globalThis.montclipReview; }
+  a.equal(seen.filter(([u]) => /\/api\/review\/send/.test(u)).length, 0, 'the page never posts to /api/review/send');
   await a.rejects(R.httpApi(fakeFetch(409, { code: 'DESTINATION_UNVERIFIED', destination: { service: 'S', host: 'h' } })).prepare({}),
     (e) => e.code === 'DESTINATION_UNVERIFIED' && e.body.destination.host === 'h');
-  const src = read('review-check.js');
+  const src = read('app/review-check.js');
   a.ok(!/https?:\/\//.test(src), 'no address outside this server in the page code');
   a.ok(!/prewarm|\/api\/review\/preview/.test(src.split('/* ── the page ── */')[0].split('function httpApi')[1]), 'no prewarm or /preview route (gone in #328)');
   a.ok(!/agentPolicy|approval|approveAll|都批准/i.test(src.replace(/whatever the assistant's approval mode is/g, '')), 'the box never depends on the approval mode');
@@ -429,7 +446,7 @@ test('in the page: the box shows the receiver and the training line before eithe
   w.button.click(); await settle();
   a.equal(w.overlay.classList.contains('hidden'), false);
   const to = w.byReview('to')[0], tr = w.byReview('training')[0], full = w.byReview('full')[0], win = w.byReview('window')[0];
-  a.equal(to.textContent, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com）');
+  a.equal(to.textContent, '发给：OpenRouter（openrouter.ai，未验证）');
   a.equal(tr.textContent, '对方可能用这段内容训练模型');
   const order = w.nodes();
   a.ok(order.indexOf(to) < order.indexOf(full) && order.indexOf(tr) < order.indexOf(win), 'above the buttons');
@@ -492,21 +509,21 @@ test("words: every key has English, none of JJ's banned words, the new lines are
   const all = Object.values(R.text['zh-CN']).join('\n');
   for (const w of ['后台', '无头', '引擎', '预热', '缓存', 'agy', '命令行', 'ticket', '快照', '不会被训练', 'Yolo', '昵称会先去掉', '已验证'])
     a.ok(!all.includes(w), w);
-  a.match(read('review-check.js'), /draft \(#328\)/);
+  a.match(read('app/review-check.js'), /draft \(#328\)/);
   for (const k of ['type_' + 'over_explained_caption', 'type_punchline_spoiled', 'type_protected_region_occluded', ...R.DIMENSIONS.map((d) => 'dim_' + d)]) a.ok(zhKeys.includes(k), k);
 });
 
 test('the editor loads it and hands it the playhead; the playground copies it', () => {
   const html = read('index.html');
-  a.ok(html.indexOf('<script src="review-check.js">') > html.indexOf('<script src="ffmpeg-card.js">'));
-  a.ok(html.indexOf('<script src="review-check.js">') < html.indexOf('<script src="app.js">'));
+  a.ok(html.indexOf('<script src="app/review-check.js">') > html.indexOf('<script src="app/ffmpeg-card.js">'));
+  a.ok(html.indexOf('<script src="app/review-check.js">') < html.indexOf('<script src="app/app.js">'));
   a.match(html, /<button type="button" class="btn review-btn hidden" id="btnReviewCheck">检查这 10 秒<\/button>/);
-  const app = read('app.js'), block = app.slice(app.indexOf('/* ── 「检查这 10 秒」'));
+  const app = read('app/app.js'), block = app.slice(app.indexOf('/* ── 「检查这 10 秒」'));
   a.match(block, /MontClipReviewCheck\.mount\(/);
   a.match(block, /seek:t=>\{[^}]*setTime\(t\);revealTime\(t\);\}/);
   a.ok(!/fetch\(/.test(block), 'the wiring calls nothing itself');
   a.equal((app.match(/MontClipReviewCheck/g) || []).length, 2, 'one place in app.js');
-  a.match(read('docs/demo/sync.js'), /"review-check\.js"/);
+  a.match(read('docs/demo/sync.js'), /"app\/review-check\.js"/);
 });
 
 test("#328's refusals (Deja 6871907804) get a plain sentence under the headline; a refused send still never says 「没发出去」", async () => {
@@ -615,7 +632,7 @@ test("Deja #326: the fixed standards and questions are shown, folded, exactly as
     { ...standards, carriedBy: 'second' }, { ...standards, carriedBy: 'all' }, { ...standards }])   // 'second' with one request: carried by a request that is not there
     a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, standards: bad } }, 'zh-CN').canSend, false, JSON.stringify(bad));
   a.equal(R.confirmModel({ ...v, willSend: { ...v.willSend, tasteLost: -1 } }, 'zh-CN').canSend, false);
-  const src = read('review-check.js');
+  const src = read('app/review-check.js');
   a.ok(!src.includes('保留真实对话') && !src.includes('人物/事件/字幕哪里错了'), 'the standards and questions are not written into the page');
 });
 
@@ -674,4 +691,66 @@ test("PG #321 6872473697: the page picks the sentence by scope; 「只发这 N �
   // English: the window sentence carries the engine's sentence unchanged
   const en = R.confirmModel(w0, 'en').lines.find((l) => l.startsWith('Clicking “Send only these 10 s”'));
   a.ok(en && en.endsWith(' ' + ENGINE), en);
+});
+
+test('QQ #326 5902115354 item 1: 「只发这 10 秒」 waits for the cancel before it prepares again — an engine that is still busy with the old clip never sees the new prepare', async () => {
+  const api = R.stubApi({ cancelDelay: 30 }), live = api.live, prep = api.prepare;
+  api.prepare = async (b) => { if ([...live.values()].some((r) => r.state === 'ready' || r.state === 'rendering')) { const e = new Error('busy'); e.code = 'BUSY'; throw e; } return prep(b); };
+  const s = session(api);
+  await s.check({ start: 20, end: 30 });
+  a.equal(await s.send('window'), false);
+  a.equal(s.state.phase, 'confirm', 'not 「现在正在忙别的」: the cancel was waited for');
+  a.equal(s.state.prep.scope, 'window');
+  a.ok(await s.send('window'));
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 1, 'sent once');
+});
+
+test('QQ #326 5902115354 item 2: a clip without a token never reaches the send — the box says what can be done, nothing is called', async () => {
+  const api = R.stubApi(), st = api.status;
+  let k = 0;
+  api.status = async (id) => { const v = await st(id); if (v.state === 'ready' && ++k === 2) delete v.sendToken; return v; };
+  const s = session(api);
+  await s.check({ start: 20, end: 30 });
+  a.equal(await s.send('window'), false);
+  a.equal(s.state.phase, 'confirm');
+  a.equal(await s.send('window'), false, 'the second click does nothing either: no token, no send');
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0);
+  a.equal(R.confirmModel(s.state.prep, 'zh-CN').canSend, false);
+});
+
+test('#347: a click the main process does not count as real (NEEDS_CLICK) sends nothing and leaves the box as it was; the click after sends', async () => {
+  const api = R.stubApi({ sendRefused: 'NEEDS_CLICK' }), s = session(api);
+  await s.check({ start: 20, end: 30 });
+  a.equal(await s.send('full'), false);
+  a.equal(s.state.phase, 'confirm'); a.equal(s.state.raw, null);
+  const api2 = R.stubApi({ sendRefused: 'DAILY_LIMIT' }), s2 = session(api2);
+  await s2.check({ start: 20, end: 30 });
+  a.ok(await s2.send('full'));
+  const m = R.resultModel(s2.state.raw, 'zh-CN', 10);
+  a.equal(m.status, 'no_result');
+  a.ok(!m.headline.includes('不确定内容有没有已经发到'), 'refused before the request: never 「may have been sent」');
+  a.ok(m.notes.includes('今天的检查额度用完了，什么都没有发出去。明天再检查。'));
+});
+
+test('#321 (PG 6922461279): a stretch already checked gets that result, nothing is prepared or sent; 「再检查一次」 asks for a new check', async () => {
+  const api = R.stubApi({ reused: true }), s = session(api);
+  await s.check({ start: 20, end: 30 });
+  a.equal(s.state.phase, 'result');
+  a.equal(api.calls.filter((c) => c[0] === 'status' || c[0] === 'send').length, 0);
+  const m = R.resultModel(s.state.raw, 'zh-CN', 10);
+  a.ok(m.notes.includes('这一段这份内容已经检查过，这里是上次的结果，没有再发送。要再发一次，请点「再检查一次」。'));
+  await s.recheck();
+  a.equal(s.state.phase, 'confirm', 'the streamer asked again: a new clip, shown in the box');
+  a.deepEqual(api.calls.filter((c) => c[0] === 'prepare').map((c) => !!c[1].recheck), [false, true]);
+});
+
+test('#347: the destination is the owner-authorised one (confirmed), shown with 「未验证」 until a capture checks it; not confirmed → nothing can be sent', async () => {
+  const s = session(R.stubApi());
+  await s.check({ start: 20, end: 30 });
+  const m = R.confirmModel(s.state.prep, 'zh-CN');
+  a.ok(m.canSend); a.equal(m.to, '发给：OpenRouter（openrouter.ai，未验证）'); a.ok(!m.lines.includes('这个地址还没有人确认过，所以先不发。请等有人确认后再试。'));
+  const s2 = session(R.stubApi({ destination: { service: 'OpenRouter', host: 'openrouter.ai', confirmed: false, verified: false } }));
+  await s2.check({ start: 20, end: 30 });
+  const m2 = R.confirmModel(s2.state.prep, 'zh-CN');
+  a.equal(m2.canSend, false); a.ok(m2.lines.includes('这个地址还没有人确认过，所以先不发。请等有人确认后再试。'));
 });
