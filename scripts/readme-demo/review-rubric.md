@@ -22,6 +22,10 @@ answers in the PR description.
    in Chinese and English.
 4. **No private data.** No real person, real nickname, local path, URL, IP address or account name is
    visible in any frame.
+   > 例外：可以显示 MontClip 真实返回里、相对于本次构建新建的临时数据目录的路径，条件是三条都满足：① 不以 `/`、`~`、盘符或 `..` 开头；② 路径里的每一段都是构建脚本自己写的名字，不含用户名、机器名、主播或观众名、原始录像文件名；③ 第 6 项的自动检查（本地绝对路径 / 邮箱 / 密钥字样 / IP / localhost 端口）对全片仍是 0 命中。绝对路径、用户名、家目录一律不行。本项目自己的公开仓库名不算私人信息。
+
+   (QQ's rule, word for word, 2026-11-16: https://github.com/good-night-oppie/MontClip/pull/357#issuecomment-6924941906 .
+   The reviewer checks all three conditions for every path shown. "第 6 项的自动检查" is gate G6 of `final-check.py`.)
 
 ## B. Fit for the README
 
