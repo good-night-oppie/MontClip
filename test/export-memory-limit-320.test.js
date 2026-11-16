@@ -136,3 +136,33 @@ test("limit 0 turns it off, and an unknown size stops nothing", { skip: process.
     q.jobs.cancel && q.jobs.cancel(first.id);
   }
 });
+
+/* a browser process that has already exited is not measured (pid reuse: its pid may be another program's by now). A fake
+   child process stands in, so this runs on every platform: spawn is replaced before export-jobs.js is loaded. */
+test("a browser that has already exited is not measured; one that is running is", async (t) => {
+  const { EventEmitter } = require("node:events");
+  const cp = require("node:child_process");
+  const realSpawn = cp.spawn, jobsPath = require.resolve("../server/export-jobs");
+  const procs = [];
+  cp.spawn = () => { const p = new EventEmitter(); p.pid = 4242; p.exitCode = null; p.signalCode = null; p.kill = () => {}; p.once = p.once.bind(p); procs.push(p); return p; };
+  const was = process.env.FABLECUT_CHROME;
+  process.env.FABLECUT_CHROME = process.execPath;
+  delete require.cache[jobsPath];
+  const Fresh = require("../server/export-jobs");
+  cp.spawn = realSpawn;
+  t.after(() => { delete require.cache[jobsPath]; if (was === undefined) delete process.env.FABLECUT_CHROME; else process.env.FABLECUT_CHROME = was; });
+  for (const [label, exited, signalled, wantAsked] of [["running", null, null, 1], ["exited with a code", 1, null, 0], ["killed by a signal", null, "SIGKILL", 0]]) {
+    let now = 9_000_000, asked = 0;
+    const jobs = Fresh.createExportJobs({ allowHeadless: true, editors: () => 0, url: () => "http://127.0.0.1:1", broadcast() {}, now: () => now, log() {},
+      memoryLimit: 2 * GiB, treeMemory: () => { asked++; return 3 * GiB; } });
+    t.after(() => jobs.shutdown());
+    const j = jobs.request({ where: "headless" });
+    const p = procs[procs.length - 1];
+    p.exitCode = exited; p.signalCode = signalled;   // the exit event has not been emitted yet: the window the check is for
+    now += Fresh.MEMORY_POLL_MS + 1;
+    try { jobs.request({ where: "headless" }); } catch {}   // request() sweeps first
+    assert.equal(asked, wantAsked, label + ": measured " + wantAsked + " time(s)");
+    assert.equal(jobs.get(j.id).status, wantAsked ? "failed" : "pending", label);
+    if (wantAsked) assert.equal(jobs.get(j.id).code, "EXPORT_MEMORY_LIMIT");
+  }
+});

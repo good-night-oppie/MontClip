@@ -176,6 +176,8 @@ function createExportJobs(opts) {
   const memoryLimit = opts.memoryLimit != null ? opts.memoryLimit : memoryLimitBytes();
   function overMemory(j, now) {
     if (!(memoryLimit > 0) || j.via !== "headless" || !j.browser || !j.browser.proc || now - (j.memAt || 0) < MEMORY_POLL_MS) return false;
+    // a browser that has already exited is not measured: its pid may be somebody else's by now (pid reuse), and its exit handler is about to end the job
+    if (j.browser.proc.exitCode !== null && j.browser.proc.exitCode !== undefined || j.browser.proc.signalCode !== null && j.browser.proc.signalCode !== undefined) return false;
     j.memAt = now;
     let used = null;
     try { used = (opts.treeMemory || treeAnonBytes)(j.browser.proc.pid); } catch { used = null; }
