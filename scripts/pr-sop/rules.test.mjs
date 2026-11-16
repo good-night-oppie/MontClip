@@ -13,7 +13,8 @@ const policy = JSON.parse(fs.readFileSync(new URL("policy.json", import.meta.url
 const teammates = JSON.parse(fs.readFileSync(new URL("teammates.json", import.meta.url), "utf8"));
 const REPO = "good-night-oppie/MontClip";
 const BODY = "QQ 请审\n负责人：BB\n改动：增加模板检查\n复现：node scripts/pr-sop/rules.test.mjs\n测试：\n- 单元：23/23\n- 媒体：没跑—仅元数据规则，没有修改媒体执行路径\n依赖：无";
-const run = (body = BODY, more = {}) => checkPR({ pr: { body, isDraft: false, reviewRequests: [{ login: "GoodNightOppie" }] }, files: ["docs/example.md"], repo: REPO, policy, teammates, ...more });
+const HANDOFF = [{ author: { login: "dejaoppiexyz[bot]" }, body: "@QQOppieXYZ 请审" }];
+const run = (body = BODY, more = {}) => checkPR({ pr: { body, isDraft: false, comments: HANDOFF }, files: ["docs/example.md"], repo: REPO, policy, teammates, ...more });
 const missing = (r, item) => r.issues.some((i) => i.item === item);
 
 describe("PR SOP：逐项正负控", () => {
@@ -56,28 +57,28 @@ describe("PR SOP：逐项正负控", () => {
     assert.equal(run(BODY.replace("依赖：无", "依赖：#12（硬依赖，类型：代码）")).status, "passed");
     assert.equal(run(BODY.replace("依赖：无", "依赖：#12（软依赖）")).status, "passed");
   });
-  it("审查人须API请求或已有review，正文提名不算", () => {
-    assert.ok(missing(run(BODY, { pr: { body: BODY + "\nGoodNightOppie", reviewRequests: [] } }), "reviewer"));
-    assert.equal(run(BODY, { pr: { body: BODY, reviewRequests: [], reviews: [{ author: { login: "GoodNightOppie" } }] } }).status, "passed");
+  it("送审须PR评论首行@QQ或已有QQ review，正文提名、审查请求不算", () => {
+    assert.ok(missing(run(BODY, { pr: { body: BODY + "\n@QQOppieXYZ 请审", reviewRequests: [{ login: "GoodNightOppie" }] } }), "reviewer"));
+    assert.equal(run(BODY, { pr: { body: BODY, reviews: [{ author: { login: "qqoppiexyz[bot]" } }] } }).status, "passed");
   });
   it("批准后请求被GitHub清空：已有当前head review仍通过", () => {
     const head = "a".repeat(40);
-    const r = run(BODY, { pr: { body: BODY, headRefOid: head, reviewRequests: [], reviews: [{ author: { login: "GoodNightOppie" }, state: "APPROVED", commit: { oid: head }, submittedAt: "2026-11-07T00:00:00Z" }] } });
+    const r = run(BODY, { pr: { body: BODY, headRefOid: head, reviewRequests: [], reviews: [{ author: { login: "qqoppiexyz[bot]" }, state: "APPROVED", commit: { oid: head }, submittedAt: "2026-11-07T00:00:00Z" }] } });
     assert.equal(r.status, "passed"); assert.deepEqual(r.warnings, []);
   });
   it("从没请过且没有review失败，正文提名不能冒充审查请求", () => {
-    const r = run(BODY, { pr: { body: BODY + "\n## 备注\nGoodNightOppie", headRefOid: "a".repeat(40), reviewRequests: [], reviews: [] } });
+    const r = run(BODY, { pr: { body: BODY + "\n## 备注\n@QQOppieXYZ", headRefOid: "a".repeat(40), reviewRequests: [], reviews: [] } });
     assert.equal(r.status, "failed"); assert.ok(missing(r, "reviewer"));
   });
-  it("新head没有请求、最近review在旧head：只提示不失败；重新请求后消除提示", () => {
+  it("没有@评论、最近QQ review在旧head：只提示不失败；评论首行重新@后消除提示", () => {
     const head = "a".repeat(40), older = "b".repeat(40);
     const pr = { body: BODY, headRefOid: head, reviewRequests: [], reviews: [
-      { author: { login: "GoodNightOppie" }, commit: { oid: older }, submittedAt: "2026-11-07T01:00:00Z" },
-      { author: { login: "GoodNightOppie" }, commit: { oid: head }, submittedAt: "2026-11-07T00:00:00Z" }
+      { author: { login: "qqoppiexyz[bot]" }, commit: { oid: older }, submittedAt: "2026-11-07T01:00:00Z" },
+      { author: { login: "qqoppiexyz[bot]" }, commit: { oid: head }, submittedAt: "2026-11-07T00:00:00Z" }
     ] };
     const r = run(BODY, { pr }); assert.equal(r.status, "passed"); assert.equal(r.issues.length, 0);
-    assert.equal(r.warnings.length, 1); assert.match(formatReport(r), /请重新请审查人/);
-    assert.deepEqual(run(BODY, { pr: { ...pr, reviewRequests: [{ login: "GoodNightOppie" }] } }).warnings, []);
+    assert.equal(r.warnings.length, 1); assert.match(formatReport(r), /重新请审/);
+    assert.deepEqual(run(BODY, { pr: { ...pr, comments: HANDOFF } }).warnings, []);
   });
   it("改剪辑/导出须音画同步行，纯文档不加门槛", () => {
     assert.ok(missing(run(BODY, { files: ["export.js"] }), "avsync"));
@@ -121,7 +122,7 @@ describe("PR SOP：逐项正负控", () => {
   it("例外只有审批账号当前head的逐项有效review才放行",()=>{
     const body=BODY+"\nSOP 例外：测试 — 人工核读 — 证据：c1c25e38",head="a".repeat(40);
     const review={author:{login:"GoodNightOppie"},commit:{oid:head},state:"COMMENTED",body:"SOP 例外已核验：测试"};
-    const pr={body,headRefOid:head,reviewRequests:[{login:"GoodNightOppie"}],reviews:[review]};
+    const pr={body,headRefOid:head,comments:HANDOFF,reviews:[review]};
     assert.equal(run(body,{pr}).status,"passed");
     assert.equal(run(body,{pr:{...pr,reviews:[]}}).status,"needs_qq");
     assert.equal(run(body,{pr:{...pr,reviews:[{...review,commit:{oid:"b".repeat(40)}}]}}).status,"needs_qq");
@@ -144,18 +145,19 @@ describe("只读API及工作流安全", () => {
       calls.push(route);
       if (/\/files\?/.test(route)) return [{ filename: "docs/a.md", patch: "throw Error('do not execute')" }];
       if (route.endsWith("/requested_reviewers")) return { users: [{ login: "GoodNightOppie" }] };
-      if (/\/(?:reviews|timeline)\?/.test(route)) return [];
+      if (/\/(?:reviews|comments|timeline)\?/.test(route)) return [];
       if (/\/events\?/.test(route)) return [];
       return { ...eventPR, changed_files: 1 };
     };
     const m = await collectMetadata({ get, repo: REPO, number: 1, eventPR });
     assert.deepEqual(m.files, [{ filename: "docs/a.md", previous_filename: undefined }]);
-    assert.equal(m.pr.body, BODY); assert.equal(calls.length, 6);
+    assert.equal(m.pr.body, BODY); assert.equal(calls.length, 7);
+    assert.ok(!calls.some(route => route.endsWith("/requested_reviewers")));
     assert.ok(!calls.some(route => /\/(?:events|timeline)\?/.test(route)));
   });
   it("文件未取全、PR已push时明确失败", async () => {
     await assert.rejects(collectMetadata({ get: async () => ({ head: { sha: "b".repeat(40) } }), repo: REPO, number: 1, eventPR }), /PR_CHANGED/);
-    const get = async (r) => /files\?/.test(r) ? [] : r.endsWith("requested_reviewers") ? { users: [] } : /(?:reviews|events|timeline)\?/.test(r) ? [] : { ...eventPR, changed_files: 2 };
+    const get = async (r) => /files\?/.test(r) ? [] : r.endsWith("requested_reviewers") ? { users: [] } : /(?:reviews|comments|events|timeline)\?/.test(r) ? [] : { ...eventPR, changed_files: 2 };
     await assert.rejects(collectMetadata({ get, repo: REPO, number: 1, eventPR }), /API_INCOMPLETE/);
     await assert.rejects(collectMetadata({ get: async () => ({ ...eventPR, draft: false }), repo: REPO, number: 1, eventPR: { ...eventPR, draft: true } }), /PR_CHANGED/);
   });
@@ -174,23 +176,24 @@ describe("只读API及工作流安全", () => {
     await assert.rejects(collectMetadata({get:async()=>({...eventPR,body:BODY+"changed"}),repo:REPO,number:1,eventPR}),/PR_CHANGED/);
     for(const changed of [{state:"DISMISSED"},{body:"removed"},{commit_id:"b".repeat(40)},{user:{login:"BB"}}]){
       let reads=0;const row={id:1,user:{login:"GoodNightOppie"},commit_id:eventPR.head.sha,state:"COMMENTED",body:"SOP 例外已核验：测试"};
-      const get=async route=>route.includes('/files?')?[]:route.endsWith('/requested_reviewers')?{users:[]}:route.includes('/reviews?')?[++reads===1?row:{...row,...changed}]:{...eventPR,changed_files:0};
+      const get=async route=>route.includes('/files?')?[]:route.includes('/comments?')?[]:route.includes('/reviews?')?[++reads===1?row:{...row,...changed}]:{...eventPR,changed_files:0};
       await assert.rejects(collectMetadata({get,repo:REPO,number:1,eventPR}),/REVIEWS_CHANGED/);
     }
-    await assert.rejects(collectMetadata({get:async route=>route.includes('/reviews?')?Array.from({length:100},(_,id)=>({id})):route.includes('/files?')?[]:route.endsWith('/requested_reviewers')?{users:[]}:{...eventPR,changed_files:0},repo:REPO,number:1,eventPR}),/API_INCOMPLETE/);
+    await assert.rejects(collectMetadata({get:async route=>route.includes('/reviews?')?Array.from({length:100},(_,id)=>({id})):route.includes('/files?')||route.includes('/comments?')?[]:{...eventPR,changed_files:0},repo:REPO,number:1,eventPR}),/API_INCOMPLETE/);
   });
   it("runner缺负责人或例外review返回1，逐项核验后返回0",async()=>{
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),"sop-review-test-")),event=path.join(dir,"event.json"),original=globalThis.fetch;
-    let current,reviewRows=[],requested=[{login:"GoodNightOppie"}];
-    globalThis.fetch=async url=>({ok:true,json:async()=>String(url).includes('/files?')?[]:String(url).endsWith('/requested_reviewers')?{users:requested}:String(url).includes('/reviews?')?reviewRows:{...current,changed_files:0}});
+    let current,reviewRows=[],commentRows=[{id:1,user:{login:"dejaoppiexyz[bot]"},body:"@QQOppieXYZ 请审",updated_at:"t"}];
+    globalThis.fetch=async url=>({ok:true,json:async()=>String(url).includes('/files?')?[]:String(url).includes('/comments?')?commentRows:String(url).includes('/reviews?')?reviewRows:{...current,changed_files:0}});
     const env={GITHUB_EVENT_PATH:event,GITHUB_EVENT_NAME:"pull_request_target",GITHUB_REPOSITORY:REPO,GITHUB_STEP_SUMMARY:path.join(dir,"summary.md")};
     try{
       current={...eventPR,body:BODY.replace("负责人：BB","")};fs.writeFileSync(event,JSON.stringify({pull_request:current}));assert.equal(await main(env),1);
       current={...eventPR,body:BODY+"\nSOP 例外：测试 — 人工核验 — 证据：c1c25e38"};fs.writeFileSync(event,JSON.stringify({pull_request:current}));assert.equal(await main(env),1);
       reviewRows=[{id:1,user:{login:"GoodNightOppie"},commit_id:eventPR.head.sha,state:"COMMENTED",body:"SOP 例外已核验：测试"}];assert.equal(await main(env),0);
       reviewRows=[{...reviewRows[0],state:"DISMISSED"}];assert.equal(await main(env),1);
-      current={...eventPR,body:BODY};requested=[];reviewRows=[{user:{login:"GoodNightOppie"},commit_id:"b".repeat(40),state:"COMMENTED",submitted_at:"2026-11-07T00:00:00Z"}];fs.writeFileSync(event,JSON.stringify({pull_request:current}));assert.equal(await main(env),0);
+      current={...eventPR,body:BODY};commentRows=[];reviewRows=[{user:{login:"qqoppiexyz[bot]"},commit_id:"b".repeat(40),state:"COMMENTED",submitted_at:"2026-11-07T00:00:00Z"}];fs.writeFileSync(event,JSON.stringify({pull_request:current}));assert.equal(await main(env),0);
       assert.match(fs.readFileSync(env.GITHUB_STEP_SUMMARY,"utf8"),/改了例外内容请重新请 QQ 核验/);
+      reviewRows=[];assert.equal(await main(env),1);
       await assert.rejects(main({...env,GITHUB_EVENT_NAME:"pull_request"}),/EVENT_SHAPE/);
     }finally{globalThis.fetch=original;}
   });
@@ -230,7 +233,7 @@ describe("Deja追加的七项独立阻断回归", () => {
   it("例外格式错必须失败",()=>assert.equal(run(BODY+"\nSOP 例外：测试 — 没空").status,"failed"));
   const body=BODY+"\nSOP 例外：测试 — 人工核对 — 证据：https://github.com/good-night-oppie/MontClip/issues/200";
   it("例外格式对但没有review仍等QQ",()=>assert.equal(run(body).status,"needs_qq"));
-  it("核验review不是GoodNightOppie提交仍等QQ",()=>assert.equal(run(body,{pr:{body,headRefOid:"a".repeat(40),reviewRequests:[{login:"GoodNightOppie"}],reviews:[{author:{login:"BB"},commit:{oid:"a".repeat(40)},state:"COMMENTED",body:"SOP 例外已核验：测试"}]}}).status,"needs_qq"));
+  it("核验review不是GoodNightOppie或QQ提交仍等QQ",()=>assert.equal(run(body,{pr:{body,headRefOid:"a".repeat(40),comments:HANDOFF,reviews:[{author:{login:"BB"},commit:{oid:"a".repeat(40)},state:"COMMENTED",body:"SOP 例外已核验：测试"}]}}).status,"needs_qq"));
   it("材料齐全无例外通过",()=>assert.equal(run().status,"passed"));
 });
 
