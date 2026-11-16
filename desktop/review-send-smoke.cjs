@@ -115,6 +115,32 @@ function start() {
       const ok = r && r.ok === true && hits.length === 1 && hits[0].path === '/api/v1/chat/completions';
       if (!ok) throw Error('EXPECTED_ONE_SEND ' + JSON.stringify({ r: r && { ok: r.ok, code: r.code }, hits, state: end.state }));
       step('主播点击后：没有弹框，直接发出；本地替身收到 ' + hits.length + ' 个请求（' + hits[0].bytes + ' 字节），状态 ' + end.state);
+      /* 6. #326: the streamer's own way — the 「检查这 N 秒」 button in the Program transport, the box, and a real click on 「发送检查」 */
+      const clickAt = async (sel) => {
+        const r = await read(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e||e.offsetParent===null)return null;e.scrollIntoView({block:'center'});const b=e.getBoundingClientRect();return{x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)};})()`);
+        if (!r) throw Error('NOT_SHOWN ' + sel);
+        win.webContents.sendInputEvent({ type: 'mouseDown', x: r.x, y: r.y, button: 'left', clickCount: 1 });
+        win.webContents.sendInputEvent({ type: 'mouseUp', x: r.x, y: r.y, button: 'left', clickCount: 1 });
+      };
+      await read(`(()=>{setTime(4.5);return true;})()`); await wait(400);
+      const label = await read(`document.getElementById('btnReviewCheck').textContent`);
+      await clickAt('#btnReviewCheck');
+      let box = null;
+      for (const until = Date.now() + 900000; Date.now() < until;) {
+        box = await read(`(()=>{const q=(s)=>document.querySelector('.review-overlay:not(.hidden) [data-review="'+s+'"]');const f=q('full');return{to:q('to')&&q('to').textContent,training:q('training')&&q('training').textContent,full:!!f&&!f.disabled,lines:[...document.querySelectorAll('.review-overlay:not(.hidden) .review-line')].map(x=>x.textContent)};})()`);
+        if (box.full) break; await wait(500);
+      }
+      if (!box || !box.full) throw Error('BOX_NOT_READY ' + JSON.stringify(box));
+      if (hits.length !== 1) throw Error('SENT_BEFORE_CLICK ' + hits.length);
+      step('点「' + label + '」：框里写 ' + box.to + '；' + box.training + '；本地替身仍是 ' + hits.length + ' 个请求');
+      await clickAt('.review-overlay:not(.hidden) [data-review="full"]');
+      let res = null;
+      for (const until = Date.now() + 120000; Date.now() < until;) {
+        res = await read(`(()=>{const h=document.querySelector('.review-overlay:not(.hidden) .review-headline');return h?h.textContent:null;})()`);
+        if (res) break; await wait(300);
+      }
+      if (!res || hits.length !== 2) throw Error('BOX_SEND ' + JSON.stringify({ res, hits: hits.length }));
+      step('在框里真实点击「发送检查」：本地替身收到第 ' + hits.length + ' 个请求（' + hits[1].bytes + ' 字节），框里结果：' + res);
       passed = true;
       process.stdout.write('REVIEW_SEND_PASS ' + JSON.stringify({ steps, standinHits: hits.length }) + '\n');
     } catch (e) { process.stdout.write('REVIEW_SEND_FAIL ' + e.message + '\n'); }
