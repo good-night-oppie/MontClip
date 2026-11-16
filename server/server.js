@@ -1806,6 +1806,9 @@ async function handleRequest(req, res) {
        POST /api/review/correct {id, digest}                                   GET  /api/review/gate?start=&end= → {passed, recordId, …}
        GET  /api/review/taste · POST /api/review/taste/add {kind: positive|negative, aspect (fact|subtitle|pacing|packaging; required for positive), text} · /taste/remove {id}
        prepare also takes mode: "single" (default) | "two_pass" (a blind first look, then the full check: the same clip is sent in 2 requests).
+       The same stretch of the same content, asked the same way, that already has a result answers {state:"done", reused:true, result} and sends
+       nothing; only the page's recheck:true sends it again. Every request counts $1 (estimate) toward $2 a check and $10 a day: past that,
+       409 DAILY_LIMIT (or CHECK_BUDGET) with the reason in plain words.
        An agent's send:true needs no switch (the owner, 2026-11-16, PG #321 6921163328); the destination, record and size checks still apply.
        "passed" is only ever written by a check that passed; mark refuses it (400). */
   if (p.startsWith("/api/review/")) {
@@ -1819,7 +1822,8 @@ async function handleRequest(req, res) {
       const q = (k) => url.searchParams.get(k);
       if (action === "prepare" && req.method === "POST") {
         if (body.send === true && !agent) { sendJSON(res, 403, { code: "CLICK_REQUIRED", error: "only a person's click at the editor sends a sample" }); return; }
-        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, where: body.where, agent, autoSend: body.send === true }));
+        sendJSON(res, 200, svc.prepare({ start: body.start, end: body.end, lead: body.lead, scope: body.scope, mode: body.mode, where: body.where, agent, autoSend: body.send === true,
+          recheck: body.recheck === true && !agent }));   // 重新检查 is the streamer's, from the page only (#321 PG 6922461279)
       } else if (action === "status" && req.method === "GET") {
         const v = svc.status(q("id") || undefined);
         if (!agent && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
