@@ -93,7 +93,8 @@ async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3
       await new Promise((r) => setTimeout(r, 250));
     }
     await new Promise((r) => setTimeout(r, settleMs));
-    const out = await run({ evaluate, requests });
+    // send: the browser's own input (Input.dispatchMouseEvent: a real press, move and release), MontClip#270
+    const out = await run({ evaluate, requests, send });
     ws.close();
     return out;
   } finally {
