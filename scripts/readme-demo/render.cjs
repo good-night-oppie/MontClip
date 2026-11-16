@@ -23,7 +23,11 @@ if (lstatSync(dir).isSymbolicLink()) { console.error(`refusing ${dir}: became a 
 const { chromium } = require('playwright');
 const opt = Object.fromEntries(rest.map(a => a.replace(/^--/, '').split('=')));
 const duration = Number(opt.duration || 22), fps = Number(opt.fps || 60), frames = Math.round(duration * fps);
-const browser = await chromium.launch(opt.chrome ? { executablePath: opt.chrome } : {});
+// Software raster and a fixed colour profile: with GPU raster the same frame came out slightly different on
+// different renders (#268; together with the pre-scaled frame images from build.sh and the image-level
+// rounded corners in demo.html, two full renders of the 15 s cut gave 900/900 identical frames).
+const args = ['--disable-gpu', '--disable-gpu-compositing', '--disable-partial-raster', '--force-color-profile=srgb'];
+const browser = await chromium.launch(opt.chrome ? { executablePath: opt.chrome, args } : { args });
 const tab = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 await tab.route(/^https?:/, r => r.abort()); // no network while rendering
 const url = pathToFileURL(resolve(page));
