@@ -287,6 +287,75 @@ test("a smaller window holds the panels to what fits but keeps the width she cho
   });
 });
 
+// QQ on #354 (e1c93cc6): a click on an edge that does not move it, or the window losing focus mid-press, writes nothing —
+// in a smaller window the shown width is not hers (spec v4, items 11–12). The edge above the timeline the same way.
+test("a click on an edge without moving it keeps the stored width; so does the window losing focus (#270, #354)", { skip, timeout: 150000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  await withPage({ browser, url: base + "/", width: 1600, height: 900, settleMs: 1500 }, async ({ evaluate, send }) => {
+    const layout = () => evaluate(LAYOUT);
+    const mouse = (type, x, y, more = {}) => send("Input.dispatchMouseEvent", { type, x, y, ...more });
+    const mid = (r) => [Math.round(r.x + r.w / 2), Math.round(r.y + r.h / 2)];
+    const stored = (key) => evaluate(`localStorage.getItem("${key}")`);
+    const ready = async () => {
+      for (const until = Date.now() + 20000; Date.now() < until;) {
+        if (await evaluate(`document.readyState === "complete" && document.querySelectorAll(".track-head").length > 0`)) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      await new Promise((r) => setTimeout(r, 800));
+    };
+    const resize = async (width) => {
+      await send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
+      await new Promise((r) => setTimeout(r, 800));
+    };
+    const click = async (x, y) => {
+      await mouse("mouseMoved", x, y);
+      await mouse("mousePressed", x, y, { button: "left", clickCount: 1 });
+      await mouse("mouseReleased", x, y, { button: "left", clickCount: 1 });
+      await new Promise((r) => setTimeout(r, 300));
+    };
+    await ready();
+    await resize(1590);
+    // she had dragged the media panel to 636 at 1590 wide
+    await evaluate(`localStorage.setItem("montclip-bin-w", "636"); localStorage.removeItem("fablecut-timeline-h"); location.reload()`);
+    await new Promise((r) => setTimeout(r, 1000));
+    await ready();
+    assert.equal((await layout()).bin.w, 636, "her width is shown");
+    // the window gets smaller; she clicks the left edge where it is and lets go
+    await resize(1200);
+    const a = await layout();
+    assert.ok(a.bin.w < 636, `shown narrower: ${a.bin.w}`);
+    await click(...mid(a.left));
+    assert.equal(await stored("montclip-bin-w"), "636", "a click that does not move the edge keeps the width she chose");
+    // a press, then the window loses focus (Alt+Tab, or Cindy taking the focus)
+    const [lx, ly] = mid(a.left);
+    await mouse("mouseMoved", lx, ly);
+    await mouse("mousePressed", lx, ly, { button: "left", clickCount: 1 });
+    await evaluate(`window.dispatchEvent(new Event("blur"))`);
+    await mouse("mouseReleased", lx, ly, { button: "left", clickCount: 1 });
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal(await stored("montclip-bin-w"), "636", "the window losing focus without a move keeps it too");
+    assert.equal(await evaluate(`document.body.classList.contains("resizing-columns")`), false, "and no resizing state stays behind");
+    // the edge above the timeline: a click without a move writes no height
+    await click(...mid(a.bottom));
+    assert.equal(await stored("fablecut-timeline-h"), null, "a click on the timeline's edge writes no height");
+    // back to 1590 and reopened: still hers
+    await resize(1590);
+    await evaluate(`location.reload()`);
+    await new Promise((r) => setTimeout(r, 1000));
+    await ready();
+    assert.equal((await layout()).bin.w, 636, "reopened at 1590: the width she dragged");
+    // QQ (2): the numbers a screen reader hears follow the assistant opening and closing
+    const room = (agent) => evaluate(`(() => { setSideTab(${agent ? '"assistant"' : '"inspector"'}); const h = document.getElementById("splitMonitorInspector"), p = document.querySelector(".upper > .inspector"); return { min: +h.getAttribute("aria-valuemin"), now: +h.getAttribute("aria-valuenow"), w: Math.round(p.getBoundingClientRect().width) }; })()`);
+    const withAgent = await room(true);
+    assert.equal(withAgent.min, L.sideMins(true).right, "assistant open: the right edge says the assistant's least width");
+    assert.equal(withAgent.now, withAgent.w, "and its width");
+    const back = await room(false);
+    assert.equal(back.min, L.sideMins(false).right, "closed again: the inspector's");
+    assert.equal(back.now, back.w);
+  });
+});
+
 // JJ's spec v3 item 7, DD on #354 (4), PG: an edge that has the focus, or is being dragged, does not start playback on Space
 test("Space on a focused or dragged side edge does not start playback (#270, #354)", { skip, timeout: 120000 }, async (t) => {
   const dir = makeDataDir(t, seedProject({ media: [], clips: [{ id: "c_t", kind: "text", mediaId: null, track: "V1", start: 0, duration: 8, props: { text: "synthetic" } }] }));

@@ -12866,6 +12866,7 @@ function setSideTab(tab) {
   else if (color) renderColorPage(true);
   else if (transcript) renderTranscript(true);
   else if(!assistant) renderInspector();
+  syncSideSplits();   // the right edge now sets another panel: its range and width for a screen reader (QQ on #354)
 }
 /** Write a track's fader / pan, push it into the live graph, persist. */
 function setTrackMix(id, { gain, pan } = {}) {
@@ -23671,20 +23672,27 @@ function syncSideSplits() {
 }
 /* Every way a drag of an edge can end (spec v3, item 7): the release, a cancelled pointer, lost capture, the window
    losing focus — the size she reached is kept — and Esc, which puts back the size from before the drag. Used by the
-   two side edges and by the edge above the timeline. → the function that ends it. */
+   two side edges and by the edge above the timeline. A press that never moves the pointer is not a drag: it keeps
+   nothing, so a click (or a double-click's first click) in a smaller window does not store the width shown there
+   (QQ on #354; spec v4, items 11–12). → the function that ends it. */
 function trackEdgeDrag(handle, e, bodyClass, { onMove, onKeep, onCancel }) {
-  let over = false;
+  let over = false, moved = false;
+  const move = (ev) => {
+    if (!moved && ev.clientX === e.clientX && ev.clientY === e.clientY) return;
+    moved = true;
+    onMove(ev);
+  };
   const finish = (cancelled) => {
     if (over) return;
     over = true;
     handle.classList.remove("dragging");
     document.body.classList.remove(bodyClass);
-    handle.removeEventListener("pointermove", onMove);
+    handle.removeEventListener("pointermove", move);
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) handle.removeEventListener(type, end);
     window.removeEventListener("blur", end);
     window.removeEventListener("keydown", onKey, true);
     try { handle.releasePointerCapture(e.pointerId); } catch { }
-    if (cancelled) onCancel(); else onKeep();
+    if (cancelled) onCancel(); else if (moved) onKeep();
   };
   const end = () => finish(false);
   // Esc ends it and puts the size back; Space does nothing while an edge is dragged (spec v3 item 7: a drag never
@@ -23696,7 +23704,7 @@ function trackEdgeDrag(handle, e, bodyClass, { onMove, onKeep, onCancel }) {
   try { handle.setPointerCapture(e.pointerId); } catch { }
   handle.classList.add("dragging");
   document.body.classList.add(bodyClass);
-  handle.addEventListener("pointermove", onMove);
+  handle.addEventListener("pointermove", move);
   for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) handle.addEventListener(type, end);
   window.addEventListener("blur", end);
   window.addEventListener("keydown", onKey, true);
@@ -23774,6 +23782,7 @@ function setWorkspace(ws, persist = true) {
     if (colorState.open) setSideTab("inspector");
   }
   scopes.last = 0;
+  if (typeof syncSideSplits === "function") syncSideSplits();   // the edges come back with the edit workspace: their numbers too (QQ on #354)
 }
 /** Write grade keys (null resets a key) on what the Color tab edits: the
  *  primary grade or the selected layer. */
