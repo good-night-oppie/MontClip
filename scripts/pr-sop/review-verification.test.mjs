@@ -8,7 +8,7 @@ const head='a'.repeat(40),old='b'.repeat(40),repo='good-night-oppie/MontClip';
 const policy=JSON.parse(fs.readFileSync(new URL('policy.json',import.meta.url))),teammates=JSON.parse(fs.readFileSync(new URL('teammates.json',import.meta.url)));
 const body='QQ 请审\n负责人：BB\n改动：规则\n复现：node --test\n测试：1/1\n依赖：无';
 const review=(more={})=>({author:{login:'GoodNightOppie'},commit:{oid:head},state:'COMMENTED',body:'SOP 例外已核验：测试',...more});
-const pr=(reviews=[])=>({body,headRefOid:head,reviewRequests:[{login:'GoodNightOppie'}],reviews});
+const pr=(reviews=[])=>({body,headRefOid:head,comments:[{author:{login:'dejaoppiexyz[bot]'},body:'@QQOppieXYZ 请审'}],reviews});
 const items=[{item:'tests',label:'测试'}];
 const run=(text=body,more={},files=[])=>checkPR({pr:{...pr(),body:text,...more},files,repo,policy,teammates});
 it('APPROVED/COMMENTED当前head的精确review行有效',()=>{
@@ -71,7 +71,7 @@ it('可信基线夹具：PR修改workflow及规则为exit0，仍运行固定检�
  const event=path.join(dir,'event.json'),script=path.join(dir,'trusted.mjs');
  fs.writeFileSync(event,JSON.stringify({pull_request:{number:1,head:{sha:head},body:body.replace('负责人：BB','')+'\n外发：内容：API元数据；接收方：api.github.com；能否关闭：能\n## note\nATTACK_BODY_SENTINEL $(whoami)',title:'$(whoami)',user:{login:'EdwardTang'},changed_files:2}}));
  const code=workflowText().split("          node --input-type=module <<'PR_SOP_NODE'\n")[1].split('          PR_SOP_NODE')[0].split('\n').map(l=>l.slice(10)).join('\n');
- const mock=`const pr=JSON.parse((await import('node:fs')).readFileSync(process.env.GITHUB_EVENT_PATH)).pull_request;globalThis.fetch=async url=>({ok:true,json:async()=>String(url).includes('/files?')?[{filename:'.github/workflows/pr-sop.yml'},{filename:'scripts/pr-sop/rules.mjs'}]:String(url).includes('/reviews?')?[]:String(url).endsWith('/requested_reviewers')?{users:[{login:'GoodNightOppie'}]}:pr});\n`;
+ const mock=`const pr=JSON.parse((await import('node:fs')).readFileSync(process.env.GITHUB_EVENT_PATH)).pull_request;globalThis.fetch=async url=>({ok:true,json:async()=>String(url).includes('/files?')?[{filename:'.github/workflows/pr-sop.yml'},{filename:'scripts/pr-sop/rules.mjs'}]:String(url).includes('/reviews?')||String(url).includes('/comments?')?[]:pr});\n`;
  fs.writeFileSync(script,mock+code);
  const r=spawnSync(process.execPath,[script],{cwd:attacker,windowsHide:true,encoding:'utf8',env:{...process.env,GITHUB_EVENT_PATH:event,GITHUB_EVENT_NAME:'pull_request_target',GITHUB_REPOSITORY:repo,GITHUB_TOKEN:''}});
  assert.equal(r.status,1,r.stderr);assert.match(r.stdout,/负责人/);assert.doesNotMatch(r.stdout,/ATTACK_BODY_SENTINEL/);assert.equal(fs.existsSync(sentinel),false);
