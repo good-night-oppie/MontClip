@@ -2081,6 +2081,16 @@ async function handleRequest(req, res) {
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
       if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
+      /* #364 ②: the job can end while the precheck above runs (the export memory limit, a cancel, a crashed page). Its
+         onEnd then found no session to stop, and this one — its own reserved .part file and work folder — would sit in
+         exports/ until the 10-minute idle sweep. Same tick as the line above, so no end can slip between: an ended job's
+         new session is removed now (only what this begin created) and the page is told the job is over. */
+      const jobNow = typeof opts.job === "string" && opts.job ? exportJobs.get(opts.job) : null;
+      if (jobNow && (jobNow.status === "failed" || jobNow.status === "cancelled" || jobNow.status === "done") && exportSessions.has(begun.id)) {
+        cleanupExport(begun.id);
+        sendJSON(res, 409, { error: `export job ${jobNow.id} has already ended (${jobNow.status}); nothing was exported`, code: jobNow.code || "JOB_ENDED" });
+        return;
+      }
       /* #302: an unfinished export can be discarded only by the page that began it: the page keeps this secret and
          sends it with its pagehide beacon, so a bare session id cannot stop another task's export. */
       const endToken = crypto.randomBytes(32).toString("hex");
