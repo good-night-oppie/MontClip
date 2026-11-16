@@ -17,7 +17,7 @@ let HAS_FFMPEG = false;
 try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore" }).status === 0; } catch { }
 const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 const tmp = (t, p = "mcrv-") => { const d = fs.mkdtempSync(path.join(os.tmpdir(), p)); t.after(() => VB.rmForce(d)); return d; };
-const envFor = (mode, opts = {}) => ({ ...process.env, MONTCLIP_AGY_BIN: process.execPath, SECRET_TOKEN_FOR_TEST: "s3cret-value", ...(opts.noConfirm ? {} : { MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }),
+const envFor = (mode, opts = {}) => ({ ...process.env, MONTCLIP_AGY_BIN: process.execPath, SECRET_TOKEN_FOR_TEST: "s3cret-value",
   MONTCLIP_AGY_PREFIX_ARGS: JSON.stringify([FAKE, `--mode=${mode}`, ...(opts.report ? [`--report=${opts.report}`] : []), ...(opts.calls ? [`--calls=${opts.calls}`] : []), "--"]) });
 function makeSample(dir, sec = 8) {
   const f = path.join(dir, "sample.mp4");
@@ -83,7 +83,7 @@ function setup(t, mode, extra = {}) {
   const store = createReviewStore({ dir: path.join(d, "reviews") });
   let doc = DOC(), jobs = 0, cancelled = [];
   const svc = createReviewService({
-    store, bridge: extra.bridge || VB, readProject: () => doc, activeProject: () => (extra.active ? extra.active() : "p1"), pollMs: 20, agentSendEnabled: () => !!extra.agentSend,
+    store, bridge: extra.bridge || VB, readProject: () => doc, activeProject: () => (extra.active ? extra.active() : "p1"), pollMs: 20,
     requestSample: ({ range }) => { jobs++; return { id: "x_" + jobs, range }; },
     getJob: () => ({ status: extra.jobStatus || "done", progress: 1, src: "/previews/sample.mp4" }),
     cancelJob: (id) => cancelled.push(id), sampleFile: () => sample,
@@ -128,11 +128,8 @@ test("timeline seconds: the sample starts lead seconds before the stretch", { sk
   assert.equal(lead.t, 22.5); assert.equal(lead.inLead, true);
 });
 
-test("an agent's request with send:true is OFF by default; with the switch on it is sent when ready; a page cannot ask for that", { skip }, async (t) => {
-  const off = setup(t, "pass");
-  assert.throws(() => off.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.status === 403 && e.code === "AGENT_SEND_OFF");
-  assert.equal(off.jobsMade(), 0, "nothing is rendered either");
-  const S = setup(t, "pass", { agentSend: true });
+test("an agent's request with send:true is sent when ready, with no switch (the owner, #321 6921163328); a page cannot ask for that", { skip }, async (t) => {
+  const S = setup(t, "pass");
   assert.throws(() => S.svc.prepare({ start: 24, end: 29, agent: false, autoSend: true }), (e) => e.status === 403 && e.code === "CLICK_REQUIRED");
   const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
   const done = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "done" && s; });
@@ -182,7 +179,7 @@ test("bad ranges, a too long stretch and a bad scope are refused before anything
 test("without the tool installed: NO_BRIDGE before rendering", { skip }, (t) => {
   const S = setup(t, "pass");
   const svc = createReviewService({ store: S.store, bridge: VB, readProject: S.doc, activeProject: () => "p1", requestSample: () => { throw new Error("must not render"); },
-    getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x", env: { MONTCLIP_AGY_BIN: path.join(S.d, "none"), MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" } });
+    getJob: () => null, cancelJob() { }, sampleFile: () => null, ffmpeg: () => "x", ffprobe: () => "x", env: { MONTCLIP_AGY_BIN: path.join(S.d, "none") } });
   assert.throws(() => svc.prepare({ start: 1, end: 5 }), (e) => e.status === 409 && e.code === "NO_BRIDGE");
 });
 
@@ -231,7 +228,7 @@ test("the page sees what is sent: how many requests, how many taste notes, to wh
   const w = S.svc.status(v.reviewId).willSend;
   assert.equal(w.requests, 2); assert.equal(w.tasteNotes, 2);
   assert.match(w.what, /2 requests/); assert.match(w.what, /2 saved taste notes/);
-  assert.deepEqual(w.to, { ...VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }) }, "what is shown is the one decision");
+  assert.deepEqual(w.to, { ...VB.destination() }, "what is shown is the one decision");
   const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
   assert.deepEqual(rec.destination, w.to, "the record says what was shown");
   assert.equal(rec.mode, "two_pass"); assert.equal(rec.requests, 2); assert.equal(rec.tasteNotes, 2);
@@ -244,7 +241,7 @@ test("the page sees what is sent: how many requests, how many taste notes, to wh
 
 test("where it goes is checked again at the moment of sending: a change since it was shown stops the send", { skip }, async (t) => {
   let host = "daily-cloudcode-pa.googleapis.com";
-  const moving = { ...VB, destination: () => Object.freeze({ service: "Google Gemini", host, source: "owner-confirmed", verified: true }) };
+  const moving = { ...VB, destination: () => Object.freeze({ ...VB.destination(), host }) };
   const S = setup(t, "pass", { bridge: moving });
   const v = S.svc.prepare({ start: 24, end: 29 });
   await until(() => S.svc.status(v.reviewId).state === "ready");
@@ -353,21 +350,19 @@ test("gate: a later check of a smaller part that found a problem takes the pass 
   assert.equal(g(0, 30) === false && s.gate("p", { key: "OTHER", start: 0, end: 10 }).passed, false, "another content has no pass");
 });
 
-test("fail closed: an address nobody confirmed means nothing is rendered or sent, and a wrong confirmation confirms nothing", { skip }, async (t) => {
-  for (const bad of [undefined, "", "somewhere.else.example", "DAILY-CLOUDCODE-PA.GOOGLEAPIS.COM", "daily-cloudcode-pa.googleapis.com "]) {
+test("fail closed: an address that is not confirmed means nothing is rendered or sent, for a person and an agent; the old variable, whatever its value, decides nothing", { skip }, async (t) => {
+  for (const conf of [false, undefined, null, 0, "yes"]) {
     const d = tmp(t), sample = makeSample(d), report = path.join(d, "report.json");
-    const env = { ...envFor("pass", { report, noConfirm: true }), ...(bad === undefined ? {} : { MONTCLIP_REVIEW_DEST_CONFIRMED: bad }) };
+    const env = { ...envFor("pass", { report }), MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" };
+    const bridge = { ...VB, destination: () => Object.freeze({ ...VB.destination(), confirmed: conf }) };
     let jobs = 0;
-    const svc = createReviewService({ store: createReviewStore({ dir: path.join(d, "reviews") }), bridge: VB, readProject: DOC, activeProject: () => "p1", agentSendEnabled: () => true,
+    const svc = createReviewService({ store: createReviewStore({ dir: path.join(d, "reviews") }), bridge, readProject: DOC, activeProject: () => "p1",
       requestSample: () => { jobs++; return { id: "x" }; }, getJob: () => ({ status: "done", src: "/previews/s.mp4" }), cancelJob() { }, sampleFile: () => sample,
       ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env });
-    assert.throws(() => svc.prepare({ start: 24, end: 29 }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED" && e.destination.verified === false, String(bad));
+    assert.throws(() => svc.prepare({ start: 24, end: 29 }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED" && e.destination.confirmed === conf, String(conf));
     assert.throws(() => svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.code === "DESTINATION_UNVERIFIED");
     assert.equal(jobs, 0, "nothing was rendered"); assert.equal(fs.existsSync(report), false, "and nothing was started");
   }
-  const d = VB.destination({});
-  assert.deepEqual([d.verified, d.source], [false, "docs"]);
-  assert.deepEqual([VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).verified, VB.destination({ MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }).source], [true, "owner-confirmed"]);
 });
 
 /* ---- QQ (#328): the model's words never reach the disk ---- */
@@ -705,8 +700,8 @@ test("#333/#334: a ledger removed because its old words could not be cleaned awa
 });
 
 /* QQ's ruling on #321 (6874674433): an agent may send without a click, and every such send is written to the local record: where, which kinds, how many bytes, who started it, when; no free text */
-test("an agent's send (switch on) is recorded on disk with service and domain, kinds, bytes, initiator and time, and no free text", { skip }, async (t) => {
-  const S = setup(t, "issues", { agentSend: true });
+test("an agent's send is recorded on disk with service and domain, kinds, bytes, initiator and time, and no free text", { skip }, async (t) => {
+  const S = setup(t, "issues");
   const v = S.svc.prepare({ start: 24, end: 29, scope: "full", agent: true, autoSend: true });
   const rec = await until(() => { const x = S.store.list("p1", 5)[0]; return x && x.reviewId === v.reviewId ? x : null; });
   const disk = JSON.parse(fs.readFileSync(path.join(S.d, "reviews", "p1.json"), "utf8")), onDisk = disk.records.find((r) => r.reviewId === v.reviewId);
@@ -741,4 +736,80 @@ test("with no ledger yet the first send goes as usual, and is counted", { skip }
   const rec = await S.svc.send(v.reviewId, S.svc.tokenFor(v.reviewId));
   assert.equal(rec.status, "passed"); assert.equal(fs.existsSync(S.report), true, "the tool ran");
   assert.ok(S.store.sentTotal("p1") > 0);
+});
+
+/* #321 PG 6921163328 (the owner, 2026-11-16: "我要走Gemini，这个门禁可以删掉了"): the two start-up switches are gone. An agent's check sends with neither
+   MONTCLIP_REVIEW_DEST_CONFIRMED nor MONTCLIP_REVIEW_AGENT_SEND set; everything else that guards the send stays and is checked here on the agent path. */
+const noSwitches = (mode, opts) => { const e = envFor(mode, opts); delete e.MONTCLIP_REVIEW_DEST_CONFIRMED; delete e.MONTCLIP_REVIEW_AGENT_SEND; return e; };
+function agentSetup(t, { bridge = VB, sendCapBytes } = {}) {
+  const d = tmp(t), sample = makeSample(d), report = path.join(d, "report.json");
+  const store = createReviewStore({ dir: path.join(d, "reviews") });
+  let release = false, jobs = 0;
+  const svc = createReviewService({ store, bridge, readProject: DOC, activeProject: () => "p1", pollMs: 20, ...(sendCapBytes ? { sendCapBytes } : {}),
+    requestSample: () => { jobs++; return { id: "x_" + jobs }; },
+    /* the render finishes only when the test says so, so something can change between prepare and the send that follows it */
+    getJob: () => (release ? { status: "done", progress: 1, src: "/previews/s.mp4" } : { status: "running", progress: 0.5 }),
+    cancelJob() { }, sampleFile: () => sample, ffmpeg: () => FF.path("ffmpeg"), ffprobe: () => FF.path("ffprobe"), env: noSwitches("pass", { report }) });
+  return { d, svc, store, report, release: () => { release = true; }, jobsMade: () => jobs };
+}
+test("#321 owner's word: the Gemini address is fixed in code and confirmed by the owner's authorisation; the status says it was not captured at run time; the old variables change nothing", () => {
+  const want = { service: "Google Gemini", host: "daily-cloudcode-pa.googleapis.com", source: "owner-authorised", confirmed: true, verified: false, status: "主人授权，运行时未抓包核实" };
+  for (const env of [{}, { MONTCLIP_REVIEW_DEST_CONFIRMED: "daily-cloudcode-pa.googleapis.com" }, { MONTCLIP_REVIEW_DEST_CONFIRMED: "somewhere.else.example" }]) {
+    const d = VB.destination(env);
+    for (const [k, v] of Object.entries(want)) assert.equal(d[k], v, k + " with " + JSON.stringify(env));
+    assert.ok(Object.isFrozen(d));
+  }
+});
+test("#321 ①: with neither start-up variable set, an agent's check (send:true) is rendered and sent when ready, and recorded as the agent's", { skip }, async (t) => {
+  const S = agentSetup(t);
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  S.release();
+  const done = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "done" && s; });
+  assert.equal(done.result.status, "passed"); assert.equal(done.result.source, "agent");
+  assert.equal(done.result.destination.host, "daily-cloudcode-pa.googleapis.com");
+  assert.ok(fs.existsSync(S.report), "the tool really ran");
+  assert.ok(S.store.sentTotal("p1") > 0, "and what went out is counted");
+});
+test("#321 ② kept: on the agent path, a destination that changed between prepare and the send stops it; nothing is started and nothing moves elsewhere", { skip }, async (t) => {
+  let host = "daily-cloudcode-pa.googleapis.com";
+  const moving = { ...VB, destination: () => Object.freeze({ ...VB.destination(), host }) };
+  const S = agentSetup(t, { bridge: moving });
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  host = "somewhere.else.example";
+  S.release();
+  const failed = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.equal(failed.reason, "DESTINATION_CHANGED");
+  assert.equal(fs.existsSync(S.report), false, "the tool was never started");
+  assert.deepEqual(S.store.list("p1", 5), [], "no record of a send that did not happen");
+});
+test("#321 ② kept: an address that is not confirmed still fails closed (nothing rendered, nothing sent)", { skip }, (t) => {
+  const unconfirmed = { ...VB, destination: () => Object.freeze({ ...VB.destination(), confirmed: false }) };
+  const S = agentSetup(t, { bridge: unconfirmed });
+  assert.throws(() => S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED");
+  assert.throws(() => S.svc.prepare({ start: 24, end: 29 }), (e) => e.status === 409 && e.code === "DESTINATION_UNVERIFIED");
+  assert.equal(S.jobsMade(), 0); assert.equal(fs.existsSync(S.report), false);
+});
+test("#321 ③ kept: on the agent path, a local record that cannot be read stops the send before anything leaves", { skip }, async (t) => {
+  const S = agentSetup(t);
+  const v = S.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  fs.mkdirSync(path.join(S.d, "reviews"), { recursive: true });
+  const f = path.join(S.d, "reviews", "p1.json"); fs.writeFileSync(f, "{ not json");
+  S.release();
+  const failed = await until(() => { const s = S.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.equal(failed.reason, "LEDGER_UNREADABLE");
+  assert.equal(fs.existsSync(S.report), false, "the tool was never started");
+  assert.equal(fs.readFileSync(f, "utf8"), "{ not json", "the record is not replaced");
+});
+test("#321 ④ kept: on the agent path the size limits still refuse — 30 s per check, 10 s lead-in, and the per-project cap", { skip }, async (t) => {
+  const S = agentSetup(t);
+  assert.throws(() => S.svc.prepare({ start: 0, end: 31, agent: true, autoSend: true }), (e) => e.status === 400 && e.code === "TOO_LONG");
+  assert.throws(() => S.svc.prepare({ start: 0, end: 5, lead: 11, agent: true, autoSend: true }), (e) => e.status === 400 && e.code === "BAD_LEAD");
+  assert.equal(S.jobsMade(), 0, "nothing rendered");
+  const C = agentSetup(t, { sendCapBytes: 3_300_000 });
+  C.store.countSent("p1", 1_000_000);   // already sent this much: one more sample (up to 3.2 MB) would pass the cap
+  const v = C.svc.prepare({ start: 24, end: 29, agent: true, autoSend: true });
+  C.release();
+  const failed = await until(() => { const s = C.svc.status(v.reviewId); return s.state === "failed" && s; });
+  assert.equal(failed.reason, "SEND_LIMIT");
+  assert.equal(fs.existsSync(C.report), false, "the tool was never started");
 });
