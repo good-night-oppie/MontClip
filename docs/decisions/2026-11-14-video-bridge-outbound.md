@@ -155,3 +155,29 @@ Successfully processed 1 files; Failed processing 0 files
 - **#333 账本清洗回写失败：** 旧账本里有带文字的记录时，读的时候先去掉文字再回写；回写失败就把整个账本文件删掉（`review-store.js` 的 `read()`）。这时通过记录和 60 秒门槛的绕过记录一起没有，`gate` 回到「未通过」，要重新审片或重新写 bypass。**这是接受的取舍**：隐私上旧文字不留，代价是记录丢失。已发送量不受影响（见 #334）。
 - **#334 发送量计量：** 已发送字节数单独累计（账本里的 `sentBytesTotal`，加本进程内存里的下限），在视频发出后、写记录之前先计入。所以写记录失败（`STORE_FAILED`）的那一次、旧记录被滚掉（`MAX_RECORDS=200`）都不会让总量变小；整个账本被删时，**只在同一个进程内**总量不变（内存里的下限）。**取舍：重启以后内存里的下限丢了，账本又被删过的话，这个工程的已发送量会从 0 重新数**；这是接受的，因为账本被删只发生在「旧文字无法清洗又回写不了」这种罕见情况。没有这个字段的旧账本按记录求和。累加器只是一个数字，不带文字。**账本读不出来（损坏）时不猜总量**：`sentTotal` 直接抛 `LEDGER_UNREADABLE`，`send` 在启动 `agy` 之前就失败（不会出现一次没有记录也没有计数的外发）；还没有账本只是第一次发送，照常发送。
 - **#335 60 秒门槛只是软门槛：** 只拦 MCP 的 `fablecut_export`；Agent 直接调 HTTP `/api/export/request` 不经过它，`bypassReason` 是 Agent 自己填的、不校验、只记录有没有绕过。所以它不是安全边界。是否改成硬门槛由 PG 决定，不在本改动里。
+
+## 修订：删掉两个启动变量门禁（2026-11-16，PG 决定 #321 6921163328）
+
+**主人原话（2026-11-16，试剪任务里）：** 「我要走Gemini，这个门禁可以删掉了」。由 Rea 会话 90939ae4 转给 PG，宿主核实这条消息代表主人的请求。PG 决定：https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6921163328 ；Deja 排期 6921334530；实现 BB。
+
+这一节**取代**上一节「授权更新」第 3、4、6 条和上文「谁触发、能不能关」里关于这两个变量的说法；其余照旧。
+
+**删了什么**
+1. `MONTCLIP_REVIEW_DEST_CONFIRMED`：不再由主人在服务进程上设。Gemini 这条路的主机 `daily-cloudcode-pa.googleapis.com` 在 `server/video-bridge.js` 里写死，以主人这次的授权作为确认（`destination()` 返回 `source:"owner-authorised"`、`confirmed:true`）。任何环境变量都不再改变这个结果。
+2. `MONTCLIP_REVIEW_AGENT_SEND`：删掉。Agent 代主播审片（`send:true`、MCP `check`）默认可以直接发，不再有 403 `AGENT_SEND_OFF`。
+3. CLAUDE.md 里「Agent 不得设置这两个变量」一句随变量一起删掉（变量已经不存在）。
+
+**如实写明的状态：** `destination().status` 是「主人授权，运行时未抓包核实」，`verified:false`。`agy` 实际连的地址还没有真机抓包核实（V23 仍未做），只是不再用它挡发送。
+
+**保留的（一条都没删）**
+- 发送那一刻再核对一次目的地：没确认（`confirmed` 不是 `true`）或和展示时不一样，就不发（`DESTINATION_CHANGED`）；准备时没确认的目的地照旧 409 `DESTINATION_UNVERIFIED`，什么都不渲染。
+- 本地记录：发送前先读账本，读不了就不启动 `agy`（`LEDGER_UNREADABLE`）；每次外发照旧写进 `reviews/<工程>.json`。
+- 大小上限：每段 30 秒、铺垫 10 秒、单片 3.2 MB、每个工程累计 100 MB。
+- 不自动换目的地：只有这一个主机，代码里没有备用地址。
+- 只接受本机连接（`NOT_LOCAL`），页面密钥（`X-MontClip-Page`）机制不变；只有页面能拿到一次性发送令牌。
+- 超过 60 秒的导出前检查（软门槛，可写 `bypassReason`）不变。
+- 主播在编辑器里自己点「检查」：先展示发给谁、发什么，她点〔发送〕才发，不变。
+
+**PG 决定里列了、但 main 上没有对应代码的两项：** 「单片 $2 / 每天 $10 预算」和「同一段不反复外发」在本次改动前的 main（925eddd6）里找不到实现，所以这次没有删，也没有新加；是否要补由 PG/Deja 另定。只有「同一工程同一时间只跑一个检查」（`BUSY`）存在。
+
+只动 Gemini（`agy`）这条路；#347（OpenRouter）不在这次范围内。
