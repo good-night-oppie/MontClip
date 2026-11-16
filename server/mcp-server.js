@@ -1140,6 +1140,11 @@ async function denoiseTool(args) {
 /** Saved delivery presets (library/delivery/), as the server lists them. */
 function savedDeliveryPresets() { return Delivery.savedPresets(readSaved("delivery")); }
 function describeExportJob(j) {
+  const text = describeExportJobText(j);
+  // #364 (QQ on #365): on Windows the memory limit may not have been measurable; say so instead of nothing
+  return j.memUnknown ? text + `\nNote: the export memory limit could not be measured during this export (${j.memUnknown}); it went on without it.` : text;
+}
+function describeExportJobText(j) {
   const pct = Math.round((j.progress || 0) * 100);
   if (j.status === "done") {
     const file = path.join(String(j.src || "").startsWith("/previews/") ? PREVIEWS_DIR : EXPORTS_DIR, path.basename(decodeURIComponent(j.src || "")));
