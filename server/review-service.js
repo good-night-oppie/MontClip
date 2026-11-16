@@ -23,6 +23,12 @@ const DEFAULT_LEAD_S = 3;
 const TOKEN_TTL_MS = 10 * 60 * 1000;
 const RENDER_TIMEOUT_MS = 10 * 60 * 1000;
 const CONTEXT_MAX = 6000;
+/* #321 (PG 6922461279): the budget. Nothing an answer says about cost is trusted, so every request is counted at a conservative estimate: one
+   request carries at most ~40 s of compact video, its WAV and the fixed prompt (under 16 MB), well under $0.10 at Gemini's published prices, so $1 a request leaves more than
+   10x room. It is an estimate, never checked against a bill. A check is at most 2 requests (two_pass) = $2 = the per-check limit; a day is
+   at most $10 = 10 requests, every project and both paths (agent and streamer) together, counted before anything leaves. */
+const BUDGET = Object.freeze({ usdPerRequest: 1, usdPerCheck: 2, usdPerDay: 10 });
+const dailyLimitText = (spent) => `今天的检查额度用完了：每天最多 $${BUDGET.usdPerDay}（每次发送按 $${BUDGET.usdPerRequest} 保守估算，今天已用 $${spent}）。明天再检查；导出照常可以写 bypassReason 继续。`;
 
 /** What the rendered sample shows, known from the project itself (C7): the times the project's own text clips start and end inside
  *  [from, to] (a burned-in subtitle changes there) and their words, in the sample's own seconds. The model's claims about the picture
@@ -65,14 +71,14 @@ function skeleton(doc, from, to) {
 }
 
 function createReviewService({ store, bridge, readProject, activeProject, requestSample, getJob, cancelJob, sampleFile, ffmpeg, ffprobe, env = process.env,
-  sender = null, cancelSend = () => { }, sendSwitch = () => false, agentSendEnabled = () => false, sendCapBytes = 104857600, now = () => Date.now(), pollMs = 400,
+  sender = null, cancelSend = () => { }, sendSwitch = () => false, sendCapBytes = 104857600, now = () => Date.now(), pollMs = 400,
   tmpRoot = undefined, onChange = () => { } }) {
   const reviews = new Map();           // reviewId → in-flight state (finished ones live in the store)
   /* a check that was shown but never confirmed does not hold the project forever: after its token ran out it is expired and its sample removed */
   const sweep = () => { for (const r of reviews.values()) if (r.state === "ready" && now() > r.tokenExp) { r.state = "expired"; r.reason = "EXPIRED"; r.token = null; dropSample(r); onChange(r); } };
   const busy = (project) => { sweep(); return [...reviews.values()].find((r) => r.project === project && (r.state === "rendering" || r.state === "ready" || r.state === "sending")); };
   /* ONE decision about where it goes: what is shown, what is checked again at the moment of sending, and what the record says */
-  const destination = () => ({ ...bridge.destination(env) });
+  const destination = () => ({ ...bridge.destination() });
   const sameDestination = (a, b) => a && b && a.service === b.service && a.host === b.host;
   const what = (r) => [r.audio ? "a short video clip of this stretch (no sound in the video) and its sound as a separate WAV (48 kHz, stereo)" : "a short video clip of this stretch, picture only (no sound sent)",
     r.scope === "full" ? "plus the subtitles and cut points that touch it (a subtitle goes whole, so it may include text from before or after the clip)" : "No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.",
@@ -144,13 +150,20 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     try { sentSoFar = store.sentTotal(r.project); blocked = store.blocked(r.project); } catch (e) { r.state = "failed"; r.reason = "LEDGER_UNREADABLE"; r.token = null; dropSample(r); onChange(r); throw e; }
     if (blocked) throw fail("DESTINATION_BLOCKED", 409, "an earlier answer for this project came from somewhere else than Google AI Studio; sending is stopped until the streamer confirms again");
     if (sentSoFar + (r.mode === "two_pass" ? 2 : 1) * (r.bodyBytes || OR.MAX_BODY_BYTES) > sendCapBytes) throw fail("SEND_LIMIT", 409, "this project has reached its limit for what is sent out");
-    if (!destination().verified || !sameDestination(r.destination, destination())) throw fail("DESTINATION_CHANGED", 409, "where this goes changed since it was shown; prepare again");
+    /* kept (PG #321 6921163328, item 4): where it goes is checked again at the moment of sending; not confirmed, or not the one shown → nothing goes */
+    if (destination().confirmed !== true || !sameDestination(r.destination, destination())) throw fail("DESTINATION_CHANGED", 409, "where this goes changed since it was shown; prepare again");
     if (typeof sender !== "function") throw fail("NO_SENDER", 409, "only the desktop app can send a check");
     /* the files on disk are still the ones shown (a changed file changes the hash) */
     try {
       const now2 = { video: { sha256: OR.hashOf(fs.readFileSync(r.staged.video.file)) }, audio: r.staged.audio ? { sha256: OR.hashOf(fs.readFileSync(r.staged.audio.file)) } : null };
       if (bridge.snapshotHash(now2, r.firstPrompt) !== r.hash) throw new Error("changed");
     } catch { throw fail("SAMPLE_CHANGED", 409, "what would be sent changed after it was shown; prepare again"); }
+    /* #321 budget (PG 6922461279), at the moment of sending: still within today's $10, and counted BEFORE anything goes; a count that
+       cannot be read or written means nothing goes out */
+    { const requests = r.mode === "two_pass" ? 2 : 1, usd = requests * BUDGET.usdPerRequest;
+      let spent; try { spent = store.spentToday(); } catch (e) { throw fail(e.code || "LEDGER_UNREADABLE", e.status || 500, e.message); }
+      if (spent.usd + usd > BUDGET.usdPerDay) { const err = fail("DAILY_LIMIT", 409, dailyLimitText(spent.usd)); err.budget = { ...BUDGET, spentToday: spent.usd }; throw err; }
+      try { store.reserveSpend({ requests, usd }); } catch (e) { throw fail(e.code || "LEDGER_UNWRITABLE", e.status || 500, e.message); } }
     r.state = "sending"; r.token = null; onChange(r);
     let res;
     const from = r.range.start - r.lead;
@@ -171,7 +184,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     try { rec = store.add(r.project, {
       reviewId: r.id, status: res.status, reason: res.reason || null, range: r.range, lead: r.lead, revision: r.revision, contentKey: r.key, scope: r.scope,
       source: r.source, at: new Date(now()).toISOString(), findings: res.findings, summary: res.summary, windowDigest: res.windowDigest,
-      dimensions: res.dimensions || null, mode: r.mode, requests: r.mode === "two_pass" ? 2 : 1, observation: res.observation || "", tasteNotes: r.taste,
+      dimensions: res.dimensions || null, mode: r.mode, requests: r.mode === "two_pass" ? 2 : 1, observation: res.observation || "", tasteNotes: r.taste, audio: r.audio === true,
       destination: r.destination, sentBytes: res.sentBytes || 0, passes: res.passes || [], states: res.states || [], reviewed: res.reviewed || null,
       audioVerified: res.audioVerified === true, receipts: res.receipts || [],
     }); } catch (e) {
@@ -186,7 +199,7 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
   return {
     skeleton,
     /** Renders the sample. For a person at the editor this is all that happens: she sees what would be sent and clicks. */
-    prepare({ start, end, lead, scope = "window", mode = "single", audio = true, where, agent = false, autoSend = false }) {
+    prepare({ start, end, lead, scope = "window", mode = "single", audio = true, where, agent = false, autoSend = false, recheck = false }) {
       sweep();
       const s = num(start), e = num(end);
       if (s == null || e == null || s < 0 || e <= s) throw httpError(400, "start and end are seconds with 0 <= start < end", { code: "BAD_RANGE" });
@@ -199,16 +212,29 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
       if (autoSend && !agent) throw httpError(403, "only a person's click at the editor sends a sample", { code: "CLICK_REQUIRED" });
       /* the streamer's own switch, kept by the desktop main process; off by default, and nothing is rendered while it is off */
       if (!sendSwitch()) throw httpError(409, "sending clips for review is switched off in settings", { code: "REVIEW_SEND_OFF" });
-      /* off until the owner's authorisation for an agent to send on the streamer's behalf is on file and QQ has verified it (Deja, #321) */
-      if (autoSend && !agentSendEnabled()) throw httpError(403, "an agent may not send a sample yet: it is off until the owner's authorisation is verified; use prepare, and the streamer sends with her click", { code: "AGENT_SEND_OFF" });
+      /* an agent's send:true needs no switch any more: the owner's word (2026-11-16, PG #321 6921163328) removed MONTCLIP_REVIEW_AGENT_SEND.
+         Every check below, and every check doSend makes, still applies to it. */
       const project = activeProject();
+      /* #321 (PG 6922461279): the same stretch of the same content, asked the same way, that already has a result is not sent again: the result is
+         used. Only the streamer's own 重新检查 (recheck, from the page; an agent's recheck counts for nothing) sends it again. */
+      if (!(recheck === true && !agent)) {
+        const doc0 = readProject() || {}, from0 = Math.max(0, s - l);
+        const prev = store.findResult(project, { key: store.contentKey(doc0), start: s, end: e, lead: +(s - from0).toFixed(3), scope, mode, audio });
+        if (prev) return { reviewId: prev.reviewId, state: "done", reused: true, reason: "ALREADY_CHECKED", project, range: prev.range, result: prev,
+          note: "这一段这份内容已经检查过，用的是上次的结果，没有再发送；要再发一次，请主播在页面上点「重新检查」。" };
+      }
       if (busy(project)) throw httpError(409, "another check of this project is still running; cancel it or wait", { code: "BUSY", busy: view(busy(project)) });
-      /* fail closed: an address nobody has confirmed is not one anything is rendered for, let alone sent to */
-      if (!destination().verified) throw httpError(409, "where this would be sent has not been confirmed (the owner's confirmation is missing), so nothing is prepared or sent", { code: "DESTINATION_UNVERIFIED", destination: destination() });
+      /* fail closed: the address is fixed in server/openrouter-review.js and confirmed by the owner's authorisation (video-bridge.js destination) */
+      if (destination().confirmed !== true) throw httpError(409, "where this would be sent has not been confirmed, so nothing is prepared or sent", { code: "DESTINATION_UNVERIFIED", destination: destination() });
       if (typeof sender !== "function") throw httpError(409, "only the desktop app can send a check", { code: "NO_SENDER" });
       if (store.blocked(project)) throw httpError(409, "an earlier answer for this project came from somewhere else than Google AI Studio; sending is stopped until the streamer confirms again", { code: "DESTINATION_BLOCKED" });
       /* a request over 16 MB is refused here, before anything is rendered: the largest compact video plus the WAV of this stretch */
       if (OR.estimateBytes({ seconds: e - s + l, videoBytes: bridge.MAX_SAMPLE_BYTES, audio }) > OR.MAX_BODY_BYTES) throw httpError(400, "this stretch would make a request over 16 MB; choose a shorter one", { code: "BODY_TOO_LARGE" });
+      /* #321 budget: refused before anything is rendered; checked again, and counted, at the moment of sending */
+      { const usd = (mode === "two_pass" ? 2 : 1) * BUDGET.usdPerRequest;
+        if (usd > BUDGET.usdPerCheck) throw httpError(409, `一次检查最多 $${BUDGET.usdPerCheck}，这次估算要 $${usd}，不发送。`, { code: "CHECK_BUDGET" });
+        const spent = store.spentToday();   // a record that cannot be read throws LEDGER_UNREADABLE: nothing is guessed, nothing is sent
+        if (spent.usd + usd > BUDGET.usdPerDay) throw httpError(409, dailyLimitText(spent.usd), { code: "DAILY_LIMIT", budget: { ...BUDGET, spentToday: spent.usd } }); }
       const doc = readProject() || {};
       const from = Math.max(0, s - l);
       const range = { start: s, end: e };
@@ -251,8 +277,8 @@ function createReviewService({ store, bridge, readProject, activeProject, reques
     destination,
     /** The streamer confirms again after a DESTINATION_MISMATCH (a person's click only; server.js checks that). */
     unblock() { return store.unblock(activeProject()); },
-    limits: { MAX_SPAN_S, MAX_LEAD_S, DEFAULT_LEAD_S, TOKEN_TTL_MS, CONTEXT_MAX },
+    limits: { MAX_SPAN_S, MAX_LEAD_S, DEFAULT_LEAD_S, TOKEN_TTL_MS, CONTEXT_MAX, BUDGET },
   };
 }
 
-module.exports = { createReviewService, skeleton, framesOf, MAX_SPAN_S, DEFAULT_LEAD_S };
+module.exports = { createReviewService, skeleton, framesOf, MAX_SPAN_S, DEFAULT_LEAD_S, BUDGET };
