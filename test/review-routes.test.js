@@ -136,7 +136,7 @@ test("without the main process's secret (not started by the desktop app) nothing
   for (const h of [PAGE, MAIN]) assert.equal((await call(base, "POST", "/api/review/send", { id: "r_000000000000", token: "0".repeat(48), hash: "0".repeat(64) }, h)).status, 403);
 });
 
-test("the desktop main process: the page secret only on the editor window's own /api/review/ requests; its own secret only on its own requests (never added to a page's); both reach the server only through its environment", () => {
+test("the desktop main process: the page secret on every request of the editor window itself (whatever the path); its own secret only on its own requests (never added to a page's); both reach the server only through its environment", () => {
   const src = fs.readFileSync(path.join(__dirname, "..", "desktop", "main.js"), "utf8");
   assert.ok(src.includes("MONTCLIP_REVIEW_PAGE_SECRET: pageSecret"), "the server gets it in its environment");
   assert.ok(src.includes("MONTCLIP_REVIEW_MAIN_SECRET: mainSecret"), "and the main process's own secret the same way");
@@ -146,7 +146,8 @@ test("the desktop main process: the page secret only on the editor window's own 
   assert.ok(at > 0 && end > at, "the header hook is there");
   const hook = src.slice(at, end);
   assert.ok(hook.includes("X-MontClip-Page") && hook.includes("pageSecret"));
-  assert.ok(hook.includes("/api/review/"), "only for the review's path");
+  /* QQ #326 review 5927365621: not filtered by the raw path — /api/%72eview/… decoded to /api/review/… and went without it, read as an agent */
+  assert.ok(!/pathname|startsWith\(/.test(hook), "the page secret does not depend on how the page spells the path");
   assert.ok(hook.includes("webContentsId"), "only for the editor window's own contents");
   assert.ok(!hook.includes("mainSecret") && !hook.includes("X-MontClip-Main"), "the page's requests never carry the main process's secret");
   const server = fs.readFileSync(path.join(__dirname, "..", "server", "server.js"), "utf8");
@@ -212,4 +213,39 @@ test("the 60 s gate: an agent's full export of more than a minute is refused unt
   const file = fs.readdirSync(path.join(dir, "reviews")).map((f) => fs.readFileSync(path.join(dir, "reviews", f), "utf8")).join("");
   const led = JSON.parse(file); assert.equal(led.bypasses.length, 1); assert.equal(led.bypasses[0].start, 0); assert.equal(led.bypasses[0].end, 90);
   assert.ok(!file.includes("SENTINEL-NICK-7731") && !file.includes("owner said"), "the reason is not on disk");
+});
+
+/* the request line exactly as written: fetch() and URL() would tidy dot segments and some encodings before they reach the server */
+const rawCall = (base, method, rawPath, body, headers) => new Promise((resolve, reject) => {
+  const u = new URL(base), data = body === undefined ? undefined : JSON.stringify(body);
+  const req = require("node:http").request({ hostname: u.hostname, port: u.port, method, path: rawPath,
+    headers: { ...(headers || {}), ...(data ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } : {}) } }, (res) => {
+    let txt = ""; res.setEncoding("utf8"); res.on("data", (c) => { txt += c; });
+    res.on("end", () => { let j = null; try { j = JSON.parse(txt); } catch { j = null; } resolve({ status: res.statusCode, body: j || {} }); });
+  });
+  req.on("error", reject); if (data) req.write(data); req.end();
+});
+const NONCANONICAL = [
+  "/api/%72eview/prepare", "/api/review/%70repare", "/api/review%2Fprepare", "/api/%72eview/status?id=x", "/api/%65xport/request", "/api/%252eview/prepare",   // encoded
+  "/API/review/prepare", "/api/Review/prepare", "/Api/review/send", "/api/review/PREPARE",                                                                   // case
+  "//api/review/prepare", "/api//review/prepare", "/api/review//prepare",                                                                                     // doubled slashes
+  "/api/x/../review/prepare", "/api/./review/prepare", "/media/../api/review/prepare", "/%2e%2e/api/review/prepare", "/api/review/./prepare",                // dot segments
+  "/api\\review\\prepare", "/api/review\\prepare",                                                                                                             // backslashes
+];
+
+test("QQ #326 review 5927365621 / Deja: an /api/ path spelt any way but the plain one is refused (400) — encoded, upper-case, doubled slash, dot segment or backslash: with send:true it neither prepares nor sends, whatever the headers", { skip, timeout: 120_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ revision: 3 }));
+  const { base } = await startServer(t, dir, srvEnv());
+  for (const p of NONCANONICAL) {
+    for (const h of [undefined, PAGE, MAIN]) {
+      const r = await rawCall(base, "POST", p, { start: 1, end: 3, send: true }, h);
+      assert.equal(r.status, 400, p); assert.equal(r.body.code, "NONCANONICAL_PATH", p);
+    }
+  }
+  assert.equal((await call(base, "GET", "/api/review/records")).body.records.length, 0, "no check was made");
+  assert.deepEqual(previews(dir), [], "nothing was rendered");
+  assert.equal((await rawCall(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true })).body.code, "REVIEW_SEND_OFF", "the plain path still answers as before");
+  /* not touched: plain API paths with a query, and files whose names are encoded (Chinese names, spaces) */
+  assert.equal((await rawCall(base, "GET", "/api/review/status?id=%72_x")).body.code, "NO_SUCH_REVIEW", "encoding in the query is fine");
+  for (const p of ["/media/%E4%B8%AD%E6%96%87.mp4", "/media/a%20b.mp4", "/index.html"]) assert.notEqual((await rawCall(base, "GET", p)).body.code, "NONCANONICAL_PATH", p);
 });
