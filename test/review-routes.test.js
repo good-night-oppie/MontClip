@@ -115,6 +115,9 @@ test("an agent's check sends when ready (send:true); a page cannot ask that; mar
   await playTab(base, tab);
   const done = await until(async () => { const r = await call(base, "GET", "/api/review/status?id=" + prep.body.reviewId); return r.body.state === "done" && r.body; });
   assert.equal(done.result.status, "passed"); assert.equal(done.result.source, "agent");
+  /* #321 (PG 6922461279): asked again, the same stretch of the same content is not sent again — an agent cannot force it with recheck either */
+  const again = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab", send: true, recheck: true });
+  assert.equal(again.status, 200); assert.equal(again.body.reused, true); assert.equal(again.body.reviewId, done.result.reviewId);
 
   const gate = (s, e) => call(base, "GET", `/api/review/gate?start=${s}&end=${e}`).then((r) => r.body);
   assert.equal((await gate(1, 3)).passed, true);
