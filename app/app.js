@@ -2460,6 +2460,13 @@ function shiftAudioBuffer(buf, off) {
 }
 /* A page the server opened only to run one export job (export-jobs.js, ?exportJob=<id>): nobody sees its timeline. */
 const EXPORT_JOB_PAGE = typeof location !== "undefined" && new URLSearchParams(location.search).has("exportJob");
+/* MontClip#320: every media clip used to keep its own <video>/<audio> for the whole job (the editor keeps them so a scrub
+   is instant). A job goes forward through the timeline, so its page needs a player only from EXPORT_PLAYER_LEAD_S before
+   the clip starts to its end, and frees it there: a project with 173 clips (84 on one 2160×1440 file) opened every one at
+   load — over 4 GiB — and every one stayed. The editor and an export run in a tab are unchanged. The lead is longer than
+   the pre-seek of the next cut (EXPORT_PREFETCH_S, VIDEO_PREFETCH_SEC), so a player is there, loaded, before its clip. */
+const EXPORT_PLAYER_LEAD_S = 3;
+function exportPlayerNeeded(c, t) { return !EXPORT_JOB_PAGE || (c.start <= t + EXPORT_PLAYER_LEAD_S && clipEnd(c) > t); }
 function ensureWave(m) {
   // the export page draws no timeline: decoding a whole file for its waveform only competed with the export
   // (a 2-hour recording: 5 GB read and 4.5 GB in the tab, europa 2026-11-04)
@@ -4139,12 +4146,15 @@ function setPlayerStart(el, start) {
     return rvfc.call(this, (now, meta) => cb(now, this._fcStart && meta ? { ...meta, mediaTime: meta.mediaTime - this._fcStart } : meta));
   };
 }
-/** Switch every player to the original files and wait until they can draw (export, still renders). */
-async function useOriginalPlayers() {
+/** Switch every player to the original files and wait until they can draw (export, still renders).
+ *  `at` (timeline seconds): on a page the server opened for one job, only the clips that are on, or about to be on, at
+ *  that time get a player now (exportPlayerNeeded) — the rest get theirs when the job reaches them (MontClip#320). */
+async function useOriginalPlayers(at) {
   runtime.forceOriginals = true;
   const waits = [];
   for (const c of mediaClips()) {
     if (c.kind !== "video" || !clipRenders(c)) continue;
+    if (at !== undefined && !exportPlayerNeeded(c, at)) continue;
     const el = getClipEl(c);
     if (el) waits.push(waitMediaEl(el));
   }
@@ -14017,6 +14027,7 @@ function syncMedia() {
   const prefetchTl = VIDEO_PREFETCH_SEC * Math.max(rate, 1);
   for (const c of mediaClips()) {
     if (c.kind === "text" || c.kind === "image" || c.kind === "svg" || c.kind === "adjust") continue;
+    if (!exportPlayerNeeded(c, t) && !runtime.clipEls.has(c.id)) continue;   // an export page: no player for a clip far off (#320)
     const el = getClipEl(c); if (!el) continue;
     const enabled = clipRenders(c);
     const mt = mediaTimeAt(c, t);
@@ -20814,7 +20825,9 @@ async function seekVideosTo(t, { queueBusy } = {}) {
   for (const c of mediaClips()) {
     if (c.kind !== "video") continue;
     if (!clipRenders(c)) continue;
+    if (EXPORT_JOB_PAGE && t > clipEnd(c) && runtime.clipEls.has(c.id)) { dropHeldFrame(c); releaseClipEl(c.id); }   // over: free its player (#320)
     if (decoded.has(c.id)) continue;
+    if (!exportPlayerNeeded(c, t) && !runtime.clipEls.has(c.id)) continue;   // not yet: no player until it is near (#320)
     const el = getClipEl(c); if (!el) continue;
     if (!activeAt(c, t)) {
       dropHeldFrame(c);
@@ -21279,7 +21292,7 @@ async function fastExport(opts = {}) {
     await loadProjectFonts();
     resetExportCanvases();
     await armExportCors();
-    await useOriginalPlayers();   // proxies are for editing — export reads the originals
+    await useOriginalPlayers(t0);   // proxies are for editing — export reads the originals (a job's page: only what is on or near t0, #320)
     exportDecodeBegin();
     // JPEG off the compositor thread: snapshot is sync, encode/upload run ahead
     // under backpressure. Awaiting toBlob every frame was slower than ffmpeg.
@@ -22121,7 +22134,7 @@ async function runTrackJob(ticket, fail) {
    stays where it is. */
 async function renderStillAt(t) {
   if (!runtime.forceOriginals) {   // measured and shown to agents as export renders it: the originals
-    await useOriginalPlayers();
+    await useOriginalPlayers(t);
     try { return await renderStillAt(t); } finally { releaseOriginalPlayers(); }
   }
   const waits = [];
@@ -22159,7 +22172,7 @@ async function runScopesJob(ticket, fail) {
     runtime.maskCapture = kClip ? { id: kClip.id } : null;
     runtime.maskView = null;
     // the matte below re-grades the captured original — keep the originals loaded until then
-    if (!runtime.forceOriginals) { await useOriginalPlayers(); heldOriginals = true; }
+    if (!runtime.forceOriginals) { await useOriginalPlayers(t); heldOriginals = true; }
     try { await renderStillAt(t); } finally { runtime.matte = shown; runtime.maskView = view; }
     const kcap = runtime.maskCapture;
     runtime.maskCapture = null;
