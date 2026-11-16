@@ -2473,6 +2473,8 @@ obvious cuts were missed, raise it if motion is being misread as cuts.
 
 Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/undo-stack` (64 MB), `POST /api/projects` (128 MB, imports and backups), `POST /api/transcript` (16 MB) and `POST /api/export/frame` (one raw frame of the largest canvas). A larger body gets **413** `{code:"BODY_TOO_LARGE", limit}` and is not kept. `POST /api/upload` and `/api/export/audio` stream to disk and have no such limit.
 
+An `/api/` path must be written plainly: lower case, no percent-encoding, no `//`, no `.` / `..` segments, no backslash. Any other spelling that could name an API route (`/api/%72eview/…`, `/API/…`, `/api//…`, `/api/x/../…`) gets **400** `{code:"NONCANONICAL_PATH"}` before anything else is read (MontClip #326 review). In the desktop app the main process stops such a request from the editor window before it leaves, with the same check (`server/api-path.js`). Query strings may be encoded as usual.
+
 - `GET  /api/project` — current project JSON
 - `PUT  /api/project` — replace project JSON (body = full document).
   **Conflict-safe**: if the body's `revision` ≤ the revision currently on disk,
