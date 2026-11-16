@@ -9,6 +9,7 @@ const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-fail
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../server/external-ffmpeg");
+const { nonCanonicalApi } = require("../server/api-path");
 const Capabilities = require("../capabilities");
 const HostEmbed = require("../host-embed");   // ?host=cindy: the built-in assistant's requests are refused   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
@@ -138,12 +139,17 @@ async function start() {
   });
   ses.webRequest.onBeforeRequest((details, callback) => {
     const embedded = /^(blob:|data:)/.test(details.url);
-    callback({ cancel: !local(details.url) && !embedded });
+    /* an /api/ request spelt any way but the plain one is stopped here, by the very function the server uses (server/api-path.js), so
+       this process and the server can never read one path two ways (QQ, #326 review 5927365621; Deja) */
+    const offPath = local(details.url) && nonCanonicalApi(details.url.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i, ""));
+    callback({ cancel: (!local(details.url) && !embedded) || offPath });
   });
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     if (local(details.url)) details.requestHeaders["X-MontClip-Session"] = token;
-    /* the review's page secret goes only on the editor window's own requests to /api/review/ (a hidden export page or anything else gets none) */
-    if (local(details.url) && win && !win.isDestroyed() && details.webContentsId === win.webContents.id && new URL(details.url).pathname.startsWith("/api/review/")) details.requestHeaders["X-MontClip-Page"] = pageSecret;
+    /* the review's page secret goes on every request the editor window itself makes to this computer's server (a hidden export page or
+       anything else gets none). Not filtered by path: a filter on the raw path missed /api/%72eview/…, which the server decodes to
+       /api/review/… and then read as an agent's request (QQ, #326 review 5927365621) — whatever the page asks for, it is the page. */
+    if (local(details.url) && win && !win.isDestroyed() && details.webContentsId === win.webContents.id) details.requestHeaders["X-MontClip-Page"] = pageSecret;
     callback({ requestHeaders: details.requestHeaders });
   });
   ses.webRequest.onHeadersReceived((details, callback) => {
