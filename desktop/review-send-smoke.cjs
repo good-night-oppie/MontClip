@@ -106,6 +106,16 @@ function start() {
       const rs = await read(`window.montclipReview.send(${args}})`);
       if (!(rs && rs.ok === false && rs.code === 'NEEDS_CLICK' && hits.length === 0)) throw Error('SCRIPT_NOT_REFUSED ' + JSON.stringify({ rs, hits: hits.length }));
       step('页面脚本自己调用、没有真实点击：' + rs.code + '，本地替身收到 ' + hits.length + ' 个请求');
+      /* 4d. QQ #326 review 5927365621 / Deja: the page spells the path another way (encoded, upper case, doubled slash, dot segments) and asks
+            the engine to send by itself — refused, nothing goes. The browser tidies dot segments before sending, so those arrive plain and are
+            the page's own request (CLICK_REQUIRED); the rest are stopped by the main process with the server's own check (server/api-path.js),
+            or, if one ever got past it, refused by the server (NONCANONICAL_PATH). */
+      const variants = ['/api/%72eview/prepare', '/api/review/%70repare', '/API/review/prepare', '/api/Review/prepare', '/api//review/prepare', '/api/x/../review/prepare', '/api/./review/prepare'];
+      const enc = await read(`Promise.all(${JSON.stringify(variants)}.map(u=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:3,end:6,lead:0,send:true})}).then(async r=>({u,status:r.status,code:(await r.json().catch(()=>({}))).code}),()=>({u,blocked:true}))))`);
+      await wait(1500);
+      const refusedOk = (x) => x.blocked === true || (x.status === 400 && x.code === 'NONCANONICAL_PATH') || (x.status === 403 && x.code === 'CLICK_REQUIRED');
+      if (!(enc.every(refusedOk) && hits.length === 0)) throw Error('NONCANONICAL_NOT_REFUSED ' + JSON.stringify({ enc, hits: hits.length }));
+      step('页面用别的写法拼路径（编码、大小写、双斜杠、点段）带 send:true 要求自己发：' + enc.map((x) => x.u + ' → ' + (x.blocked ? '主进程拦下，没到服务器' : x.status + ' ' + x.code)).join('；') + '；本地替身收到 ' + hits.length + ' 个请求');
       /* 5. the streamer clicks (a real input event from the system, at the window's top-left corner where nothing reacts): no box, it goes once */
       win.webContents.sendInputEvent({ type: 'mouseDown', x: 1, y: 1, button: 'left', clickCount: 1 });
       win.webContents.sendInputEvent({ type: 'mouseUp', x: 1, y: 1, button: 'left', clickCount: 1 });
