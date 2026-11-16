@@ -33,13 +33,18 @@ name="montclip-demo-${dur}s"
 python3 "$here/montclip-materials.py" "$work/pass1"
 
 # Pass 2: lay out those outputs in a deterministic page and render it frame by frame.
-page="$work/page"; mkdir "$page" "$page/fonts" "$page/f" "$page/f/src" "$page/f/rz"
+page="$work/page"; mkdir "$page" "$page/fonts" "$page/f" "$page/f/src" "$page/f/rz" "$page/f/rz3"
 cp -n "$here/page/demo.html" "$page/"
 python3 "$here/run-lines.py" "$work/pass1" "$page/run-lines.js"   # terminal lines in the page = this run's MCP replies
 cp -n "$repo/library/fonts/Inter.woff2" "$page/fonts/"
 cp -n "$work/pass1/contact-sheet.jpg" "$work/pass1/detail-t3.jpg" "$page/"
-ffmpeg -v error -n -i "$work/pass1/synthetic-source.mp4" -q:v 3 "$page/f/src/%04d.jpg"
-ffmpeg -v error -n -i "$work/pass1/data/exports/redact-zoom.mp4" -q:v 3 "$page/f/rz/%04d.jpg"
+# Frames are scaled here to the exact pixel size of the panel that shows them (demo.html: border-box panels
+# with a 1 px border: 540x304 -> 538x302, 710x400 -> 708x398), so Chrome never resamples them; its resampling
+# gave a different picture on each render of the same frame (#268).
+fit() { echo "scale=$1:$2:force_original_aspect_ratio=increase:flags=lanczos,crop=$1:$2"; }
+ffmpeg -v error -n -i "$work/pass1/synthetic-source.mp4" -vf "$(fit 538 302)" -q:v 3 "$page/f/src/%04d.jpg"
+ffmpeg -v error -n -i "$work/pass1/data/exports/redact-zoom.mp4" -vf "$(fit 538 302)" -q:v 3 "$page/f/rz/%04d.jpg"
+ffmpeg -v error -n -i "$work/pass1/data/exports/redact-zoom.mp4" -vf "$(fit 708 398)" -q:v 3 "$page/f/rz3/%04d.jpg"
 node "$here/render.cjs" "$page/demo.html" "$work/frames" --duration=$dur --fps=60 ${CHROME:+--chrome=$CHROME} $cutarg
 ffmpeg -v error -n -framerate 60 -i "$work/frames/%05d.png" -c:v libx264 -crf 16 -pix_fmt yuv420p -r 60 "$work/motion-layer.mp4"
 
