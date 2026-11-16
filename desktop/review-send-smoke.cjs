@@ -27,8 +27,8 @@ const standin = http.createServer((req, res) => {
 });
 standin.listen(0, '127.0.0.1', () => {
   process.env.MONTCLIP_REVIEW_STANDIN = 'http://127.0.0.1:' + standin.address().port;
-  process.env.MONTCLIP_REVIEW_DEST_CONFIRMED = 'openrouter.ai';   // this run's own process only; the owner's real setting is untouched
-  delete process.env.MONTCLIP_REVIEW_AGENT_SEND;
+  /* #321 (PG 6921163328): the two start-up variables are gone; this run has neither, to show nothing needs them */
+  delete process.env.MONTCLIP_REVIEW_DEST_CONFIRMED; delete process.env.MONTCLIP_REVIEW_AGENT_SEND;
   start();
 });
 
