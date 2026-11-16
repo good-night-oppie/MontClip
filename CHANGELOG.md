@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- An export job that ends while its page is still starting the export (the memory limit, a cancel, a crashed browser) no longer leaves an empty `.part` file and work folder in `exports/` for ten minutes: they are removed at once. Files already there are not touched (#364).
+
 - Windows too: a headless export whose browser (with everything under it) uses more than 2 GiB of private memory ends its own job, tells the streamer in the same words as on Linux, and is not retried (#364; Linux since #353). `MONTCLIP_EXPORT_MEMORY_MAX_MIB` changes the limit, 0 turns it off.
 
 - Keep recorded original-audio links after a picture-only source replacement. Roll edits move both sound channels together, or refuse the whole edit if continuity or source handles cannot be preserved (#285).
