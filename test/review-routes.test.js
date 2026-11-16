@@ -18,7 +18,7 @@ const skip = HAS_FFMPEG ? false : "needs ffmpeg";
 
 const PAGE_SECRET = "a1b2c3d4".repeat(8);   // what the Electron main process hands the server at start and adds to the editor window's own requests
 const MAIN_SECRET = "e5f6a7b8".repeat(8);   // what only the main process itself sends, after the streamer's click
-const srvEnv = (more = {}) => ({ MONTCLIP_REVIEW_PAGE_SECRET: PAGE_SECRET, MONTCLIP_REVIEW_MAIN_SECRET: MAIN_SECRET, MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai",
+const srvEnv = (more = {}) => ({ MONTCLIP_REVIEW_PAGE_SECRET: PAGE_SECRET, MONTCLIP_REVIEW_MAIN_SECRET: MAIN_SECRET,
   FABLECUT_NO_FS_WATCH: "1", FABLECUT_CHROME: "no-such-browser", ...more });
 /* The editor page is the Electron window: the main process adds the page secret to its own requests to /api/review/ (it never travels over HTTP to anyone else,
    and a header like Origin proves nothing: a local process can write any header). */
@@ -52,12 +52,12 @@ test("a standalone server (no desktop main process): the streamer's switch is of
   assert.equal(fs.readFileSync(path.join(dir, "project.json"), "utf8"), before, "project.json is byte for byte the same");
 });
 
-test("an agent's send:true is refused (the switch is off, and the dev-side switch is the owner's); a page cannot ask that; marks never make a pass; the gate says no without a pass", { skip, timeout: 60_000 }, async (t) => {
+test("an agent's send:true needs no owner switch but is still refused while the streamer's switch is off; a page cannot ask that; marks never make a pass; the gate says no without a pass", { skip, timeout: 60_000 }, async (t) => {
   const dir = makeDataDir(t, seedProject({ revision: 3 }));
-  const { base } = await startServer(t, dir, srvEnv({ MONTCLIP_REVIEW_AGENT_SEND: "1" }));
+  const { base } = await startServer(t, dir, srvEnv());
   assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, PAGE)).body.code, "CLICK_REQUIRED");
   const prep = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab", send: true });
-  assert.equal(prep.status, 409); assert.equal(prep.body.code, "REVIEW_SEND_OFF", "even the owner's dev-side switch does not open the streamer's");
+  assert.equal(prep.status, 409); assert.equal(prep.body.code, "REVIEW_SEND_OFF", "the streamer's switch is off: nothing is rendered or sent");
   const gate = (s, e) => call(base, "GET", `/api/review/gate?start=${s}&end=${e}`).then((r) => r.body);
   assert.equal((await gate(1, 3)).passed, false, "no check, no pass");
   for (const m of ["passed", "pass", "ok"]) assert.equal((await call(base, "POST", "/api/review/mark", { id: "nope", mark: m })).status, 400, m);
@@ -91,14 +91,14 @@ test("taste notes by route; the page and the agent see the same notes", { skip, 
   assert.equal((await call(base, "POST", "/api/review/taste/remove", { id: "nope" })).status, 404);
 });
 
-test("fail closed over HTTP: without the owner's confirmation of the address (or with the old address's), prepare is refused (409) and nothing is rendered", { skip, timeout: 60_000 }, async (t) => {
-  for (const conf of [undefined, "daily-cloudcode-pa.googleapis.com"]) {
+test("#321 (6921163328): the removed start-up variables change nothing over HTTP — unset, empty, openrouter.ai or the old address, prepare answers the same (the streamer's switch is off here) and nothing is rendered", { skip, timeout: 60_000 }, async (t) => {
+  for (const conf of [undefined, "", "openrouter.ai", "daily-cloudcode-pa.googleapis.com"]) {
     const dir = makeDataDir(t);
-    const env = srvEnv(); if (conf === undefined) delete env.MONTCLIP_REVIEW_DEST_CONFIRMED; else env.MONTCLIP_REVIEW_DEST_CONFIRMED = conf;
+    const env = srvEnv(); if (conf !== undefined) { env.MONTCLIP_REVIEW_DEST_CONFIRMED = conf; env.MONTCLIP_REVIEW_AGENT_SEND = conf; }
     const { base } = await startServer(t, dir, env);
     for (const headers of [undefined, PAGE, MAIN]) {
       const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3 }, headers);
-      assert.equal(r.status, 409, String(conf));
+      assert.equal(r.status, 409, String(conf)); assert.equal(r.body.code, "REVIEW_SEND_OFF", String(conf));
     }
     assert.deepEqual(previews(dir), []);
   }
@@ -154,19 +154,23 @@ test("the desktop main process: the page secret only on the editor window's own 
   assert.match(server, /delete process\.env\.MONTCLIP_REVIEW_MAIN_SECRET/, "nothing the server starts inherits it");
 });
 
-test("no agent door to the owner's switches: no route, MCP tool or prepare field sets MONTCLIP_REVIEW_DEST_CONFIRMED or MONTCLIP_REVIEW_AGENT_SEND (reverse test)", { skip, timeout: 60_000 }, async (t) => {
+test("no agent door to the streamer's switch or key, and none to the removed start-up variables: no route, MCP tool or prepare field sets them (reverse test)", { skip, timeout: 60_000 }, async (t) => {
   const dir = makeDataDir(t);
-  const env = srvEnv(); delete env.MONTCLIP_REVIEW_DEST_CONFIRMED;
-  const { base } = await startServer(t, dir, env);
+  const { base } = await startServer(t, dir, srvEnv());
   for (const p of ["/api/review/settings", "/api/review/confirm", "/api/review/dest", "/api/review/agent-send", "/api/review/switch", "/api/review/key"])
     assert.equal((await call(base, "POST", p, { MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", MONTCLIP_REVIEW_AGENT_SEND: "1", on: true }, MAIN)).status, 404, p);
-  /* extra fields on prepare are ignored: still unconfirmed (and the switch still off) */
+  /* extra fields on prepare are ignored: the streamer's switch is still off */
   const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, destConfirmed: true, MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", agentSend: true, sendSwitch: true, send: true });
   assert.equal(r.status, 409);
   const mcp = fs.readFileSync(path.join(__dirname, "..", "server", "mcp-server.js"), "utf8");
   for (const name of ["MONTCLIP_REVIEW_DEST_CONFIRMED", "MONTCLIP_REVIEW_AGENT_SEND"]) {
     const uses = mcp.split(name).length - 1;
     assert.ok(!new RegExp(`process\\.env\\.${name}\\s*=`).test(mcp) && !new RegExp(`["']${name}["']\\s*:`).test(mcp), name + " is never written by the MCP server (" + uses + " mentions)");
+  }
+  /* #321 (PG 6921163328): no code that decides a send reads them any more */
+  for (const rel of ["server/server.js", "server/review-service.js", "server/video-bridge.js", "server/openrouter-review.js", "desktop/review-sender.js", "desktop/main.js"]) {
+    const src = fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
+    for (const name of ["MONTCLIP_REVIEW_DEST_CONFIRMED", "MONTCLIP_REVIEW_AGENT_SEND"]) assert.ok(!src.includes("env." + name) && !/env\[["']MONTCLIP_REVIEW_(DEST_CONFIRMED|AGENT_SEND)/.test(src), rel + " reads " + name);
   }
 });
 
