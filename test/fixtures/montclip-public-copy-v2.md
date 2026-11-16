@@ -39,6 +39,7 @@
 
 - **导入本地录像**：把电脑里的视频文件导进项目。
 - **导出 MP4**：导出成片 MP4。
+- **裁切、放大、遮挡**：在片段的属性里按百分比裁掉画面边缘、用缩放放大，或用一块不透明的形状盖住某个区域；导出时一起生效。
 
 录像默认在你的电脑上处理。联网只发生在你自己打开的功能里，发之前先给你看。
 
@@ -110,6 +111,7 @@ Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT)
 
 - **Import local recordings**: add video files from your computer to a project.
 - **Export MP4**: export the finished clip as MP4.
+- **Crop, zoom in and cover**: in a clip's properties, crop the picture's edges by percentage, zoom in with Scale, or put an opaque shape over an area; the export includes them.
 
 Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
 
