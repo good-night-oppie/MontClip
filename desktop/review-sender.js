@@ -10,8 +10,9 @@
      - what may go: the engine server hands over one body at a time (review-send). It goes only when
          (a) the streamer clicked to check THIS check (reviewId) and this process let it go — a permit for its requests (nothing is shown
              before a send: owner's decision 2026-11-15, #321 6888246693), or
-         (b) it is the team's own agent on the dev side and the owner set MONTCLIP_REVIEW_AGENT_SEND=1 on this process (no click, no box:
-             owner's decision, #341 6882174429).
+         (b) it is the team's own agent on the dev side (no click, no box: owner's decision, #341 6882174429). The owner's start-up
+             switch for it, MONTCLIP_REVIEW_AGENT_SEND, is gone (owner 2026-11-16, PG #321 6921163328); the review-send switch, the
+             body check, the key and the receipt check below still apply to it.
        Anything else is refused (NOT_CONFIRMED). No retry; TLS checked as Node does; one request per message. */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -30,7 +31,6 @@ function createReviewSender({ root, safeStorage, env = process.env, isPackaged =
   const inFlight = new Map();       // reviewId → AbortController
   /* only an unpackaged smoke run may point at a local stand-in, and only at 127.0.0.1 */
   const standin = !isPackaged && smoke && /^http:\/\/127\.0\.0\.1:\d{2,5}$/.test(env.MONTCLIP_REVIEW_STANDIN || "") ? env.MONTCLIP_REVIEW_STANDIN : null;
-  const agentSend = () => env.MONTCLIP_REVIEW_AGENT_SEND === "1";
 
   const key = {
     status() { const j = readJson(keyPath); return { ok: true, configured: !!(j && j.sealed) }; },
@@ -66,8 +66,7 @@ function createReviewSender({ root, safeStorage, env = process.env, isPackaged =
       /* the body must be one this process would build itself (QQ, #347 review): otherwise nothing goes, whoever asked */
       const chk = checkBody(buf);
       if (!chk) return { ok: false, reason: "BODY_NOT_ALLOWED" };
-      if (agent === true) { if (!agentSend()) return { ok: false, reason: "AGENT_SEND_OFF" }; }
-      else {
+      if (agent !== true) {
         const p = permits.get(reviewId);
         if (!p || p.left <= 0 || now() > p.exp) return { ok: false, reason: "NOT_CONFIRMED" };
         const files = chk.videoSha + "/" + (chk.audioSha || "-");
