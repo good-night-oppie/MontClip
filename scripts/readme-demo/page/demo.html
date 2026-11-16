@@ -13,8 +13,9 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
 /* The image rounds its own corners (9px = panel radius minus border). Leaving that to the panel's clip gave a
    slightly different corner edge on each render (#268: 177/900 frames differed; with this, 0/900). */
 .panel img{display:block;width:100%;height:100%;object-fit:cover;border-radius:9px}
-/* Text a viewer needs is at least 20px (18px for the cover note): the README shows the film about 390px wide on
-   a phone, where 13px became ~4px (#268 review round 1, item 6). Terminal and code text stay small as decoration. */
+/* Text a viewer needs is at least 20px: the README shows the film about 390px wide on a phone, where 13px became
+   ~4px (#268 review round 1, item 6). The synthetic notice (32px) and the cover note (30px) are larger still: at 20px
+   they were ~6px on a phone (round 2, item 6). Terminal and code text stay small as decoration. */
 .chip{position:absolute;font:600 20px/1 JBM,monospace;letter-spacing:.03em;padding:8px 12px;border-radius:7px;white-space:nowrap}
 .mono{font-family:JBM,monospace}
 .term{position:absolute;background:#0B1220;border:1px solid #1E293B;border-radius:10px;overflow:hidden}
@@ -35,7 +36,7 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
 <div id="track" class="abs" style="left:28px;right:28px;top:684px;height:6px;border-radius:3px;background:#111827"></div>
 <div id="segs"></div>
 <div id="ph" class="abs" style="top:678px;width:2px;height:18px;background:#3B82F6;box-shadow:0 0 0 3px #3B82F633"></div>
-<div id="foot" class="abs mono" style="left:28px;right:28px;top:616px;font-size:20px;line-height:24px;color:#94A3B8;text-align:right">合成直播间 · 非真实录像 · 观众名均为占位符<br>synthetic live room, placeholder viewers · materials from real MontClip MCP calls</div>
+<div id="foot" class="abs mono" style="left:28px;right:28px;top:598px;font-size:32px;line-height:38px;color:#94A3B8;text-align:right">合成直播间 · 非真实录像 · 观众名均为占位符<br>synthetic live room, placeholder viewers</div>
 
 <!-- ===== S1 hook ===== -->
 <div id="s1" class="abs" style="inset:0">
@@ -56,11 +57,11 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
 <!-- ===== S2 perceive ===== -->
 <div id="s2" class="abs" style="inset:0">
   <div id="s2h" class="abs h2" style="left:60px;top:58px">Look at <span style="color:#3B82F6">state</span> first. Pixels only <span style="color:#F59E0B">on demand</span>.</div>
-  <div id="term2" class="term" style="left:60px;top:118px;width:540px;height:490px">
+  <div id="term2" class="term" style="left:60px;top:118px;width:540px;height:470px">
     <div class="bar"><i></i><i></i><i></i>&nbsp;agent ⇄ montclip mcp-server (stdio)</div>
     <div class="body" id="t2body"></div>
   </div>
-  <div id="r2" class="abs" style="left:630px;top:118px;width:590px;height:520px;overflow:hidden">
+  <div id="r2" class="abs" style="left:630px;top:118px;width:590px;height:470px;overflow:hidden">
     <!-- symbolic lanes -->
     <div id="lanes" class="abs" style="inset:0"></div>
     <!-- contact sheet -->
