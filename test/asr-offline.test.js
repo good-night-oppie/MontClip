@@ -29,7 +29,7 @@ test('the desktop window: no wasm in the script policy any more; the session sti
   const main = read('desktop/main.js');
   a.match(main, /"default-src 'self'; script-src 'self'; style-src/);
   a.ok(!/wasm-unsafe-eval/.test(main));
-  a.match(main, /ses\.webRequest\.onBeforeRequest\(\(details, callback\) => \{\s*const embedded = \/\^\(blob:\|data:\)\/\.test\(details\.url\);\s*callback\(\{ cancel: !local\(details\.url\) && !embedded \}\);/);
+  a.match(main, /ses\.webRequest\.onBeforeRequest\(\(details, callback\) => \{\s*const embedded = \/\^\(blob:\|data:\)\/\.test\(details\.url\);[\s\S]{0,400}?const offPath = local\(details\.url\) && nonCanonicalApi\([^\n]*\);\s*callback\(\{ cancel: \(!local\(details\.url\) && !embedded\) \|\| offPath \}\);/);   // offPath only cancels more (#326 review, server/api-path.js)
 });
 test('the server: model status, one transcription at a time, cancel; it reads models only from its own folders', async (t) => {
   const dataDir = makeDataDir(t);
