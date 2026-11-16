@@ -5,7 +5,7 @@
 // The page itself: desktop/agent-modes-smoke.cjs, agent-plan-smoke.cjs and agent-narrow-smoke.cjs (630×460 and 1280×820).
 const { test } = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const Approval = require('../agent-approval'), View = require('../ui-preferences'), Host = require('../desktop/agent-policy-host');
+const Approval = require('../app/agent-approval'), View = require('../ui-preferences'), Host = require('../desktop/agent-policy-host');
 const say = (lang) => (k, v) => View.t(lang, k, v);
 const decision = (over = {}) => ({ action: 'ask', ticket: 't1', label: '按时间保留几段录像', risk: 'project', choices: ['once', 'session', 'deny'], ...over });
 const settled = async (p) => { let v = 'pending'; p.then((x) => { v = x; }); await new Promise((r) => setImmediate(r)); return v; };
@@ -23,7 +23,7 @@ test('only the host makes a card, and only from a decision with a ticket', async
   a.match(pane, /<ThinkingText content=\{shown\.text\}\/>/);
   for (const [name, src] of [['pane.tsx', pane], ['HostCard.tsx', card], ['ThinkingText.tsx', text]]) a.doesNotMatch(src, /dangerouslySetInnerHTML|innerHTML/, name);
   // and the host makes them in one place, from the main process's decision
-  const app = read('app.js');
+  const app = read('app/app.js');
   a.equal((app.match(/agentApprovals\.ask\(/g) || []).length, 1);
   // the last toast goes first (VV, #134), then the card
   a.match(app, /function askAgentApproval\(d,options=\{\}\)\{dismissToast\(\);return agentApprovals\.ask\(d,options\);\}/);
@@ -43,7 +43,7 @@ test('the buttons answer the waiting card only, once; the answer goes to the mai
   cards.answer(cards.view(r2, say('zh-CN'))[0].id, 'session');
   a.equal(await q, 'deny');
   // app.js: each card's answer is sent with its own ticket, nothing else approves
-  const app = read('app.js');
+  const app = read('app/app.js');
   // onAgentReply, agentReframeFlow (#175), runAgentPlanStep, and runLyricsJob (#164: its own card's answer, 〔放到时间线上〕 = once)
   a.equal((app.match(/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g) || []).length, 4);
   a.match(app, /answerApproval:\(id,choice\)=>agentApprovals\.answer\(id,choice\)/);
@@ -56,7 +56,7 @@ test('the buttons answer the waiting card only, once; the answer goes to the mai
 });
 
 test('the AI waits: nothing after the step runs before its card is answered', () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   for (const fn of ['async function onAgentReply', 'async function runAgentPlanStep']) {
     const body = app.slice(app.indexOf(fn), app.indexOf('\n}\n', app.indexOf(fn)));
     const ask = body.indexOf('await askAgentApproval('), answer = body.indexOf('await window.montclipAgentPolicy.answer(');
@@ -93,7 +93,7 @@ test('leaving the chat, the project changing, or a newer card while one waits: �
   a.match(paneSrc, /act\(\(\)=>state\.newSession\(\),true\)/);
   a.match(paneSrc, /act\(\(\)=>state\.select\(s\.id\),true\)/);
   a.doesNotMatch(paneSrc, /act\(\(\)=>state\.retry\(\),true\)/, 'a save retry does not settle the card');
-  a.match(read('app.js'), /setInterval\(\(\)=>\{agentApprovals\.check\(\);mcAgent\.sync\(\);\},500\);/);
+  a.match(read('app/app.js'), /setInterval\(\(\)=>\{agentApprovals\.check\(\);mcAgent\.sync\(\);\},500\);/);
 });
 
 test('settled by the host, not clicked: the line says what happened, not 「你没有同意」 (QQ/DD on #120)', async () => {
@@ -183,14 +183,14 @@ test('the card: Cindy\'s card shell and buttons; focus lands on the card itself,
     a.ok(css.includes(rule), rule);
   // while a card waits, the proposal and reference rows step aside so the card fits the stream whole
   a.ok(css.includes('#mcAgentContent .cindy-port:has([data-host-card="approval"]) > :is(.cindy-proposal-actions, .cindy-ref-actions, .cindy-references) { display: none; }'));
-  a.match(read('cindy-official.js'), /data-host-card/, 'the bundle was rebuilt');
-  a.ok(read('index.html').indexOf('agent-approval.js') < read('index.html').indexOf('app.js'));
+  a.match(read('app/cindy-official.js'), /data-host-card/, 'the bundle was rebuilt');
+  a.ok(read('index.html').indexOf('app/agent-approval.js') < read('index.html').indexOf('app/app.js'));
 });
 
 // #120 merged with #175 (DD, 2026-11-06): a card is drawn under the reply it belongs to (ask(d,{result})). The reframe flow
 // came from main without it, so its card would have waited under no reply. Every caller passes its reply.
 test('every approval card belongs to its reply: onAgentReply, the reframe flow and plan steps pass result', () => {
-  const app = read('app.js');
+  const app = read('app/app.js');
   for (const fn of ['async function onAgentReply', 'async function agentReframeFlow', 'async function runAgentPlanStep']) {
     const i = app.indexOf(fn); a.ok(i >= 0, fn);
     const body = app.slice(i, app.indexOf('\n}\n', i));

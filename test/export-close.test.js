@@ -69,7 +69,7 @@ test("main.js asks on every close (× and Alt+F4 are the same window close) befo
   a.match(main, /require\("\.\/export-close"\)/);
   a.match(main, /\/api\/export\/active/);
   a.match(main, /exportCloseState/);
-  a.match(read("app.js"), /function exportCloseState\(\) \{/);
+  a.match(read("app/app.js"), /function exportCloseState\(\) \{/);
 });
 
 test("main.js holds every quit until the service has exited (a second quit used to cut its cleanup short)", () => {
@@ -316,7 +316,7 @@ test("the server deletes only copies this session exported, by base name; unrela
 test("a copy being saved (q.saving) is not counted as not saved, in the page and in the main process", () => {
   const queue = [{ status: "done", file: "a.mp4" }, { status: "done", file: "b.mp4", saving: true }, { status: "done", file: "c.mp4", saved: true }];
   a.equal(Close.unsavedCount(queue), 1);
-  const app = read("app.js"), i = app.indexOf("function exportCloseState()"), fn = app.slice(i, app.indexOf("\n}", i) + 2);
+  const app = read("app/app.js"), i = app.indexOf("function exportCloseState()"), fn = app.slice(i, app.indexOf("\n}", i) + 2);
   const state = new Function("exportQueue", "state", "bgExportBusy", fn + "return exportCloseState();")(queue, { exporting: false }, () => false);
   a.deepEqual(state, { exporting: false, unsaved: 1, files: ["a.mp4"] });
   // a background export (#263) counts as exporting: closing the window would stop it

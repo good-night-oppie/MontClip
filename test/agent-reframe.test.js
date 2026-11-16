@@ -8,8 +8,8 @@
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawnSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
-const P=require('../chat-proposal'),V=require('../agent-conversation'),Cap=require('../capabilities'),Policy=require('../agent-policy');
-const Plan=require('../agent-plan'),F=require('../agent-format'),L=require('../agent-limits'),View=require('../ui-preferences'),R=require('../reframe');
+const P=require('../app/chat-proposal'),V=require('../app/agent-conversation'),Cap=require('../capabilities'),Policy=require('../agent-policy');
+const Plan=require('../app/agent-plan'),F=require('../agent-format'),L=require('../app/agent-limits'),View=require('../ui-preferences'),R=require('../reframe');
 const FF=require('../server/ffmpeg-path');
 
 const ctx={projectId:'p',sequenceId:'main',generation:0,revision:1};
@@ -55,7 +55,7 @@ test('sensitive, with the reason written; asked every time in every mode, Yolo a
 });
 
 test('the editor: the box first, then the footage read with progress and 〔取消〕, made only at the end; one undo goes back',()=>{
- const app=read('app.js');
+ const app=read('app/app.js');
  const run=app.slice(app.indexOf('async function runAgentReframe('),app.indexOf('function agentReframeBackOf('));
  // progress with 〔取消〕, a window of its own that Yolo shows too; the copy is made only after reading, cancel and the checks
  a.match(app,/el\.innerHTML='<p data-rf-progress><\/p><div class="tr-row"><button type="button" class="btn" data-rf-cancel><\/button><\/div>';/);
@@ -79,7 +79,7 @@ test('the editor: the box first, then the footage read with progress and 〔取�
  a.match(app,/if\(response&&response\.type==='reframe'\)\{void agentReframeFlow\(response,result\);return;\}/);
  // the pane's summary of the reply
  a.match(read('agent-ui/pane.tsx'),/p\.mode==='reframe'\?t\.proposalReframe\.replace\('\{aspect\}',p\.aspect\)/);
- a.match(read('cindy-official.js'),/proposalReframe/);
+ a.match(read('app/cindy-official.js'),/proposalReframe/);
  for(const k of ['rf-progress','rf-cancel','rf-done','rf-cancelled','rf-undone','ap-sum-reframe'])for(const l of ['zh-CN','en'])a.ok(View.text[l]['own.'+k],l+' '+k);
  a.equal(View.text['zh-CN']['own.rf-cancel'],'取消');
  for(const k of Object.keys(View.text['zh-CN']).filter(k=>/^own\.rf-|^own\.ap-sum-reframe$|proposalReframe$/.test(k)))a.ok(!/我/.test(View.text['zh-CN'][k]),'no 我: '+k);
@@ -136,7 +136,7 @@ test('the editor and fablecut_reframe both read the clip\'s last frame (reframe.
  // the tracker takes each frame's own time; without one, the next at SAMPLE_FPS as before
  const t=R.tracker(8,8),f=new Uint8Array(8*8*3);t.push(f);t.push(f);t.push(f,0.75);
  a.deepEqual(t.samples.map(s=>s[0]),[0,0.2,0.75]);
- const app=read('app.js'),mcp=read('server/mcp-server.js');
+ const app=read('app/app.js'),mcp=read('server/mcp-server.js');
  a.match(app,/\(f, t\) => tr\.push\(f, t\),\n\s*\{ times: Reframe\.sampleTimes\(c\.duration \* clipSpeed\(c\), \{ frame: clipSpeed\(c\) \/ fps \}\) \}\);/,'the editor\'s Reframe');
  a.match(app,/\(f,t\)=>tr\.push\(f,t\),\{times:Reframe\.sampleTimes\(c\.duration\*clipSpeed\(c\),\{frame:clipSpeed\(c\)\/fps\}\),cancelled:/,'the assistant\'s reframe');
  a.match(app,/if \(onRgb\) onRgb\(rgb\(\), at\[i\]\); else frames\.push\(rgb\(\)\);/);

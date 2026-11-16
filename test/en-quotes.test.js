@@ -26,7 +26,7 @@ test('every English value of the interface\'s tables quotes with “ ”, never 
 });
 
 test('every English string the interface shows quotes with “ ”, never 「」',()=>{
- const FILES=['ui-preferences.js','ui-terms.js','app.js','index.html','server/server.js','server/export-jobs.js','desktop/main.js','desktop/native-text.js','agent-ui/src/pane.tsx','cindy-official.js'];
+ const FILES=['ui-preferences.js','ui-terms.js','app/app.js','index.html','server/server.js','server/export-jobs.js','desktop/main.js','desktop/native-text.js','agent-ui/src/pane.tsx','app/cindy-official.js'];
  const LIT=/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g,bad=[];
  for(const f of FILES){const src=read(f);if(src==null)continue;
   // comments are not shown (blanked out, so line numbers stay)
@@ -40,5 +40,5 @@ test('every English string the interface shows quotes with “ ”, never 「」
 test('the check finds what it is for, and leaves Chinese and the AI\'s descriptions alone',()=>{
  const english=(t)=>{const o=t.replace(/「[^」]*」/g,'');return QUOTE.test(t)&&!/[一-鿿]/.test(o)&&/[A-Za-z]{3,}/.test(o);};
  a.ok(english('"Took out 「{name}」"'));a.ok(!english('"已拿掉「{name}」"'));a.ok(!english('"Took out “{name}”"'));
- a.ok(!/fablecut_|mcp/.test(['ui-preferences.js','app.js'].join()),'the AI\'s descriptions are not in the scope');
+ a.ok(!/fablecut_|mcp/.test(['ui-preferences.js','app/app.js'].join()),'the AI\'s descriptions are not in the scope');
 });

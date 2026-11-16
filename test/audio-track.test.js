@@ -172,7 +172,7 @@ test('one audio track: nothing to choose, and every reader reads it as before',{
  const s=Songs.find((await scan.scan(file)).rows.map(x=>x[0]),{complete:true});a.equal(s.length,1);a.ok(Math.abs(s[0].from-SING[0])<=2);
 });
 test('the editor: the media info lists the tracks with 试听, picking one is an undo step, analysis follows it and the exported sound does not',()=>{
- const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+ const app=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
  a.match(app,/if \(Array\.isArray\(m\.audioTracks\) && m\.audioTracks\.length > 1\) pop\.appendChild\(audioTrackPicker\(m\)\);/);
  const set=app.slice(app.indexOf('function setAudioTrack('),app.indexOf('function setAudioTrack(')+1400);
  a.match(set,/pushUndo\(/);a.match(set,/delete project\.songs\[m\.id\]/);a.match(set,/flushSave\(\)/);
@@ -224,7 +224,7 @@ test('captions say which text they were made with, so an edited one is told apar
  const C=require('../captions');
  const c=C.clip({start:1,end:2,text:'你好 世界',words:[{s:1,e:1.4},{s:1.5,e:2}]},{style:'subtitle',width:1920,height:1080});
  a.equal(c.props.captionMade,'你好 世界');a.ok(Array.isArray(c.props.wordTimes));
- const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+ const app=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
  const at=app.indexOf('function captionsEdited('),body=app.slice(app.indexOf('{',at)+1,app.indexOf('\n}',at));
  const captionsEdited=new Function('list',body);
  a.equal(captionsEdited([c]),false);
@@ -274,7 +274,7 @@ test('the faststart tidy leaves out data streams the MP4 muxer cannot write (a M
  a.match(src,/"-map", "0", "-map", "-0:d", "-map", "-0:t", "-c", "copy", "-movflags", "\+faststart"/);
 });
 test('VV on #177: a badge, a notice that stays with 〔去选〕, 「选音轨…」 in the menu, 试听 that stops, the redo by 〔听写所选〕, undo said',()=>{
- const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+ const app=fs.readFileSync(path.join(__dirname,'..','app/app.js'),'utf8');
  a.match(app,/uiText\("own\.at-badge", \{ n: m\.audioTracks\.length, k: MediaLib\.audioTrackOf\(m\) \+ 1 \}\)/,'badge: 3 条音轨 · 用第 k 条');
  a.match(app,/busy \? " · " \+ escapeHtml\(uiText\("own\.at-badge-busy"\)\)/,'badge while reading again');
  a.match(app,/bar\.className = "bin-filterbar bin-tracks-bar";/,'the notice is a bar in the bin, not a toast');

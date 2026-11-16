@@ -255,8 +255,19 @@
       "第 {n} 段（时间线 {time} 处）在成片里没有声音，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。"],
     "export-clip-unchecked-track": ["The sound at {time} on the timeline is silent in the export, and we couldn't confirm whether the original has sound there. The export was made; please listen to this part yourself before you share it.",
       "时间线 {time} 处的声音在成片里是无声的，软件没能确认原片是不是也没有。成片已经导出，请先自己听一下这一段，再决定要不要发。"],
+    // JJ 定稿 (#247 issuecomment-6720532815), word for word: opened with "Run as administrator", the headless browser an
+    // export needs exits at once (export-jobs.js). The program named is the one she opened; where that is not known,
+    // JJ's rule: 「这个程序」. Only said when the engine is elevated AND the browser exited at once — never for a plain crash.
+    "err-export-elevated-montclip": ["MontClip was opened with \"Run as administrator\", and the browser it needs for exporting can't work properly that way, so this export stopped and no file was made. Close MontClip, open it normally (not \"Run as administrator\"), and export again.", "MontClip 是用「以管理员身份运行」打开的，导出需要的浏览器在这种方式下没法正常工作，这次导出已停下，没有生成文件。请先关掉 MontClip，不要选「以管理员身份运行」，直接双击打开，再导出一次。"],
+    "err-export-elevated-cindy": ["Cindy was opened with \"Run as administrator\", and the browser it needs for exporting can't work properly that way, so this export stopped and no file was made. Close Cindy, open it normally (not \"Run as administrator\"), and export again.", "Cindy 是用「以管理员身份运行」打开的，导出需要的浏览器在这种方式下没法正常工作，这次导出已停下，没有生成文件。请先关掉 Cindy，不要选「以管理员身份运行」，直接双击打开，再导出一次。"],
+    "err-export-elevated-program": ["This program was opened with \"Run as administrator\", and the browser it needs for exporting can't work properly that way, so this export stopped and no file was made. Close this program, open it normally (not \"Run as administrator\"), and export again.", "这个程序是用「以管理员身份运行」打开的，导出需要的浏览器在这种方式下没法正常工作，这次导出已停下，没有生成文件。请先关掉这个程序，不要选「以管理员身份运行」，直接双击打开，再导出一次。"],
     "err-export-page-crashed": ["Something went wrong while exporting, so this export stopped and no file was made. The originals are unchanged. You can start the export again; if it happens again, use \"Copy problem details\" and send it to us.",
       "导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。可以直接重新导出；还是这样的话，点「复制问题信息」发给我们。"],
+    // #320 — JJ定稿 (2026-11-15, via Deja), word for word, MontClip#353 comment 6889203398:
+    // what happened and that no file was made, then what to do. Said when the export's browser passed the memory limit
+    // (export-jobs.js): the job is stopped, not retried.
+    "err-export-memory-limit": ["This export used more memory than it is allowed to, so it was stopped and no file was made. The originals are unchanged. Try exporting a shorter part first.",
+      "这次导出占用的内存超过了允许的上限，已经停下，没有生成文件。原片没有改动。可以先导出短一点的一段再试。"],
     // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
     "mono-left": ["{n} sounds in this project only play in the left ear. Make them play in both?", "这个项目里有 {n} 段声音只在左边耳机里有。要改成两边都有吗？"],
     "mono-left-centre": ["Play in both", "改成两边都有"],
@@ -424,6 +435,18 @@
     "ai-set-hint": ["When it's off, the assistant sends nothing; editing works as usual.", "关掉以后，助手不会往外发任何东西；剪辑照常能用。"],
     "ai-set-notice": ["Data notice", "数据说明"],
     "ai-set-notice-tip": ["See again who gets your data, what is sent, and whether it may be used for training", "再看一遍：发给谁、发什么、会不会被拿去训练"],
+    // 设置 › 审片发送 (#321): the one line under the switch, JJ 定稿 2026-11-15 (#321; replaces 6888392707), word for word
+    "rv-set-note": ["Off by default. When this is on, clicking the check button sends that stretch of picture and sound (including any chat messages and viewer names on screen) to the AI service you set up, with no further prompt before it goes.", "默认关。开启后，点检查按钮时，这段画面和声音（包括里面的弹幕和观众昵称）会发给你设置的 AI 服务，发送前不再另外询问。"],
+    // the rest of 设置 › 审片发送, JJ 定稿 2026-11-15 (#347): English added, the Chinese unchanged
+    "rv-set-title": ["Send for review", "审片发送"],
+    "rv-set-enabled": ["Send the clip to openrouter.ai when reviewing", "审片时把片段发到 openrouter.ai"],
+    "rv-set-key-ph": ["OpenRouter key (used only for review)", "OpenRouter 密钥（只用于审片）"],
+    "rv-set-key-save": ["Save key", "保存密钥"],
+    "rv-set-key-clear": ["Delete key", "删除密钥"],
+    "rv-key-saved": ["Key saved", "已保存密钥"],
+    "rv-key-none": ["No key yet", "还没有密钥"],
+    "rv-key-unsealed": ["This computer can't store the key encrypted, so it was not saved.", "这台电脑不能加密保存密钥，没有保存"],
+    "rv-key-bad": ["The key format is not valid, so it was not saved.", "密钥格式不对，没有保存"],
     // a recording nothing could read the length of, not even its packets' times (cut off before it was saved: europa P3).
     // media-incomplete is JJ's sentence (定稿 2026-11-05, her review of the trial), on the file in the bin; the English
     // is a draft for JJ.
@@ -1460,18 +1483,18 @@
   Object.assign(FLV_REASONS, { FLV_PROBE_FAILED: "flvUnreadable", FLV_NOT_FLV: "flvUnreadable", FLV_NOT_FOUND: "flvUnreadable",
     FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
   /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
-  const ERROR_TEXT = { EXPORT_AUDIO_FAILED: "own.export-audio-failed", EXPORT_CLIP_UNCHECKED: "own.export-clip-unchecked", EXPORT_PAGE_CRASHED: "own.err-export-page-crashed", EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
+  const ERROR_TEXT = { EXPORT_AUDIO_FAILED: "own.export-audio-failed", EXPORT_CLIP_UNCHECKED: "own.export-clip-unchecked", EXPORT_PAGE_CRASHED: "own.err-export-page-crashed", EXPORT_ELEVATED_MONTCLIP: "own.err-export-elevated-montclip", EXPORT_ELEVATED_CINDY: "own.err-export-elevated-cindy", EXPORT_ELEVATED_PROGRAM: "own.err-export-elevated-program", EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
     NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
     EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
     extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed",
     // AI background removal at export (#154): JJ's two sentences, as they are (Deja, 2026-11-07)
     BG_REMOVE_UNAVAILABLE: "own.bgremove-export-unavailable", BG_REMOVE_REALTIME: "own.bgremove-export-realtime",
     // no H.264 encoder, said when export is clicked: JJ v2's export sentence h264Refuse, not Settings' h264None* (Deja on #129)
-    EXPORT_NO_H264: "h264Refuse" };
+    EXPORT_NO_H264: "h264Refuse", EXPORT_MEMORY_LIMIT: "own.err-export-memory-limit" };
   /** The codes whose sentence is one of v2's rows: a batch says only these as a reason, anything else as the last row. */
-  const TABLE_REASONS = new Set(["EXPORT_AUDIO_FAILED", "EXPORT_PAGE_CRASHED", "EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH", "DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
+  const TABLE_REASONS = new Set(["EXPORT_AUDIO_FAILED", "EXPORT_PAGE_CRASHED", "EXPORT_ELEVATED_MONTCLIP", "EXPORT_ELEVATED_CINDY", "EXPORT_ELEVATED_PROGRAM", "EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH", "DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
     "FLV_PROBE_FAILED", "FLV_NOT_FLV", "FLV_NOT_FOUND", "FLV_IMPORT_BUSY", "FLV_IMPORT_EXPIRED", "EXPORT_TIMELINE_CHANGED", "frameTooSmall",
-    "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "extNotFullPath", "BG_REMOVE_UNAVAILABLE", "EXPORT_NO_H264"]);
+    "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "extNotFullPath", "BG_REMOVE_UNAVAILABLE", "EXPORT_NO_H264", "EXPORT_MEMORY_LIMIT"]);
   /** A batch's own short reason where the toast's sentence is too long for a queue line (JJ, #129 issuecomment-6700533141). */
   const BATCH_TEXT = { BG_REMOVE_UNAVAILABLE: "errBgRemoveNotReady" };
   const DISK_FULL = /ENOSPC|no space left|disk is full|not enough space/i;
@@ -1518,8 +1541,12 @@
     "own.err-job-busy": 1, "own.err-editor-stopped": 1,
     // MC-14 / MC-15: what happened is the first sentence
     "own.export-audio-failed": 1, "own.export-audio-failed-track": 1, "own.err-export-page-crashed": 1,
+    // #247: the first sentence says what happened and that no file was made; the second is what to do
+    "own.err-export-elevated-montclip": 1, "own.err-export-elevated-cindy": 1, "own.err-export-elevated-program": 1,
     // #231 follow-up (JJ 定稿, #238): listed in WHAT_TEXT too, which says it
     "own.export-clip-unchecked": 1, "own.export-clip-unchecked-track": 1,
+    // #320: what happened and that no file was made, then what to do
+    "own.err-export-memory-limit": 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {

@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),a=require('node:assert/strict'),crypto=require('node:crypto');
-const A=require('../bgremove-assets');
+const A=require('../app/bgremove-assets');
 const entries=Object.entries(A.FILES);
 // Synthetic transport/digest oracle: no real model bytes or executable third-party code.
 // Success-path fake bytes are all zero; the oracle supplies the independently pinned digest.

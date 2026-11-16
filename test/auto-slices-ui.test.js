@@ -11,7 +11,7 @@ test('two entries: the top bar right of 项目, and the transcript tab beside �
  const html=read('index.html'),i=html.indexOf('id="btnProjectsDash"'),j=html.indexOf('id="btnAutoSlices"');
  a.ok(i>0&&j>i&&html.indexOf('id="projectName"')>j,'right after 项目, before the project name');
  a.match(html,/id="btnAutoSlices"[^>]*data-i18n="own\.as-open"/);
- const app=read('app.js'),row=app.slice(app.indexOf('<div class="tr-row tr-entries">'),app.indexOf('</div>',app.indexOf('<div class="tr-row tr-entries">')));
+ const app=read('app/app.js'),row=app.slice(app.indexOf('<div class="tr-row tr-entries">'),app.indexOf('</div>',app.indexOf('<div class="tr-row tr-entries">')));
  a.ok(row.indexOf('data-tr-highlights')>0&&row.indexOf('data-tr-auto')>row.indexOf('data-tr-highlights'),'beside 高光候选, which is kept');
  a.equal(zh('as-open'),'✨ 自动出切片');a.equal(zh('as-open-done'),'✨ 自动出切片 · 找完了');a.equal(zh('hl-open'),'高光候选');
 });
@@ -31,19 +31,19 @@ test('every 自动出切片 string has English too, and the English is not the C
   a.ok(e&&c&&e!==c&&!/[一-鿿]/.test(e.replace(/[「」]/g,'')),k+': '+e);}
 });
 test('finished while the window is not in front: one local notification; the dialog is kept when closed',()=>{
- const app=read('app.js');
+ const app=read('app/app.js');
  a.match(app,/function autoSlicesNotify\(/);
  const fn=app.slice(app.indexOf('function autoSlicesNotify('),app.indexOf('\n}',app.indexOf('function autoSlicesNotify('))+2);
  a.match(fn,/document\.hasFocus\(\)/);a.match(fn,/new Notification\(/);
  a.match(app,/function placeAutoSlices\(/);a.match(app,/function undoAutoSlices\(/);
 });
 test('placing is one undo step for the whole batch, an editor event like any other',()=>{
- const app=read('app.js'),fn=app.slice(app.indexOf('function placeAutoSlices('),app.indexOf('\n}',app.indexOf('function placeAutoSlices('))+2);
+ const app=read('app/app.js'),fn=app.slice(app.indexOf('function placeAutoSlices('),app.indexOf('\n}',app.indexOf('function placeAutoSlices('))+2);
  a.equal((fn.match(/pushUndo\(/g)||[]).length,1,'one pushUndo for every clip placed');
  a.match(fn,/EDIT\.overwriteAt\(/);a.ok(!/"V1"/.test(fn),'the track is wherever it lands, never V1 by name');
 });
 test('the module loads in the page before app.js',()=>{
- const html=read('index.html');a.ok(html.indexOf('src="auto-slices.js"')>0&&html.indexOf('src="auto-slices.js"')<html.indexOf('src="app.js"'));
+ const html=read('index.html');a.ok(html.indexOf('src="auto-slices.js"')>0&&html.indexOf('src="auto-slices.js"')<html.indexOf('src="app/app.js"'));
 });
 test('desktop: the notification comes from the main process over one fixed channel that takes a count only (web permissions stay denied)',()=>{
  const main=read('desktop/main.js'),pre=read('desktop/view-preload.js');
@@ -58,14 +58,14 @@ test("Deja's song-card words until JJ's final copy: a time, 可能在唱歌, thr
  a.equal(zh('as-moment-name',{time:'1:12:04'}),'1:12:04 那段');a.equal(zh('as-maybe-singing'),'可能在唱歌');
  a.deepEqual(['as-tag-estimated','as-tag-likely','as-tag-adjusted'].map(k=>zh(k)),['估的','比较可能','你调过']);
  a.equal(zh('as-lyrics'),'按歌词校准字幕');a.equal(zh('as-lyrics-maybe'),'如果这段是唱歌，可以按歌词校准字幕');
- const app=read('app.js');a.match(app,/MontClipAutoSlices\.title\(c\)/);a.ok(!/uiText\("own\.as-song-name"/.test(app),'第 n 首歌 only through the gate');
+ const app=read('app/app.js');a.match(app,/MontClipAutoSlices\.title\(c\)/);a.ok(!/uiText\("own\.as-song-name"/.test(app),'第 n 首歌 only through the gate');
  a.ok(!/"own\.as-a-song"/.test(app)&&!/as-a-song/.test(read('ui-preferences.js')),'no 一首歌 · length');
 });
 test('v8 (frozen, JJ-approved): a level beside each start and end time; the likely hint; 你调过 grey with no hint; 不确定, not 拿不准',()=>{
  a.equal(zh('as-likely-start'),'开头比较可能在这里，还是点「▶ 听开头」听一下再定。');a.equal(zh('as-likely-end'),'结尾比较可能在这里，还是点「▶ 听结尾」听一下再定。');
  a.equal(zh('as-kind-hint-auto'),'它会自己判断。不确定时会在找完以后问你一句。');a.match(zh('as-ask-sub'),/我不确定/);
  for(const k of ['as-kind-hint-auto','as-ask-sub'])a.ok(!/拿不准/.test(zh(k)),k);
- const app=read('app.js'),edge=app.slice(app.indexOf('function autoEdgeHtml('),app.indexOf('\n}',app.indexOf('function autoEdgeHtml('))+2);
+ const app=read('app/app.js'),edge=app.slice(app.indexOf('function autoEdgeHtml('),app.indexOf('\n}',app.indexOf('function autoEdgeHtml('))+2);
  a.match(edge,/MontClipAutoSlices\.edgeLevel\(c, w\)/);a.match(edge,/data-as-level=/);
  const card=app.slice(app.indexOf('function autoCardHtml('),app.indexOf('\n}',app.indexOf('function autoCardHtml('))+2);
  a.ok(!/MontClipAutoSlices\.tag\(/.test(card),'the level sits by each time, not once on the card');
@@ -78,7 +78,7 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
  a.equal(zh('as-song-name-hint'),'点名字可以改，比如改成歌名。导出的文件就叫这个名字，名字不会出现在画面里。');
  a.equal(zh('as-rename-tip'),'点了可以改。这是导出的文件名，不会出现在画面里。');a.equal(zh('as-filename'),'');
  for(const k of ['as-kind-hint-sing-maybe','as-len-hint-song-maybe','as-run-songs-maybe','as-lyrics-maybe'])a.ok(!/一首歌|第 ?\d+ ?首|每首/.test(zh(k)),k);
- const app=read('app.js'),i=app.indexOf('function autoSongKey(');a.ok(i>0);
+ const app=read('app/app.js'),i=app.indexOf('function autoSongKey(');a.ok(i>0);
  const gate=new Function('MontClipAutoSlices',app.slice(i,app.indexOf('\n}',i)+2)+'return autoSongKey;');
  a.equal(gate({songsTrusted:()=>false})('as-kind-hint-sing'),'as-kind-hint-sing-maybe');a.equal(gate({songsTrusted:()=>true})('as-kind-hint-sing'),'as-kind-hint-sing');
  // JJ's re-review: the kind hint goes through autoKindHintKey (no danmaku → no 弹幕), which still asks the gate
@@ -91,7 +91,7 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
 test("JJ's v11 visual review: the 估的 note once, above the cards; the cards keep only their tags",()=>{
  a.equal(zh('as-guess-note'),'标着「估的」的开头结尾，先点「▶ 听开头 / 听结尾」听一下再定。');
  a.ok(en('as-guess-note')&&en('as-guess-note')!=='own.as-guess-note');
- const app=read('app.js'),edge=app.slice(app.indexOf('function autoEdgeHtml'),app.indexOf('function autoCardHtml'));
+ const app=read('app/app.js'),edge=app.slice(app.indexOf('function autoEdgeHtml'),app.indexOf('function autoCardHtml'));
  a.ok(!/data-as-hint|class="as-guess"|class="as-likely"/.test(edge),'no note written under the strip');
  a.match(read('desktop/slice-cards-smoke.cjs'),/SLICE_CARDS_PASS/);
 });
@@ -99,7 +99,7 @@ test("JJ's v11 visual review: the 估的 note once, above the cards; the cards k
 // v12 (frozen: 原型-v12.html d289ff06…, 交互说明-v12.md d59748f7…): the card layout; the real window is checked by
 // desktop/slice-cards-smoke.cjs
 test('v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics button in the button row with the subtitle line as its tooltip',()=>{
- const css=read('style.css'),app=read('app.js');
+ const css=read('style.css'),app=read('app/app.js');
  a.match(css,/\.auto-slices \.as-clip-title:hover::after \{[^}]*content: "✎"/);
  a.match(css,/\.auto-slices \.as-play \{[^}]*font-weight: 600/);
  const card=app.slice(app.indexOf('function autoCardHtml'),app.indexOf('function autoFooter'));
@@ -116,7 +116,7 @@ test('no wording the streamer sees mentions laughter (笑声)',()=>{
  const walk=(v,out)=>{if(typeof v==='string')out.push(v);else if(v&&typeof v==='object')for(const x of Object.values(v))walk(x,out);return out;};
  const strings=walk(V.text,[]);a.ok(strings.length>500,'the whole string table');
  a.deepEqual(strings.filter(x=>/笑声|laugh/i.test(x)),[]);
- for(const f of ['index.html','app.js','auto-slices.js','highlight-candidates.js','cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
+ for(const f of ['index.html','app/app.js','auto-slices.js','app/highlight-candidates.js','app/cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
 });
 // Deja (2026-11-03): nor what the AI reads — an AI told "a laugh" might tell the streamer it found laughter; the software only
 // hears loudness. Every MCP tool's description (and the descriptions inside its arguments), and the manual fablecut_docs serves
@@ -157,7 +157,7 @@ test('the name hint and the name tooltip in JJ\'s English; "in the video", never
 // (the Transcript tab can, #85; the card is not wired to it), there is no button; once it can, the button says only
 // 按歌词校准字幕 and the long sentence is its tooltip. In this dialog nothing disabled looks pressable.
 test('the card\'s lyrics button: none until the card can use it; then short, the long sentence in its tooltip; disabled looks disabled',()=>{
- const app=read('app.js'),css=read('style.css');
+ const app=read('app/app.js'),css=read('style.css');
  // the card is wired now (card-lyrics.test.js): only a song card with transcript words in its part
  a.match(app,/function autoLyricsAvailable\(c\) \{\s*return !!c && c\.kind === "song" && autoLyricWords\(c\)\.length > 0;/);
  a.equal(zh('as-lyrics'),'按歌词校准字幕');
@@ -209,8 +209,8 @@ test('found and 圈出 count every card the search found, the ones taken out too
  // a part added by hand: not something the search found
  a.deepEqual(S.reviewHead([c('a',true,true),{id:'z',added:true,on:true}],[c('b',true,false)]),{key:'ticked',found:2,on:1});
  // 圈出 N 段 says the same N as the title
- a.ok(read('app.js').includes('autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: h.found })'));
- a.ok(read('app.js').includes('autoSay("as-evidence-nodm", { dur: autoDur(dur), n: h.found })'));
+ a.ok(read('app/app.js').includes('autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: h.found })'));
+ a.ok(read('app/app.js').includes('autoSay("as-evidence-nodm", { dur: autoDur(dur), n: h.found })'));
 });
 
 // the footer's words (JJ): the empty states' reason on the left, the buttons keep their words with 0; a phone-wide window's
@@ -222,7 +222,7 @@ test('the footer: the empty states in JJ\'s words, the short words for a narrow 
  a.equal(zh('as-place',{n:0}),'放到时间线上（0 条）');a.equal(en('as-place',{n:0}),'Put on the timeline (0)');
  a.equal(zh('as-place-short',{n:3}),'放到时间线上（3）');a.equal(zh('as-export-short',{n:3}),'导出 3 条');
  for(const k of ['as-place-short','as-export-short'])a.ok(en(k,{n:3})&&!/[一-鿿]/.test(en(k,{n:3})),k);
- a.equal(V.text['zh-CN']['own.as-tick-first'],undefined);a.ok(!/as-tick-first/.test(read('app.js')));
+ a.equal(V.text['zh-CN']['own.as-tick-first'],undefined);a.ok(!/as-tick-first/.test(read('app/app.js')));
 });
 
 // VV on #90 b76bbe3: 设置 › 自动出切片 says whether 「记住我的剪辑习惯」 is on (Deja's words: 开着 / 关着, On / Off)
@@ -244,5 +244,5 @@ test('the line under 全拿掉 in JJ\'s words; every name it quotes is the scree
  a.equal(zh('as-all-out-sub',{n:3}).includes('拿掉的 3 条'),true,'the count filled in');
  // the secondary button keeps its key's words with 0
  a.equal(zh('as-export',{n:0}),'直接导出这 0 条');a.equal(en('as-export',{n:0}),'Export these 0 now');
- a.match(read('app.js'),/"as-all-out-sub"[^\n]*n: st\.dropped\.length/);
+ a.match(read('app/app.js'),/"as-all-out-sub"[^\n]*n: st\.dropped\.length/);
 });

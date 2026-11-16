@@ -93,7 +93,8 @@ async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3
       await new Promise((r) => setTimeout(r, 250));
     }
     await new Promise((r) => setTimeout(r, settleMs));
-    const out = await run({ evaluate, requests });
+    // send: the browser's own input (Input.dispatchMouseEvent: a real press, move and release), MontClip#270
+    const out = await run({ evaluate, requests, send });
     ws.close();
     return out;
   } finally {
@@ -107,16 +108,16 @@ async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3
 }
 
 /** Open `url` (withPage), run MEASURE — once, or after each of `states` ({name, run}: an expression that puts the page
- *  in that state). → {texts, skipped} | {[name]: {texts, skipped, ran}} — ran: what that expression returned */
+ *  in that state). → {texts, skipped} | {[name]: {texts, skipped}} */
 async function measureContrast({ browser, url, width = 1280, height = 800, settleMs = 3000, before = "", states = null }) {
   return withPage({ browser, url, width, height, settleMs }, async ({ evaluate }) => {
     let out;
     if (states) {
       out = {};
       for (const st of states) {
-        const ran = st.run ? await evaluate(st.run) : undefined;   // what the state's expression reported (e.g. whether it got there)
+        if (st.run) await evaluate(st.run);
         await new Promise((r) => setTimeout(r, 500));
-        out[st.name] = { ...(await evaluate(MEASURE)), ran };
+        out[st.name] = await evaluate(MEASURE);
       }
     } else {
       if (before) { await evaluate(before); await new Promise((r) => setTimeout(r, 500)); }

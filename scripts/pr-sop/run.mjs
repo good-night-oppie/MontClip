@@ -17,23 +17,27 @@ export async function collectMetadata({ get, repo, number, eventPR }) {
     for (let page = 1; page <= 30; page++) {
       const rows = await get(`${base}/${suffix}?per_page=100&page=${page}`);
       if (!Array.isArray(rows)) throw Error("API_SHAPE");
-      // Ignore patches/content. Only names and reviewer metadata are used.
+      // Ignore patches/content. Only names, reviewer metadata and comment author/body are used.
       items.push(...rows);
       if (rows.length < 100) return items;
     }
     throw Error("API_INCOMPLETE");
   }
-  const [fileRows, requested, reviews] = await Promise.all([pages("files"), get(`${prefix}/requested_reviewers`), pages("reviews")]);
+  // 送审看PR评论首行@QQ（SOP v4.1第5条），评论在issues接口下。
+  const issue = `/repos/${repo}/issues/${number}`;
+  const [fileRows, reviews, comments] = await Promise.all([pages("files"), pages("reviews"), pages("comments", issue)]);
   if (fileRows.length !== first.changed_files) throw Error("API_INCOMPLETE");
-  const finalReviews = await pages("reviews");
+  const [finalReviews, finalComments] = await Promise.all([pages("reviews"), pages("comments", issue)]);
   const fingerprint = rows => JSON.stringify(rows.map(r => [r.id, r.user?.login, r.commit_id, r.state, r.body, r.submitted_at]));
   if (fingerprint(reviews) !== fingerprint(finalReviews)) throw Error("REVIEWS_CHANGED");
+  const commentPrint = rows => JSON.stringify(rows.map(c => [c.id, c.user?.login, c.body, c.updated_at]));
+  if (commentPrint(comments) !== commentPrint(finalComments)) throw Error("COMMENTS_CHANGED");
   const last = await get(prefix);
   if (!same(last, first)) throw Error("PR_CHANGED");
-  if (!Array.isArray(requested.users)) throw Error("API_SHAPE");
   return {
     pr: { body: eventPR.body || "", isDraft: !!eventPR.draft, headRefOid: eventPR.head.sha, author: { login: eventPR.user?.login },
-      reviewRequests: requested.users.map((u) => ({ login: u.login })), reviews: reviews.map((r) => ({ id:r.id, author: { login: r.user?.login }, commit: { oid: r.commit_id }, state:r.state, body:r.body, submittedAt: r.submitted_at })) },
+      reviews: reviews.map((r) => ({ id:r.id, author: { login: r.user?.login }, commit: { oid: r.commit_id }, state:r.state, body:r.body, submittedAt: r.submitted_at })),
+      comments: comments.map((c) => ({ author: { login: c.user?.login }, body: c.body || "" })) },
     files: fileRows.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename }))
   };
 }
@@ -60,7 +64,7 @@ export async function main(env = process.env) {
   console.log(text); // only fixed messages; never PR body, token, exception reasons or URLs
   for (const warning of result.warnings || []) console.log(`::notice::${warning.message}`);
   const fingerprints = ["rules.mjs", "policy.json", "teammates.json"].map((name) => `${name}: ${createHash("sha256").update(fs.readFileSync(new URL(name, import.meta.url))).digest("hex")}`).join("\n");
-  if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## sop-pr-lint\n\n${text}\n\nHead: ${pr.head.sha}\n\n\`\`\`text\n${fingerprints}\n\`\`\`\n例外须QQ当前head的review逐项核验；此结果不等于正式批准。\n例外内容以 QQ 提交核验review时的正文为准，改了例外内容请重新请 QQ 核验。\n`);
+  if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## sop-pr-lint\n\n${text}\n\nHead: ${pr.head.sha}\n\n\`\`\`text\n${fingerprints}\n\`\`\`\n送审看PR评论首行@QQOppieXYZ或QQ已有review；新评论不会自动重跑，写完请编辑一次PR正文。\n例外须QQ当前head的review逐项核验；此结果不等于正式批准。\n例外内容以 QQ 提交核验review时的正文为准，改了例外内容请重新请 QQ 核验。\n`);
   if (!["passed", "skipped"].includes(result.status)) {
     console.log("::warning::PR送审信息需补齐或需要QQ核验，请查看本步骤摘要。");
     return 1;

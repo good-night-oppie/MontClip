@@ -7,7 +7,7 @@
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences'), R = require('../problem-redact'), X = require('../server/external-ffmpeg');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const app = read('app.js');
+const app = read('app/app.js');
 const CJK = /[　-〿㐀-鿿＀-￯]/;
 const fnBody = (src, head) => { const at = src.indexOf(head); a.ok(at >= 0, head); let d = 0, i = src.indexOf('{', at);
   for (; i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}' && --d === 0) break; } return src.slice(at, i + 1); };
@@ -155,7 +155,7 @@ test('every public code: words in both languages, no English in the Chinese, not
   for (const c of ['FLV_TIMELINE_GAP', 'FLV_NOT_FOUND', 'HEADLESS_DISABLED', 'extNoX264', 'h264NoneOther', 'frameTooSmall',
     'NETWORK_DISABLED', 'extNeeded', 'EXPORT_TIMELINE_CHANGED', 'DISK_FULL', 'ffmpegMissing']) a.ok(codes.includes(c), c);
   a.ok(codes.length >= 40, String(codes.length));
-  const NAMES = /MontClip|FFmpeg|ffmpeg\.exe|FLV|MP4|H\.264|x264|Windows|NVIDIA|Intel|AMD|Apple|Media Feature Pack|Yolo|AI/g;
+  const NAMES = /MontClip|Cindy|FFmpeg|ffmpeg\.exe|FLV|MP4|H\.264|x264|Windows|NVIDIA|Intel|AMD|Apple|Media Feature Pack|Yolo|AI/g;
   for (const code of codes) {
     const raw = 'raw ' + code + ' from ffmpeg: Unknown encoder';
     const z = V.errorText('zh-CN', { code, params: PARAMS, message: raw }), e = V.errorText('en', { code, params: PARAMS, message: raw });
@@ -180,10 +180,16 @@ const KNOWN = { 'own.font-net-hosts': 'Google',
   'officialPane_dataNoticeUse': 'DeepSeek', 'officialPane_dataNoticeBasis': 'DeepSeek', 'officialPane_dataNoticeSound': 'DeepSeek',
   // the line when ask() is declined inside Cindy (JJ's words, 2026-11-07): the product name, (a)
   'own.ap-embedded-declined': 'Cindy',
+  // #247's administrator sentence as the plugin says it (JJ's spec 6720532815: 「把 MontClip 换成 Cindy」): the product name, (a)
+  'own.err-export-elevated-cindy': 'Cindy',
   // the audio-track hint (JJ chose A on #177, 2026-11-07): the recorder's product name, (a)
   'own.at-hint': 'OBS',
   // #146's no-x264 sentences (JJ chose A on #146, 2026-11-07): the preset as the export list shows it, delivery.js label "Master", (a)
-  'extNeededServer': 'Master', 'extNeededPlugin': 'Master' };
+  'extNeededServer': 'Master', 'extNeededPlugin': 'Master',
+  // 设置 › 审片发送 (#321, JJ 定稿 2026-11-15 on #347, the Chinese unchanged): the site the clip goes to, openrouter.ai, and the
+  // service's name in the key field, (a) —
+  // already listed for this section's HTML as html:setReview in fixtures/zh-index-english.json
+  'own.rv-set-enabled': 'openrouter', 'own.rv-set-key-ph': 'OpenRouter' };
 // the same notice writes the address api.deepseek.com: "api" there is part of a host name, not API in another casing
 const KNOWN_CASE = { 'officialPane_dataNoticeWho': ['api'] };
 test('the Chinese interface: no English word of three letters or more, beyond JJ\'s categories; names in their own casing', () => {

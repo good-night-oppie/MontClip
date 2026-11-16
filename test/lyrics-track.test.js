@@ -110,7 +110,7 @@ test('scopeSig: moving or trimming a singing clip changes it; other clips and ca
 
 /* The page's apply (app.js runLyricsJob), run against a small world: the card answered, the undo history real. */
 function page({answer='place',policy=null}={}){
- const SRC=read('app.js');
+ const SRC=read('app/app.js');
  const cut=(x,y)=>{const i=SRC.indexOf(x),j=SRC.indexOf(y,i);a.ok(i>=0&&j>i,x);return SRC.slice(i,j);};
  const code=cut('function undoSnapshot()','function redo()')+'\n'+cut('async function runLyricsJob(','async function runTrackJob(');
  const world={
@@ -238,7 +238,7 @@ test('capabilities: the proposal only reads; applying is undoable (one Ctrl+Z), 
 
 test('the page loads the module before app.js, and the server queues the card for an open tab only',()=>{
  const html=read('index.html');
- a.ok(html.indexOf('lyrics-track.js')>html.indexOf('lyrics-align.js')&&html.indexOf('lyrics-track.js')<html.indexOf('"app.js"'));
+ a.ok(html.indexOf('lyrics-track.js')>html.indexOf('lyrics-align.js')&&html.indexOf('lyrics-track.js')<html.indexOf('"app/app.js"'));
  const Jobs=require('../server/export-jobs');
  const jobs=Jobs.createExportJobs({editors:()=>0,broadcast:()=>{},url:()=>''});
  a.throws(()=>jobs.request({kind:'lyrics',where:'auto',lyrics:{}}),/needs one/);
@@ -251,8 +251,8 @@ test('the page loads the module before app.js, and the server queues the card fo
 /* Deja, 2026-11-07, merging main (#120): the lyrics card stays its own box (a step from MCP has no reply for #120's card to
    sit under, it asks in every mode, and its buttons and grey lines are JJ's), but never under the old approval box's class. */
 test('the lyrics card is its own lt-card, never the old approval box, and keeps JJ\'s buttons',()=>{
- const app=read('app.js'),css=read('style.css');
- for(const f of ['app.js','index.html','docs/demo/app.js','docs/demo/index.html']){
+ const app=read('app/app.js'),css=read('style.css');
+ for(const f of ['app/app.js','index.html','docs/demo/app/app.js','docs/demo/index.html']){
   const s=read(f);
   a.ok(!/class(Name)?\s*=\s*(["'])agent-approval\2/.test(s),f+': the old box (class "agent-approval") is gone');
  }

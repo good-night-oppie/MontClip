@@ -4,7 +4,7 @@
 // (助手面板 v7.2 说明第 39 行; Deja, 2026-11-04) — and at most one step 进行中. Before it starts the streamer can delete a step or drop the whole plan. A step that fails stops
 // the plan there. The model's plan is data: checked here, never run as it is.
 const {test}=require('node:test'),a=require('node:assert/strict');
-const Plan=require('../agent-plan'),Cap=require('../capabilities');
+const Plan=require('../app/agent-plan'),Cap=require('../capabilities');
 
 const step=(capability='keep_ranges',args={output_mode:'one_file',ranges:[{clipId:'v1',from:0,to:10}]})=>({capability,args});
 const text=(steps)=>JSON.stringify({type:'plan',steps});

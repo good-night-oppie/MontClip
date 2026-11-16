@@ -5,7 +5,7 @@
 // audio mix or frame is rendered. Exports that don't use H.264 still go out.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences'), X = require('../server/external-ffmpeg');
-const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
+const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server/server.js'), 'utf8');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i)); };
 
 // JJ, europa-aws ~/montclip-labels/jj/2026-11-04-错误白话表-默认条数-发到手机-JJ.md v2 (sha256 d99c25d1…),

@@ -7,7 +7,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { ROOT } = require("./helpers");
 
-const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
 
 function slice(startMarker, endMarker) {
   const a = SRC.indexOf(startMarker);
@@ -299,6 +299,7 @@ test("seekVideosTo: an element whose callback says it is on the frame but holds 
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), videoRangeBuffered = () => true, prefetchExportVideos = () => {};
     const playAdvanceVideo = () => Promise.resolve(), driveClipChain = () => {}, muteClipChain = () => {};
     const hardSeekVideo = async (e, mt) => { e.holding = Math.round(mt * 30); };
+    const EXPORT_JOB_PAGE = false, exportPlayerNeeded = () => true, clipEnd = (c) => c.start + c.duration, releaseClipEl = () => {};
     const presentedClose = (e, mt, eps) => e._fcPresentedTime != null && Math.abs(e._fcPresentedTime - mt) <= eps;
     ${HOLD}
     ${slice("async function seekVideosTo(", "function encodeWAV(")}

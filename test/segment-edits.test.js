@@ -5,7 +5,7 @@
 //   add_segment      — a new card from IN–OUT, with its kind
 // Each gives the cards after it, the event's args, how to undo it, and the correction it teaches (corrections.js).
 const {test}=require('node:test'),a=require('node:assert/strict');
-const E=require('../segment-edits'),Cap=require('../capabilities');
+const E=require('../app/segment-edits'),Cap=require('../capabilities');
 
 const cards=()=>[{id:'m1_s1',mediaId:'m1',kind:'song',no:1,s:100,e:220,at:100},{id:'m1_m50',mediaId:'m1',kind:'moment',no:null,s:50,e:80,at:50}];
 

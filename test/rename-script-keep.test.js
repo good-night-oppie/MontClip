@@ -21,7 +21,7 @@ test('a line marked fablecut-keep and the licence files keep "FableCut"; everyth
   const credit = 'MontClip is a modified version of [FableCut](https://github.com/x/FableCut) and keeps its MIT license. <!-- fablecut-keep: upstream credit -->';
   const d = repo(t, {
     'docs/hackathon/README.md': `# Hackathon\n\n${credit}\n\nThe FableCut captions module.\n`,
-    'app.js': 'window.FableCutCaptions = {};\n// FableCut, by the upstream author  fablecut-keep\nconst x = FableCutDelivery;\n',
+    'app/app.js': 'window.FableCutCaptions = {};\n// FableCut, by the upstream author  fablecut-keep\nconst x = FableCutDelivery;\n',
     'LICENSES.md': 'Parts come from FableCut (MIT).\n',
     'NOTICE': 'FableCut notice.\n',
     'NOTICE.md': 'FableCut notice.\n',
@@ -31,13 +31,13 @@ test('a line marked fablecut-keep and the licence files keep "FableCut"; everyth
   a.equal(fs.readFileSync(path.join(ROOT, 'docs/hackathon/README.md'), 'utf8'), mine, 'only the scratch repository was touched, not this one');
   const read = (f) => fs.readFileSync(path.join(d, f), 'utf8');
   a.equal(read('docs/hackathon/README.md'), `# Hackathon\n\n${credit}\n\nThe MontClip captions module.\n`, 'the marked line stays; the other line is renamed');
-  a.equal(read('app.js'), 'window.MontClipCaptions = {};\n// FableCut, by the upstream author  fablecut-keep\nconst x = MontClipDelivery;\n');
+  a.equal(read('app/app.js'), 'window.MontClipCaptions = {};\n// FableCut, by the upstream author  fablecut-keep\nconst x = MontClipDelivery;\n');
   a.equal(read('LICENSES.md'), 'Parts come from FableCut (MIT).\n');
   a.equal(read('NOTICE'), 'FableCut notice.\n');
   a.equal(read('NOTICE.md'), 'FableCut notice.\n');
   // running again changes nothing
   R.renameTree({ root: d, regenerate: false });
-  a.equal(read('app.js'), 'window.MontClipCaptions = {};\n// FableCut, by the upstream author  fablecut-keep\nconst x = MontClipDelivery;\n');
+  a.equal(read('app/app.js'), 'window.MontClipCaptions = {};\n// FableCut, by the upstream author  fablecut-keep\nconst x = MontClipDelivery;\n');
 });
 
 test('the repository\'s own upstream credit lines carry the marker, so the script leaves them alone', (t) => {

@@ -8,7 +8,7 @@ const fs = require('node:fs'), path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const view = require('../ui-preferences');
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+const app = fs.readFileSync(path.join(ROOT, 'app/app.js'), 'utf8');
 const strip = (s) => s.replace(/<\/?(?:kbd|code)>/g, '').replace(/[⟨⟩]/g, '');
 
 // JJ's table, A section (87 help rows), zh with ⟨⟩ for the page's own kbd/code tags.

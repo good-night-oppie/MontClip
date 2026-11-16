@@ -13,7 +13,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const { ROOT } = require("./helpers");
 
-const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const SRC = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
 const a = SRC.indexOf("async function syncFromServer(force) {");
 const b = SRC.indexOf("/** Populate a media entry's duration", a);
 assert.ok(a >= 0 && b > a, "syncFromServer is where this test expects it");

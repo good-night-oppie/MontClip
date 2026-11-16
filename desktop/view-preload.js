@@ -15,6 +15,18 @@ if(new URLSearchParams(location.search).get('host')!=='cindy')contextBridge.expo
  switchGet:()=>ipcRenderer.invoke('montclip:agent:switchGet'),
  switchSet:enabled=>ipcRenderer.invoke('montclip:agent:switchSet',enabled)
 }));
+// #321 (ADR #341): the review's switch and key (Settings), and sending a prepared check — named only by its id, token and hash, which the main
+// process checks against the engine before it lets that one check go (nothing is shown before a send: owner, #321 6888246693). Not for the
+// editor inside another app.
+if(new URLSearchParams(location.search).get('host')!=='cindy')contextBridge.exposeInMainWorld('montclipReview',Object.freeze({
+ switchGet:()=>ipcRenderer.invoke('montclip:review:switchGet'),
+ switchSet:on=>ipcRenderer.invoke('montclip:review:switchSet',on===true),
+ keyStatus:()=>ipcRenderer.invoke('montclip:review:keyStatus'),
+ keySet:key=>ipcRenderer.invoke('montclip:review:keySet',String(key)),
+ keyClear:()=>ipcRenderer.invoke('montclip:review:keyClear'),
+ send:v=>ipcRenderer.invoke('montclip:review:send',{reviewId:String(v?.reviewId||''),token:String(v?.token||''),hash:String(v?.hash||''),assistant:v?.assistant===true}),
+ unblock:()=>ipcRenderer.invoke('montclip:review:unblock')
+}));
 // The AI's permission mode and the host's approval box (P4): the main process decides; the page answers a ticket only.
 contextBridge.exposeInMainWorld('montclipAgentPolicy',Object.freeze({
  get:()=>ipcRenderer.invoke('montclip:policy:get'),

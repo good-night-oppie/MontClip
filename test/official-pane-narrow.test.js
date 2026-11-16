@@ -4,7 +4,7 @@
 // whose id has not been assigned yet must get one through the existing project
 // adoption path before references or sending, with no file dialog.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const app=fs.readFileSync(require.resolve('../app.js'),'utf8'),pane=fs.readFileSync(require.resolve('../agent-ui/pane.tsx'),'utf8');
+const app=fs.readFileSync(require.resolve('../app/app.js'),'utf8'),pane=fs.readFileSync(require.resolve('../agent-ui/pane.tsx'),'utf8');
 function fn(name){const start=app.indexOf('async function '+name+'(');a.ok(start>=0,name+' missing');return app.slice(start,app.indexOf('\n}',start)+2);}
 function element(src,open){const i=src.indexOf(open);a.ok(i>=0,open+' missing');return i;}
 

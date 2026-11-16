@@ -189,8 +189,6 @@
           <button class="btn icon toggle" id="btnSpeed" title="Preview speed — click to cycle 1×/1.5×/2×/4×. L forward · J reverse (tap again = faster) · K stop. Preview only, not export.">1×</button>
         </div>
         <div class="transport-end">
-          <!-- 「检查这 10 秒」 (#321 step 2): label, box and wiring in review-check.js; hidden until the server has the review routes -->
-          <button type="button" class="btn review-btn hidden" id="btnReviewCheck">检查这 10 秒</button>
           <button type="button" class="btn icon hidden" id="btnInsert" title="Insert Source In→Out at the timeline playhead (,)" aria-label="Insert" data-i18n-aria-label="term.insert">
             <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
               <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" d="M0.75 5H3.5V11H0.75M15.25 5H12.5V11h2.75"/>
@@ -237,6 +235,9 @@
       <div class="color-page hidden" id="colorPage"></div>
       <div class="tr-page hidden" id="transcriptPage"></div>
     </aside>
+    <!-- The side edges (MontClip#270). They lie over the gaps beside the preview; they are not columns of the row. -->
+    <div class="h-split" id="splitBinMonitor" data-side="left" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize · double-click to reset" aria-label="Drag to resize · double-click to reset" data-i18n-title="term.drag-to-resize-double-click-to-reset" data-i18n-aria-label="term.drag-to-resize-double-click-to-reset"></div>
+    <div class="h-split" id="splitMonitorInspector" data-side="right" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize · double-click to reset" aria-label="Drag to resize · double-click to reset" data-i18n-title="term.drag-to-resize-double-click-to-reset" data-i18n-aria-label="term.drag-to-resize-double-click-to-reset"></div>
   </div>
 
   <div class="v-split" id="splitUpperTimeline" role="separator" aria-orientation="horizontal" title="Drag to resize · double-click to reset" data-i18n-title="term.drag-to-resize-double-click-to-reset"></div>
@@ -563,6 +564,20 @@
       </label>
       <div class="settings-row"><button class="btn" id="btnAiNotice" type="button" data-i18n="own.ai-set-notice" data-i18n-title="own.ai-set-notice-tip" title="See again who gets your data, what is sent, and whether it may be used for training">Data notice</button></div>
     </div>
+    <!-- #321 (ADR #341): the review's own switch and key, kept by the desktop main process. Wording to be finalized by JJ. -->
+    <div class="settings-section hidden" id="setReview">
+      <h3 data-i18n="own.rv-set-title">Send for review</h3>
+      <label class="settings-row">
+        <input type="checkbox" id="setReviewEnabled">
+        <span>
+          <span class="settings-label" data-i18n="own.rv-set-enabled">Send the clip to openrouter.ai when reviewing</span>
+          <span class="settings-hint" data-i18n="own.rv-set-note">Off by default. When this is on, clicking the check button sends that stretch of picture and sound (including any chat messages and viewer names on screen) to the AI service you set up, with no further prompt before it goes.</span>
+        </span>
+      </label>
+      <div class="settings-row"><input type="password" id="setReviewKey" autocomplete="off" spellcheck="false" placeholder="OpenRouter key (used only for review)" data-i18n-placeholder="own.rv-set-key-ph">
+        <button class="btn" id="btnReviewKeySave" type="button" data-i18n="own.rv-set-key-save">Save key</button><button class="btn" id="btnReviewKeyClear" type="button" data-i18n="own.rv-set-key-clear">Delete key</button>
+        <span class="settings-hint" id="setReviewKeyState"></span></div>
+    </div>
     <div class="settings-section hidden" id="setSlices">
       <h3 data-i18n="own.as-set-title">Auto slices</h3>
       <div class="settings-row settings-row-mid"><button class="btn" type="button" data-learn-open data-i18n="own.as-learn-title">Remember my editing habits</button> <span class="settings-hint" data-learn-state></span></div>
@@ -762,15 +777,15 @@
 <script src="tracker.js"></script>
 <script src="reframe.js"></script>
 <script src="highlights.js"></script>
-<script src="highlight-candidates.js"></script>
-<script src="caption-quick.js"></script>
+<script src="app/highlight-candidates.js"></script>
+<script src="app/caption-quick.js"></script>
 <script src="lyrics-align.js"></script>
 <script src="lyrics-track.js"></script>
 <script src="danmaku.js"></script>
 <script src="songs.js"></script>
 <script src="auto-slices.js"></script>
 <script src="corrections.js"></script>
-<script src="segment-edits.js"></script>
+<script src="app/segment-edits.js"></script>
 <script src="motion.js"></script>
 <script src="color.js"></script>
 <script src="edit-ops.js"></script>
@@ -780,30 +795,29 @@
 <script src="templates.js"></script>
 <script src="media-lib.js"></script>
 <script src="delivery.js"></script>
-<script src="bg-export.js"></script>
-<script src="mp4-demux.js"></script>
+<script src="app/bg-export.js"></script>
+<script src="app/mp4-demux.js"></script>
 <script src="ui-terms.js"></script>
-<script src="narrow-layout.js"></script>
+<script src="app/narrow-layout.js"></script>
 <script src="ui-preferences.js"></script>
-<script src="ffmpeg-card.js"></script>
-<script src="review-check.js"></script>
+<script src="app/ffmpeg-card.js"></script>
 <script src="problem-redact.js"></script>
 <script src="agent-session-schema.js"></script>
-<script src="agent-pane.js"></script>
+<script src="app/agent-pane.js"></script>
 <script src="agent-format.js"></script>
-<script src="agent-limits.js"></script>
-<script src="agent-conversation.js"></script>
-<script src="agent-facts.js"></script>
-<script src="capabilities-page.js"></script>
+<script src="app/agent-limits.js"></script>
+<script src="app/agent-conversation.js"></script>
+<script src="app/agent-facts.js"></script>
+<script src="app/capabilities-page.js"></script>
 <script src="capabilities.js"></script>
-<script src="agent-events.js"></script>
+<script src="app/agent-events.js"></script>
 <script src="agent-policy.js"></script>
-<script src="agent-plan.js"></script>
-<script src="agent-approval.js"></script>
-<script src="chat-proposal.js"></script>
-<script src="cindy-official.js"></script>
-<script src="workspace-preferences.js"></script>
-<script src="bgremove-assets.js"></script>
-<script src="app.js"></script>
+<script src="app/agent-plan.js"></script>
+<script src="app/agent-approval.js"></script>
+<script src="app/chat-proposal.js"></script>
+<script src="app/cindy-official.js"></script>
+<script src="app/workspace-preferences.js"></script>
+<script src="app/bgremove-assets.js"></script>
+<script src="app/app.js"></script>
 </body>
 </html>

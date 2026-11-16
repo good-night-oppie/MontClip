@@ -15,7 +15,7 @@ const read = (f) => fs.readFileSync(path.join(root, f), "utf8");
 // the scripts index.html loads, in its order, run in one browser-like global (no module, no require)
 function loadPage(html, dir = root) {
   const srcs = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
-  const wanted = srcs.filter((s) => s === "highlights.js" || s === "highlight-candidates.js");
+  const wanted = srcs.filter((s) => s === "highlights.js" || s === "app/highlight-candidates.js");
   const ctx = vm.createContext({});
   ctx.self = ctx; ctx.window = ctx;
   for (const s of wanted) vm.runInContext(fs.readFileSync(path.join(dir, s), "utf8"), ctx, { filename: s });
@@ -23,12 +23,12 @@ function loadPage(html, dir = root) {
 }
 
 test("index.html loads both highlight scripts", () => {
-  assert.deepEqual(loadPage(read("index.html")).wanted.sort(), ["highlight-candidates.js", "highlights.js"]);
+  assert.deepEqual(loadPage(read("index.html")).wanted.sort(), ["app/highlight-candidates.js", "highlights.js"]);
 });
 
 test("the editor's Highlights (sequence menu) is highlights.js, not the candidates", () => {
   const { ctx } = loadPage(read("index.html"));
-  const app = read("app.js");
+  const app = read("app/app.js");
   const m = app.match(/^const Highlights = self\.(\w+);/m);
   assert.ok(m, "app.js reads Highlights from a global");
   const H = ctx[m[1]];
@@ -43,8 +43,8 @@ test("the editor's Highlights (sequence menu) is highlights.js, not the candidat
 
 test("高光候选 and 自动出切片 get highlight-candidates.js under their own name", () => {
   const { ctx } = loadPage(read("index.html"));
-  const want = require("../highlight-candidates.js");
-  const app = read("app.js");
+  const want = require("../app/highlight-candidates.js");
+  const app = read("app/app.js");
   const names = new Set([...app.matchAll(/\b(MontClip\w*Highlight\w*)\.(\w+)/g)].map((x) => x[1]));
   assert.ok(names.size >= 1);
   for (const name of names) {

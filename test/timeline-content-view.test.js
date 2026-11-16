@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../app/app.js'),'utf8');
 function setup(){
  const tracks=['V3','V2','V1','A1','A2'].map(id=>({id,kind:id[0]==='V'?'video':'audio',h:id[0]==='V'?58:42}));
  const scroll={scrollTop:0,clientHeight:180,getBoundingClientRect:()=>({top:0})};

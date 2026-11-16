@@ -6,7 +6,7 @@
 // desktop/narrow-layout-smoke.cjs, recorded in docs/validation/2026-11-02-narrow-layout.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
-const L=require('../narrow-layout');
+const L=require('../app/narrow-layout');
 
 const items=(spec)=>spec.map(([id,width,rank])=>({id,width,rank}));
 test('everything that fits stays in the bar and no More button is needed',()=>{
@@ -39,7 +39,7 @@ test('the toolbar marks how tools collapse; Snap last; nothing shrinks under its
  const snap=+bar.match(/class="snap-seg"[^>]*data-more-rank="(\d+)"/)[1];a.equal(snap,Math.min(...ranks),'Snap collapses last');
  a.match(bar,/id="btnTlMore"/);a.match(bar,/id="tlMoreMenu"/);
  const css=read('style.css');a.match(css,/\.timeline-toolbar > \*[^{]*\{[^}]*flex-shrink:\s*0/,'toolbar items keep their width');
- a.match(read('index.html'),/<script src="narrow-layout\.js/);
+ a.match(read('index.html'),/<script src="app\/narrow-layout\.js/);
 });
 test('the monitor header keeps one row; its controls collapse into its own More menu',()=>{
  const html=read('index.html');a.match(html,/id="btnMonMore"/);a.match(html,/id="monMoreMenu"/);
@@ -57,7 +57,7 @@ test('More labels are in both languages',()=>{
 test('the upper area keeps the monitor header, the player and a 90px picture',()=>{
  a.equal(L.upperNeed({head:40,transport:68}),40+68+90);
  a.equal(L.upperNeed({head:10,transport:20}),L.UPPER_MIN,'never below UPPER_MIN');
- a.match(read('app.js'),/upperMin:\s*MontClipNarrow\.upperNeed\(/,'the timeline budget uses it');
+ a.match(read('app/app.js'),/upperMin:\s*MontClipNarrow\.upperNeed\(/,'the timeline budget uses it');
 });
 test('the top bar stays one row on narrow windows: its right-hand tools collapse, Export never does',()=>{
  const html=read('index.html'),right=html.match(/<div class="topbar-right">([\s\S]*?)\n    <\/div>\n  <\/header>/)[1];
@@ -65,33 +65,33 @@ test('the top bar stays one row on narrow windows: its right-hand tools collapse
  a.ok(!/id="btnExport"[^>]*data-more-rank|data-more-rank[^>]*id="btnExport"/.test(right),'Export is pinned');
  a.ok([...right.matchAll(/data-more-rank="\d+"/g)].length>=4);
  const css=read('style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];a.ok(!/\.topbar[^{]*\{[^}]*flex-wrap:\s*wrap/.test(m),'no wrapping top bar');
- a.match(read('app.js'),/attach\(document\.querySelector\("\.topbar-right"\)/);
+ a.match(read('app/app.js'),/attach\(document\.querySelector\("\.topbar-right"\)/);
 });
 test('a narrow monitor puts the player on two rows instead of cutting buttons off',()=>{
  const css=read('style.css');a.match(css,/container-type:\s*inline-size/);a.match(css,/@container monitor \(max-width: 540px\)/);
 });
 test('a bar whose width follows its content cannot re-plan itself in a loop',()=>{
- a.match(read('narrow-layout.js'),/lastWidth/);
+ a.match(read('app/narrow-layout.js'),/lastWidth/);
 });
 test('narrow side panels: tab strips scroll instead of cutting tabs off; the bin header collapses into More (Import stays)',()=>{
  const css=read('style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];
  a.match(m,/\.bin-tabs\s*\{[^}]*overflow-x:\s*auto/);a.match(m,/\.bin-tabs button\s*\{[^}]*flex:\s*1 0 auto/);
  const html=read('index.html'),head=html.match(/<span class="panel-head-actions bin-actions">([\s\S]*?)<\/span>\n      <\/div>/)[1];
  a.match(head,/id="btnBinMore"/);a.match(head,/id="binMoreMenu"/);a.ok(!/data-more-rank[^>]*id="btnImport"|id="btnImport"[^>]*data-more-rank/.test(head),'Import is pinned');
- a.match(read('app.js'),/attach\(document\.querySelector\("\.bin-actions"\)/);
- a.match(read('app.js'),/\.bin-tabs[\s\S]{0,200}wheel/,'a mouse wheel scrolls a tab strip');
+ a.match(read('app/app.js'),/attach\(document\.querySelector\("\.bin-actions"\)/);
+ a.match(read('app/app.js'),/\.bin-tabs[\s\S]{0,200}wheel/,'a mouse wheel scrolls a tab strip');
 });
 test('the top bar tightens its spacing on very narrow windows so Export stays in reach',()=>{
  a.match(read('style.css'),/@media \(max-width: 700px\) \{[^@]*\.app > \.topbar\s*\{[^}]*gap:\s*6px/);
 });
 test('the static demo ships narrow-layout.js (app.js needs it at start-up)',()=>{
- a.match(read('docs/demo/sync.js'),/"narrow-layout\.js"/);
+ a.match(read('docs/demo/sync.js'),/"app\/narrow-layout\.js"/);
 });
 
 // VV (#33 b9b8ddb, 804 and 630): the monitor's More menu sat under #preview, and the transcript's caption row was cut off.
 test('the monitor More menu floats in <body> above the panels; the transcript tools scroll and the sentence row stands alone', () => {
   const read = (f) => require('node:fs').readFileSync(require('node:path').join(__dirname, '..', f), 'utf8');
-  const lib = read('narrow-layout.js'), app = read('app.js'), css = read('style.css');
+  const lib = read('app/narrow-layout.js'), app = read('app/app.js'), css = read('style.css');
   a.match(lib, /function attach\(bar, button, menu, \{ onChange, floating = false \} = \{\}\)/);
   a.match(lib, /if \(floating\) \{ doc\.body\.appendChild\(menu\); menu\.classList\.add\("more-menu-floating"\); \}/);
   a.match(lib, /function open\(\) \{ menu\.hidden = false; button\.setAttribute\("aria-expanded", "true"\); place\(\); \}/);
@@ -115,7 +115,7 @@ test('the bin header buttons keep their labels at every width: they never shrink
   a.match(outside, /\.panel-head > \.panel-head-actions\.bin-actions > \.btn \{[^}]*flex: 1 0 auto/);
 });
 test('the bin More menu floats above the panels (at 1270 its items were drawn inside the bin and could not be clicked)', () => {
-  a.match(read('app.js'), /attach\(document\.querySelector\("\.bin-actions"\), \$\("btnBinMore"\), \$\("binMoreMenu"\), \{ floating: true \}\)/);
+  a.match(read('app/app.js'), /attach\(document\.querySelector\("\.bin-actions"\), \$\("btnBinMore"\), \$\("binMoreMenu"\), \{ floating: true \}\)/);
 });
 
 // VV (2026-11-05, 360 px): 素材 put the bin beside the player, half off the page (filter 281→401, sort 405→483, its
@@ -137,7 +137,7 @@ test('a narrow window opens 素材 across the whole width, not half off the page
 // VV on #162 (bcdceed9): at ≤560 px the open bin covers the player, so a double-click that loaded Source looked like nothing
 // happened, and the button still said 素材. Measured edge: 559 and 560 hide the player, 561 and 630 sit side by side.
 test('≤560 px: 素材 says 返回播放器 while open, with aria-expanded; the edge is the same number in CSS and JS', () => {
-  const css = read('style.css'), app = read('app.js'), prefs = read('ui-preferences.js');
+  const css = read('style.css'), app = read('app/app.js'), prefs = read('ui-preferences.js');
   const edge = +css.match(/@media\s*\(max-width:\s*(\d+)px\)\s*\{[^{}]*\.app\.media-open \.upper/)[1];
   a.equal(edge, 560, 'the bin takes the whole width at ≤560 px');
   a.ok(app.includes('matchMedia("(max-width:' + edge + 'px)")'), 'app.js narrows at the same width');
@@ -153,7 +153,7 @@ test('≤560 px: 素材 says 返回播放器 while open, with aria-expanded; the
   a.ok(!/getElementById\("mcMediaToggle"\)\.textContent=mcView\.get\(\)\.language==="en"\?"Media":"素材"/.test(app), 'the label is no longer fixed to 素材');
 });
 test('≤560 px: a double-click that loads Source puts the bin away; click, star and filter do not', () => {
-  const app = read('app.js'), dbl = app.match(/item\.addEventListener\("dblclick", \(e\) => \{[\s\S]*?\n    \}\);/)[0];
+  const app = read('app/app.js'), dbl = app.match(/item\.addEventListener\("dblclick", \(e\) => \{[\s\S]*?\n    \}\);/)[0];
   a.match(dbl, /closeNarrowMedia\(m\.id\)/, 'the bin item double-click');
   const fn = app.match(/function closeNarrowMedia\(id\) \{[\s\S]*?\n\}/)[0];
   a.match(fn, /state\.source\.mediaId !== id/, 'only once Source holds that file');
@@ -167,3 +167,100 @@ test('≤560 px: a double-click that loads Source puts the bin away; click, star
   a.match(smoke, /sameFiles:ids\(\)===before\.ids/, 'and the files are all still there');
 });
 function MontClipT(lang, key) { return require('../ui-preferences').t(lang, key); }
+
+// MontClip#270: the side edges. The numbers are the columns of style.css; a drag never takes the preview under its
+// least width and never pushes the other side panel.
+test('a side panel follows the drag between its least width and what the preview and the other side leave',()=>{
+ const room={min:L.SIDE_LEFT_MIN,other:320,total:1572,gap:6,centerMin:L.SIDE_CENTER_MIN};
+ a.equal(L.sideWidth({want:280,...room}),280);
+ a.equal(L.sideWidth({want:280.4,...room}),280,'whole pixels');
+ a.equal(L.sideWidth({want:-50,...room}),150,'not under its least width');
+ a.equal(L.sideWidth({want:5000,...room}),1572-12-280-320,'the preview keeps 280 and the other side its 320');
+ // spec v3 item 4: a side panel is at most 40% of the window's width, whatever room the row has
+ a.equal(L.sideWidth({want:5000,...room,windowWidth:1584}),Math.floor(1584*0.4),'40% of the window');
+ a.equal(L.sideWidth({want:600,...room,windowWidth:1584}),600,'under the share: as dragged');
+ a.equal(L.sideWidth({want:5000,...room,windowWidth:1584,maxShare:L.SIDE_AGENT_SHARE}),Math.floor(1584*0.34),'the assistant\'s panel keeps its 34%');
+ // E2E ④: the window got smaller — a width set earlier is brought back into what fits now
+ a.equal(L.sideWidth({want:633,...room,total:1188,windowWidth:1200}),Math.floor(1200*0.4),'a smaller window: back to its share');
+ a.equal(L.sideWidth({want:633,...room,total:1112,other:400,windowWidth:1124}),1112-12-280-400,'…or to what the preview and the other side leave');
+ a.equal(L.sideWidth({want:NaN,...room}),150,'no number: the least width');
+ a.equal(L.sideWidth({want:400,...room,total:700}),150,'a row too narrow for all three: the least width, never less');
+});
+test('with the assistant open the right panel and the preview keep 280; the columns in style.css say the same numbers',()=>{
+ a.deepEqual(L.sideMins(false),{left:150,right:260,center:280});
+ a.deepEqual(L.sideMins(true),{left:150,right:280,center:280});
+ const css=read('style.css');
+ a.ok(css.includes('.app .upper { position:relative; grid-template-columns:minmax(150px,min(var(--bin-w,200px),40vw)) minmax(280px,1fr) minmax(260px,min(var(--inspector-w,320px),40vw));'),'defaults 200 and 320 as before; the preview at least 280; a side at most 40%');
+ // E2E ⑥: with the assistant open the right column is the assistant's own width and nothing else — one value
+ a.ok(css.includes('.app.agent-open .upper { grid-template-columns:minmax(150px,min(var(--bin-w,190px),40vw)) minmax(280px,1fr) minmax(280px,min(var(--agent-pane-width,340px),34vw)); }'));
+ a.equal(L.SIDE_MAX_SHARE,0.4);a.equal(L.SIDE_AGENT_SHARE,0.34);
+ const app=read('app/app.js'),drag=app.slice(app.indexOf('function trackEdgeDrag('),app.indexOf('function initSideSplits()'));
+ // E2E ⑤ (spec item 7): every way a drag ends clears the dragging state — one helper for all three edges
+ for(const end of ['pointerup','pointercancel','lostpointercapture'])a.ok(drag.includes('"'+end+'"'),'a drag that ends by '+end+' puts the page back');
+ a.match(drag,/window\.addEventListener\("blur", end\)/,'the window losing focus ends it');
+ a.match(drag,/ev\.key === "Escape"[\s\S]{0,80}finish\(true\)/,'Esc ends it and puts the size back');
+ a.match(drag,/document\.body\.classList\.remove\(bodyClass\)/);
+ a.match(drag,/window\.removeEventListener\("blur", end\);\s*window\.removeEventListener\("keydown", onKey, true\)/,'and its own listeners go');
+ const sides=app.slice(app.indexOf('function initSideSplits()'),app.indexOf('/* ── Boot ── */')),split=app.slice(app.indexOf('function initPanelSplit()'),app.indexOf('/* Which value an edge sets.'));
+ a.match(sides,/trackEdgeDrag\(handle, e, "resizing-columns"/,'the two side edges');
+ a.match(split,/trackEdgeDrag\(handle, e, "resizing-panels"/,'and the edge above the timeline');
+ a.doesNotMatch(split,/addEventListener\("pointerup", onUp\)/,'no longer only the release');
+ // E2E ⑥: the right edge with the assistant open writes the assistant's width, not a second value
+ a.match(app,/const sideSlot = \(side\) => SIDE_SLOTS\[side === "left" \? "bin" : agentPaneOpen\(\) \? "agent" : "inspector"\];/);
+ a.match(app,/agent: \{ cssVar: "--agent-pane-width", key: "montclip-agent-pane-w" \}/);
+ // E2E ⑧, the negative control: the default height is not the upper limit any more
+ a.doesNotMatch(css,/\.app \.timeline-panel \{[^}]*32vh/,'no 32vh cap on the timeline panel');
+ a.match(app,/Math\.min\(tracksH \+ RULER_H \+ toolbarH \+ 8, Math\.round\(window\.innerHeight \* TL_DEFAULT_SHARE\)\)/,'the default is at most its share; setTimelineHeight is the limit');
+ const reset=app.slice(app.indexOf('function restoreDefaultLayout() {'),app.indexOf('function clampTimelineHeight()'));
+ a.ok(reset.includes('resetTimelineHeight();')&&reset.includes('resetAllSideWidths();'),'Layout brings all three edges back');
+ a.match(app,/function resetAllSideWidths\(\) \{\s*for \(const slot of Object\.values\(SIDE_SLOTS\)\)/,'the assistant\'s width too');
+});
+
+// DD on #354 (2): the right edge's aria-valuemax asks sideWidth for Infinity; that is the widest it may get, not its least
+test('Infinity is as wide as a side panel may get; no number is its least width',()=>{
+ const room={min:L.SIDE_LEFT_MIN,other:320,total:1572,gap:6,centerMin:L.SIDE_CENTER_MIN,windowWidth:1584};
+ a.equal(L.sideWidth({want:Infinity,...room}),L.sideWidth({want:1e9,...room}));
+ a.equal(L.sideWidth({want:Infinity,...room}),Math.floor(1584*0.4),'40% of the window');
+ a.equal(L.sideWidth({want:Infinity,...room,windowWidth:Infinity}),1572-12-280-320,'or what the preview and the other side leave');
+ a.equal(L.sideWidth({want:-Infinity,...room}),150);
+ a.equal(L.sideWidth({want:NaN,...room}),150);
+ a.equal(L.sideWidth({want:Infinity,...room,total:700}),150,'a row too narrow for all three: still its least width');
+});
+
+// DD on #354 (1): a height an older version stored (uncapped; style.css used to hold it at 32vh) must not make the
+// timeline grow by itself after an update — once, it is brought down to 32% of the window; after that it is hers
+test('an older stored timeline height is brought down to 32% once; a height she drags to later is kept',()=>{
+ const mem=(o={})=>({o,getItem:(k)=>k in o?o[k]:null,setItem:(k,v)=>{o[k]=String(v);}});
+ const s=mem({'fablecut-timeline-h':'600'});
+ a.equal(L.migrateTimelineHeight(s,805),Math.round(805*0.32),'600 of 805 → 258');
+ a.equal(s.o['fablecut-timeline-h'],'258');
+ a.equal(s.o[L.TL_H_MIGRATED_KEY],'1');
+ s.o['fablecut-timeline-h']='500';   // she drags it up afterwards
+ a.equal(L.migrateTimelineHeight(s,805),null,'only once');
+ a.equal(s.o['fablecut-timeline-h'],'500','her later height stays');
+ const low=mem({'fablecut-timeline-h':'200'});
+ a.equal(L.migrateTimelineHeight(low,805),null,'under 32%: left as it was');
+ a.equal(low.o['fablecut-timeline-h'],'200');a.equal(low.o[L.TL_H_MIGRATED_KEY],'1');
+ const none=mem();
+ a.equal(L.migrateTimelineHeight(none,805),null);a.ok(!('fablecut-timeline-h' in none.o),'nothing stored: nothing written');
+ const early=mem({'fablecut-timeline-h':'600'});
+ a.equal(L.migrateTimelineHeight(early,0),null,'no window height yet');
+ a.equal(early.o['fablecut-timeline-h'],'600');a.ok(!(L.TL_H_MIGRATED_KEY in early.o),'not marked: done next time');
+ a.equal(L.migrateTimelineHeight(null,805),null,'no storage: nothing');
+ // it runs before app.js reads the height: loaded first, and the key and the 32% are app.js's
+ const html=read('index.html'),app=read('app/app.js');
+ a.ok(html.indexOf('<script src="app/narrow-layout.js"></script>')>=0&&html.indexOf('<script src="app/narrow-layout.js"></script>')<html.indexOf('<script src="app/app.js"></script>'),'narrow-layout.js is loaded (not deferred) before app.js');
+ a.match(app,new RegExp('const TL_H_KEY = "'+L.TL_H_KEY+'";'));
+ a.match(app,new RegExp('const TL_DEFAULT_SHARE = '+L.TL_DEFAULT_SHARE.toString().replace('.','\.')+';'));
+ a.match(read('app/narrow-layout.js'),/root\.MontClipNarrow\.migrateTimelineHeight\(root\.localStorage, root\.innerHeight\)/,'and it is called when the page loads it');
+});
+
+// JJ's spec v4 items 10–12 (DD on #354, 3): a resize only shows what fits; it never writes the width she chose
+test('a resize never writes or changes the side width she chose; only her drag, a double-click and Layout do',()=>{
+ const app=read('app/app.js'),reclamp=app.slice(app.indexOf('function reclampSideWidths()'),app.indexOf('function syncSideSplits()'));
+ a.ok(reclamp.length>0);
+ a.doesNotMatch(reclamp,/localStorage/,'nothing stored on a resize');
+ a.doesNotMatch(reclamp,/setSideWidth|setProperty|removeProperty/,'and the width she set is left as it is (the columns hold what is shown)');
+ a.match(app,/window\.addEventListener\("resize", reclampSideWidths\)/);
+ for(const f of ['index.html','docs/demo/index.html']){const h=read(f);for(const id of ['splitBinMonitor','splitMonitorInspector'])a.match(h,new RegExp('id="'+id+'"[^>]*aria-label="[^"]+"[^>]*data-i18n-aria-label="term\.drag-to-resize-double-click-to-reset"'),f+' '+id+': a name for a screen reader, from an existing text');}
+});

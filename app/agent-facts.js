@@ -14,7 +14,7 @@
                 than the cap (capabilities.js FACTS.loudnessValues), each value covers `step` seconds instead, the same
                 step for every clip, so the total fits. {clipId, from, step, values}: value i covers from + i·step.
    Neither carries the sound itself. Over a cap (capabilities.js FACTS) build() refuses with FACTS_LIMIT. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'),()=>require('./capabilities'));else root.MontClipFacts=factory(root.MontClipCaptions,()=>root.MontClipCapabilities);})(typeof globalThis!=='undefined'?globalThis:this,function(C,Caps){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../captions'),()=>require('../capabilities'));else root.MontClipFacts=factory(root.MontClipCaptions,()=>root.MontClipCapabilities);})(typeof globalThis!=='undefined'?globalThis:this,function(C,Caps){
 'use strict';
 const MAX_CLIPS=30,MAX_HIGHLIGHTS=12;
 const r2=x=>Math.round(x*100)/100;

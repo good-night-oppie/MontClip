@@ -113,7 +113,8 @@ section("Bundled FFmpeg build (no GPL)");
 
 /* ── Every root script parses ── */
 section("Syntax");
-const rootJs = fs.readdirSync(ROOT).filter((f) => f.endsWith(".js"));
+// the root's scripts and the editor page's own (app/ since #281 stage 2), so moving them does not shrink this check
+const rootJs = ["", "app"].flatMap((d) => fs.readdirSync(path.join(ROOT, d)).filter((f) => f.endsWith(".js")).map((f) => (d ? d + "/" : "") + f));
 for (const f of rootJs) {
   const r = spawnSync(process.execPath, ["--check", path.join(ROOT, f)], { encoding: "utf8" });
   check(r.status === 0, `${f}`, `${f} does not parse:\n${r.stderr}`);
@@ -171,9 +172,13 @@ function checkInstalled(dir) {
   const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
   const want = new Set(["server/server.js", "server/mcp-server.js", "server/cli.js", "CLAUDE.md", "encoding-profiles.json"]);
   for (const [, f] of html.matchAll(/(?:src|href)="\/?([^"#:?]+)"/g)) if (!/^https?:/.test(f)) want.add(f);
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
-    const src = fs.readFileSync(path.join(dir, f), "utf8");
-    for (const [, m] of src.matchAll(/require\(\s*["']\.\/([^"']+)["']\s*\)/g)) want.add(/\.\w+$/.test(m) ? m : m + ".js");
+  for (const d of ["", "app"]) for (const f of fs.readdirSync(path.join(dir, d)).filter((x) => x.endsWith(".js"))) {
+    const src = fs.readFileSync(path.join(dir, d, f), "utf8");
+    // a require is relative to the file's own folder: the editor page's files (app/, #281 stage 2) reach the root's with ../
+    for (const [, m] of src.matchAll(/require\(\s*["'](\.\.?\/[^"']+)["']\s*\)/g)) {
+      const r = path.posix.join(d || ".", m);
+      if (!r.startsWith("..")) want.add(/\.\w+$/.test(r) ? r : r + ".js");
+    }
     for (const [, m] of src.matchAll(/(?:addModule|new Worker)\(\s*["']\/?([^"']+\.js)["']/g)) want.add(m);
   }
   const missing = [...want].filter((f) => !fs.existsSync(path.join(dir, f)));

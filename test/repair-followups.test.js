@@ -108,7 +108,7 @@ test("a sound file nothing can read the length of: not called a video, no 〔帮
     a.doesNotMatch(zh, /视频|帮我修好|undefined/, k);
     a.doesNotMatch(en, /video|Fix it for me|undefined/i, k);
   }
-  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
   const line = app.split("\n").find((l) => l.includes("const incomplete = repairHtml"));
   a.ok(line && line.includes('m.kind === "video"') && line.includes("own.media-incomplete-audio"), "the button only on a video; a sound file's own words");
   a.ok(app.includes('"own.media-duration-unknown-audio"') && app.includes('"own.media-duration-unknown-n-mixed"'), "the toasts pick the words by kind");

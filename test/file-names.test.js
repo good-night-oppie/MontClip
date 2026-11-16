@@ -136,15 +136,16 @@ test("the delivery template names files by the same rule (one rule, written once
 });
 
 test("every place that names an exported file uses it: export, captions, mapping, the page's downloads", () => {
-  const app = read("app.js"), server = read("server/server.js"), mcp = read("server/mcp-server.js");
+  const app = read("app/app.js"), server = read("server/server.js"), mcp = read("server/mcp-server.js");
   a.doesNotMatch(app, /replace\(\/\[\^\\w\\- \]\+\/g/, "app.js: no name reduced to [A-Za-z0-9_- ]");
   a.doesNotMatch(mcp, /replace\(\/\[\^\\w\\- \]\+\/g/, "mcp-server.js: captions and mapping keep Chinese");
   // the fallback for a name with nothing usable is 直播切片 {月-日} in Chinese (第四批, test/default-names.test.js)
   // P7: never a default project name — exportProjectName (test/p7-default-names.test.js)
   a.match(app, /const exportBaseName = \(fallback\) => Delivery\.fileSafeName\(MontClipView\.exportProjectName\(project\.name, \(project\.media \|\| \[\]\)\.map\(\(m\) => m\.name\)\),\s*MontClipView\.exportFallback\(mcView\.get\(\)\.language, fallback\)\);/);
   a.match(server, /function exportName\(name\) \{ return Delivery\.fileSafeName\(String\(name \|\| ""\), "export"\); \}/);
-  a.match(server, /reserveExportPaths\(EXPORTS_DIR, exportName\(o\.name \|\| "export"\), ext\)/);
-  a.match(server, /const safe = exportName\(name \|\| "export"\);/);
+  // a quick sample (#321) has its own name, preview_<id>; every other export still goes through exportName
+  a.match(server, /reserveExportPaths\(outDir, exportName\(extra\.preview \? "preview_" \+ id : o\.name \|\| "export"\), ext\)/);
+  a.match(server, /const safe = exportName\(extra\.preview \? "preview_" \+ id : name \|\| "export"\);/);
 });
 
 test("the server exports 未命名项目 as 未命名项目.mp4 and serves it under its encoded name", async (t) => {

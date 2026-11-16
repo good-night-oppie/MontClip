@@ -1,6 +1,11 @@
 {
   "version": 1,
-  "reviewer": "GoodNightOppie",
+  "handoff": {
+    "mention": "QQOppieXYZ",
+    "reviewer": "qqoppiexyz[bot]",
+    "qqAuthorMentions": ["DDOppieXYZ", "ADOppieXYZ", "VVOppieXYZ"]
+  },
+  "exceptionVerifiers": ["GoodNightOppie", "qqoppiexyz[bot]"],
   "allowReviewHistory": true,
   "sharedAccounts": [
     "EdwardTang",

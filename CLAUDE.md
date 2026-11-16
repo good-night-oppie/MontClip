@@ -303,7 +303,7 @@ See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`, `docs/decisions/2
 node server.js        # → http://localhost:7777
 ```
 
-Files: `index.html` + `style.css` + `app.js` (editor UI), `server.js` (API + hosting),
+Files: `index.html` + `style.css` + `app/app.js` (editor UI; the page's own scripts are in `app/`), `server.js` (API + hosting),
 `project.json` (the timeline — THE file to edit), `media/` (project footage),
 `library/` (default asset library, see below).
 
@@ -2621,8 +2621,11 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   `EXPORT_BLANK_PICTURE` / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH` when the file came out black or
   silent from start to end while the footage in `check` (`{video:[{t, src, at}], audio:[{src, at, dur}]}`) is not
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
-  `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
-  (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
+  `{range? | start?+end?, preview?, profile?, preset?, delivery?, outputs?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
+  (409 if one is already running, or nothing can render it). `start` / `end` at the top level are the same as
+  `range:{start, end}` (both given: they must agree, else `RANGE_CONFLICT`; one alone: `RANGE_INCOMPLETE`). Any other
+  field, at the top level or inside `range`, is refused with **400** `{code:"UNKNOWN_FIELD", fields, error}` and nothing
+  is exported — it is never dropped to export the whole timeline (#337) · `GET /api/export/job?id=`
   → `{status: pending|running|done|failed|cancelled, progress 0–1, src, error, code}` ·
   `POST /api/export/job/cancel?id=`. The editor tab side: SSE event `export`
   (a ticket), `GET /api/export/job/ticket?id=`, `POST /api/export/job/claim?id=`
@@ -2939,6 +2942,45 @@ agent last wrote, so an export right after a patch includes that patch.
 - `fablecut_export {}` — waits, then returns the file path under `exports/`.
   Range: `inPoint`→`outPoint` when either is set, else the whole timeline;
   `range:"entire"|"in-out"` overrides.
+- `start` and `end` (seconds on the timeline, `0 <= start < end`, passed together, not with
+  `range`) export just that part, without touching the project's IN / OUT or its revision.
+  An `end` past the end of the timeline is refused (`RANGE_PAST_END`), not cut short.
+  Add `preview:true` for a quick sample, at most 30 s (longer: `PREVIEW_TOO_LONG`): the file
+  goes to `previews/` (not `exports/`), is named `preview_*`, one file only (not with
+  `outputs`); of the samples the server made (it keeps a list of them), the newest 20 are
+  kept and none stays longer than a day — nothing else in `previews/` is ever removed.
+  Every removal is written, name and reason only, to `logs/export-cleanup.log` in the data folder; if the list cannot be written, the folder just made is removed again. The MCP error for a refused sample starts with its code (`RANGE_PAST_END`, `PREVIEW_TOO_LONG`).
+  With no `profile`, `preset` or `delivery` named, a sample gets a light encoding by itself:
+  H.264 (the `web` preset at the picture's own size, nothing reframed) where this computer can
+  encode H.264, else ProRes 422; the reply says which. Name one to choose.
+  Look at a 10 s sample before exporting the whole timeline.
+- `fablecut_review {start, end}` has a video-understanding model (google/gemini-4-carbon on
+  OpenRouter, `openrouter.ai`, handed only to Google AI Studio) look at that stretch — the
+  picture as an mp4 with no sound and the sound as a separate 48 kHz stereo WAV — and list
+  problems (swapped name plates, cut jumps, subtitle mismatches, sound jumps). **It sends a
+  short clip out of this computer** — use it only when the streamer asked, and say so. Only
+  the desktop app sends (its main process holds the OpenRouter key); the streamer's switch
+  (Settings › 审片发送) is off by default (409 `REVIEW_SEND_OFF`), one request is at most
+  16 MB, there is no retry, and a receipt from another provider or model stops that project's
+  sends (409 `DESTINATION_BLOCKED`) until the streamer allows them again. Each finding is
+  shown as `suggest` (建议你改这里) or `confirm` (这里请你确认), and the result may say
+  `sound_not_checked` (声音没检查); none of them changes the video. `audio:false` sends the
+  picture only. Nothing changes in the
+  project (revision, IN/OUT, undo); results are kept in `reviews/`. `passed` only comes from a
+  real pass (a mark can never set it) and stops counting when the project's content changes;
+  `no_result` is never a pass. The answer has four separate verdicts (`dimensions`: fact,
+  subtitle, pacing, packaging) and passes only when none is `issues`. The clip is judged against
+  fixed team standards plus, only with `scope:"full"`, the project's taste notes (`taste`, `taste_add`, `taste_remove`) and the subtitles/cut points that touch the clip (a subtitle goes whole, so it may include text from before or after the clip; `willSend.projectText` shows it); the default `scope:"window"` sends only the clip and the fixed standards (PG #321); `willSend.leadIn` gives the lead-in's real range and length;
+  `mode:"two_pass"` first looks blind, then checks (the clip is sent in 2 requests). An agent
+  sending on the streamer's behalf (`check`) needs no owner switch any more: on 2026-11-16 the owner removed the start-up switches (PG https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6921163328)
+  — `MONTCLIP_REVIEW_AGENT_SEND` and `MONTCLIP_REVIEW_DEST_CONFIRMED` no longer exist and change nothing. `prepare` works (with the streamer's switch on) and the streamer's own click on the check sends it: nothing is shown before a send (the owner's decision of 2026-11-15, #321 6888246693); the click must be a real input the app's window got (a mouse button or Enter / Space let go in the 2 s before), so a page script's own call is `NEEDS_CLICK`; the product assistant may send it only when its permission modes say run for `fablecut_review` to openrouter.ai (the auto mode is not approve-all; `NEEDS_CLICK` otherwise); the main process sends only a request body it would build itself, for the check whose snapshot hash the click named (`BODY_NOT_ALLOWED`, `HASH_MISMATCH`). With the streamer's switch on, the team's agent may send without the streamer's click and without a notice on screen (the owner's decision for the new destination, #341 6882174429; this dev-side path only); every send is still counted in the ledger before it leaves and written to the local record (service and domain, kinds of content, bytes, initiator, time; no free text), the destination binding stays, the limits stay (30 s per stretch, 16 MB per request, 100 MB per project), and the streamer's switch is off by default. The same stretch of the same content, asked the same way (lead-in, scope, mode, sound), that already has a result is not sent again: `prepare` / `check` answer `reused:true` with that result, after a restart too; only the streamer's 重新检查 from the page (`recheck:true`; an agent's counts for nothing) sends it again. A budget caps what goes out: every request counts as $1 (a conservative estimate; nothing an answer says about cost is trusted), at most $2 a check and $10 a day (this computer's date, every project and both paths together), written to `reviews/spend.daily.json` before anything is sent; past it, 409 `DAILY_LIMIT` says 「今天的检查额度用完了」 in plain words (an export can still go ahead with `bypassReason`). A spending record that cannot be read or written sends nothing.
+  The model's own words (findings text, summary, observation) and the taste notes' words are kept in memory only, never on disk (they can quote
+  viewers' names); a record read after a restart has `textAvailable:false` and only times, kinds and states.
+  The editor page, not a header, is who may send: only a request that carries the page secret (`X-MontClip-Page`: the desktop app's main process mints it at every start, gives it to the server only through its environment and adds it to the editor window's own requests to `/api/review/`; it is never sent over HTTP to anyone, and a server started any other way has no page) is shown the one-time token, and the review answers only to this computer. A full export of more than 60 s through `fablecut_export` needs a passed check over its whole length or `bypassReason` (not stored; the bypass is recorded). **This is a soft threshold, not a security boundary**: it stops only this MCP tool; an agent that calls `/api/export/request` directly does not pass through it, and `bypassReason` is written by the agent itself and is not checked.
+  Where it goes is fixed in code (OpenRouter `openrouter.ai`, model `google/gemini-4-carbon`, only to Google AI Studio) and confirmed by the owner's
+  authorisation; `willSend.to.status` says so plainly — 主人授权，运行时未抓包核实 (`verified:false`: no capture of a real run). A destination that is not confirmed still refuses (409 `DESTINATION_UNVERIFIED`).
+  Other actions: `prepare`, `status`, `cancel`, `records`, `record`, `mark`, `correct`, `gate`.
+  See `docs/decisions/2026-11-14-review-openrouter-outbound.md` (and, for what did not change, `docs/decisions/2026-11-14-video-bridge-outbound.md`).
 - `preset:"instagram-reels"` picks a delivery preset; `delivery:{…}` changes any of its
   settings (`{preset:"youtube", delivery:{fps:60, video:{rate:"vbr", bitrate:16000}}}`).
   `profile:"hq"` picks a raw encoding profile instead. With neither, `project.delivery`

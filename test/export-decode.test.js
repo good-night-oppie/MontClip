@@ -4,9 +4,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const Mp4 = require("../mp4-demux");
+const Mp4 = require("../app/mp4-demux");
 
-const src = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const src = fs.readFileSync(path.join(__dirname, "..", "app/app.js"), "utf8");
 const start = src.indexOf("class ExportFrameSource {");
 const end = src.indexOf("/** Export-time decode state:", start);
 assert.ok(start >= 0 && end > start, "export frame source markers exist");

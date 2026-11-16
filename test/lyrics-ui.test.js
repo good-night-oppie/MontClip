@@ -5,14 +5,14 @@ const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const View=require('../ui-preferences');
 
 test('on this computer only: the alignment module and the window send nothing',()=>{
- const mod=read('lyrics-align.js'),app=read('app.js'),i=app.indexOf('function lyricsTargets'),body=app.slice(i,app.indexOf('function captionQuickHtml',i));
+ const mod=read('lyrics-align.js'),app=read('app/app.js'),i=app.indexOf('function lyricsTargets'),body=app.slice(i,app.indexOf('function captionQuickHtml',i));
  for(const src of [mod,body])a.ok(!/fetch\(|XMLHttpRequest|montclipAgentService|WebSocket|sendBeacon/.test(src));
 });
 
 test('nothing changes before 〔应用〕; then one undo step, after a CAS on the project',()=>{
  // the dialog is shared with the 自动出切片 card (lyricsDialog, docs/decisions/2026-11-03-card-lyrics.md): it changes
  // nothing itself; 〔应用〕 checks stale() (the CAS) and only then calls the caller's onApply
- const app=read('app.js'),k=app.indexOf('function lyricsDialog('),dlg=app.slice(k,app.indexOf('function captionQuickHtml',k));
+ const app=read('app/app.js'),k=app.indexOf('function lyricsDialog('),dlg=app.slice(k,app.indexOf('function captionQuickHtml',k));
  a.ok(!/project\.clips\s*=|pushUndo\(|autoSnap\(/.test(dlg),'the dialog itself changes nothing');
  const apply=dlg.slice(dlg.indexOf('const apply ='));
  a.match(apply,/if \(stale\(\)\) \{ summary\.textContent = uiText\("own\.ly-changed"\); return; \}[\s\S]*onApply\(p, pasted\);/);
@@ -28,10 +28,10 @@ test('nothing changes before 〔应用〕; then one undo step, after a CAS on th
 });
 
 test('the button is in the Transcript tab’s caption row; the module loads with the page',()=>{
- const app=read('app.js'),html=read('index.html');
+ const app=read('app/app.js'),html=read('index.html');
  a.match(app,/<button type="button" class="btn tiny" data-tr-cap-lyrics title="\$\{escapeHtml\(uiText\("own\.ly-open-title"\)\)\}" data-i18n="own\.ly-open" data-i18n-title="own\.ly-open-title">/);
  a.match(app,/q\("\[data-tr-cap-lyrics\]"\)\.addEventListener\("click", \(\) => openLyricsAlign\(\)\);/);
- a.ok(html.indexOf('lyrics-align.js')>0&&html.indexOf('lyrics-align.js')<html.indexOf('"app.js"'));
+ a.ok(html.indexOf('lyrics-align.js')>0&&html.indexOf('lyrics-align.js')<html.indexOf('"app/app.js"'));
 });
 
 test('new words, both languages (for JJ); the button’s name is the one the setup page already uses',()=>{
@@ -44,13 +44,13 @@ test('new words, both languages (for JJ); the button’s name is the one the set
 
 // QQ on #85 / Deja (2026-11-03): the captions picked are the ones changed, the others not by a single character
 test('the part is the picked captions (else the unlocked ones in IN–OUT), worked out by MontClipLyrics.scope, not a span from first to last',()=>{
- const app=read('app.js'),i=app.indexOf('function lyricsTargets'),body=app.slice(i,app.indexOf('function openLyricsAlign',i));
+ const app=read('app/app.js'),i=app.indexOf('function lyricsTargets'),body=app.slice(i,app.indexOf('function openLyricsAlign',i));
  a.match(body,/MontClipLyrics\.scope\(\{/);
  a.ok(!/Math\.min\(\.\.\.sel\.map/.test(body),'no first-to-last span any more');
  a.match(body,/locked:\s*isClipLocked\(c\)/,'IN–OUT leaves locked captions out');
 });
 test('apply replaces only what MontClipLyrics.plan says, each new caption in its own caption’s place; the removed ids leave the selection',()=>{
- const app=read('app.js'),i=app.indexOf('function openLyricsAlign'),body=app.slice(i,app.indexOf('function captionQuickHtml',i));
+ const app=read('app/app.js'),i=app.indexOf('function openLyricsAlign'),body=app.slice(i,app.indexOf('function captionQuickHtml',i));
  a.match(body,/MontClipLyrics\.plan\(result, picked, t\.caps\)/);
  a.match(body,/const gone = new Set\(p\.replace\);/);
  a.ok(!/new Set\(t\.caps\.map/.test(body),'never every caption in the part');
@@ -68,7 +68,7 @@ test('the two new sentences, both languages (for JJ)',()=>{
 // VV on #100 (Deja): the lyrics box was the browser's own (white, a monospace font, no room around it); it is a field like
 // the export dialog's (.dlv-f): the label above it, the editor's colours, font and border
 test('the lyrics box is an editor field (.dlv-f), not the browser\'s own', () => {
-  const app = read('app.js'), css = read('style.css');
+  const app = read('app/app.js'), css = read('style.css');
   a.match(app, /<label class="dlv-f ly-paste">\$\{say\("ly-paste"\)\}<textarea data-ly-text rows="6"/);
   a.match(css, /\.dlv-f select, \.dlv-f input, \.dlv-f textarea, \.dlv-save-row input \{/);
   a.match(css, /\.ly-dialog \.ly-paste \{[^}]*margin: 10px 0 6px;/);

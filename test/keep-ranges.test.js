@@ -2,7 +2,7 @@
 // keep_ranges (Deja, 2026-11-03): the assistant may propose ranges by source seconds, not only quoted sentences.
 // Model output is data: every field is checked and nothing in it is run. Synthetic documents only; no network.
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const C=require('../captions'),P=require('../chat-proposal'),R=require('../range-plan'),V=require('../agent-conversation'),F=require('../agent-format'),Facts=require('../agent-facts');
+const C=require('../captions'),P=require('../app/chat-proposal'),R=require('../range-plan'),V=require('../app/agent-conversation'),F=require('../agent-format'),Facts=require('../app/agent-facts');
 
 // One 600 s recording; the timeline shows source 100–400 s from timeline 0, with its sound on A1 and a caption on V2.
 function fixture(){
@@ -109,7 +109,7 @@ test('the conversation adds the facts to the request next to the references, and
  const payload=conv.prepare(),content=payload.messages.at(-1).content;
  assert.ok(content.startsWith('剪成 30 秒\n\n'));
  const tail=JSON.parse(content.slice(content.indexOf('\n\n')+2));assert.deepEqual(Object.keys(tail),['references','facts']);assert.equal(tail.facts.clips[0].clipId,'v');
- const shown=require('../agent-pane').displayMessage(content);assert.equal(shown.text,'剪成 30 秒');assert.deepEqual(shown.references,[]);
+ const shown=require('../app/agent-pane').displayMessage(content);assert.equal(shown.text,'剪成 30 秒');assert.deepEqual(shown.references,[]);
 });
 test('mock model reply → card → plan: the whole path with a substitute reply (not a real model result)',async()=>{
  const h=fixture();h.response.output_mode='per_range';
