@@ -23,25 +23,35 @@ export function ownerDeclaration(body, teammates, sharedAccounts = []) {
   return { state: "registered", owner, source: "pr_body_line_2" };
 }
 
-// Deja已确认：requested_reviewers含GoodNightOppie，或历史reviews含其审查，任一即算送审。
-// GitHub会在审查后清空请求；正文提名不算。历史review在这里不表示当前head正式批准。
-// 督查与CI直接共用本函数，不各写一套口径。
-export function reviewerRequested(pr, reviewer = "GoodNightOppie", allowReviewHistory = true) {
-  return (pr.reviewRequests || []).some((r) => r.login === reviewer)
-    || (allowReviewHistory && (pr.reviews || []).some((r) => r.author?.login === reviewer));
+// 主人2026-11-16定（SOP v4.1第5条）：送审是在PR评论的第一个非空行写@QQOppieXYZ。
+// 评论首个非空行以@<账号>开头（最多3个前导空格；引用、代码块、行内代码都不以@开头），返回小写账号，否则null。
+export function mentionOf(body) {
+  const line = String(body || "").split(/\r?\n/).find((l) => l.trim());
+  const m = /^ {0,3}@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))(?![A-Za-z0-9-])/.exec(line || "");
+  return m ? m[1].toLowerCase() : null;
+}
+const loginOf = (x) => x?.author?.login || x?.user?.login;
+
+// 任一成立即算送审：①某条PR评论首行@QQ（评论作者不限，伙伴App账号也算）；②已有QQ App账号的review（任何head、任何状态）。
+// QQ自己写的PR，@handoff.qqAuthorMentions里的伙伴也算。PR正文、审查请求、GoodNightOppie都不再算。
+// 历史review在这里不表示当前head正式批准。督查与CI直接共用本函数，不各写一套口径。
+export function handoffRequested(pr, handoff = {}, allowReviewHistory = true) {
+  const mentions = new Set([handoff.mention, ...(loginOf(pr) === handoff.reviewer ? handoff.qqAuthorMentions || [] : [])].filter(Boolean).map((x) => x.toLowerCase()));
+  return (pr.comments || []).some((c) => mentions.has(mentionOf(c.body)))
+    || (allowReviewHistory && (pr.reviews || []).some((r) => loginOf(r) === handoff.reviewer));
 }
 
-// Historical review satisfies handoff; a new head can still need a fresh request.
-// This is a notice only. Current-head approval remains a separate merge gate.
-export function reviewerNotice(pr, reviewer = "GoodNightOppie") {
-  if ((pr.reviewRequests || []).some(r => r.login === reviewer)) return null;
-  const history = (pr.reviews || []).filter(r => r.author?.login === reviewer);
+// 只靠历史review送审、且最近一次review不在当前head时提示重新@；不判失败。当前head批准仍是另一道合并门槛。
+export function reviewerNotice(pr, handoff = {}) {
+  const mention = String(handoff.mention || "").toLowerCase();
+  if (!handoff.reviewer || (pr.comments || []).some((c) => mentionOf(c.body) === mention)) return null;
+  const history = (pr.reviews || []).filter((r) => loginOf(r) === handoff.reviewer);
   const head = pr.headRefOid || pr.head?.sha;
   if (!history.length || !/^[a-f0-9]{40}$/.test(head || "")) return null;
   const latest = history.map((review, index) => ({ review, index, time: Date.parse(review.submittedAt || "") || 0 }))
     .sort((a, b) => a.time - b.time || a.index - b.index).at(-1).review;
   const reviewHead = latest.commit?.oid || latest.commit_id;
-  return reviewHead && reviewHead !== head ? { item: "reviewer", message: "请重新请审查人：GoodNightOppie最近一次review不在当前head；仅提示，不判失败" } : null;
+  return reviewHead && reviewHead !== head ? { item: "reviewer", message: `QQ最近一次review不在当前head：请在PR评论首行写@${handoff.mention}重新请审；仅提示，不判失败` } : null;
 }
 
 function sectionsOf(body) {
@@ -115,13 +125,15 @@ export function workflowFilesChanged(files) {
 
 // These review rows are read from GitHub, never from claims in the PR body.
 // The shared approval account proves account identity, not which teammate used it.
-export function verifiedExceptionItems(pr) {
+// 2026-11-16起也认QQ的App账号（GoodNightOppie的gh登录已失效）；其余条件不变。
+export const EXCEPTION_VERIFIERS = ["GoodNightOppie", "qqoppiexyz[bot]"];
+export function verifiedExceptionItems(pr, verifiers = EXCEPTION_VERIFIERS) {
   const items = new Set(), head = pr.headRefOid || pr.head?.sha;
   if (!/^[a-f0-9]{40}$/.test(head || "")) return items;
   for (const review of pr.reviews || []) {
     const actor = review.author?.login || review.user?.login;
     const sha = review.commit?.oid || review.commit_id;
-    if (actor !== "GoodNightOppie" || sha !== head || !["APPROVED", "COMMENTED"].includes(review.state)) continue;
+    if (!verifiers.includes(actor) || sha !== head || !["APPROVED", "COMMENTED"].includes(review.state)) continue;
     let fence = null;
     for (const line of String(review.body || "").split(/\r?\n/)) {
       const boundary = /^\s*(`{3,}|~{3,})/.exec(line);
@@ -133,15 +145,15 @@ export function verifiedExceptionItems(pr) {
   }
   return items;
 }
-export function exceptionVerified(pr, exceptions) {
-  const items = verifiedExceptionItems(pr);
+export function exceptionVerified(pr, exceptions, verifiers) {
+  const items = verifiedExceptionItems(pr, verifiers);
   return Array.isArray(exceptions) && exceptions.length > 0 && exceptions.every(e => items.has(e.item));
 }
 
 export function checkPR({ pr, files, repo, policy, teammates }) {
   if (pr.isDraft) return { status: "skipped", issues: [], exceptions: [], owner: { state: "skipped" } };
   const issues = [], exception = exceptionsOf(pr.body);
-  const notice = policy?.allowReviewHistory ? reviewerNotice(pr, policy.reviewer) : null;
+  const notice = policy?.allowReviewHistory ? reviewerNotice(pr, policy.handoff) : null;
   const warnings = notice ? [notice] : [];
   const add = (item, message) => { if (!exception.valid.some((e) => e.item === item)) issues.push({ item, message }); };
   if (!policy?.repositories?.[repo] || !Array.isArray(teammates) || !teammates.length) {
@@ -161,7 +173,7 @@ export function checkPR({ pr, files, repo, policy, teammates }) {
   }
   if (sections.tests?.some((line) => !testLineHasResult(line))) add("tests", "测试段每一行请写结果数字（如23/23），或没跑加具体原因");
   if (!dependenciesValid(sections.dependencies)) add("dependencies", "请写依赖：无，或依赖：#编号（硬依赖，类型：代码）；多项用分号分开");
-  if (!reviewerRequested(pr, policy.reviewer, policy.allowReviewHistory)) add("reviewer", "请添加审查人GoodNightOppie；正文提到名字不算请求审查");
+  if (!handoffRequested(pr, policy.handoff, policy.allowReviewHistory)) add("reviewer", `请在PR评论的第一个非空行写@${policy.handoff?.mention || "QQOppieXYZ"}送审（不在引用或代码块里）；PR正文提到不算。写完评论后编辑一次PR正文，检查才会重跑`);
   const categories = classifyFiles(files || [], policy.repositories[repo]);
   if (categories.av && !sections.avsync?.length) add("avsync", "改了剪辑或导出文件，请补音画同步：测量结果，没跑时说明原因或提供SOP例外");
   if (categories.outbound) {
@@ -170,7 +182,7 @@ export function checkPR({ pr, files, repo, policy, teammates }) {
       add("outbound", "改了联网或外发文件，请补外发：内容：…；接收方：…；能否关闭：…");
     }
   }
-  const verified = exceptionVerified(pr, exception.valid);
+  const verified = exceptionVerified(pr, exception.valid, policy.exceptionVerifiers || EXCEPTION_VERIFIERS);
   const workflowFiles = workflowFilesChanged(files);
   const workflowCleared = exception.valid.some((e) => e.item === "workflows") && verified;
   return { status: issues.length ? "failed" : (exception.valid.length && !verified) || (workflowFiles.length && !workflowCleared) ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, workflowFiles, owner, categories };
@@ -182,5 +194,5 @@ export function formatReport(result) {
     : result.status === "failed" ? "模板检查需补齐"
     : (result.workflowFiles || []).length && !(result.exceptions || []).length ? "需要 QQ 核验：工作流或动作文件改动，机器不能放行"
     : "需要 QQ 核验：仅确认例外格式，机器未证明例外成立";
-  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...((result.workflowFiles || []).length ? [`- 改动的工作流/动作文件（仅文件名）：${result.workflowFiles.join("、")}`] : []), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对审批账号当前head的逐项review标记；不等于正式批准" : `等 QQ 核验：请GoodNightOppie在当前head的APPROVED或COMMENTED review中写精确一行「SOP 例外已核验：${e.label}」`}`)].join("\n");
+  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...((result.workflowFiles || []).length ? [`- 改动的工作流/动作文件（仅文件名）：${result.workflowFiles.join("、")}`] : []), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对审批账号当前head的逐项review标记；不等于正式批准" : `等 QQ 核验：请QQ（qqoppiexyz[bot]）在当前head的APPROVED或COMMENTED review中写精确一行「SOP 例外已核验：${e.label}」`}`)].join("\n");
 }
