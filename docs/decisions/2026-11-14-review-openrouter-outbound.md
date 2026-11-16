@@ -220,11 +220,30 @@ QQ 给的 9 个核验点，逐条对应到正文。
 
 ## 授权更新（2026-11-16，主人 #321 6926823489）
 
-- 依据：主人决定 https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6926823489：OpenRouter 路径也删掉两道启动变量门禁 `MONTCLIP_REVIEW_DEST_CONFIRMED` 和 `MONTCLIP_REVIEW_AGENT_SEND`。agy 路径上的同一决定见 PG 6921163328 和 #360；当时写的「#347 OpenRouter 不在范围内」由这次决定取代。
+- 依据一：主人决定，QQ 外发授权记录 #321 6926823489（https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6926823489），原文：
+  > 主人已定：审片经 OpenRouter（google/gemini-4-carbon）这条路也删掉 DEST_CONFIRMED 和 AGENT_SEND 两道门禁，#347 不用改回去。
+  >
+  > 主人回答的意思（转述）：删门禁就是不要再每次要发视频审片时，都反复找主人或主播确认这件事。
+  >
+  > - OpenRouter carbon 路径删掉这两个启动变量门禁，不以 V23 为前提。PG 6921163328 第 6 条就这一点被主人覆盖。
+  > - V23（真机外发抓包）仍要做，但不再挡合并；在给主播的测试包发出前补上。
+  > - 以后就「视频审片发不发」不再问主人。
+  
+  这是 QQ 对主人在 QQ 主会话里回答选择题的记录；主人的回答是转述，不是逐字原话。
+- 依据二：PG 决定 #321 6921163328（https://github.com/good-night-oppie/MontClip/issues/321#issuecomment-6921163328）：按主人 2026-11-16「我要走Gemini，这个门禁可以删掉了」删掉两个启动变量门禁，其余保护不动；当时第 6 条写「只动 Gemini（agy）这条路，#347（OpenRouter）不在这次范围内」，这一条由依据一覆盖。agy 路径上的实现是 #360，修订见 `2026-11-14-video-bridge-outbound.md`。
+- OpenRouter 路径上已去掉：`MONTCLIP_REVIEW_DEST_CONFIRMED`（目的地不再靠主人设启动变量确认）和 `MONTCLIP_REVIEW_AGENT_SEND`（开发侧 Agent 发送不再要主人另开变量）。代码不再读这两个变量，设什么值都不改变结果。
 - 改了什么：
   - 第 4 条：目的地由主人授权确认，`destination()` 不读环境变量（`confirmed:true`、`verified:false`、`status`「主人授权，运行时未抓包核实」）。
   - 第 3、6、9 条：去掉「`DEST_CONFIRMED` 只由主人设」「开发侧 `AGENT_SEND` 默认关、只有主人能打开」；开发侧 Agent 发送仍要主播的审片开关开着。
   - 第 1 条和 V23 前置第 1、4 条：**V23 在给主播的测试包发出前做完**；合成夹具复述不出口令就不上线照旧。
-- 不变：主播的审片开关默认关；主播的发送要真实点击；主进程只发自己会拼的请求体；准备前和发送那一刻各核一次目的地；回执服务商或模型对不上就停；provider 锁定、不重试；先记账再发，台账读不出不发；上限（30 秒、单次 16 MB、每工程 100 MB）；每天 $10 预算和同一段不重发（PG 6922461279）；密钥单独存、只用于审片、不进日志；正式 6 次的暂停。
+- 保留的控制（一条都没删）：
+  - 主播的「审片发送」开关默认关，关着谁都发不出去，开发侧 Agent 也一样（`REVIEW_SEND_OFF`）。
+  - 主播的发送要真实点击（窗口收到系统的真实输入），页面脚本自己调用回 `NEEDS_CLICK`；产品 AI 助手只在权限模式判 run 时放行。
+  - 主进程只发自己会拼的请求体（`BODY_NOT_ALLOWED`），第一次请求要对上点击时的快照哈希（`HASH_MISMATCH`）。
+  - 目的地只能是锁定的 OpenRouter 域名和模型，provider 锁定 Google AI Studio、不回退、`data_collection: deny`；准备前和发送那一刻各核一次目的地；回执的服务商或模型对不上就停发（`DESTINATION_MISMATCH` / `DESTINATION_BLOCKED`）。
+  - 上限和预算：单段 30 秒、单次请求 16 MB、每工程 100 MB；每个请求按 $1 估算，单次检查 $2、每天 $10（PG 6922461279）；同一段不重发。
+  - 本地记录：发送前先记账，台账读不出或写不进就不发；本机记录目的地、各遍发了什么、`sentBytes`、发起人、时间；模型和提示词的自由文字不落盘。
+  - 密钥单独存、只用于审片，不进日志、报错和记录；不重试。
+  - 正式 6 次的暂停不变。
 - 上面「QQ 裁定」第 2、8 条和「已定」第 2 条里关于 `DEST_CONFIRMED` / `AGENT_SEND` 的话是历史记录，以本节为准。
-- 实现：#347（head 9badaeb61b4babdd4bcc9ee835ec3d44717441ca，QQ 批准 https://github.com/good-night-oppie/MontClip/pull/347#pullrequestreview-5926176617）。
+- 实现：#347（head 9badaeb61b4babdd4bcc9ee835ec3d44717441ca，QQ 批准 https://github.com/good-night-oppie/MontClip/pull/347#pullrequestreview-5926176617，2026-11-16 19:41Z 合入 main 6105626e）。
