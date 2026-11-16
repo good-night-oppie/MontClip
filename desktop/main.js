@@ -394,12 +394,16 @@ async function start() {
        a real input this window got in the 2 s before (takeReviewGesture), not a script's call.
        A request the assistant makes goes only when the permission modes say run for fablecut_review to openrouter.ai (QQ, #347 review
        5909445232): approve-all is the approval card's session choice, not the auto mode; in manual and auto an external step is asked until
-       then, and a review send is never asked in a card, so it is NEEDS_CLICK. The page's own `assistant` flag is checked in #326. */
+       then, and a review send is never asked in a card, so it is NEEDS_CLICK.
+       #326: the page's own `assistant` flag is not trusted. This process cannot tell from a page message that the assistant asked (the
+       assistant has no review tool yet), so the flag never takes the place of the real click: every send from the page needs it, and one the
+       page says is the assistant's must in addition be allowed by the permission modes (run). */
+    if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
     if (v.assistant === true) {
       let d = null;
       try { d = agentPolicy.decide({ sessionId: "review", capability: "fablecut_review", target: { kind: "origin", value: "https://" + require("../server/openrouter-review").HOST }, bytes: Number(w.videoBytes) || 0 }); } catch { }
       if (!d || d.ok !== true || d.action !== "run") return { ok: false, code: "NEEDS_CLICK" };
-    } else if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
+    }
     reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1, w.hash);
     const sent = await engine("POST", "/api/review/send", { id, token: v.token, hash: v.hash });
     reviewSender.revoke(id);
