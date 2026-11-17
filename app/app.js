@@ -22049,7 +22049,9 @@ function importUrlCard(host) {
     const yes = button("download", "btn primary", "own.iu-yes"), no = button("no", "btn", "own.iu-no");
     row.append(yes, no); form.append(ask, row); dialog.append(form);
     let answer = "no";
-    for (const b of [yes, no]) b.addEventListener("click", () => { answer = b.dataset.iuChoice; dialog.close(); });
+    /* QQ 5934907626: 「下载」 lets the download go only on her own click (or Enter / Space on it) — a script's .click() is
+       not trusted and does nothing; the card stays open. 「不要」 and Esc may close it any way. */
+    for (const b of [yes, no]) b.addEventListener("click", (e) => { if (b === yes && !e.isTrusted) return; answer = b.dataset.iuChoice; dialog.close(); });
     dialog.addEventListener("close", () => { dialog.remove(); resolve(answer); });
     document.body.append(dialog); dialog.showModal(); no.focus();
     importUrlCard.close = () => { if (dialog.open) dialog.close(); };

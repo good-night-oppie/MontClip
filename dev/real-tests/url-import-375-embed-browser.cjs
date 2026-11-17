@@ -4,7 +4,10 @@
    variables. The assistant imports from a URL; the page shows the card; the browser's own mouse and keyboard answer it.
      · 「不要」 (a real click): IMPORT_URL_DECLINED, the site got 0 requests; asked again, no card and still 0.
      · Esc: the same as 「不要」.
+     · a script's .click() on 「下载」 (QQ 5934907626): nothing — the card stays open, the call waits, the site got 0 requests.
      · 「下载」 (a real click): the file is downloaded and registered; the site got exactly 1 request.
+   The assistant's calls carry the task's session (as the Cindy plugin's worker passes it), and the page is that task's
+   editor window (?ticket=…, the worker's task ticket): a question without a session is refused (SESSION_REQUIRED).
    The "site" is a stand-in on https://127.0.0.1 with a certificate made for this run (openssl), trusted only by the MCP process
    (NODE_EXTRA_CA_CERTS); the file is a synthetic 2 s clip made with the bundled FFmpeg. Nothing leaves this computer.
    Needs Chrome or Edge, openssl and the bundled FFmpeg:
@@ -19,7 +22,7 @@ const https = require("node:https");
 const crypto = require("node:crypto");
 const { spawn, execFileSync } = require("node:child_process");
 const ROOT = path.join(__dirname, "..", "..");
-const { makeDataDir, freePort, endTree, startMcp } = require(path.join(ROOT, "test/helpers"));
+const { makeDataDir, freePort, endTree, startHostWorker } = require(path.join(ROOT, "test/helpers"));
 const { withPage } = require(path.join(ROOT, "test/browser-contrast"));
 const browser = require(path.join(ROOT, "server/export-jobs")).findBrowser();
 const FF = require(path.join(ROOT, "server/ffmpeg-path"));
@@ -63,12 +66,21 @@ test("#375 (2) in the real page: 「不要」, Esc and 「下载」 on the assis
     if ((await status()) === 200) break;
     await new Promise((r) => setTimeout(r, 50));
   }
-  // the assistant's MCP process, embedded the same way
-  const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port), MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token,
+  // the assistant's tools in the Cindy plugin's worker, embedded the same way; each call carries the task's session
+  const SESSION = "task-375";
+  const worker = startHostWorker(t, dir, { FABLECUT_PORT: String(port), MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: token,
     FABLECUT_TEST_IMPORT_ALLOW_PRIVATE: "1", NODE_EXTRA_CA_CERTS: path.join(tmp, "cert.pem") });
-  await mcp.request("initialize", { protocolVersion: "2025-11-25" });
+  const mcp = { callTool: (name, args) => worker.callTool(name, args, SESSION) };
+  // the task ticket the worker registers for this task's editor window (a plain request to 127.0.0.1)
+  const ticket = await new Promise((resolve, reject) => {
+    const body = JSON.stringify({ project: "p_task_375", session: SESSION });
+    const req = http.request({ host: "127.0.0.1", port, path: "/api/embed/ticket", method: "POST", headers: { ...workerHeaders, "Content-Type": "application/json" } }, (res) => {
+      let b = ""; res.setEncoding("utf8"); res.on("data", (c) => { b += c; }); res.on("end", () => resolve(JSON.parse(b).ticket));
+    });
+    req.on("error", reject); req.end(body);
+  });
 
-  const out = await withPage({ browser, url: `${base}/?token=${token}&host=cindy`, settleMs: 1500 }, async ({ evaluate, send }) => {
+  const out = await withPage({ browser, url: `${base}/?token=${token}&host=cindy&ticket=${ticket}`, settleMs: 1500 }, async ({ evaluate, send }) => {
     const r = {};
     const card = async () => {
       for (const until = Date.now() + 20000; Date.now() < until;) {
@@ -100,21 +112,26 @@ test("#375 (2) in the real page: 「不要」, Esc and 「下载」 on the assis
     await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
     await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
     r.esc = await p2; r.hitsAfterEsc = hits.length;
-    // 「下载」
-    const p3 = mcp.callTool("fablecut_import_media", { path: url("yes.mp4") });
+    // 「下载」 — first a script's .click() (not trusted): nothing happens, the card stays open, the call waits
+    let p3done = false;
+    const p3 = mcp.callTool("fablecut_import_media", { path: url("yes.mp4") }).then((v) => { p3done = true; return v; });
     const c3 = await card();
+    r.scriptClick = await evaluate(`(() => { document.querySelector('dialog[data-iu-card] [data-iu-choice="download"]').click(); return true; })()`);
+    await new Promise((res) => setTimeout(res, 1500));
+    r.afterScriptClick = { open: await evaluate(`!!(document.querySelector("dialog[data-iu-card]") || {}).open`), callDone: p3done, hits: hits.length };
     await click(c3.yes);
     r.yes = await p3; r.hitsAfterYes = hits.length;
     return r;
   });
   console.log("URL_IMPORT_EMBED " + JSON.stringify({ card: out.card, no: out.no.text, noAgain: out.noAgain.text, cardAfterNoAgain: out.cardAfterNoAgain,
-    esc: out.esc.text, yes: out.yes.text.slice(0, 300), hits }, null, 1));
+    esc: out.esc.text, afterScriptClick: out.afterScriptClick, yes: out.yes.text.slice(0, 300), hits }, null, 1));
   assert.equal(out.card.text, "助手想从 127.0.0.1 下载一个录像到你的电脑，要下载吗？");
   assert.deepEqual(out.card.buttons, ["下载", "不要"]);
   assert.equal(out.card.focused, "no", "the focus is on 「不要」");
   assert.match(out.no.text, /IMPORT_URL_DECLINED/); assert.equal(out.hitsAfterNo, 0);
   assert.match(out.noAgain.text, /IMPORT_URL_DECLINED/); assert.equal(out.cardAfterNoAgain, 0); assert.equal(out.hitsAfterNoAgain, 0);
   assert.match(out.esc.text, /IMPORT_URL_DECLINED/); assert.equal(out.hitsAfterEsc, 0);
+  assert.deepEqual(out.afterScriptClick, { open: true, callDone: false, hits: 0 }, "a script's click on 「下载」 does nothing");
   assert.equal(out.yes.isError, false, out.yes.text);
   assert.deepEqual(hits, ["/yes.mp4"], "exactly one request, after 「下载」");
   const media = JSON.parse(fs.readFileSync(path.join(dir, "project.json"), "utf8")).media;

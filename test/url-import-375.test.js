@@ -16,7 +16,7 @@ const { spawn } = require("node:child_process");
 const http = require("node:http");
 const Policy = require("../server/url-import-policy");
 const { createExportJobs } = require("../server/export-jobs");
-const { makeDataDir, freePort, endTree, startMcp } = require("./helpers");
+const { makeDataDir, freePort, endTree, startMcp, startHostWorker } = require("./helpers");
 
 const ROOT = path.join(__dirname, "..");
 const hex = () => crypto.randomBytes(32).toString("hex");
@@ -92,10 +92,11 @@ async function engine(t) {
   const page = { Cookie: boot.headers.get("set-cookie").split(";")[0] };
   return { base, worker, page, token, port, dir };
 }
-/** The editor page: its event stream with the page's cookie; answer(ticket) → the card's answer (or null: never answers). */
-function editorPage(t, e, answer) {
+/** The editor page: its event stream with the page's cookie; answer(ticket) → the card's answer (or null: never answers).
+    session: the Cindy task this editor window is bound to (the worker's task ticket, traded with its connection id). */
+function editorPage(t, e, answer, session = null) {
   const seen = [];
-  let buf = "";
+  let buf = "", conn = null;
   const req = http.get(e.base + "/api/events", { headers: e.page }, (res) => {
     res.setEncoding("utf8");
     res.on("data", async (chunk) => {
@@ -103,36 +104,53 @@ function editorPage(t, e, answer) {
       let i;
       while ((i = buf.indexOf("\n\n")) >= 0) {
         const block = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (/^event: (.*)$/m.exec(block)?.[1] === "conn") conn = JSON.parse(/^data: (.*)$/m.exec(block)[1]).conn;
         if (/^event: (.*)$/m.exec(block)?.[1] !== "export") continue;
         const ticket = JSON.parse(/^data: (.*)$/m.exec(block)[1]);
         seen.push(ticket);
         const a = answer(ticket);
         if (a == null) continue;
         const post = (p, b) => fetch(e.base + p, { method: "POST", headers: e.page, body: JSON.stringify(b) });
-        await post("/api/export/job/claim?id=" + ticket.id, { tabId: "tab-1", hidden: false });
+        await post("/api/export/job/claim?id=" + ticket.id, { tabId: "tab-1", hidden: false, conn });
         await post("/api/export/job/report?id=" + ticket.id, { status: "done", result: { allowed: a === "download" }, tabId: "tab-1" });
       }
     });
   });
   req.on("error", () => { });
   t.after(() => req.destroy());
-  return { seen, ready: async () => { for (let i = 0; i < 100 && !req.socket; i++) await new Promise((r) => setTimeout(r, 20)); await new Promise((r) => setTimeout(r, 200)); } };
+  const post = (p, b, headers) => fetch(e.base + p, { method: "POST", headers, body: JSON.stringify(b) });
+  return { seen, ready: async () => {
+    for (let i = 0; i < 200 && !conn; i++) await new Promise((r) => setTimeout(r, 20));
+    assert.ok(conn, "the stream says its connection id");
+    if (!session) return;
+    const ticket = (await (await post("/api/embed/ticket", { project: "p_synthetic", session }, e.worker)).json()).ticket;
+    assert.equal((await post("/api/embed/claim", { ticket, conn }, e.page)).status, 200, "bound to " + session);
+  } };
 }
 
 test("#375 (2): embedded in Cindy — no editor, 「不要」 → nothing downloaded; a 「不要」 is not asked again; 「下载」 goes and is remembered", async (t) => {
   const site = await standIn(t);
   const e = await engine(t);
-  const mcp = startMcp(t, e.dir, { FABLECUT_PORT: String(e.port), MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: e.token, FABLECUT_TEST_IMPORT_ALLOW_PRIVATE: "1" });
-  await mcp.request("initialize", { protocolVersion: "2025-11-25" });
+  // the Cindy plugin's worker: each call carries its task's session (QQ 5934907626: without one, no card at all)
+  const worker = startHostWorker(t, e.dir, { FABLECUT_PORT: String(e.port), MONTCLIP_HOST: "cindy", MONTCLIP_EMBED_TOKEN: e.token, FABLECUT_TEST_IMPORT_ALLOW_PRIVATE: "1" });
+  const mcp = { callTool: (name, args) => worker.callTool(name, args, "task-A") };
 
   // no editor window: the question cannot be shown, nothing goes
   const none = await mcp.callTool("fablecut_import_media", { path: site.url("a.mp4") });
   assert.equal(none.isError, true); assert.match(none.text, /EDITOR_NOT_READY/); assert.match(none.text, /nothing was downloaded/);
   assert.equal(site.hits(), 0);
 
-  // the streamer says 「不要」
-  const page = editorPage(t, e, (tk) => (tk.importUrl.url.endsWith("/b.mp4") ? "no" : "download"));
+  // the streamer says 「不要」 — on task A's editor window; task B's window never sees A's question
+  const page = editorPage(t, e, (tk) => (tk.importUrl.url.endsWith("/b.mp4") ? "no" : "download"), "task-A");
   await page.ready();
+  const other = editorPage(t, e, () => "download", "task-B");
+  await other.ready();
+
+  // a call with no task (session) is refused before any card: no window is asked, nothing goes
+  const noTask = await worker.callTool("fablecut_import_media", { path: site.url("a.mp4") });
+  assert.equal(noTask.isError, true); assert.match(noTask.text, /SESSION_REQUIRED/); assert.match(noTask.text, /nothing was downloaded/);
+  assert.equal(page.seen.length + other.seen.length, 0, "no card anywhere");
+  assert.equal(site.hits(), 0);
   const no = await mcp.callTool("fablecut_import_media", { path: site.url("b.mp4") });
   assert.equal(no.isError, true); assert.match(no.text, /^(Error: )?IMPORT_URL_DECLINED: /); assert.match(no.text, /127\.0\.0\.1/);
   assert.equal(site.hits(), 0, "「不要」: nothing reached the site");
@@ -156,6 +174,7 @@ test("#375 (2): embedded in Cindy — no editor, 「不要」 → nothing downlo
   assert.notEqual(own.status, 403);
   assert.equal(page.seen.length, 2, "no card for her own URL");
   assert.ok(site.hits() > before, "her own URL was fetched");
+  assert.equal(other.seen.length, 0, "task B's window was never asked");
 });
 
 test("#375 (2): only the plugin worker can put the question up; a page cannot, and a plain server has no such route", async (t) => {
@@ -163,8 +182,18 @@ test("#375 (2): only the plugin worker can put the question up; a page cannot, a
   const ask = (headers) => fetch(e.base + "/api/import-url/confirm", { method: "POST", headers, body: JSON.stringify({ url: "https://example.org/a.mp4" }) }).then((r) => r.status);
   assert.equal(await ask(e.page), 403, "the page's cookie");
   assert.equal(await ask({}), 403, "no token");
-  assert.equal(await ask(e.worker), 409, "the worker: no editor open → EDITOR_NOT_READY");
-  const bad = await fetch(e.base + "/api/import-url/confirm", { method: "POST", headers: e.worker, body: JSON.stringify({ url: "http://example.org/a.mp4" }) });
+  // QQ 5934907626: no session → refused, even with an editor window open (it would have gone to every window)
+  const open = editorPage(t, e, () => null);
+  await open.ready();
+  const noSession = await fetch(e.base + "/api/import-url/confirm", { method: "POST", headers: e.worker, body: JSON.stringify({ url: "https://example.org/a.mp4" }) });
+  assert.equal(noSession.status, 400);
+  assert.equal((await noSession.json()).code, "SESSION_REQUIRED");
+  await new Promise((r) => setTimeout(r, 200));
+  assert.equal(open.seen.length, 0, "no card went out");
+  const withSession = (session) => fetch(e.base + "/api/import-url/confirm", { method: "POST", headers: e.worker, body: JSON.stringify({ url: "https://example.org/a.mp4", session }) }).then((r) => r.status);
+  assert.equal(await withSession("task-A"), 409, "the worker: no editor bound to its task → EDITOR_NOT_READY (an unbound window does not count)");
+  assert.equal(await withSession("a b"), 400, "not a task id");
+  const bad = await fetch(e.base + "/api/import-url/confirm", { method: "POST", headers: e.worker, body: JSON.stringify({ url: "http://example.org/a.mp4", session: "task-A" }) });
   assert.equal(bad.status, 400, "not https");
   // the queue: a download question is tab-only and needs {url, host}
   const jobs = createExportJobs({ editors: () => 1, broadcast() {} });
@@ -188,4 +217,74 @@ test("#375 (2): the card — 「不要」 has the focus, Esc / closing is 「不
   const src = fs.readFileSync(path.join(ROOT, "ui-preferences.js"), "utf8");
   assert.ok(src.includes('"iu-ask": ["The assistant wants to download a video from {host} to your computer. Download it?", "助手想从 {host} 下载一个录像到你的电脑，要下载吗？"]'));
   assert.ok(src.includes('"iu-yes": ["Download", "下载"]') && src.includes('"iu-no": ["Don\'t", "不要"]'));
+});
+
+/* QQ 5934907626: only her own click on 「下载」 lets the download go. A script's .click() (isTrusted false) does nothing —
+   the card stays open and nothing is answered; her click, or Enter / Space on the button (also trusted), answers. 「不要」
+   and Esc close it any way. The card's own code from app/app.js, run against a small stand-in for the page. */
+function fakePage() {
+  const doc = { activeElement: null, body: null };
+  const el = (tag) => {
+    const listeners = {};
+    const node = {
+      tag, dataset: {}, children: [], open: false, className: "", textContent: "", attrs: {},
+      setAttribute(k, v) { node.attrs[k] = v; },
+      append(...c) { node.children.push(...c); },
+      addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+      fire(type, ev = {}) { for (const fn of listeners[type] || []) fn(ev); },
+      focus() { doc.activeElement = node; },
+      remove() { node.removed = true; },
+      showModal() { node.open = true; },
+      close() { if (!node.open) return; node.open = false; node.fire("close"); },
+      click() { node.fire("click", { isTrusted: false }); },          // what a script's .click() is
+      userClick() { node.fire("click", { isTrusted: true }); },      // her mouse, or Enter / Space on it
+    };
+    return node;
+  };
+  doc.createElement = el;
+  doc.body = el("body");
+  return doc;
+}
+function loadCard(doc) {
+  const app = fs.readFileSync(path.join(ROOT, "app/app.js"), "utf8");
+  const src = app.slice(app.indexOf("function importUrlCard(host)"), app.indexOf("async function runImportUrlJob"));
+  return new Function("document", "uiText", src + "\nreturn importUrlCard;")(doc, (k) => k);
+}
+const parts = (doc) => {
+  const dialog = doc.body.children[doc.body.children.length - 1];
+  const buttons = dialog.children[0].children[1].children;
+  return { dialog, yes: buttons.find((b) => b.dataset.iuChoice === "download"), no: buttons.find((b) => b.dataset.iuChoice === "no") };
+};
+const settled = (p) => Promise.race([p.then((v) => ({ v })), new Promise((r) => setTimeout(() => r(null), 30))]);
+
+test("#375 (2): a script's click on 「下载」 does nothing — the card stays open; only her own click lets it go (QQ 5934907626)", async () => {
+  // a script clicks 「下载」: no answer, the card is still open and waiting
+  let doc = fakePage();
+  let card = loadCard(doc)("cdn.example.org");
+  let { dialog, yes, no } = parts(doc);
+  assert.equal(doc.activeElement, no, "the focus is on 「不要」");
+  yes.click();
+  assert.equal(dialog.open, true, "still open after a script's click");
+  assert.equal(await settled(card), null, "and nothing was answered");
+  // …then she clicks 「下载」 herself
+  yes.userClick();
+  assert.deepEqual(await settled(card), { v: "download" });
+  assert.equal(dialog.open, false); assert.equal(dialog.removed, true);
+
+  // a script clicks 「不要」: that may close it — it is 「不要」
+  doc = fakePage(); card = loadCard(doc)("cdn.example.org"); ({ dialog, yes, no } = parts(doc));
+  no.click();
+  assert.deepEqual(await settled(card), { v: "no" });
+
+  // Esc / closed any other way (the queue's cancel too): 「不要」
+  doc = fakePage(); const close = loadCard(doc); card = close("cdn.example.org"); ({ dialog } = parts(doc));
+  close.close();
+  assert.deepEqual(await settled(card), { v: "no" });
+
+  // the source says it the same way in the page and in the docs demo
+  for (const f of ["app/app.js", "docs/demo/app/app.js"]) {
+    const app = fs.readFileSync(path.join(ROOT, f), "utf8");
+    const c = app.slice(app.indexOf("function importUrlCard(host)"), app.indexOf("async function runImportUrlJob"));
+    assert.ok(/if \(b === yes && !e\.isTrusted\) return;/.test(c), f + ": 「下载」 needs a trusted click");
+  }
 });
