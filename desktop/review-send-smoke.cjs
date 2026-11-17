@@ -106,6 +106,83 @@ function start() {
       const rs = await read(`window.montclipReview.send(${args}})`);
       if (!(rs && rs.ok === false && rs.code === 'NEEDS_CLICK' && hits.length === 0)) throw Error('SCRIPT_NOT_REFUSED ' + JSON.stringify({ rs, hits: hits.length }));
       step('页面脚本自己调用、没有真实点击：' + rs.code + '，本地替身收到 ' + hits.length + ' 个请求');
+      /* 4d. QQ #326 review 5927365621 / Deja: the page spells the path another way (encoded, upper case, doubled slash, dot segments) and asks
+            the engine to send by itself — refused, nothing goes. The browser tidies dot segments before sending, so those arrive plain and are
+            the page's own request (CLICK_REQUIRED); the rest are stopped by the main process with the server's own check (server/api-path.js),
+            or, if one ever got past it, refused by the server (NONCANONICAL_PATH). */
+      const variants = ['/api/%72eview/prepare', '/api/review/%70repare', '/API/review/prepare', '/api/Review/prepare', '/api//review/prepare', '/api/x/../review/prepare', '/api/./review/prepare'];
+      const enc = await read(`Promise.all(${JSON.stringify(variants)}.map(u=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:3,end:6,lead:0,send:true})}).then(async r=>({u,status:r.status,code:(await r.json().catch(()=>({}))).code}),()=>({u,blocked:true}))))`);
+      await wait(1500);
+      const refusedOk = (x) => x.blocked === true || (x.status === 400 && x.code === 'NONCANONICAL_PATH') || (x.status === 403 && x.code === 'CLICK_REQUIRED');
+      if (!(enc.every(refusedOk) && hits.length === 0)) throw Error('NONCANONICAL_NOT_REFUSED ' + JSON.stringify({ enc, hits: hits.length }));
+      step('页面用别的写法拼路径（编码、大小写、双斜杠、点段）带 send:true 要求自己发：' + enc.map((x) => x.u + ' → ' + (x.blocked ? '主进程拦下，没到服务器' : x.status + ' ' + x.code)).join('；') + '；本地替身收到 ' + hits.length + ' 个请求');
+      /* 4e–4h. QQ #369 (review 5928897982 and its follow-up): a page script tries every other place a request can start from — a SharedWorker,
+            a Service Worker, a dedicated Worker, an iframe — and asks the engine to send by itself. None carries the MCP key, so the server
+            reads each like the page (click needed); the ones that belong to no window are already stopped by the main process; a worker
+            from a blob: address is refused by the window's policy (worker-src 'self'). Its scripts are put in media/ so the policy
+            is not what stops them: an upload of a .js is refused (#366 B), so this process writes them into the data folder itself,
+            as a file copied there by hand would be (QQ, #371 review). The stand-in gets nothing */
+      const ASK = "fetch(" + JSON.stringify("/api/review/prepare") + ", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: 3, end: 6, lead: 0, send: true }) })"
+        + ".then(async (r) => ({ status: r.status, code: (await r.json().catch(() => ({}))).code }), () => ({ blocked: true }))";
+      /* 4d2. an upload named like a script is refused before anything is kept (#366 B) */
+      const upJs = await read(`fetch('/api/upload?name=up371.js', { method: 'POST', body: 'self.x = 1;' }).then(async (r) => ({ status: r.status, code: (await r.json().catch(() => ({}))).code }))`);
+      if (!(upJs.status === 415 && upJs.code === 'UPLOAD_TYPE_REFUSED' && !fs.existsSync(path.join(mediaDir, 'up371.js')))) throw Error('JS_UPLOAD_NOT_REFUSED ' + JSON.stringify(upJs));
+      step('页面上传一个 .js 文件：' + upJs.status + ' ' + upJs.code + '，media/ 里没有留下它');
+      /* the worker scripts: written by this process straight into media/ (as a file copied there by hand would be) */
+      const up = async (name, body) => { fs.mkdirSync(mediaDir, { recursive: true }); fs.writeFileSync(path.join(mediaDir, name), body); return '/media/' + name; };
+      const served = (src) => read(`fetch(${JSON.stringify(src)}).then((r) => ({ status: r.status, type: r.headers.get('content-type'), nosniff: r.headers.get('x-content-type-options') }))`);
+      const said = (x) => x.blocked ? '主进程拦下，没到服务器' : x.threw ? '起不来：' + x.threw : x.timeout ? '没有回音（脚本没加载）' : x.csp ? '窗口策略不许从 blob: 起' : x.status + ' ' + x.code;
+      const refused = (x) => !!(x && (x.blocked || x.threw || x.timeout || x.csp || (x.status === 403 && x.code === 'CLICK_REQUIRED')));
+      /* 4e. SharedWorker: from a blob: address, and from a script in media/ */
+      const shSrc = await up('shw369.js', "onconnect = (e) => { const p = e.ports[0]; " + ASK + ".then((x) => p.postMessage(x)); };");
+      const shared = async (u) => read(`new Promise((res) => { try {
+        const w = new SharedWorker(${u});
+        w.onerror = () => res({ timeout: true }); w.port.onmessage = (e) => res(e.data); w.port.start(); setTimeout(() => res({ timeout: true }), 8000);
+      } catch (e) { res(/Content Security Policy|SecurityError/i.test(String(e)) ? { csp: true } : { threw: String(e).slice(0, 120) }); } })`);
+      const shBlob = await shared(`URL.createObjectURL(new Blob([${JSON.stringify("onconnect = (e) => { const p = e.ports[0]; " + ASK + ".then((x) => p.postMessage(x)); };")}], { type: 'text/javascript' }))`);
+      const shFile = typeof shSrc === 'string' ? await shared(JSON.stringify(shSrc)) : { threw: 'upload ' + JSON.stringify(shSrc) };
+      await wait(1500);
+      if (!(refused(shBlob) && refused(shFile) && hits.length === 0)) throw Error('SHARED_WORKER_NOT_REFUSED ' + JSON.stringify({ shBlob, shFile, hits: hits.length }));
+      step('页面起 SharedWorker 要求自己发：blob 地址 ' + said(shBlob) + '；放进 media/ 的脚本 ' + said(shFile) + '；本地替身收到 ' + hits.length + ' 个请求');
+      /* 4f. Service Worker: its script uploaded to media/ and registered from the page */
+      const swSrc = await up('sw369.js', "self.addEventListener('install', () => self.skipWaiting()); self.addEventListener('activate', () => clients.claim()); " + ASK + ";");
+      const svw = typeof swSrc !== 'string' ? { upload: swSrc } : await read(`navigator.serviceWorker.register(${JSON.stringify(swSrc)}).then(() => ({ registered: true }), (e) => ({ refused: String(e).replace(/\\(\\S*\\)/g, '(…)').slice(0, 200) }))`);
+      await wait(2500);
+      /* the same file, fetched by the page itself (the window's own request): it is there and served — so what failed is the Service Worker's own fetch of it, which the main process stops */
+      const swServed = await served(swSrc), swGet = swServed.status;
+      if (!(!svw.registered && svw.refused && /fetching the script/.test(svw.refused) && swGet === 200 && hits.length === 0)) throw Error('SERVICE_WORKER_NOT_REFUSED ' + JSON.stringify({ svw, swServed, hits: hits.length }));
+      step('把脚本放进 media/ 再注册成 Service Worker 要求自己发：注册失败，浏览器给的原因：' + svw.refused + '（同一个文件由页面自己取，回 ' + swGet + '，类型 ' + swServed.type + '、' + swServed.nosniff + '：失败的是 Service Worker 自己取脚本的请求，被主进程拦下）；本地替身收到 ' + hits.length + ' 个请求');
+      /* 4g. a dedicated Worker: belongs to the window, so the main process lets its script request through; but media/ serves the script as
+            bytes (application/octet-stream, nosniff — #366 B), so the browser does not run it. A Worker that did run would still be read
+            like the page (no MCP key): the iframe below and test/review-routes.test.js show that path */
+      const wSrc = await up('w369.js', ASK + ".then((x) => postMessage(x));");
+      const dedicated = async (u) => read(`new Promise((res) => { try {
+        const w = new Worker(${u}); w.onmessage = (e) => res(e.data); w.onerror = () => res({ timeout: true }); setTimeout(() => res({ timeout: true }), 8000);
+      } catch (e) { res(/Content Security Policy|SecurityError/i.test(String(e)) ? { csp: true } : { threw: String(e).slice(0, 120) }); } })`);
+      const wBlob = await dedicated(`URL.createObjectURL(new Blob([${JSON.stringify(ASK + ".then((x) => postMessage(x));")}], { type: 'text/javascript' }))`);
+      const wFile = typeof wSrc === 'string' ? await dedicated(JSON.stringify(wSrc)) : { threw: 'upload ' + JSON.stringify(wSrc) };
+      await wait(1000);
+      const wServed = await served(wSrc);
+      if (!(refused(wBlob) && refused(wFile) && !(wFile.status >= 200 && wFile.status < 300) && wServed.type === 'application/octet-stream' && wServed.nosniff === 'nosniff' && hits.length === 0)) throw Error('WORKER_NOT_REFUSED ' + JSON.stringify({ wBlob, wFile, wServed, hits: hits.length }));
+      step('页面起专用 Worker 要求自己发：blob 地址 ' + said(wBlob) + '；media/ 里的脚本以 ' + wServed.type + '、' + wServed.nosniff + ' 提供，浏览器不当脚本运行：' + said(wFile) + '；本地替身收到 ' + hits.length + ' 个请求');
+      /* 4h. an iframe of the same origin: the request is made with the iframe's own fetch (the policy allows no eval); it is the window's too — no MCP key, read like the page */
+      const ifr = await read(`new Promise((res) => { const f = document.createElement('iframe'); f.style.display = 'none'; f.src = 'about:blank';
+        f.onload = () => { try { f.contentWindow.fetch('/api/review/prepare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: 3, end: 6, lead: 0, send: true }) }).then(async (r) => ({ status: r.status, code: (await r.json().catch(() => ({}))).code }), () => ({ blocked: true })).then((x) => { f.remove(); res(x); }); } catch (e) { res({ threw: String(e).slice(0, 120) }); } };
+        document.body.appendChild(f); setTimeout(() => res({ timeout: true }), 8000); })`);
+      await wait(1000);
+      if (!(ifr.status === 403 && ifr.code === 'CLICK_REQUIRED' && hits.length === 0)) throw Error('IFRAME_NOT_REFUSED ' + JSON.stringify({ ifr, hits: hits.length }));
+      step('页面开一个同源 iframe 要求自己发：到了服务器，没有 MCP 密钥，按页面处理：' + said(ifr) + '；本地替身收到 ' + hits.length + ' 个请求');
+      /* 4i. the app's own workers still run under that policy: Fast export's JPEG encoder (app/jpeg-worker.js) turns a frame into a JPEG */
+      const jw = await read(`(async () => { const w = createJpegWorkers(1); if (!w) return { none: true };
+        const c = new OffscreenCanvas(64, 36); const g = c.getContext("2d"); g.fillStyle = "#c33"; g.fillRect(0, 0, 64, 36);
+        const t = setTimeout(() => w.terminate(), 8000);
+        try { const buf = await w.encode(await createImageBitmap(c), 0.9); const b = new Uint8Array(buf); return { bytes: b.length, jpeg: b[0] === 0xff && b[1] === 0xd8 }; }
+        catch (e) { return { error: String(e).slice(0, 120) }; } finally { clearTimeout(t); w.terminate(); } })()`);
+      if (!(jw && jw.jpeg && jw.bytes > 100)) throw Error('JPEG_WORKER_DID_NOT_RUN ' + JSON.stringify(jw));
+      /* and the timeline ruler's worker (app/ruler-worker.js), started when the editor drew its ruler: its script came back 200 */
+      const rw = await read(`(() => { const e = performance.getEntriesByType("resource").filter((x) => x.name.endsWith("/app/ruler-worker.js")); return { started: !!rulerWorker, loads: e.map((x) => x.responseStatus) }; })()`);
+      if (!(rw.started && rw.loads.includes(200))) throw Error('RULER_WORKER_DID_NOT_RUN ' + JSON.stringify(rw));
+      step('app 自己的 Worker 照常能用：快速导出的 JPEG 编码器（app/jpeg-worker.js）编出一帧 JPEG，' + jw.bytes + ' 字节；时间线刻度尺的 Worker（app/ruler-worker.js）脚本加载回 ' + rw.loads.join('/'));
       /* 5. the streamer clicks (a real input event from the system, at the window's top-left corner where nothing reacts): no box, it goes once */
       win.webContents.sendInputEvent({ type: 'mouseDown', x: 1, y: 1, button: 'left', clickCount: 1 });
       win.webContents.sendInputEvent({ type: 'mouseUp', x: 1, y: 1, button: 'left', clickCount: 1 });
