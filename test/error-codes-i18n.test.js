@@ -24,7 +24,9 @@ test('the server and the job queue answer in English with a code', () => {
   jobs.dispose && jobs.dispose();
   const src = fs.readFileSync(path.join(ROOT, 'server/export-jobs.js'), 'utf8');
   a.match(src, /errorCode: "EDITOR_DID_NOT_ACCEPT"/, 'the tab that never took the job has a code too');
-  a.match(server, /code: "NETWORK_DISABLED", error: "Offline mode: import a local file\."/);
+  // #375: the refusal lives in the judgment the server and MCP share
+  a.match(fs.readFileSync(path.join(ROOT, 'server/url-import-policy.js'), 'utf8'), /code: "NETWORK_DISABLED", error: "Offline mode: import a local file\."/);
+  a.match(server, /sendJSON\(res, refused\.status, \{ code: refused\.code, error: refused\.error \}\)/);
 });
 
 test('the page says the code in the interface language', () => {

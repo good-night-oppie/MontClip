@@ -686,6 +686,10 @@
     "lt-place": ["Add to the timeline", "放到时间线上"],
     "lt-not-now": ["Not now", "先不用"],
     "lt-not-placed": ["Not added. Nothing changed.", "没有放到时间线上，什么都没改。"],
+    // #375 placeholders (PG 6937788935 gave the sentence; JJ to finalize): the card before the assistant downloads from a URL
+    "iu-ask": ["The assistant wants to download a video from {host} to your computer. Download it?", "助手想从 {host} 下载一个录像到你的电脑，要下载吗？"],
+    "iu-yes": ["Download", "下载"],
+    "iu-no": ["Don't", "不要"],
     "as-lyrics-soon": ["Coming in a later version", "这个功能还在做，后面的版本才能用"],
     "as-a-moment": ["A lively part", "热闹的一段"],
     "as-why": ["Why: ", "为什么选："],

@@ -296,4 +296,49 @@ function bundledH264() {
   return h264;
 }
 
-module.exports = { ROOT, seedProject, makeDataDir, tmpDir, endTree, readProject, writeProject, startServer, launch, startMcp, rawGet, bundledH264, freePort };
+/* The Cindy plugin's worker, as far as a tool call goes: a process that requires mcp-server.js and passes each call's
+   task (its session) to callTool, the way the worker does — the stdio MCP has no session. callTool(name, args, session?)
+   answers {text, isError} like startMcp's. Synthetic data only. */
+function startHostWorker(t, dataDir, env = {}) {
+  const code = `const m = require(${JSON.stringify(path.join(ROOT, "server/mcp-server.js"))});
+    let buf = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (c) => { buf += c; let i; while ((i = buf.indexOf("\\n")) >= 0) { const q = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1); run(q); } });
+    async function run(q) {
+      let r;
+      try { const out = await m.callTool(q.name, q.args, q.session ? { session: q.session } : {});
+        r = { text: Array.isArray(out) ? ((out.find((c) => c.type === "text") || {}).text || "") : String(out), isError: false }; }
+      catch (e) { r = { text: "Error: " + String(e && e.message || e), isError: true }; }
+      process.stdout.write(JSON.stringify({ id: q.id, ...r }) + "\\n");
+    }`;
+  const child = spawn(process.execPath, ["-e", code], {
+    cwd: ROOT, stdio: ["pipe", "pipe", "pipe"],
+    env: { ...process.env, FABLECUT_DATA_DIR: dataDir, FABLECUT_PORT: "0", FABLECUT_NO_AUTOSTART: "1", ...env },
+  });
+  const pending = new Map();
+  let buf = "", stderr = "", next = 1;
+  child.stderr.on("data", (c) => { stderr += c; });
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (c) => {
+    buf += c;
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line) continue;
+      const msg = JSON.parse(line), p = pending.get(msg.id);
+      if (p) { pending.delete(msg.id); p({ text: msg.text, isError: msg.isError }); }
+    }
+  });
+  const exited = new Promise((r) => child.on("exit", r));
+  child.on("exit", (code) => { for (const p of pending.values()) p({ text: "Error: the worker exited (" + code + ") " + stderr, isError: true }); pending.clear(); });
+  t.after(async () => { if (child.exitCode === null) { child.stdin.end(); child.kill(); await exited; } });
+  return {
+    get stderr() { return stderr; },
+    callTool(name, args = {}, session = null) {
+      const id = next++;
+      return new Promise((resolve) => { pending.set(id, resolve); child.stdin.write(JSON.stringify({ id, name, args, session }) + "\n"); });
+    },
+  };
+}
+
+module.exports = { ROOT, seedProject, makeDataDir, tmpDir, endTree, readProject, writeProject, startServer, launch, startMcp, startHostWorker, rawGet, bundledH264, freePort };

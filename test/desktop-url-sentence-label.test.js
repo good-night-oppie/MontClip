@@ -20,6 +20,8 @@ test("the desktop app hides + URL; the page decides by the desktop preload, the 
   const app = read("app/app.js"), server = read("server/server.js"), css = read("style.css");
   assert.match(app, /if \(window\.montclipViewSettings\) \{ const urlButton = \$\("btnImportUrl"\); if \(urlButton\) urlButton\.hidden = true; \}/);
   assert.match(css, /#btnImportUrl\[hidden\] \{ ?display: ?none;? ?\}/, ".btn would otherwise win over [hidden]");
-  assert.match(server, /if \(DESKTOP\) \{\s*sendJSON\(res, 403, \{ code: "NETWORK_DISABLED"/, "the desktop service refuses URL imports as before");
+  // #375: the refusal is one judgment, shared with MCP's fablecut_import_media (server/url-import-policy.js)
+  assert.match(server, /if \(p === "\/api\/import-url" && req\.method === "POST"\) \{[\s\S]{0,200}UrlImportPolicy\.urlImportRefusal\(\{ env: process\.env/, "the desktop service refuses URL imports as before");
+  assert.equal(require("../server/url-import-policy").urlImportRefusal({ env: { MONTCLIP_DESKTOP: "1" } }).code, "NETWORK_DISABLED");
   assert.match(read("index.html"), /id="btnImportUrl"/, "the web demo keeps the button");
 });

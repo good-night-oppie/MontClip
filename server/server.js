@@ -49,6 +49,7 @@ const {
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
+const UrlImportPolicy = require("./url-import-policy");
 const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
 const { createExportJobs, checkExportSpan, exportRequestBody } = require("./export-jobs");
@@ -1730,10 +1731,9 @@ async function handleRequest(req, res) {
      Body {url}. Rejects http/file/local/private targets. Does not register
      project media — the client / MCP tool does that, matching /api/upload. */
   if (p === "/api/import-url" && req.method === "POST") {
-    if (DESKTOP) {
-      sendJSON(res, 403, { code: "NETWORK_DISABLED", error: "Offline mode: import a local file." });
-      return;
-    }
+    // #375: the same judgment as MCP's fablecut_import_media (url-import-policy.js)
+    const refused = UrlImportPolicy.urlImportRefusal({ env: process.env, dataDir: DATA_DIR });
+    if (refused) { sendJSON(res, refused.status, { code: refused.code, error: refused.error }); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const ac = new AbortController();
@@ -1754,6 +1754,31 @@ async function handleRequest(req, res) {
       const msg = e && e.message ? e.message : String(e);
       const code = /must be https|invalid URL|blocked:|credentials|unsupported|too large|did not return/i.test(msg) ? 400 : 502;
       sendJSON(res, code, { error: msg });
+    }
+    return;
+  }
+
+  /* API: #375 (PG 6937788935) — embedded in Cindy, the assistant's URL import asks the streamer first: a card on her task's
+     editor window, 「下载」 / 「不要」 (an "importurl" job on the editor's queue, open tabs only). Only the plugin worker asks
+     (X-MontClip-Session), and only for its own task; the answer is the job's result {allowed}. Nothing is downloaded here:
+     the caller downloads after a yes. Body {url, session?}. */
+  if (p === "/api/import-url/confirm" && req.method === "POST") {
+    if (!embed || !embed.worker(req)) { sendJSON(res, 403, { code: "FORBIDDEN", error: "only the Cindy plugin's worker asks the streamer about a URL import" }); return; }
+    try {
+      const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      const refused = UrlImportPolicy.urlImportRefusal({ env: process.env, dataDir: DATA_DIR });
+      if (refused) { sendJSON(res, refused.status, { code: refused.code, error: refused.error }); return; }
+      const host = UrlImportPolicy.importHost(opts.url);
+      if (!host || String(opts.url).length > 4096) { sendJSON(res, 400, { error: "url must be an https address" }); return; }
+      const session = opts.session != null ? opts.session : null;
+      /* QQ 5934907626: no session, no card — a question without its task would go to every editor window (every task's) */
+      if (session === null) { sendJSON(res, 400, { code: "SESSION_REQUIRED", error: "the download question needs the task's session: it is shown only on that task's editor window" }); return; }
+      if (typeof session !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(session)) {
+        sendJSON(res, 400, { error: "session must be the task's id (letters, digits, _ and -, at most 128)" }); return;
+      }
+      sendJSON(res, 200, exportJobs.request({ kind: "importurl", where: "tab", session, importUrl: { url: String(opts.url), host } }));
+    } catch (e) {
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
