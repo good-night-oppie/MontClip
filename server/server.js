@@ -1077,12 +1077,25 @@ const isAgentReq = (req) => !isPageReq(req);
 const isLoopback = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket && req.socket.remoteAddress);
 
 /* Static file with HTTP Range support (required for <video> seeking) */
-function serveFile(req, res, filePath) {
+/* #366 (QQ 6930008236 ③): the editor page's own policy, the desktop window's (desktop/main.js) plus only what the browser
+   editor fetches after the streamer agrees to it: Google Fonts (stylesheet fetched, then a blob: stylesheet; fonts.gstatic.com
+   font files) and MediaPipe (cdn.jsdelivr.net, checked and run from blob: URLs, WebAssembly). No inline script, no eval, no
+   other site: an HTML fragment that ends up in the page (a project value written into innerHTML) cannot run anything. */
+const PAGE_CSP = "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' blob: data:; " +
+  "media-src 'self' blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net; " +
+  "worker-src 'self' blob:; object-src 'none'; frame-src 'self'; base-uri 'none'; form-action 'none'";
+/* #366 ④: what a data folder (media/, library/, exports/, previews/, proxies) hands out keeps its own type only when it is
+   footage, a picture or a font; anything else (a script, a page, a style sheet, JSON, an unknown name) goes out as bytes
+   the browser will not run or render. */
+const DATA_TYPES = new Set([".mp4", ".webm", ".mov", ".mkv", ".m4v", ".flv", ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac",
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".ttf", ".otf", ".woff", ".woff2"]);
+function serveFile(req, res, filePath, opts = {}) {
   fs.stat(filePath, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); res.end("Not found"); return; }
     const ext = path.extname(filePath).toLowerCase();
-    const type = MIME[ext] || "application/octet-stream";
-    const extra = {};
+    const type = opts.data && !DATA_TYPES.has(ext) ? "application/octet-stream" : (MIME[ext] || "application/octet-stream");
+    const extra = opts.data ? { "X-Content-Type-Options": "nosniff" } : {};
+    if (!opts.data && ext === ".html") { extra["Content-Security-Policy"] = PAGE_CSP; extra["X-Content-Type-Options"] = "nosniff"; }
     if (ext === ".svg") {
       extra["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
       extra["X-Content-Type-Options"] = "nosniff";
@@ -1653,6 +1666,8 @@ async function handleRequest(req, res) {
   if (p === "/api/upload" && req.method === "POST") {
     try {
       let name = Delivery.mediaFileName(url.searchParams.get("name") || "upload.bin");   // Chinese kept (Deja)
+      /* #366 ④: a script or page is never stored in media/ (served from this origin); refused before the body is read */
+      if (/\.(?:[mc]?js|jsx|ts|x?html?|xht|shtml|xml|xslt?|svgz|css|wasm|map|php|hta|vbs|swf)$/i.test(name)) { if (typeof req.resume === "function") req.resume(); sendJSON(res, 415, { code: "UPLOAD_TYPE_REFUSED", error: "this kind of file is not media and is not kept" }); return; }
       let target = path.join(MEDIA_DIR, name);
       let i = 1;
       const ext = path.extname(name), base = path.basename(name, ext);
@@ -2566,7 +2581,7 @@ async function handleRequest(req, res) {
   if (p.startsWith("/media/")) {
     const file = path.normalize(path.join(MEDIA_DIR, p.slice("/media/".length)));
     if (!file.startsWith(MEDIA_DIR + path.sep)) { res.writeHead(403); res.end(); return; }
-    serveFile(req, res, file);
+    serveFile(req, res, file, { data: true });
     return;
   }
 
@@ -2574,13 +2589,13 @@ async function handleRequest(req, res) {
   if (p.startsWith("/proxies/")) {
     const file = proxies.file(p.slice("/proxies/".length));
     if (!file) { res.writeHead(404); res.end(); return; }
-    serveFile(req, res, file);
+    serveFile(req, res, file, { data: true });
     return;
   }
 
   /* Finished exports */
   if (p.startsWith("/exports/")) {
-    serveFile(req, res, path.join(EXPORTS_DIR, path.basename(p)));
+    serveFile(req, res, path.join(EXPORTS_DIR, path.basename(p)), { data: true });
     return;
   }
   /* #321: quick samples (previews/), served the same way and by name only */
@@ -2588,7 +2603,7 @@ async function handleRequest(req, res) {
     // the registry and work files (dot / fablecut- names) are the server's own, not samples
     const base = path.basename(p);
     if (base.startsWith(".")) { res.writeHead(404); res.end(); return; }
-    serveFile(req, res, path.join(PREVIEWS_DIR, base));
+    serveFile(req, res, path.join(PREVIEWS_DIR, base), { data: true });
     return;
   }
 
@@ -2681,7 +2696,7 @@ async function handleRequest(req, res) {
   if (p.startsWith("/library/")) {
     const file = path.normalize(path.join(LIBRARY_DIR, p.slice("/library/".length)));
     if (!file.startsWith(LIBRARY_DIR + path.sep)) { res.writeHead(403); res.end(); return; }
-    serveFile(req, res, file);
+    serveFile(req, res, file, { data: true });
     return;
   }
 
