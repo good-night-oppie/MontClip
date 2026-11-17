@@ -118,7 +118,14 @@ test("a job that is still running is not affected: begin goes ahead as before", 
 });
 
 /* The case #364 ② is about: the export memory limit trips while begin prechecks. A real headless Chromium with the limit
-   at 1 MiB trips it within seconds, on Linux (/proc) and on Windows (the #365 watcher); begin's precheck is held 20 s. */
+   at 1 MiB trips it within seconds, on Linux (/proc) and on Windows (the #365 watcher); begin's precheck is held 20 s.
+   #364 rework (main 1645c390, run 43969258853): the headless page is the real editor, and before its own begin it refuses
+   an H.264 export on a computer with no H.264 encoder (app.js exportH264Refusal) — EXPORT_NO_H264 within about a second,
+   ahead of the memory sweep's first look (every MEMORY_POLL_MS, 3 s). CI's Linux runner (bundled LGPL ffmpeg, no graphics
+   card) is such a computer, so the job ended as EXPORT_NO_H264 there and as EXPORT_MEMORY_LIMIT here. The job asks for
+   the Archive preset (FFV1, never H.264), so the page's own H.264 refusal cannot end it on any computer; the memory limit
+   is then the only thing that can end it inside the held precheck. MONTCLIP_TEST_NO_H264=1 shows it holds on such a
+   computer too. */
 const BROWSER = (() => { try { return findBrowser(); } catch { return null; } })();
 test("the memory limit tripping during the precheck: EXPORT_MEMORY_LIMIT, and this begin's .part file is removed at once",
   { skip: NEED_FF || (!BROWSER && "no Chrome / Edge here") || (process.platform === "darwin" && "the limit is not measured on macOS"), timeout: 120000 }, async (t) => {
@@ -126,9 +133,10 @@ test("the memory limit tripping during the precheck: EXPORT_MEMORY_LIMIT, and th
     const dir = makeDataDir(t);
     const files = seed(dir, "owner-memory");
     const base = await launch(t, dir, token, { MONTCLIP_TEST_BEGIN_DELAY_MS: "20000", MONTCLIP_EXPORT_MEMORY_MAX_MIB: "1" });
-    const job = await post(base, token, "/api/export/request", { where: "headless" });
+    const job = await post(base, token, "/api/export/request", { where: "headless", preset: "archive" });   // not H.264: see above
     assert.equal(job.status, 200, JSON.stringify(job.body));
-    const pending = begin(base, token, "owner-memory", job.body.id);
+    // caught here so an early failed assertion leaves no fetch behind it (the CI run's "asynchronous activity" note)
+    const pending = begin(base, token, "owner-memory", job.body.id).catch((e) => ({ status: 0, body: { error: String(e) } }));
     const ended = await waitJob(base, token, job.body.id, 18000);
     assert.equal(ended.code, "EXPORT_MEMORY_LIMIT", "the limit tripped while begin was prechecking: " + JSON.stringify(ended));
     const r = await pending;
