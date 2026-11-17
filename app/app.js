@@ -21917,6 +21917,7 @@ async function runClaimedJob(ticket) {
   if (ticket.kind === "track") return runTrackJob(ticket, fail);
   if (ticket.kind === "transcribe") return runTranscribeJob(ticket, fail);
   if (ticket.kind === "lyrics") return runLyricsJob(ticket, fail);
+  if (ticket.kind === "importurl") return runImportUrlJob(ticket, fail);
   if (!state.ffmpeg) {
     const j = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
     state.ffmpeg = !!j.available;
@@ -22033,6 +22034,37 @@ async function runLyricsJob(ticket, fail) {
   toastAction(uiText("own.lt-done"), uiText("own.as-undo"), () => { if (runtime.undo.length === depth) undo(); });
   const saved = await flushSave();
   return done({ applied: true, track: tr.id, placed: list.filter((c) => !c.disabled).length, grey: list.filter((c) => c.disabled).length, saved, revision: project.revision });
+}
+/* #375 (PG 6937788935): embedded in Cindy, the assistant asks before it downloads from a URL — a card with the site's name,
+   「下载」 / 「不要」, focus on 「不要」; Esc or closing it is 「不要」. Nothing is downloaded here: the answer goes back to the
+   assistant's call, which downloads only after a yes (server/url-import-policy.js). Built with textContent only. */
+function importUrlCard(host) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "lt-card iu-card"; dialog.setAttribute("data-iu-card", "");
+    const form = document.createElement("form"); form.method = "dialog";
+    const ask = document.createElement("p"); ask.dataset.iuAsk = ""; ask.textContent = uiText("own.iu-ask", { host });
+    const row = document.createElement("div"); row.className = "tr-row";
+    const button = (choice, cls, key) => { const b = document.createElement("button"); b.type = "button"; b.className = cls; b.dataset.iuChoice = choice; b.textContent = uiText(key); return b; };
+    const yes = button("download", "btn primary", "own.iu-yes"), no = button("no", "btn", "own.iu-no");
+    row.append(yes, no); form.append(ask, row); dialog.append(form);
+    let answer = "no";
+    for (const b of [yes, no]) b.addEventListener("click", () => { answer = b.dataset.iuChoice; dialog.close(); });
+    dialog.addEventListener("close", () => { dialog.remove(); resolve(answer); });
+    document.body.append(dialog); dialog.showModal(); no.focus();
+    importUrlCard.close = () => { if (dialog.open) dialog.close(); };
+  });
+}
+async function runImportUrlJob(ticket, fail) {
+  const q = ticket.importUrl;
+  if (!q || typeof q.host !== "string" || !q.host) return fail("not a download question");
+  // the card waits for her: a heartbeat keeps the job alive, and the assistant's cancel closes it (a closed card is 「不要」)
+  renderCancelled = false;
+  const beat = setInterval(() => { reportExportJob(ticket.id, { progress: 0 }, true).then(() => { if (renderCancelled) importUrlCard.close?.(); }); }, 10000);
+  let answer;
+  try { answer = await importUrlCard(q.host); } finally { clearInterval(beat); }
+  if (renderCancelled) return;
+  return reportExportJob(ticket.id, { status: "done", result: { allowed: answer === "download" } }, true);
 }
 async function runTrackJob(ticket, fail) {
   const spec = ticket.track || {}, c = getClip(spec.clip);
