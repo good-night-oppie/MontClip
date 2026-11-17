@@ -74,7 +74,9 @@ test("#375 (2) in the real page: 「不要」, Esc and 「下载」 on the assis
   // the task ticket the worker registers for this task's editor window (a plain request to 127.0.0.1)
   const ticket = await new Promise((resolve, reject) => {
     const body = JSON.stringify({ project: "p_task_375", session: SESSION });
-    const req = http.request({ host: "127.0.0.1", port, path: "/api/embed/ticket", method: "POST", headers: { ...workerHeaders, "Content-Type": "application/json" } }, (res) => {
+    const ticketHeaders = { ...workerHeaders, "Content-Type": "application/json" };
+    const req = http.request({ host: "127.0.0.1", port, path: "/api/embed/ticket", method: "POST", headers: ticketHeaders });
+    req.on("response", (res) => {
       let b = ""; res.setEncoding("utf8"); res.on("data", (c) => { b += c; }); res.on("end", () => resolve(JSON.parse(b).ticket));
     });
     req.on("error", reject); req.end(body);
