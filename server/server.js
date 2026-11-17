@@ -1771,7 +1771,9 @@ async function handleRequest(req, res) {
       const host = UrlImportPolicy.importHost(opts.url);
       if (!host || String(opts.url).length > 4096) { sendJSON(res, 400, { error: "url must be an https address" }); return; }
       const session = opts.session != null ? opts.session : null;
-      if (session !== null && (typeof session !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(session))) {
+      /* QQ 5934907626: no session, no card — a question without its task would go to every editor window (every task's) */
+      if (session === null) { sendJSON(res, 400, { code: "SESSION_REQUIRED", error: "the download question needs the task's session: it is shown only on that task's editor window" }); return; }
+      if (typeof session !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(session)) {
         sendJSON(res, 400, { error: "session must be the task's id (letters, digits, _ and -, at most 128)" }); return;
       }
       sendJSON(res, 200, exportJobs.request({ kind: "importurl", where: "tab", session, importUrl: { url: String(opts.url), host } }));
