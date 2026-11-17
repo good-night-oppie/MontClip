@@ -30,7 +30,7 @@ test('main resolves only a name under exports/, media/ or library/ of this data 
 
 test('a finished export in the queue gets 在文件夹里显示 (desktop only); the click reveals it', () => {
   const app = read('app/app.js');
-  a.match(app, /q\.status === "done" && q\.src && window\.montclipReveal \? `<button type="button" class="btn tiny" data-q-reveal="\$\{q\.id\}">\$\{escapeHtml\(uiText\("own\.q-reveal"\)\)\}<\/button>` : "",/, 'no dead button in a plain browser');
+  a.match(app, /q\.status === "done" && q\.src && window\.montclipReveal \? `<button type="button" class="btn tiny" data-q-reveal="\$\{escapeHtml\(q\.id\)\}">\$\{escapeHtml\(uiText\("own\.q-reveal"\)\)\}<\/button>` : "",/, 'no dead button in a plain browser');
   a.match(app, /rv = e\.target\.dataset\.qReveal;/);
   a.match(app, /if \(rv\) \{ revealFileBySrc\(q\.src\); return; \}/, 'reveal does not disturb the save flow');
   a.match(app, /async function revealFileBySrc\(src\) \{\s*\n\s*if \(!window\.montclipReveal/, 'a browser without the shell bridge quietly keeps its old behaviour');

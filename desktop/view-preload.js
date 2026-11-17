@@ -24,6 +24,8 @@ if(new URLSearchParams(location.search).get('host')!=='cindy')contextBridge.expo
  keyStatus:()=>ipcRenderer.invoke('montclip:review:keyStatus'),
  keySet:key=>ipcRenderer.invoke('montclip:review:keySet',String(key)),
  keyClear:()=>ipcRenderer.invoke('montclip:review:keyClear'),
+ // #326: the streamer's click on 「检查这 N 秒」 — the main process takes the real input, makes the clip and sends it when ready (no box)
+ check:v=>ipcRenderer.invoke('montclip:review:check',{start:Number(v?.start),end:Number(v?.end),recheck:v?.recheck===true,scope:v?.scope==='window'?'window':'full'}),
  send:v=>ipcRenderer.invoke('montclip:review:send',{reviewId:String(v?.reviewId||''),token:String(v?.token||''),hash:String(v?.hash||''),assistant:v?.assistant===true}),
  unblock:()=>ipcRenderer.invoke('montclip:review:unblock')
 }));

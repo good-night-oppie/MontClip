@@ -34,16 +34,16 @@
   const text = {
     "zh-CN": {
       button: "检查这 {n} 秒",                                     // v2 §6
-      buttonTip: "让 AI 看一看、听一听这 {n} 秒有没有问题。发出去之前会先给你看要发什么。",   // JJ #326
+      buttonTip: "让 AI 看一看、听一听这 {n} 秒有没有问题。点下去就会发出去。",   // JJ #326 6928950807 final (1)
       tooShort: "这一段不到 1 秒，没法检查",                         // JJ #326 recheck 6869383846: the tip on the greyed-out button
       title: "检查这 {n} 秒",                                      // JJ #326: kept
       preparing: "正在这台电脑上准备这 {n} 秒，还没有发出去。",     // JJ #326: kept
       cancelPrep: "取消",                                           // JJ #326: the button while preparing
       // v3.1 §3 with one change (JJ #326 6871859408): the engine sends the subtitles overlapping this stretch, not the whole video's
-      intro: "联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 {n} 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。",   // JJ #326 6871859408
+      intro: "点「检查这 {n} 秒」就会发出去，不会再问你一次。这 {n} 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查。",   // JJ #326 6928950807 final (1)
       whatFull: "点「发送检查」会发出去：{from}–{to} 的画面和声音（{sec} 秒），和这一段有重叠的字幕文字、剪辑时间点。",   // JJ #326 6871859408: a subtitle across the edge goes whole
       whatFullLead: "两个按钮发的画面和声音里，都有前面多带的 {leadSec} 秒（{from}–{lead}），让 AI 知道前面在说什么。",   // JJ #326 (after whatWindow)
-      whatWindow: "点「只发这 {n} 秒」会发出去：{from}–{to} 的画面和声音（{sec} 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。",   // JJ #326 (PG v4.1 6871970875 with 字幕文字)
+      whatWindow: "打开「只发这 {n} 秒」后，会发出去的是：{from}–{to} 的画面和声音（{sec} 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。",   // JJ #326 (PG v4.1 6871970875 with 字幕文字); opening per JJ #326 6928950807 final (5)
       whatEdge: "与这段画面相交的字幕会整条发送，可能包含片段前后的文字。",   // PG #321 6871888446 (2), word for word; JJ to confirm
       whatTaste: "点「发送检查」还会把之前记下的 {k} 条好坏例子（认可的和不认可的）一起发出去。",   // draft (PG 6871888446: 「只发这 N 秒」 sends none): willSend.tasteNotes
       noPage: "要发送，请在 MontClip 窗口里点「发送检查」或「只发这 {n} 秒」。这里只能先看会发什么，或者点「不发了」。",   // JJ #326 final (PG #321 6872395398: view-only in the Cindy plugin / a browser, no button added)
@@ -52,13 +52,13 @@
       fixedTwice: "分次发出时，第一次不带，从后面几次起带上。",   // JJ #326 6872283674: only when requests > 1, right under the folded title
       fixedStandards: "审片标准：",                                  // JJ #326 6872283674
       fixedQuestions: "要 AI 回答的问题：",                          // JJ #326 6872283674
-      tasteMemory: "好坏例子的文字只在本次运行保留，重启后需重新填写。",   // draft (PG #321 6871936322 三: the words are kept in memory only); JJ to finalize
+      tasteMemory: "好坏例子的文字只在这次打开 MontClip 期间保留，关掉就没了，下次要重新填。",   // JJ #326 6928950807 final (4)
       whatTwice: "会分 {k} 次发出去，第一次只有画面和声音，后面几次会多带上面说的其余内容。",   // JJ #326 6871859408: willSend.requests > 1 (#328: 1 or 2; two_pass looks blind first)
       whatDanmaku: "画面里如果有观众昵称、弹幕，会原样发出去。",       // JJ #326
       to: "发给：{service}（{host}）",                             // Deja 6867787475; JJ #326: kept
       toUnverified: "发给：{service}（{host}，未验证）",            // Deja (#328): an unconfirmed domain is never shown as confirmed
       unverifiedBlock: "这个地址还没有人确认过，所以先不发。请等有人确认后再试。",        // JJ #326 6871754149: the engine refuses until the owner confirms it
-      training: "对方可能用这段内容训练模型",                       // Deja 6867787475; JJ #326: kept
+      training: "发的时候会要求对方不拿这段内容训练模型。这是发出去时带上的要求，我们没法核实对方一定照做。",   // JJ #326 6928950807 final (2): provider.data_collection deny is a request, not verified
       noDestination: "不知道这次会发到哪里，所以先不发。",           // JJ #326: kept
       noPayload: "说不清这次具体会发出去什么，所以先不发。",           // JJ #326 recheck: passed
       changedRecheck: "要发的内容和刚才说的不一样了，请再看一遍再决定。",   // JJ #326 6871754149 passed: 「只发这 10 秒」 made a clip that differs
@@ -75,15 +75,21 @@
       why_STORE_FAILED: "再检查一次，内容会再发出去一次。",   // JJ #326 (STORE_FAILED final)
       storeFailed: "内容可能已经发到对方那边了，但检查的结果没能保存下来，这次没有结果可看。这不代表没问题。",   // JJ #326: the headline when #328 says STORE_FAILED (after the clip may have gone out)
       why_DESTINATION_CHANGED: "要发去的地址变了。请重新检查。",   // JJ #326 6872083423 / 6872139855
-      why_REVIEW_SEND_OFF: "设置里的「审片发送」没有打开，什么都没有发出去。",   // draft (#347), JJ to finalize
-      why_NO_KEY: "还没有保存审片用的密钥，什么都没有发出去。",   // draft (#347), JJ to finalize
-      why_NO_SENDER: "要在 MontClip 桌面窗口里才能发送，什么都没有发出去。",   // draft (#347), JJ to finalize
-      why_DESTINATION_BLOCKED: "上次的回执不是指定的服务，这个项目的发送已停下，什么都没有发出去。",   // draft (#347), JJ to finalize
-      why_DAILY_LIMIT: "今天的检查额度用完了，什么都没有发出去。明天再检查。",   // draft (#347), JJ to finalize
-      why_CHECK_BUDGET: "这次检查超过了单次的额度，什么都没有发出去。",   // draft (#347), JJ to finalize
-      why_BODY_TOO_LARGE: "这一段太大，发不出去。请选短一点的一段。",   // draft (#347), JJ to finalize
-      why_SAMPLE_CHANGED: "准备好以后要发的内容变了，什么都没有发出去。请重新检查。",   // draft (#347), JJ to finalize
-      reused: "这一段这份内容已经检查过，这里是上次的结果，没有再发送。要再发一次，请点「再检查一次」。",   // draft (#347), JJ to finalize
+      why_REVIEW_SEND_OFF: "设置里的「审片发送」没有打开，什么都没有发出去。",   // JJ #326 6928950807 final (4)
+      why_NO_KEY: "还没有保存审片用的密钥，什么都没有发出去。",   // JJ #326 6928950807 final (4)
+      why_NO_SENDER: "要在 MontClip 桌面窗口里才能发送，什么都没有发出去。",   // JJ #326 6928950807 final (4)
+      why_DESTINATION_BLOCKED: "上次发出去以后，回来的结果不是我们指定的那个服务，所以这个项目先停发了。这次什么都没有发出去。",   // JJ #326 6928950807 final (4)
+      why_DAILY_LIMIT: "今天的检查次数用完了，什么都没有发出去。明天再检查。",   // JJ #326 6928950807 final (4)
+      why_CHECK_BUDGET: "这一次要发的东西超过了一次能发的上限，什么都没有发出去。",   // JJ #326 6928950807 final (4)
+      why_BODY_TOO_LARGE: "这一段太大，发不出去。请选短一点的一段。",   // JJ #326 6928950807 final (4)
+      why_SAMPLE_CHANGED: "准备好以后要发的内容变了，什么都没有发出去。请重新检查。",   // JJ #326 6928950807 final (4)
+      reused: "这一段这份内容已经检查过，这里是上次的结果，没有再发送。要再发一次，请点「再检查一次」。",   // JJ #326 6928950807 final (4)
+      windowToggle: "只发这 {n} 秒",                                // JJ #326 6928950807 final (5): a switch chosen before 「检查这 {n} 秒」
+      windowToggleLine: "打开后只发这 {n} 秒的画面和声音，不另外发字幕文字、剪辑时间点和好坏例子；画面里已经有的字幕仍会随视频发出。",   // JJ #326 6928950807 final (5)
+      soundGoes: "声音会单独作为一条音轨一起发出去，视频里不带声音。",   // JJ #326 6928950807 final (6a): server/review-service.js sends a separate 48 kHz WAV
+      soundNone: "这次没有把声音发出去，所以声音没有检查。",           // JJ #326 6928950807 final (6b) audio === false
+      soundUnclear: "声音发出去了，但这次没说清听没听出来，声音这一项没有结论。",   // JJ #326 6928950807 final (6b) audio === true, audioVerified !== true
+      soundHeard: "声音也发出去了，对方听过这段声音。",                 // JJ #326 6928950807 final (6b) audio === true, audioVerified === true
       previewText: "点「发送检查」会发出去的文字：",                // draft (PG 6871888446 (2): show the real text): willSend.projectText
       previewNotes: "点「发送检查」会发出去的好坏例子：",            // draft: willSend.notes
       previewNoText: "这一段没有字幕文字要发。",                     // JJ #326 6872083423 / 6872139855: 「发送检查」 with no subtitle touching the stretch
@@ -136,16 +142,16 @@
     },
     en: {
       button: "Check these {n} s",
-      buttonTip: "Have AI watch and listen to these {n} seconds for problems. You'll see what will be sent before anything is sent.",
+      buttonTip: "Have the AI look and listen to these {n} seconds. Clicking sends it.",   // JJ #326 6928950807 final (1)
       tooShort: "This stretch is under 1 second, so it can't be checked",
       title: "Check these {n} seconds",
       preparing: "Getting these {n} seconds ready on this computer. Nothing has been sent.",
       cancelPrep: "Cancel",
-      intro: "Only features you open yourself connect to the internet. You'll see what will be sent first. When you click “Send for a check”, the picture and sound of these {n} seconds, along with the subtitle text overlapping this section and the cut points, will be sent to AI for a check and may be used for training.",
+      intro: "Clicking “Check these {n} seconds” sends it right away, with no second question. The picture and sound of these {n} seconds, plus the subtitle text overlapping this section and the cut points, go to the AI.",   // JJ #326 6928950807 final (1)
       whatFull: "Clicking “Send for a check” will send: picture and sound from {from} to {to} ({sec} s), and the subtitle text overlapping this section, plus the cut points.",
       whatFullLead: "With either button, the picture and sound include an extra {leadSec} s before the checked section ({from} to {lead}), to give the AI context about what was being said.",
       // PG #321 6872473697: the English page says what #328's willSend.what says for a window clip, word for word (test-locked on both sides)
-      whatWindow: "Clicking “Send only these {n} s” will send picture and sound from {from} to {to} ({sec} s). No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.",
+      whatWindow: "With “Send only these {n} s” on, what goes out is: picture and sound from {from} to {to} ({sec} s). No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.",
       whatEdge: "Any subtitle that overlaps this clip in time will be sent in full, so it may include text from before or after the clip.",
       whatTaste: "“Send for a check” also sends the {k} saved examples of good and bad edits (ones approved and ones rejected).",
       noPage: "To send it, click “Send for a check” or “Send only these {n} s” in the MontClip window. Here you can only see what would be sent, or click “Don't send”.",
@@ -154,13 +160,13 @@
       fixedTwice: "When sending more than once, these are left out the first time and included from the second time onward.",
       fixedStandards: "Review standards:",
       fixedQuestions: "Questions for the AI to answer:",
-      tasteMemory: "The text of these examples is kept only for the current run. You'll need to enter it again after a restart.",
+      tasteMemory: "The good/bad example text is kept only while MontClip is open; after you close it, fill it in again.",   // JJ #326 6928950807 final (4)
       whatTwice: "This will be sent {k} times: the first time with only the picture and sound, and the later times also with the other content described above.",
       whatDanmaku: "Viewer names and chat messages in the picture are sent as they are.",
       to: "Send to: {service} ({host})",
       toUnverified: "Send to: {service} ({host}, not verified)",
       unverifiedBlock: "Nobody has confirmed this address yet, so nothing will be sent. Please try again once someone has confirmed it.",
-      training: "They may use this content to train models",
+      training: "The request asks the provider not to train on this content. That requirement goes out with the request; we cannot verify that the provider complies.",   // JJ #326 6928950807 final (2)
       noDestination: "It isn't clear where this would be sent, so nothing will be sent.",
       noPayload: "It isn't clear exactly what this would send, so nothing will be sent.",
       changedRecheck: "What will be sent is different from what was described earlier. Please check it again before deciding.",
@@ -177,15 +183,21 @@
       why_STORE_FAILED: "Checking again will send the content again.",
       storeFailed: "The content may already have reached the recipient, but the check result couldn't be saved, so there is no result to view this time. That doesn't mean there's no problem.",
       why_DESTINATION_CHANGED: "The address it would be sent to has changed. Please check again.",
-      why_REVIEW_SEND_OFF: "Review sending is off in Settings. Nothing was sent.",   // draft (#347), JJ to finalize
-      why_NO_KEY: "No key for reviews is saved yet. Nothing was sent.",   // draft (#347), JJ to finalize
-      why_NO_SENDER: "Sending only works in the MontClip desktop window. Nothing was sent.",   // draft (#347), JJ to finalize
-      why_DESTINATION_BLOCKED: "The last answer did not come from the expected service, so sending is stopped for this project. Nothing was sent.",   // draft (#347), JJ to finalize
-      why_DAILY_LIMIT: "Today's checks are used up. Nothing was sent. Try again tomorrow.",   // draft (#347), JJ to finalize
-      why_CHECK_BUDGET: "This check is over the limit for one check. Nothing was sent.",   // draft (#347), JJ to finalize
-      why_BODY_TOO_LARGE: "This stretch is too large to send. Please choose a shorter one.",   // draft (#347), JJ to finalize
-      why_SAMPLE_CHANGED: "What would be sent changed after it was prepared. Nothing was sent. Please check again.",   // draft (#347), JJ to finalize
-      reused: "This stretch of this content was already checked; this is that result, and nothing was sent again. To send it again, click “Check again”.",   // draft (#347), JJ to finalize
+      why_REVIEW_SEND_OFF: "Review sending is off in Settings. Nothing was sent.",   // JJ #326 6928950807 final (4)
+      why_NO_KEY: "No key for reviews is saved yet. Nothing was sent.",   // JJ #326 6928950807 final (4)
+      why_NO_SENDER: "Sending only works in the MontClip desktop window. Nothing was sent.",   // JJ #326 6928950807 final (4)
+      why_DESTINATION_BLOCKED: "The reply that came back was not from the service we specified, so sending is stopped for this project. Nothing was sent this time.",   // JJ #326 6928950807 final (4)
+      why_DAILY_LIMIT: "Today's check limit is used up. Nothing was sent. Try again tomorrow.",   // JJ #326 6928950807 final (4)
+      why_CHECK_BUDGET: "This would send more than one check allows. Nothing was sent.",   // JJ #326 6928950807 final (4)
+      why_BODY_TOO_LARGE: "This stretch is too large to send. Please choose a shorter one.",   // JJ #326 6928950807 final (4)
+      why_SAMPLE_CHANGED: "What would be sent changed after it was prepared. Nothing was sent. Please check again.",   // JJ #326 6928950807 final (4)
+      reused: "This stretch of this content was already checked; this is that result, and nothing was sent again. To send it again, click “Check again”.",   // JJ #326 6928950807 final (4)
+      windowToggle: "Send only these {n} s",
+      windowToggleLine: "With this on, only the picture and sound of these {n} seconds go out, with no subtitle text, cut points, or good/bad examples. Subtitles already burned into the picture still go with the video.",
+      soundGoes: "The sound goes as a separate audio track; the video itself carries no sound.",
+      soundNone: "No sound was sent this time, so the sound was not checked.",
+      soundUnclear: "The sound went out, but the reply did not say whether it was heard, so there is no conclusion about the sound.",
+      soundHeard: "The sound went out and the reply says it was listened to.",
       previewText: "Text that “Send for a check” would send:",
       previewNotes: "Examples that “Send for a check” would send:",
       previewNoText: "There is no subtitle text in this part to send.",
@@ -325,7 +337,8 @@
       if (!standards || !questions || ask == null || !(by === "only" ? requests === 1 : by === "second" ? requests > 1 : false)) return null;
       fixed = { standards, questions, ask, laterOnly: by === "second" };
     }
-    return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes, lost, fixed };
+    return { range, video, lead: lead > 0 ? { start: video.start, end: range.start } : null, scope: view.scope, requests, taste, seconds, text: ws.projectText, notes, lost, fixed,
+      audio: ws.audio !== false };   // the sound goes as its own WAV unless the engine says it does not (server/review-service.js willSend.audio)
   }
 
   /** The receiver, as the engine reports it: a name and a host; confirmed = the engine will send there (#347: the owner's authorisation,
@@ -354,7 +367,8 @@
       const v = pay.video, sec = pay.lead ? secs(v.end - v.start) : String(n);
       const at = { n, from: fmtTime(v.start), to: fmtTime(v.end), sec };
       if (pay.scope === "full") { lines.push(t(lang, "whatFull", at)); lines.push(t(lang, "whatEdge")); }
-      lines.push(t(lang, "whatWindow", at));
+      if (!opts.direct || pay.scope === "window") lines.push(t(lang, "whatWindow", at));   // #326: the one-click page shows the switch's own choice
+      if (pay.audio) lines.push(t(lang, "soundGoes"));   // JJ 6928950807 (6a)
       if (pay.lead) lines.push(t(lang, "whatFullLead", { from: fmtTime(pay.lead.start), lead: fmtTime(pay.lead.end), leadSec: secs(pay.lead.end - pay.lead.start) }));
       if (pay.taste) { lines.push(t(lang, "whatTaste", { k: pay.taste })); lines.push(t(lang, "tasteMemory")); }
       if (pay.lost) lines.push(t(lang, "tasteLost", { k: pay.lost }));
@@ -419,7 +433,8 @@
     return { reviewId: typeof r.reviewId === "string" ? r.reviewId : null, status, reason: typeof r.reason === "string" ? clip(r.reason, 30) : null,
       scope: r.scope === "window" ? "window" : "full", textAvailable: r.textAvailable !== false,
       range: r.range && num(r.range.start) != null && num(r.range.end) != null ? { start: r.range.start, end: r.range.end } : null,
-      summary: clip(r.summary, 600), findings, dimensions };
+      summary: clip(r.summary, 600), findings, dimensions,
+      audio: r.audio === true ? true : r.audio === false ? false : null, audioVerified: r.audioVerified === true };
   }
 
   /** What the result box says. A pass only when the engine said passed, all four dimensions passed and nothing inside the checked stretch was found. */
@@ -431,8 +446,13 @@
     const allPassed = !!(r.dimensions && DIMENSIONS.every((k) => r.dimensions[k].state === "passed"));
     let status = r.status;
     if (status === "passed" && (main.length || !allPassed)) status = main.length || dimIssue ? "issues" : "no_result";
+    // JJ 6928950807 (6d): the 「passed」 sentence only when the sound was heard too — the four dimensions have no sound line
+    if (status === "passed" && !(r.audio === true && r.audioVerified)) status = "no_result";
     if (status === "issues" && !r.findings.length && !dimIssue) status = "no_result";   // 「有问题」 with nothing to show is no answer
     const notes = opts.fellBack ? [t(lang, "rangeTooLong", { n: span })] : [];
+    // JJ 6928950807 (6b)(c): what was done about the sound, right after the headline, whenever the dimensions (「没发现问题」) are shown
+    const sendErr = !!(raw && raw.sendError === true);
+    if (!sendErr && r.dimensions && r.audio != null) notes.unshift(t(lang, r.audio === false ? "soundNone" : r.audioVerified ? "soundHeard" : "soundUnclear"));
     let headline;
     // a send that was called and failed may have reached the receiver: that comes first, whatever its code says (QQ #326 5900512724 item 2)
     if (status === "no_result") headline = raw && raw.sendError === true ? t(lang, whyOf(raw.why) === "STORE_FAILED" ? "storeFailed" : "sendFailed")
@@ -499,6 +519,18 @@
         const code = (r && typeof r.code === "string" && r.code) || "FAILED";
         const e = new Error(code); e.code = code; e.notSent = NOT_SENT.includes(code); throw e;
       },
+      /** #326 (QQ 5927365621, owner #321 6888246693 / 6926823489): in the desktop window a click on 「检查这 N 秒」 is the consent. The main
+       *  process takes that real click, has the clip made and sends it when ready, with no box and no second click. → {reviewId, reused?},
+       *  or throws with the main process's code (notSent: refused before anything was made or sent). Absent in a browser tab or Cindy. */
+      direct: () => !!(sender() && typeof sender().check === "function"),
+      async checkNow(range, recheck, scope) {
+        const bridge = sender();
+        if (!bridge || typeof bridge.check !== "function") { const e = new Error("NO_SENDER"); e.code = "NO_SENDER"; e.notSent = true; throw e; }
+        const r = await bridge.check({ start: range.start, end: range.end, recheck: recheck === true, scope: scope === "window" ? "window" : "full" });
+        if (r && r.ok === true && typeof r.reviewId === "string") return { reviewId: r.reviewId, reused: r.reused === true };
+        const code = (r && typeof r.code === "string" && r.code) || "FAILED";
+        const e = new Error(code); e.code = code; e.notSent = true; e.body = r; throw e;   // the main process asks for nothing to be sent until prepare answered
+      },
       cancel: (id) => post("/api/review/cancel", { id }),
       mark: (b) => post("/api/review/mark", b),
     };
@@ -520,7 +552,8 @@
   function createSession(api, opts = {}) {
     const pollMs = opts.pollMs == null ? 400 : opts.pollMs, wait = opts.wait || sleep;
     const listeners = new Set();
-    const s = { phase: "idle", range: null, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false, gen: 0 };
+    const s = { phase: "idle", range: null, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false, gen: 0, windowOnly: false };
+    const direct = () => !!(api.direct && api.direct());
     const emit = () => { for (const fn of listeners) fn(s); };
     const set = (patch) => { Object.assign(s, patch); emit(); };
     /** prepare (renders on this computer, nothing leaves), then read the status until the clip is ready → the view, or why not */
@@ -549,11 +582,59 @@
     async function check(range, recheck = false) {
       const gen = ++s.gen;
       set({ phase: "preparing", range, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false });
-      const got = await prepareView(range, "full", gen, recheck);
+      if (direct()) return checkDirect(range, recheck, gen);
+      return lookAt(range, gen, recheck);
+    }
+    /** 「先看要发的内容」 (and, outside the desktop window, the check button): the clip is made on this computer and shown with what would go;
+     *  nothing is sent from here. In the desktop window the page offers the 「只发这 {n} 秒」 switch and the one 「检查这 {n} 秒」 button. */
+    async function look(range) {
+      if (s.phase === "preparing" || s.phase === "sending") return;
+      const gen = ++s.gen;
+      set({ phase: "preparing", range, prep: null, raw: null, previewSrc: null, scope: null, dest: null, changed: false });
+      return lookAt(range, gen, false);
+    }
+    async function lookAt(range, gen, recheck) {
+      const got = await prepareView(range, direct() && s.windowOnly ? "window" : "full", gen, recheck);
       if (got.stale || gen !== s.gen) return;
       if (got.failed) return fail(got.failed, got.dest, got.why);
       if (got.reused) return set({ phase: "result", prep: null, raw: { ...got.reused, reused: true } });
       set({ phase: "confirm", prep: got.view });
+    }
+    /** #326 one-click path (desktop window): the main process prepares and sends; the page only follows the check's status.
+     *  rendering → 「准备」 (nothing sent yet), ready / sending → 「正在发」, done → the result. A failure after the clip was ready may have
+     *  reached the receiver (sendError), unless the engine says it was refused before the request (NOT_SENT). */
+    async function checkDirect(range, recheck, gen) {
+      let got;
+      const scope = s.windowOnly ? "window" : "full";
+      try { got = await api.checkNow(range, recheck, scope); }
+      catch (e) {
+        if (gen !== s.gen) return;
+        const code = e && e.code;
+        if (code === "DESTINATION_UNVERIFIED") return fail(code, e.body && e.body.destination);
+        // refused by the main process or the engine before anything was made: nothing left this computer
+        return set({ phase: "result", prep: null, raw: { status: "no_result", reason: code === "BUSY" ? "BUSY" : code === "NEEDS_CLICK" ? "NEEDS_CLICK" : "PREPARE_FAILED", why: whyOf(code), findings: [] } });
+      }
+      if (gen !== s.gen) { api.cancel(got.reviewId).catch(() => {}); return; }
+      s.prep = { reviewId: got.reviewId, state: "rendering" };   // what 「取消」 cancels
+      let sentAsked = false;
+      for (;;) {
+        let v;
+        try { v = await api.status(got.reviewId); } catch { v = null; }
+        if (gen !== s.gen) return;
+        const st = v && v.state;
+        if (st === "done" && v.result && typeof v.result === "object") return set({ phase: "result", prep: null, raw: { ...v.result, scope: v.result.scope || scope, ...(got.reused ? { reused: true } : {}) } });
+        if (st === "rendering") { if (s.phase !== "preparing") set({ phase: "preparing" }); }
+        else if (st === "ready" || st === "sending") { sentAsked = true; if (s.phase !== "sending") set({ phase: "sending", scope }); }
+        else {
+          // failed / cancelled / expired / gone: sent or not, said plainly; never 「没发出去」 once the send may have started
+          const reason = (v && typeof v.reason === "string" && v.reason) || "SEND_FAILED";
+          const certain = !sentAsked || NOT_SENT.includes(reason);
+          return set({ phase: "result", prep: null, raw: certain ? { status: "no_result", reason: sentAsked ? reason : "PREPARE_FAILED", why: whyOf(reason), findings: [] }
+            : { status: "no_result", reason, why: whyOf(reason), sendError: true, findings: [] } });
+        }
+        await wait(pollMs);
+        if (gen !== s.gen) return;
+      }
     }
     function preview() {
       if (s.phase !== "confirm" || !s.prep) return null;
@@ -561,26 +642,43 @@
       set({ previewSrc: src });
       return src;
     }
+    /** 「只发这 {n} 秒」 as a switch (#326, JJ 6928950807 (5)): kept for the next check; on the look page the clip is made again for it. */
+    async function setWindowOnly(on) {
+      const v = on === true;
+      if (s.windowOnly === v) return;
+      set({ windowOnly: v });
+      if (s.phase === "confirm" && s.prep && direct() && (s.prep.scope === "window") !== v) await switchScope(s.gen, v ? "window" : "full");
+    }
     /** 「只发这 10 秒」 needs the clip without the project's text, which is a check of its own (#328: scope is fixed at prepare). */
-    async function switchToWindow(gen) {
+    const switchToWindow = (gen) => switchScope(gen, "window");
+    async function switchScope(gen, scope) {
       const old = s.prep;
       set({ phase: "preparing", previewSrc: null });
       try { await api.cancel(old.reviewId); } catch { /* it runs out on its own; the engine may still say BUSY, which is reported, never sent */ }
       if (gen !== s.gen) return null;
-      const got = await prepareView(s.range, "window", gen);
+      const got = await prepareView(s.range, scope, gen);
       if (got.stale || gen !== s.gen) return null;
       if (got.failed) { fail(got.failed, got.dest, got.why); return null; }
       if (got.reused) { set({ phase: "result", prep: null, raw: { ...got.reused, reused: true } }); return null; }
       const a = payloadOf(old), b = payloadOf(got.view);
       const da = destinationOf(old.willSend && old.willSend.to), db = destinationOf(got.view.willSend && got.view.willSend.to);
       // what 「只发这 10 秒」 said in the box is what goes: the same seconds, receiver and number of requests, and no words (payloadOf) — else show the box again
-      const same = !!(a && b && b.scope === "window" && near_(a.video.start, b.video.start) && near_(a.video.end, b.video.end) && a.requests === b.requests
+      const same = !!(a && b && b.scope === scope && near_(a.video.start, b.video.start) && near_(a.video.end, b.video.end) && a.requests === b.requests
         && da && db && da.service === db.service && da.host === db.host && da.confirmed && db.confirmed && da.verified === db.verified);
-      set({ phase: "confirm", prep: got.view, changed: !same });
+      set({ phase: "confirm", prep: got.view, changed: scope === "window" && !direct() ? !same : false });   // a switch the streamer flipped is not 「changed」
       return null;
     }
+    async function checkFromLook() {
+      if (s.phase !== "confirm" || !direct() || !s.range) return null;
+      const old = s.prep, range = s.range, gen = ++s.gen;
+      set({ phase: "preparing", prep: null, previewSrc: null });
+      // the clip on show is let go first and its cancel waited for: an engine still busy with it would answer the new check BUSY (#326 smoke)
+      if (old && old.reviewId) { try { await api.cancel(old.reviewId); } catch { /* it runs out on its own */ } }
+      if (gen !== s.gen) return null;
+      return check(range);
+    }
     async function send(scope) {
-      if (s.phase !== "confirm" || !s.prep) return false;
+      if (s.phase !== "confirm" || !s.prep || direct()) return false;   // #326: in the desktop window only 「检查这 {n} 秒」 sends (the main process)
       if (scope !== "full" && scope !== "window") return false;
       const m = confirmModel(s.prep, "zh-CN");
       const btn = m.buttons.find((b) => b.id === scope);
@@ -608,10 +706,10 @@
       const prep = s.prep, phase = s.phase;
       s.gen++;
       set({ phase: "closed", previewSrc: null });
-      if (prep && prep.reviewId && (phase === "confirm" || phase === "preparing")) { try { await api.cancel(prep.reviewId); } catch { /* the token runs out on its own */ } }
+      if (prep && prep.reviewId && (phase === "confirm" || phase === "preparing" || phase === "sending")) { try { await api.cancel(prep.reviewId); } catch { /* the token runs out on its own */ } }
     }
     function close() {
-      if (s.phase === "confirm" || s.phase === "preparing") return cancel();
+      if (s.phase === "confirm" || s.phase === "preparing" || (s.phase === "sending" && s.prep)) return cancel();
       s.gen++;
       set({ phase: "closed", previewSrc: null });
     }
@@ -625,7 +723,7 @@
       return true;
     }
     // 「再检查一次」 is the streamer's own: it asks the engine for a new check even when this stretch already has a result (PG 6922461279)
-    return { state: s, check, preview, send, cancel, close, markFixed, recheck: () => (s.range ? check(s.range, true) : null),
+    return { state: s, check, look, checkFromLook, setWindowOnly, direct, preview, send, cancel, close, markFixed, recheck: () => (s.range ? check(s.range, true) : null),
       on(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
   }
 
@@ -666,7 +764,24 @@
         const r = live.get(id);
         if (!r) { const e = new Error("no such check"); e.code = "NO_SUCH_REVIEW"; throw e; }
         if (r.state === "rendering" && --r.polls <= 0) r.state = opts.renderFails ? "failed" : "ready";
-        return view(r);
+        else if (r.direct && r.state === "ready") r.state = "sending";   // the main process sends what it prepared (#326 one-click path)
+        else if (r.direct && r.state === "sending") {
+          if (opts.sendFails) { r.state = "failed"; r.reason = opts.sendFails; }
+          else { r.state = "done"; r.result = { reviewId: id, source: "streamer", ...result(r.scope, r.range) }; }
+        }
+        if (r.state === "done") return { reviewId: id, state: "done", result: r.result };
+        return { ...view(r), ...(r.reason ? { reason: r.reason } : {}) };
+      },
+      /** the desktop bridge's one-click check (opts.direct): what the main process does, without a window */
+      direct: () => opts.direct === true,
+      async checkNow(range, recheck, scope) {
+        const sc = scope === "window" ? "window" : "full";
+        calls.push(["checkNow", { start: range.start, end: range.end, recheck: recheck === true, scope: sc }]);
+        if (opts.checkRefused) { const e = new Error(opts.checkRefused); e.code = opts.checkRefused; e.notSent = true; throw e; }
+        const v = await this.prepare({ start: range.start, end: range.end, scope: sc, ...(recheck ? { recheck: true } : {}) });
+        if (v.reused) { live.set(v.reviewId, { id: v.reviewId, state: "done", result: v.result }); return { reviewId: v.reviewId, reused: true }; }
+        live.get(v.reviewId).direct = true;
+        return { reviewId: v.reviewId };
       },
       async send(v) {   // the main process's answer, as montclipReview.send gives it (#347)
         const id = v && v.reviewId, token = v && v.sendToken;
@@ -702,9 +817,13 @@
     overlay.appendChild(box);
     (doc.body || doc.documentElement).appendChild(overlay);
 
+    // 「先看要发的内容」 beside the button (#326): the page before a check — what goes, the 「只发这 {n} 秒」 switch; it sends nothing itself
+    const lookBtn = btn && btn.parentNode ? el(doc, "button", "btn icon review-look hidden", "ⓘ") : null;
+    if (lookBtn) { lookBtn.type = "button"; lookBtn.id = "btnReviewLook"; btn.parentNode.insertBefore(lookBtn, btn.nextSibling); }
     function labelButton() {
       if (!btn) return;
       const r = rangeNow(), n = r ? spanOf(r) : SPAN;
+      if (lookBtn) { const w = t(L(), "previewBtn"); lookBtn.title = w; lookBtn.setAttribute("aria-label", w); lookBtn.disabled = !r; }
       btn.textContent = t(L(), "button", { n });
       // 「不到 1 秒」 only when there is a timeline and the stretch really is under 1 s — never with nothing loaded (JJ #326, 833f73e4)
       const dur = num(env.duration());
@@ -714,8 +833,18 @@
     async function refresh() {
       present = await Promise.resolve().then(() => api.available()).catch(() => false);
       if (btn) btn.classList.toggle("hidden", !present);   // no review routes on this server: no button
+      if (lookBtn) lookBtn.classList.toggle("hidden", !present);
       labelButton();
       return present;
+    }
+    /** 「只发这 {n} 秒」 (JJ 6928950807 (5)): a switch with its line under it, chosen before 「检查这 {n} 秒」; nothing is sent by flipping it */
+    function windowSwitch(parent, n) {
+      const lab = el(doc, "label", "review-switch"); lab.dataset.review = "windowSwitch";
+      const cb = el(doc, "input"); cb.type = "checkbox"; cb.checked = session.state.windowOnly; cb.dataset.review = "windowOnly";
+      cb.addEventListener("change", () => { void session.setWindowOnly(cb.checked); });
+      lab.appendChild(cb); lab.appendChild(el(doc, "span", null, t(L(), "windowToggle", { n })));
+      parent.appendChild(lab);
+      const line = el(doc, "p", "dim review-note review-switch-line", t(L(), "windowToggleLine", { n })); line.dataset.review = "windowLine"; parent.appendChild(line);
     }
     function boxLines(m) {
       for (const line of m.lines) box.appendChild(el(doc, "p", "review-line", line));
@@ -739,8 +868,10 @@
         box.appendChild(el(doc, "p", "dim review-note", t(lang, "preparing", { n })));
         add("cancel", t(lang, "cancelPrep"), () => session.cancel());
       } else if (s.phase === "confirm" || s.phase === "unverified") {
-        const m = s.phase === "confirm" ? confirmModel(s.prep, lang, { fellBack, changed: s.changed }) : unverifiedModel(s.dest, lang, s.range);
+        const one = s.phase === "confirm" && session.direct();
+        const m = s.phase === "confirm" ? confirmModel(s.prep, lang, { fellBack, changed: s.changed, direct: one }) : unverifiedModel(s.dest, lang, s.range);
         boxLines(m);
+        if (one) windowSwitch(box, n);
         if (s.previewSrc) {
           const v = el(doc, "video", "review-preview"); v.controls = true; v.preload = "metadata"; v.src = s.previewSrc;
           box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNote"))); box.appendChild(v);
@@ -772,6 +903,10 @@
         }
         for (const b of m.buttons) {
           if (b.hidden) continue;   // view-only (PG #321 6872395398): a send button that cannot send is not shown at all
+          if (one && (b.id === "full" || b.id === "window")) {   // #326: no send buttons — the one 「检查这 {n} 秒」 instead, in their place
+            if (b.id === "full") { const c = add("check", t(lang, "button", { n }), () => { void session.checkFromLook(); }, "review-send"); c.disabled = !m.canSend; }
+            continue;
+          }
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
           const node = add(b.id, b.label, on, b.id === "full" ? "review-send" : "");
           node.disabled = !b.enabled;
@@ -818,14 +953,16 @@
     /** 「检查这 10 秒」 and 「重新检查」: each press is a new check (prepare again; the receiver is read from the engine each time). */
     function start(r) {
       if (!r || !present || session.state.phase === "preparing" || session.state.phase === "sending") return null;
+      if (session.state.phase === "confirm" && session.direct()) return session.checkFromLook();
       return session.check(r);
     }
     if (btn) btn.addEventListener("click", () => { void start(rangeNow()); });
+    if (lookBtn) lookBtn.addEventListener("click", () => { const r = rangeNow(); if (r && present) void session.look(r); });
     overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); void session.close(); } });
     const every = env.setInterval || ((fn, ms) => setInterval(fn, ms));
     every(() => labelButton(), 500);
     void refresh();
-    return { session, refresh, overlay, render: () => render(session.state) };
+    return { session, refresh, overlay, lookButton: lookBtn, render: () => render(session.state) };
   }
 
   return { text, t, fmtTime, pickRange, destinationOf, payloadOf, confirmModel, unverifiedModel, cleanResult, resultModel, httpApi, safePreviewSrc,

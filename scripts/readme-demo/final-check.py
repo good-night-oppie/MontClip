@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Acceptance gates for the built 22 s demo. Exit 0 only if every gate holds.
+"""Acceptance gates for a built README demo film (22 s by default; the 15 s cut with --name montclip-demo-15s --frames 900). Exit 0 only if every gate holds.
 
-Usage: final-check.py BUILD_WORK OUT_DIR REPO [--frames N] [--fps F] [--ocr CMD] [--jobs J] [--names FILE]
-  BUILD_WORK holds montclip-demo-22s.mp4 and .webm; REPO holds scripts/readme-demo/page/demo.html.
+Usage: final-check.py BUILD_WORK OUT_DIR REPO [--name STEM] [--frames N] [--fps F] [--ocr CMD] [--jobs J] [--names FILE]
+  BUILD_WORK holds STEM.mp4 and STEM.webm (STEM defaults to montclip-demo-22s); REPO holds scripts/readme-demo/page/demo.html.
   --ocr: the OCR program (default "tesseract"); it is called as CMD IMAGE - -l eng+chi_sim --psm 11.
   --names: a file with one regular expression per line (case-insensitive) for names that must not appear:
            your account names, machine names, viewer nicknames. Keep this file outside the repository.
@@ -27,7 +27,7 @@ from PIL import Image, ImageDraw
 
 ap = argparse.ArgumentParser()
 ap.add_argument("work"); ap.add_argument("out"); ap.add_argument("repo")
-ap.add_argument("--frames", type=int, default=1320); ap.add_argument("--fps", type=int, default=60)
+ap.add_argument("--name", default="montclip-demo-22s"); ap.add_argument("--frames", type=int, default=1320); ap.add_argument("--fps", type=int, default=60)
 ap.add_argument("--ocr", default="tesseract")
 ap.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
 ap.add_argument("--names", help="file of regular expressions (one per line) that must not appear")
@@ -66,10 +66,10 @@ def frames(p):
 report = {"repo_head": subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip(),
           "repo_clean": subprocess.run(["git", "-C", str(repo), "status", "--short"], capture_output=True, text=True).stdout == "",
           "expected": {"frames": N, "fps": FPS, "size": [W, H]}, "videos": {}}
-mp4 = work / "montclip-demo-22s.mp4"
+mp4 = work / f"{a.name}.mp4"
 distinct = {}   # sha1 -> first frame index (mp4)
 thumbs = {}
-for vid in (mp4, work / "montclip-demo-22s.webm"):
+for vid in (mp4, work / f"{a.name}.webm"):
     name = vid.name
     if not vid.exists():
         gate("G1 frames", False, f"{name}: missing"); continue
@@ -155,7 +155,7 @@ for src, text in (("ocr", ocr_text), ("demo.html visible text", visible), ("demo
 gate("G6 sensitive", not hits, f"hits: {json.dumps(hits, ensure_ascii=False)[:500]}")
 
 inputs = {n: work / n for n in ("pass1/synthetic-source.mp4", "pass1/data/exports/redact-zoom.mp4", "motion-layer.mp4",
-                                "montclip-demo-22s.mp4", "montclip-demo-22s.webm")}
+                                f"{a.name}.mp4", f"{a.name}.webm")}
 report.update({"distinct_frames_by_sha1": len(distinct), "sensitive_patterns": {k: v for k, v in PAT.items() if k != "names"}, "names_file": os.path.basename(a.names) if a.names else None, "sensitive_hits": hits,
                "ocr_program": a.ocr, "gates": gates, "ok": all(g["ok"] for g in gates.values()),
                "hashes": {n: sha(p) for n, p in inputs.items() if p.exists()},

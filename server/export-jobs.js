@@ -32,8 +32,10 @@ const KIND_NAME = { scopes: "scope reading", track: "tracking job", transcribe: 
    only its own job: when the anonymous memory of the browser and everything under it passes the limit, the job is
    stopped (EXPORT_MEMORY_LIMIT, said to the streamer) and not retried. 2 GiB for now (Deja, #320): the longest export
    measured after #348 peaked at 0.85 GiB (275 s, 1080x1920, one layer, AD); before it, 3.1 GiB. Set
-   MONTCLIP_EXPORT_MEMORY_MAX_MIB to change it, 0 to turn it off. Measured where /proc says it (Linux); elsewhere the
-   limit is not applied (nothing is measured, so nothing is stopped). */
+   MONTCLIP_EXPORT_MEMORY_MAX_MIB to change it, 0 to turn it off. Measured from /proc on Linux, and on Windows (#364)
+   by a watcher started next to the browser (win-tree-memory.js: the private bytes of the browser and everything under
+   it). Same limit, same code, same sentence on both. Elsewhere (macOS) the limit is not applied (nothing is measured,
+   so nothing is stopped). */
 const MEMORY_LIMIT_MIB = 2048;
 const MEMORY_POLL_MS = 3_000;
 function memoryLimitBytes(env = process.env) {
@@ -145,13 +147,14 @@ function createExportJobs(opts) {
   const view = (j) => ({
     id: j.id, project: j.project, session: j.session, kind: j.kind, status: j.status, via: j.via, range: j.range, preview: !!j.preview, profile: j.profile || null, preset: j.delivery ? j.delivery.preset || "custom" : null,
     time: j.time ?? null, progress: j.progress, src: j.src || null, result: j.result || null, error: j.error || null,
-    code: j.errorCode || null, created: j.created, updated: j.updated,
+    code: j.errorCode || null, created: j.created, updated: j.updated, memUnknown: j.memUnknown || null,
   });
 
   function closeBrowser(j) {
     const b = j.browser;
     if (!b) return;
     j.browser = null;
+    if (b.mem) { try { b.mem.stop(); } catch {} }
     try { b.proc.kill(); } catch {}
     if (b.keep) return;
     // The profile dir is locked until the browser exits.
@@ -180,10 +183,36 @@ function createExportJobs(opts) {
     if (j.browser.proc.exitCode !== null && j.browser.proc.exitCode !== undefined || j.browser.proc.signalCode !== null && j.browser.proc.signalCode !== undefined) return false;
     j.memAt = now;
     let used = null;
-    try { used = (opts.treeMemory || treeAnonBytes)(j.browser.proc.pid); } catch { used = null; }
-    if (used == null) return false;
+    try { used = opts.treeMemory ? opts.treeMemory(j.browser.proc.pid) : j.browser.mem ? j.browser.mem.read() : treeAnonBytes(j.browser.proc.pid); } catch { used = null; }
+    if (used == null) { if (j.browser.win) checkWatch(j); return false; }
     j.memBytes = used;
     return used > memoryLimit;
+  }
+  /* #364, QQ on #365: on Windows a missing reading has many causes (PowerShell blocked, the watcher gone, CIM failing for
+     a while — likeliest when memory runs short), and none of them may switch the limit off without a word. A watcher that
+     could not start or ended while the browser runs is started again once; after that, or when no reading has come for
+     the watcher's STALE_MS, the job carries memUnknown (it shows in the job and in fablecut_export's answer) and the log
+     gets one line. The export goes on: an unknown size never stops one. */
+  const UNKNOWN_WHY = { unavailable: "the memory watcher could not be started", exited: "the memory watcher stopped",
+    gone: "the memory watcher stopped", stale: "no memory reading came in time" };
+  function startWatch(j) {
+    try { j.browser.mem = (opts.watchMemory || require("./win-tree-memory").watchTreeMemory)(j.browser.proc.pid); }   // loaded only here: Windows, headless
+    catch { j.browser.mem = null; }
+  }
+  function checkWatch(j) {
+    const m = j.browser.mem;
+    let h = "unavailable";
+    try { if (m) h = typeof m.health === "function" ? m.health() : "starting"; } catch {}
+    if (h === "ok" || h === "starting") return;
+    if (h !== "stale" && !j.memRestarted) {
+      j.memRestarted = true;
+      try { if (m) m.stop(); } catch {}
+      startWatch(j);
+      return;
+    }
+    if (j.memUnknown) return;
+    j.memUnknown = UNKNOWN_WHY[h] ? h : "unavailable";
+    try { (opts.log || console.warn)(`export: the memory limit could not be measured (${UNKNOWN_WHY[j.memUnknown]}); the export goes on without it`); } catch {}
   }
   function endOverMemory(j) {
     const mib = (n) => Math.round(n / 1048576);
@@ -235,11 +264,17 @@ function createExportJobs(opts) {
     const proc = spawn(exe, args, { stdio: "ignore", windowsHide: true });
     const started = Date.now();
     j.browser = { proc, profileDir, keep: !!kept };
+    // #364: Windows has no /proc; a watcher reads this browser's tree instead (nothing when the limit is off, or tests measure)
+    if (memoryLimit > 0 && !opts.treeMemory && (opts.platform || process.platform) === "win32" && Number.isInteger(proc.pid)) {
+      j.browser.win = true;
+      startWatch(j);
+    }
     proc.on("error", (e) => end(j, "failed", { error: "could not start the headless browser: " + e.message }));
     // the page crashed with its browser (MC-15): this job ends, said in the interface language (EXPORT_PAGE_CRASHED); the
     // engine and the queue carry on
     proc.on("exit", (code) => {
       if (!j.browser) return;
+      if (j.browser.mem) { try { j.browser.mem.stop(); } catch {} }
       j.browser = null;
       if (isEnded(j)) return;
       const ms = Date.now() - started;

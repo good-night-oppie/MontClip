@@ -408,6 +408,8 @@
     const ids = new Set();
     for (const c of t.clips) {
       if (!isObj(c) || typeof c.id !== "string" || !c.track || !isNum(c.start) || !isNum(c.duration)) return bad(`template ${id}: every clip needs id, track, numeric start and duration`);
+      // #366 ②: a track is V<n> or A<n> — a clip's track id is written into the editor's markup
+      if (typeof c.track !== "string" || !/^[VA][1-9]\d?$/.test(c.track)) return bad(`template ${id}: a clip's track is V1…V99 or A1…A99`);
       if (ids.has(c.id)) return bad(`template ${id}: two clips have the id ${c.id}`);
       ids.add(c.id);
     }
@@ -433,7 +435,7 @@
       id, name: name || id, group: typeof t.group === "string" && t.group.trim() ? t.group.trim().slice(0, 30) : "Saved",
       width: t.width, height: t.height, duration: r4(t.duration), hold: r4(hold),
       ...(typeof t.background === "string" ? { background: t.background } : {}),
-      ...(Array.isArray(t.tracks) ? { tracks: clone(t.tracks) } : {}),
+      ...(Array.isArray(t.tracks) ? { tracks: clone(t.tracks.filter((d) => isObj(d) && typeof d.id === "string" && /^[VA][1-9]\d?$/.test(d.id))) } : {}),   // #366 ②
       clips: clone(t.clips), ...(media.length ? { media } : {}), fields,
     };
   }

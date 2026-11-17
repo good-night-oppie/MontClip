@@ -9,6 +9,7 @@ const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-fail
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../server/external-ffmpeg");
+const { nonCanonicalApi } = require("../server/api-path");
 const Capabilities = require("../capabilities");
 const HostEmbed = require("../host-embed");   // ?host=cindy: the built-in assistant's requests are refused   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
@@ -138,21 +139,33 @@ async function start() {
   });
   ses.webRequest.onBeforeRequest((details, callback) => {
     const embedded = /^(blob:|data:)/.test(details.url);
-    callback({ cancel: !local(details.url) && !embedded });
+    /* an /api/ request spelt any way but the plain one is stopped here, by the very function the server uses (server/api-path.js), so
+       this process and the server can never read one path two ways (QQ, #326 review 5927365621; Deja) */
+    const offPath = local(details.url) && nonCanonicalApi(details.url.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i, ""));
+    /* only the editor window itself (its frames and dedicated workers included, the background export's hidden page is one of
+       its frames) talks to this computer's server through this session. A SharedWorker or a Service Worker — and a Service
+       Worker's own script — belongs to no window: its requests come with no webContentsId and are stopped here, so a page script
+       cannot reach the server from somewhere that carries no page secret (QQ, #369 review 5928897982). This process's own
+       requests (engine()) go over Node's http and never pass this session. */
+    const fromWindow = !!(win && !win.isDestroyed() && details.webContentsId === win.webContents.id);
+    callback({ cancel: (!local(details.url) && !embedded) || offPath || (local(details.url) && !fromWindow) });
   });
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     if (local(details.url)) details.requestHeaders["X-MontClip-Session"] = token;
-    /* the review's page secret goes only on the editor window's own requests to /api/review/ (a hidden export page or anything else gets none) */
-    if (local(details.url) && win && !win.isDestroyed() && details.webContentsId === win.webContents.id && new URL(details.url).pathname.startsWith("/api/review/")) details.requestHeaders["X-MontClip-Page"] = pageSecret;
+    /* the review's page secret goes on every request the editor window itself makes to this computer's server (a hidden export page or
+       anything else gets none). Not filtered by path: a filter on the raw path missed /api/%72eview/…, which the server decodes to
+       /api/review/… and then read as an agent's request (QQ, #326 review 5927365621) — whatever the page asks for, it is the page. */
+    if (local(details.url) && win && !win.isDestroyed() && details.webContentsId === win.webContents.id) details.requestHeaders["X-MontClip-Page"] = pageSecret;
     callback({ requestHeaders: details.requestHeaders });
   });
   ses.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders };
     // the editor may frame only its own origin: the hidden page a background export renders in (MontClip#263, bg-export.js);
-    // that page gets the same policy and frames nothing
+    // that page gets the same policy and frames nothing. Workers only from the app's own files (app/ruler-worker.js,
+    // app/jpeg-worker.js): a page script cannot run one from a blob: or data: address (QQ, #369)
     if (local(details.url) && (details.resourceType === "mainFrame" || details.resourceType === "subFrame")) {
       const frames = details.resourceType === "mainFrame" ? "'self'" : "'none'";
-      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src " + frames + "; base-uri 'none'; form-action 'none'"];
+      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self'; object-src 'none'; frame-src " + frames + "; base-uri 'none'; form-action 'none'"];
     }
     callback({ responseHeaders: headers });
   });
@@ -408,6 +421,49 @@ async function start() {
     const sent = await engine("POST", "/api/review/send", { id, token: v.token, hash: v.hash });
     reviewSender.revoke(id);
     return sent.status === 200 ? { ok: true, record: sent.json } : { ok: false, code: (sent.json && sent.json.code) || "FAILED" };
+  });
+  /* #326 (QQ review 5927365621; owner 2026-11-15 #321 6888246693 and 2026-11-16 6926823489): the streamer's click on 「检查这 N 秒」 is the
+     consent. This process takes that real input itself (the 2 s before), has the engine make the clip, remembers the check as one she
+     clicked, and sends it the moment it is ready — no box before it, no second click. The page only names the stretch; it never holds a
+     token for this, and a page script's call without a real input is NEEDS_CLICK. The send itself is the same as below: switch, key,
+     body check and receipt check in review-sender.js, the engine's own checks (destination, budget, record, limits) at the moment of sending. */
+  const clickedChecks = new Set();
+  const sendWhenReady = async (id) => {
+    try {
+      for (const until = Date.now() + 10 * 60 * 1000; Date.now() < until;) {   // a clicked check is remembered 10 minutes (QQ 5927365621)
+        const st = await engine("GET", "/api/review/status?id=" + encodeURIComponent(id));
+        const state = st.json && st.json.state;
+        if (st.status !== 200 || (state !== "rendering" && state !== "ready")) return;   // cancelled, failed, expired: nothing to send
+        if (state === "ready") {
+          const w = st.json.willSend, tok = st.json.sendToken;
+          const ok = clickedChecks.has(id) && w && typeof tok === "string" && tok && typeof w.hash === "string" && /^[a-f0-9]{64}$/.test(w.hash)
+            && reviewSender.switch.get().on && reviewSender.key.status().configured;
+          if (!ok) { await engine("POST", "/api/review/cancel", { id }); return; }
+          reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1, w.hash);
+          const sent = await engine("POST", "/api/review/send", { id, token: tok, hash: w.hash });
+          reviewSender.revoke(id);
+          if (sent.status !== 200) await engine("POST", "/api/review/cancel", { id });   // never left waiting as "ready"
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      await engine("POST", "/api/review/cancel", { id });
+    } finally { clickedChecks.delete(id); }
+  };
+  ipcMain.handle("montclip:review:check", async (event, value) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };
+    const body = require("./review-sender").checkRequest(value);   // the stretch, the switch's scope, recheck — nothing else from the page
+    if (!body) return { ok: false, code: "BAD_REQUEST" };
+    if (!reviewSender.switch.get().on) return { ok: false, code: "REVIEW_SEND_OFF" };
+    if (!reviewSender.key.status().configured) return { ok: false, code: "NO_KEY" };
+    if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
+    const pr = await engine("POST", "/api/review/prepare", body);
+    const j = pr.json;
+    if (pr.status !== 200 || !j || typeof j.reviewId !== "string") return { ok: false, code: (j && typeof j.code === "string" && j.code) || "FAILED" };
+    if (j.reused === true) return { ok: true, reviewId: j.reviewId, reused: true };
+    clickedChecks.add(j.reviewId);
+    void sendWhenReady(j.reviewId);
+    return { ok: true, reviewId: j.reviewId };
   });
   ipcMain.handle("montclip:review:unblock", async (event) => {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };

@@ -5373,6 +5373,8 @@ html[data-host-theme="light"] .track-head, html[data-host-theme="light"] .track 
 
 /* ── 「检查这 10 秒」 (#321 step 2; review-check.js) ── */
 .review-btn { white-space: nowrap; }
+.review-dialog .review-switch { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-weight: 600; cursor: pointer; }
+.review-dialog .review-switch-line { margin-bottom: 12px; }
 .review-dialog { width: 480px; max-width: calc(100vw - 24px); overflow-y: auto; }
 .review-dialog .review-line { margin-bottom: 8px; }
 .review-dialog .review-to { margin-bottom: 4px; font-weight: 600; }

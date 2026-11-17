@@ -152,11 +152,14 @@ function httpOk(url) {
     req.setTimeout(1200, () => { req.destroy(); resolve(false); });
   });
 }
-/** JSON request to the editor server → {status, body}. Extra headers are for
- *  endpoints that gate on them — /api/frame?path= needs X-FableCut-Client. */
+/** #369 / #366: the MCP client's key, read from the data folder where the running server wrote it (mcp-key.js); a page cannot read it.
+ *  Every request this client makes carries it: it is what tells the server that an agent is asking (the review's send:true) and what
+ *  /api/frame?path= needs. */
+const mcpHeader = () => { const K = require("./mcp-key"), k = K.read(DATA_DIR); return k ? { [K.HEADER]: k } : {}; };
+/** JSON request to the editor server → {status, body}. */
 function apiJSON(method, urlPath, payload, headers) {
   return new Promise((resolve, reject) => {
-    const req = http.request(API + urlPath, { method, headers: { "Content-Type": "application/json", ...session(), ...headers } }, (r) => {
+    const req = http.request(API + urlPath, { method, headers: { "Content-Type": "application/json", ...mcpHeader(), ...session(), ...headers } }, (r) => {
       let data = "";
       r.setEncoding("utf8");
       r.on("data", (d) => { data += d; });
@@ -1140,6 +1143,11 @@ async function denoiseTool(args) {
 /** Saved delivery presets (library/delivery/), as the server lists them. */
 function savedDeliveryPresets() { return Delivery.savedPresets(readSaved("delivery")); }
 function describeExportJob(j) {
+  const text = describeExportJobText(j);
+  // #364 (QQ on #365): on Windows the memory limit may not have been measurable; say so instead of nothing
+  return j.memUnknown ? text + `\nNote: the export memory limit could not be measured during this export (${j.memUnknown}); it went on without it.` : text;
+}
+function describeExportJobText(j) {
   const pct = Math.round((j.progress || 0) * 100);
   if (j.status === "done") {
     const file = path.join(String(j.src || "").startsWith("/previews/") ? PREVIEWS_DIR : EXPORTS_DIR, path.basename(decodeURIComponent(j.src || "")));
@@ -1421,7 +1429,7 @@ function imageBlockFromDataUrl(url) {
  *  arbitrary files nor probe which ones exist. */
 function apiBytes(urlPath) {
   return new Promise((resolve, reject) => {
-    const req = http.request(API + urlPath, { method: "GET", headers: { "X-FableCut-Client": "mcp", ...session() } }, (r) => {
+    const req = http.request(API + urlPath, { method: "GET", headers: { ...mcpHeader(), ...session() } }, (r) => {
       const chunks = [];
       r.on("data", (c) => chunks.push(c));
       r.on("end", () => resolve({ status: r.statusCode, headers: r.headers, body: Buffer.concat(chunks) }));
@@ -1500,7 +1508,7 @@ Image ${res.imageSize.w}x${res.imageSize.h} px = the whole ${res.frame.w}x${res.
      one request — not the picture and then a second call for the numbers. */
   if (args.text) {
     q.set("text", "1");
-    const j = await apiJSON("GET", "/api/frame?" + q.toString(), undefined, { "X-FableCut-Client": "mcp" });
+    const j = await apiJSON("GET", "/api/frame?" + q.toString());
     if (j.status !== 200) throw new Error(j.body?.error || `frame description failed (${j.status})`);
     const st = j.body.stats, b = j.body;
     const where = b.frames > 1
