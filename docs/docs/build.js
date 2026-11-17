@@ -126,7 +126,7 @@ const PAGES = [
   {
     slug: "editing", nav: "Editing rules", title: "Editing rules", group: "The timeline",
     lede: "How tracks, links, locks, targeting and the trim tools behave, for people and agents alike.",
-    parts: [["project.json schema", "Semantics"]],
+    parts: [["project.json schema", "Semantics"], ["project.json schema", "Project values in the editor's markup (#366)"]],
   },
   {
     slug: "library", nav: "Asset library", title: "Asset library", group: "The timeline",
