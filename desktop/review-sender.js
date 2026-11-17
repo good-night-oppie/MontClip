@@ -109,4 +109,13 @@ const snapshotOf = (chk) => OR.hashOf("montclip-review-v2", chk.videoSha, chk.au
 const BOX = Object.freeze({ cancel: "取消", unblock: "重新允许", unblockTitle: "审片",
   unblockMessage: "发往：" + OR.HOST + "\n上次的回执不是 Google AI Studio 或不是指定模型，这个工程的发送已停下。要重新允许发送吗？" });
 
-module.exports = { createReviewSender, checkBody, snapshotOf, BOX, KEY_FILE, SWITCH_FILE };
+/** #326: what the page may ask of the one-click check (montclip:review:check) — the stretch, the 「只发这 N 秒」 switch (JJ 6928950807 (5))
+ *  and recheck; anything else is dropped. → the engine's prepare body, or null for a stretch that is not one. */
+function checkRequest(value) {
+  const v = value && typeof value === "object" ? value : {};
+  const start = Number(v.start), end = Number(v.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return null;
+  return { start, end, scope: v.scope === "window" ? "window" : "full", ...(v.recheck === true ? { recheck: true } : {}) };
+}
+
+module.exports = { createReviewSender, checkBody, checkRequest, snapshotOf, BOX, KEY_FILE, SWITCH_FILE };

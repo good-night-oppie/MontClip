@@ -2,7 +2,7 @@
 // #321 (ADR #341) — the streamer's path on a real Windows desktop, for SOP 13: a fresh profile in a new temporary folder, the review switch off
 // by default, switched on in Settings, a synthetic clip prepared, and sent. Nothing is shown before a send (owner's decision 2026-11-15, #321
 // 6888246693): the streamer's click is the consent. The assistant's request in the manual and in the auto mode is refused (NEEDS_CLICK), and
-// so is a page script's call with no real input before it; both reach nothing. After a real click (an input event) the request goes once. The person running it presses nothing on the desktop: the window stays hidden. The "outside" here is
+// so is a page script's call with no real input before it; both reach nothing. #326: one real click on 「检查这 N 秒」 makes the clip and sends it. After a real click (an input event) the request goes once. The person running it presses nothing on the desktop: the window stays hidden. The "outside" here is
 // only a local stand-in on 127.0.0.1 that counts what reaches it, honoured only in an unpackaged --montclip-smoke run (desktop/review-sender.js).
 // Nothing leaves the computer.
 // Run: electron desktop/review-send-smoke.cjs --montclip-smoke --user-data-dir=<new empty folder>
@@ -192,6 +192,64 @@ function start() {
       const ok = r && r.ok === true && hits.length === 1 && hits[0].path === '/api/v1/chat/completions';
       if (!ok) throw Error('EXPECTED_ONE_SEND ' + JSON.stringify({ r: r && { ok: r.ok, code: r.code }, hits, state: end.state }));
       step('主播点击后：没有弹框，直接发出；本地替身收到 ' + hits.length + ' 个请求（' + hits[0].bytes + ' 字节），状态 ' + end.state);
+      /* 6. #326 (QQ review 5927365621 ②; owner #321 6888246693 / 6926823489): the streamer's own way — one real click on the
+            「检查这 N 秒」 button in the Program transport is the consent; the main process makes the clip and sends it, no box, no second click */
+      const clickAt = async (sel) => {
+        const r = await read(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e||e.offsetParent===null)return null;e.scrollIntoView({block:'center'});const b=e.getBoundingClientRect();return{x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)};})()`);
+        if (!r) throw Error('NOT_SHOWN ' + sel);
+        win.webContents.sendInputEvent({ type: 'mouseDown', x: r.x, y: r.y, button: 'left', clickCount: 1 });
+        win.webContents.sendInputEvent({ type: 'mouseUp', x: r.x, y: r.y, button: 'left', clickCount: 1 });
+      };
+      /* 6a. a page script asking for the one-click check itself, with no real input before it: refused, no clip made, nothing sent */
+      const rc = await read(`window.montclipReview.check({start:0,end:6})`);
+      if (!(rc && rc.ok === false && rc.code === 'NEEDS_CLICK' && hits.length === 1)) throw Error('CHECK_SCRIPT_NOT_REFUSED ' + JSON.stringify({ rc, hits: hits.length }));
+      step('页面脚本自己调用「检查」、没有真实点击：' + rc.code + '，本地替身仍是 ' + hits.length + ' 个请求');
+      /* 6b. the real click on the button */
+      await read(`(()=>{setTime(4.5);return true;})()`); await wait(400);
+      const label = await read(`document.getElementById('btnReviewCheck').textContent`);
+      await clickAt('#btnReviewCheck');
+      /* 6c. the same click asked for again by a page script, for another check, right after the button used it: refused, nothing more goes */
+      const reuse = await read(`window.montclipReview.check({start:0,end:6})`);
+      if (!(reuse && reuse.ok === false && reuse.code === 'NEEDS_CLICK')) throw Error('CLICK_REUSED ' + JSON.stringify(reuse));
+      let res = null, sendButtons = 0, phases = new Set();
+      for (const until = Date.now() + 900000; Date.now() < until;) {
+        const o = await read(`(()=>{const ov=document.querySelector('.review-overlay:not(.hidden)');if(!ov)return{open:false};const h=ov.querySelector('.review-headline');return{open:true,send:ov.querySelectorAll('[data-review="full"],[data-review="window"]').length,note:(ov.querySelector('.review-note')||{}).textContent||'',head:h?h.textContent:null};})()`);
+        if (o.open) { sendButtons += o.send; if (o.note) phases.add(o.note); }
+        if (o.head) { res = o.head; break; }
+        await wait(300);
+      }
+      if (!res || hits.length !== 2 || sendButtons) throw Error('ONE_CLICK ' + JSON.stringify({ res, hits: hits.length, sendButtons }));
+      step('真实点击一次「' + label + '」：没有弹出发送框、没有第二次点击（过程中显示：' + [...phases].join(' / ') + '）；本地替身收到第 ' + hits.length + ' 个请求（' + hits[1].bytes + ' 字节），结果：' + res);
+      step('同一次点击被页面脚本拿去给另一个检查用：' + reuse.code + '，本地替身仍是 ' + hits.length + ' 个请求');
+      /* 6d. JJ 6928950807 (5): 「只发这 N 秒」 is a switch chosen before the click — on the 「先看要发的内容」 page (ⓘ beside the button) */
+      await read(`(()=>{document.querySelector('.review-overlay:not(.hidden) [data-review="close"]')?.click();return true;})()`); await wait(300);
+      // another stretch (IN 1 s – OUT 5 s): the 6 s just checked would only bring back that result, nothing new to look at
+      await read(`(()=>{project.inPoint=1;project.outPoint=5;return true;})()`); await wait(700);
+      await clickAt('#btnReviewLook');
+      let page = null;
+      for (const until = Date.now() + 900000; Date.now() < until;) {
+        page = await read(`(()=>{const ov=document.querySelector('.review-overlay:not(.hidden)');if(!ov)return null;const c=ov.querySelector('[data-review="check"]');return{sw:!!ov.querySelector('[data-review="windowOnly"]'),line:(ov.querySelector('[data-review="windowLine"]')||{}).textContent||'',check:c?c.textContent:null,ready:!!c&&!c.disabled,send:ov.querySelectorAll('[data-review="full"],[data-review="window"]').length};})()`);
+        if (page && page.ready) break; await wait(300);
+      }
+      if (!(page && page.ready && page.sw && !page.send && hits.length === 2)) throw Error('LOOK_PAGE ' + JSON.stringify({ page, hits: hits.length }));
+      await clickAt('.review-overlay:not(.hidden) [data-review="windowOnly"]');
+      let flipped = null;
+      for (const until = Date.now() + 900000; Date.now() < until;) {
+        flipped = await read(`(()=>{const ov=document.querySelector('.review-overlay:not(.hidden)');const c=ov&&ov.querySelector('[data-review="check"]');const b=ov&&ov.querySelector('[data-review="windowOnly"]');return{on:!!b&&b.checked,ready:!!c&&!c.disabled,lines:ov?[...ov.querySelectorAll('.review-line')].map(x=>x.textContent):[]};})()`);
+        if (flipped.on && flipped.ready) break; await wait(300);
+      }
+      if (!(flipped.on && flipped.ready && hits.length === 2)) throw Error('SWITCH ' + JSON.stringify({ flipped, hits: hits.length }));
+      step('点 ⓘ「先看要发的内容」：有「只发这 N 秒」开关（下面一行：' + page.line + '），没有「发送检查」类按钮，只有一个「' + page.check + '」；打开开关后重新准备，本地替身仍是 ' + hits.length + ' 个请求');
+      await clickAt('.review-overlay:not(.hidden) [data-review="check"]');
+      let res2 = null;
+      for (const until = Date.now() + 900000; Date.now() < until;) {
+        res2 = await read(`(()=>{const h=document.querySelector('.review-overlay:not(.hidden) .review-headline');return h?{head:h.textContent,notes:[...document.querySelectorAll('.review-overlay:not(.hidden) .review-note')].map(x=>x.textContent)}:null;})()`);
+        if (res2) break; await wait(300);
+      }
+      const recs = await read(`fetch('/api/review/records?limit=1').then(r=>r.json())`);
+      const last = recs && recs.records && recs.records[0];
+      if (!(res2 && hits.length === 3 && last && last.scope === 'window')) throw Error('WINDOW_CHECK ' + JSON.stringify({ res2, hits: hits.length, last: last && { scope: last.scope } }));
+      step('开关开着、真实点击一次「' + page.check + '」：本地替身收到第 ' + hits.length + ' 个请求（' + hits[2].bytes + ' 字节），记录里 scope=' + last.scope + '；结果：' + res2.head + (res2.notes.length ? '｜' + res2.notes.join('｜') : ''));
       passed = true;
       process.stdout.write('REVIEW_SEND_PASS ' + JSON.stringify({ steps, standinHits: hits.length }) + '\n');
     } catch (e) { process.stdout.write('REVIEW_SEND_FAIL ' + e.message + '\n'); }

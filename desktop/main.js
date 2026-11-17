@@ -407,16 +407,63 @@ async function start() {
        a real input this window got in the 2 s before (takeReviewGesture), not a script's call.
        A request the assistant makes goes only when the permission modes say run for fablecut_review to openrouter.ai (QQ, #347 review
        5909445232): approve-all is the approval card's session choice, not the auto mode; in manual and auto an external step is asked until
-       then, and a review send is never asked in a card, so it is NEEDS_CLICK. The page's own `assistant` flag is checked in #326. */
+       then, and a review send is never asked in a card, so it is NEEDS_CLICK.
+       #326: the page's own `assistant` flag is not trusted. This process cannot tell from a page message that the assistant asked (the
+       assistant has no review tool yet), so the flag never takes the place of the real click: every send from the page needs it, and one the
+       page says is the assistant's must in addition be allowed by the permission modes (run). */
+    if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
     if (v.assistant === true) {
       let d = null;
       try { d = agentPolicy.decide({ sessionId: "review", capability: "fablecut_review", target: { kind: "origin", value: "https://" + require("../server/openrouter-review").HOST }, bytes: Number(w.videoBytes) || 0 }); } catch { }
       if (!d || d.ok !== true || d.action !== "run") return { ok: false, code: "NEEDS_CLICK" };
-    } else if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
+    }
     reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1, w.hash);
     const sent = await engine("POST", "/api/review/send", { id, token: v.token, hash: v.hash });
     reviewSender.revoke(id);
     return sent.status === 200 ? { ok: true, record: sent.json } : { ok: false, code: (sent.json && sent.json.code) || "FAILED" };
+  });
+  /* #326 (QQ review 5927365621; owner 2026-11-15 #321 6888246693 and 2026-11-16 6926823489): the streamer's click on 「检查这 N 秒」 is the
+     consent. This process takes that real input itself (the 2 s before), has the engine make the clip, remembers the check as one she
+     clicked, and sends it the moment it is ready — no box before it, no second click. The page only names the stretch; it never holds a
+     token for this, and a page script's call without a real input is NEEDS_CLICK. The send itself is the same as below: switch, key,
+     body check and receipt check in review-sender.js, the engine's own checks (destination, budget, record, limits) at the moment of sending. */
+  const clickedChecks = new Set();
+  const sendWhenReady = async (id) => {
+    try {
+      for (const until = Date.now() + 10 * 60 * 1000; Date.now() < until;) {   // a clicked check is remembered 10 minutes (QQ 5927365621)
+        const st = await engine("GET", "/api/review/status?id=" + encodeURIComponent(id));
+        const state = st.json && st.json.state;
+        if (st.status !== 200 || (state !== "rendering" && state !== "ready")) return;   // cancelled, failed, expired: nothing to send
+        if (state === "ready") {
+          const w = st.json.willSend, tok = st.json.sendToken;
+          const ok = clickedChecks.has(id) && w && typeof tok === "string" && tok && typeof w.hash === "string" && /^[a-f0-9]{64}$/.test(w.hash)
+            && reviewSender.switch.get().on && reviewSender.key.status().configured;
+          if (!ok) { await engine("POST", "/api/review/cancel", { id }); return; }
+          reviewSender.permit(id, Number(w.requests) === 2 ? 2 : 1, w.hash);
+          const sent = await engine("POST", "/api/review/send", { id, token: tok, hash: w.hash });
+          reviewSender.revoke(id);
+          if (sent.status !== 200) await engine("POST", "/api/review/cancel", { id });   // never left waiting as "ready"
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      await engine("POST", "/api/review/cancel", { id });
+    } finally { clickedChecks.delete(id); }
+  };
+  ipcMain.handle("montclip:review:check", async (event, value) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };
+    const body = require("./review-sender").checkRequest(value);   // the stretch, the switch's scope, recheck — nothing else from the page
+    if (!body) return { ok: false, code: "BAD_REQUEST" };
+    if (!reviewSender.switch.get().on) return { ok: false, code: "REVIEW_SEND_OFF" };
+    if (!reviewSender.key.status().configured) return { ok: false, code: "NO_KEY" };
+    if (!takeReviewGesture()) return { ok: false, code: "NEEDS_CLICK" };
+    const pr = await engine("POST", "/api/review/prepare", body);
+    const j = pr.json;
+    if (pr.status !== 200 || !j || typeof j.reviewId !== "string") return { ok: false, code: (j && typeof j.code === "string" && j.code) || "FAILED" };
+    if (j.reused === true) return { ok: true, reviewId: j.reviewId, reused: true };
+    clickedChecks.add(j.reviewId);
+    void sendWhenReady(j.reviewId);
+    return { ok: true, reviewId: j.reviewId };
   });
   ipcMain.handle("montclip:review:unblock", async (event) => {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVIEW_FORBIDDEN" };
