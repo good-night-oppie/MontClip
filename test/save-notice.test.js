@@ -36,7 +36,7 @@ test('the queue: its button, Save on each item and Saved come from the interface
   a.doesNotMatch(app, /download>Open<\/a>/, 'no hard-coded Open');
   a.doesNotMatch(app, /`Queue · \$\{/, 'no hard-coded Queue · n');
   a.match(app, /btnOpen\.textContent = exportQueue\.length \? uiText\("own\.q-list-n", \{ n: pending \|\| exportQueue\.length \}\) : uiText\("own\.q-list"\);/);
-  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? ` disabled title="\$\{escapeHtml\(uiText\("own\.save-busy"\)\)\}"` : ""\}>\$\{escapeHtml\(uiText\("own\.q-save"\)\)\}<\/button>/);
+  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{escapeHtml\(q\.id\)\}"\$\{q\.saving \? ` disabled title="\$\{escapeHtml\(uiText\("own\.save-busy"\)\)\}"` : ""\}>\$\{escapeHtml\(uiText\("own\.q-save"\)\)\}<\/button>/);
   a.match(app, /<span class="dlv-q-saved">\$\{escapeHtml\(uiText\("own\.q-saved"\)\)\}<\/span>/);
   a.match(html, /id="btnOpenQueue"[^>]*data-i18n="own\.q-list"/);
   a.match(app, /renderMontClipView\(\);\s*try \{ renderQueue\(\); \} catch \{ \/\* not built yet \*\/ \}/, 'a language switch relabels the queue');
@@ -68,7 +68,7 @@ test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved 
   const app = read('app/app.js');
   a.match(app, /if \(s\) \{ if \(q\.saving\) return; q\.saving = true; renderQueue\(\); saveDownload\(/, 'a second click does nothing while the first save is open');
   a.match(app, /for \(const q of exportQueue\) if \(q\.file === name\) \{ q\.saving = false; if \(removed\) q\.saved = true; \}/, 'the end of that save frees the button');
-  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? ` disabled/);
+  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{escapeHtml\(q\.id\)\}"\$\{q\.saving \? ` disabled/);
   a.match(app, /: q\.status === "done" \? \(q\.saved \? "" : uiText\("qDone", \{ file: q\.file \|\| q\.name \+ ext \}\)\)/, 'no path for a saved item');
 });
 

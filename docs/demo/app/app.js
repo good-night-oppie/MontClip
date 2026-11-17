@@ -1841,7 +1841,7 @@ function syncExportFrameSel() {
   const i = exportFrameAspectIndex(ef);
   let html = EXPORT_FRAME_ASPECTS.map((a, j) => {
     const sel = ef ? (i === j) : (j === 0);
-    return `<option value="${j}" ${sel ? "selected" : ""}>${escapeHtml(uiText("own." + a.key))}</option>`;
+    return `<option value="${escapeHtml(j)}" ${sel ? "selected" : ""}>${escapeHtml(uiText("own." + a.key))}</option>`;
   }).join("");
   if (ef && i < 0)
     html += `<option value="custom" selected>${escapeHtml(uiText("own.ef-custom", { w: ef.w, h: ef.h }))}</option>`;
@@ -1859,7 +1859,36 @@ function exportFrameNames(sel = els.exportFrameSel) {
     sel?.querySelector('option[value="' + n + '"]')?.textContent || '']));
   return { dropdown: (sel && sel.getAttribute("aria-label")) || "", option: (opt && opt.textContent) || "", options };
 }
+/* #366 ② (QQ 6930008236): what a project file says is checked before anything is drawn from it — a project can come from an
+   import, a backup, a template, another tool or an agent. Sizes are whole numbers 16…8192 (else the default), times and
+   lengths are finite seconds (else 0, or 1 s for a length), track ids are V<n> / A<n> (a clip on anything else goes to V1 / A1,
+   a track list entry is dropped) and a composition needs a short plain id. Nothing else about the document changes. */
+const LOAD_TRACK_ID = /^[VA][1-9]\d?$/;
+const LOAD_COMP_ID = /^[\w.-]{1,80}$/;
+const loadDim = (v, d) => { const n = Number(v); return Number.isFinite(n) && n >= 16 && n <= 8192 ? Math.round(n) : d; };
+const loadSec = (v, d) => { const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN; return Number.isFinite(n) ? n : d; };
+function loadClip(c) {
+  if (!c || typeof c !== "object") return c;
+  const out = { ...c, start: loadSec(c.start, 0), in: loadSec(c.in, 0), duration: loadSec(c.duration, 1) };
+  if (typeof out.track !== "string" || !LOAD_TRACK_ID.test(out.track)) out.track = out.kind === "audio" ? "A1" : "V1";
+  return out;
+}
+function sanitizeLoaded(data) {
+  if (!data || typeof data !== "object") return data;
+  const w = loadDim(data.width, 1280), h = loadDim(data.height, 720);
+  const out = { ...data, width: w, height: h };
+  if (Array.isArray(data.clips)) out.clips = data.clips.filter((c) => c && typeof c === "object").map(loadClip);
+  if (Array.isArray(data.tracks)) out.tracks = data.tracks.filter((d) => d && typeof d.id === "string" && LOAD_TRACK_ID.test(d.id));
+  if (Array.isArray(data.comps)) out.comps = data.comps.filter((cp) => cp && typeof cp.id === "string" && LOAD_COMP_ID.test(cp.id)).map((cp) => ({
+    ...cp, width: loadDim(cp.width, w), height: loadDim(cp.height, h),
+    duration: loadSec(cp.duration, 5) > 0 ? loadSec(cp.duration, 5) : 5,
+    ...(Array.isArray(cp.tracks) ? { tracks: cp.tracks.filter((d) => d && typeof d.id === "string" && LOAD_TRACK_ID.test(d.id)) } : {}),
+    clips: Array.isArray(cp.clips) ? cp.clips.filter((c) => c && typeof c === "object").map(loadClip) : [],
+  }));
+  return out;
+}
 function applyProject(data, opts = {}) {
+  data = sanitizeLoaded(data);
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
     // another sequence was opened (an agent, another tab): the comp was opened from the old one
     state.compCtx = null;
@@ -2538,7 +2567,7 @@ function importingEnd(ticket) {
   renderBin(); autoAfterImport();
 }
 function importingHtml(cls) {
-  return [...IMPORTING].map(([ticket, it]) => `<div class="${cls}" data-importing="${ticket}" role="status">
+  return [...IMPORTING].map(([ticket, it]) => `<div class="${escapeHtml(cls)}" data-importing="${escapeHtml(ticket)}" role="status">
     <span class="bin-importing-name">${escapeHtml(it.name)}</span>
     <span class="bin-importing-pct" data-importing-pct>${escapeHtml(uiText("own.bin-importing", { pct: MediaLib.importPercent(it) }))}</span></div>`).join("");
 }
@@ -2948,7 +2977,7 @@ function renderBin() {
     const thumbSrc = aux.thumb || (m.kind === "image" || m.kind === "svg" ? m.src : null);
     const uses = ctx.usage.get(m.id) || 0;
     const folder = flat && m.folderId ? getFolder(m.folderId) : null;
-    const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
+    const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${escapeHtml(uses)}× — click to find every instance` : "Not used on the timeline"}">${escapeHtml(uses)}</button>`;
     // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
     const rep = repairing.get(m.id);
     const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
@@ -2959,7 +2988,7 @@ function renderBin() {
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     const tracksHtml = trackBadgeHtml(m);
     if (binView.list) {
-      const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
+      const cell = (v, cls = "") => `<span class="bin-cell${escapeHtml(cls)}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
         <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${slowMark}${offlineHtml}<span class="bin-name"></span>${tracksHtml}</span>
         ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(mediaResolution(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
@@ -3048,10 +3077,10 @@ function renderBin() {
       row.style.setProperty("--bin-depth", depth);
       const count = mediaInFolder(f.id).length + folderChildren(f.id).length;
       row.innerHTML = `
-        <button type="button" class="bin-folder-twist" title="${f.open ? "Collapse" : "Expand"}" aria-expanded="${f.open}">${f.open ? "▼" : "▶"}</button>
+        <button type="button" class="bin-folder-twist" title="${f.open ? "Collapse" : "Expand"}" aria-expanded="${escapeHtml(f.open)}">${f.open ? "▼" : "▶"}</button>
         <span class="bin-folder-icon">📁</span>
         <span class="bin-folder-name"></span>
-        <span class="bin-folder-count">${count}</span>
+        <span class="bin-folder-count">${escapeHtml(count)}</span>
         <button type="button" class="bin-folder-add" title="New subfolder">+</button>
         <button type="button" class="bin-del bin-folder-del" title="Delete folder (keeps media)">✕</button>`;
       const nameEl = row.querySelector(".bin-folder-name");
@@ -3192,7 +3221,7 @@ function makeFilterBar(n) {
   const bar = document.createElement("div");
   bar.className = "bin-filterbar";
   const col = binView.filter.startsWith("col:") ? getCollection(binView.filter.slice(4)) : null;
-  bar.innerHTML = `<span class="bin-filter-count">${n} of ${project.media.length}</span>` +
+  bar.innerHTML = `<span class="bin-filter-count">${escapeHtml(n)} of ${project.media.length}</span>` +
     (col ? `<span class="bin-filter-name" title="Collection">▣ ${escapeHtml(col.name)}</span>
       <button type="button" class="btn tiny" data-col-rename>Rename</button>
       <button type="button" class="btn tiny" data-col-delete title="Delete the collection (keeps the media)">Delete</button>` : "") +
@@ -3386,7 +3415,7 @@ function promptBinText(x, y, label, value, onOk, opts = {}) {
   const pop = document.createElement("div");
   pop.className = "ctx-menu bin-pop";
   pop.innerHTML = `<label class="bin-pop-label">${escapeHtml(label)}</label>
-    <input type="text" class="bin-pop-input" maxlength="${opts.max || 80}" spellcheck="false">
+    <input type="text" class="bin-pop-input" maxlength="${escapeHtml(opts.max || 80)}" spellcheck="false">
     ${opts.hint ? `<div class="bin-pop-hint">${escapeHtml(opts.hint)}</div>` : ""}
     <div class="bin-pop-chips"></div>
     <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>Cancel</button><button type="button" class="btn tiny accent" data-ok>${escapeHtml(opts.ok || "OK")}</button></div>`;
@@ -4222,8 +4251,8 @@ function renderBinProxyBadges() {
 function proxyBadgeHtml(m) {
   const s = proxyStatus.get(m.id);
   if (!s || m.kind !== "video") return "";
-  if (s.state === "ready") return `<span class="bin-proxy ready${proxiesOn() ? " on" : ""}" title="Proxy ready (${s.width ? s.width + "×" : ""}${s.height}p, ${MediaLib.fmtSize(s.size)})${proxiesOn() ? " — playing it while you edit" : " — the Proxy button is off"}">P</span>`;
-  if (s.state === "running" || s.state === "queued") return `<span class="bin-proxy busy" title="Making a ${s.height}p proxy">P ${s.state === "running" ? Math.round((s.progress || 0) * 100) + "%" : "…"}</span>`;
+  if (s.state === "ready") return `<span class="bin-proxy ready${proxiesOn() ? " on" : ""}" title="Proxy ready (${escapeHtml(s.width ? s.width + "×" : "")}${escapeHtml(s.height)}p, ${MediaLib.fmtSize(s.size)})${proxiesOn() ? " — playing it while you edit" : " — the Proxy button is off"}">P</span>`;
+  if (s.state === "running" || s.state === "queued") return `<span class="bin-proxy busy" title="Making a ${escapeHtml(s.height)}p proxy">P ${s.state === "running" ? Math.round((s.progress || 0) * 100) + "%" : "…"}</span>`;
   if (s.state === "failed") return `<span class="bin-proxy failed" title="Proxy failed: ${escapeHtml(s.error || "")}">P ✕</span>`;
   return "";
 }
@@ -4383,7 +4412,7 @@ function renderLibrary() {
     els.libList.innerHTML = `<div class="bin-empty">
       <div class="bin-empty-icon">${dir === "sfx" ? "🔊" : dir === "svg" ? "✨" : "🧩"}</div>
       <p>No assets yet.</p>
-      <p class="hint">Drop files into<br><b>library/${dir}/</b><br>— this list live-updates.</p></div>`;
+      <p class="hint">Drop files into<br><b>library/${escapeHtml(dir)}/</b><br>— this list live-updates.</p></div>`;
     return;
   }
   for (const f of files) {
@@ -4544,9 +4573,9 @@ function pjVisible() {
 function pjThumbHtml(p, big) {
   const ar = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : "16 / 9";
   const inner = p.thumb
-    ? `<img src="/api/projects/thumb?id=${encodeURIComponent(p.id)}&v=${p.thumb}" alt="" loading="lazy" draggable="false">`
-    : `<span>${p.width ? escapeHtml(`${p.width}×${p.height}`) : "?"}</span>`;
-  return `<div class="pj-thumb${big ? " big" : ""}"><div class="pj-frame" style="aspect-ratio:${ar}">${inner}</div></div>`;
+    ? `<img src="/api/projects/thumb?id=${escapeHtml(encodeURIComponent(p.id))}&v=${escapeHtml(p.thumb)}" alt="" loading="lazy" draggable="false">`
+    : `<span>${escapeHtml(p.width ? `${p.width}×${p.height}` : "?")}</span>`;
+  return `<div class="pj-thumb${big ? " big" : ""}"><div class="pj-frame" style="aspect-ratio:${escapeHtml(ar)}">${inner}</div></div>`;
 }
 function renderProjects() {
   renderProjectGrid();
@@ -4578,12 +4607,12 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${escapeHtml(uiText("term.name"))}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
       ${fact(escapeHtml(uiText("own.pj-modified")), escapeHtml(pjAgo(p.modified)))}
-      ${fact(escapeHtml(uiText("own.pj-opened")), p.active ? uiText("own.pj-open-now") : escapeHtml(pjAgo(p.opened)))}
+      ${fact(escapeHtml(uiText("own.pj-opened")), p.active ? escapeHtml(uiText("own.pj-open-now")) : escapeHtml(pjAgo(p.opened)))}
       ${fact(escapeHtml(uiText("own.pj-created")), escapeHtml(pjAgo(p.created)))}
       ${tpl ? fact("Template", escapeHtml(tpl.name)) : ""}
     </dl>
@@ -4600,7 +4629,7 @@ function pjDetailHtml(p) {
     </div>
     <div class="pj-actions">
       <button type="button" class="btn" data-pj-act="versions" title="Saved versions of this project: compare, restore, mark the final cut">${escapeHtml(uiText("own.pj-versions"))}</button>
-      <a class="btn" href="/api/projects/backup?id=${encodeURIComponent(p.id)}" download${p.active ? " data-pj-backup" : ""} title="The project and all its versions as one file. Import… restores it">${escapeHtml(uiText("own.pj-download-backup"))}</a>
+      <a class="btn" href="/api/projects/backup?id=${escapeHtml(encodeURIComponent(p.id))}" download${p.active ? " data-pj-backup" : ""} title="The project and all its versions as one file. Import… restores it">${escapeHtml(uiText("own.pj-download-backup"))}</a>
     </div>
     <div class="pj-inline hidden" id="pjTplRow">
       <input type="text" id="pjTplName" value="${escapeHtml(p.name)}" maxlength="120" aria-label="Template name" spellcheck="false">
@@ -4617,19 +4646,19 @@ function pjNewHtml() {
   };
   const row = (x) => `<button type="button" class="pj-tpl${x.id === pj.tpl ? " on" : ""}" data-pj-tpl="${escapeHtml(x.id)}">
       ${shape(x)}<span class="pj-tpl-name">${escapeHtml(x.name)}</span>
-      <span class="pj-tpl-meta dim">${x.width}×${x.height}${x.builtin ? "" : ` · ${x.clips} clip${x.clips === 1 ? "" : "s"}`}</span>
+      <span class="pj-tpl-meta dim">${escapeHtml(x.width)}×${escapeHtml(x.height)}${x.builtin ? "" : ` · ${escapeHtml(x.clips)} clip${x.clips === 1 ? "" : "s"}`}</span>
       ${x.builtin ? "" : `<span class="pj-tpl-del" data-pj-tpldel="${escapeHtml(x.id)}" role="button" tabindex="0" title="Delete this template">✕</span>`}
     </button>`;
   const saved = tpls.filter((x) => !x.builtin);
   return `<h3>New project</h3>
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${escapeHtml(uiText("term.name"))}</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
     <div class="pj-field"><span>Start from</span>
       <div class="pj-tpls">${tpls.filter((x) => x.builtin).map(row).join("")}</div>
       ${saved.length ? `<span class="pj-sub">Saved templates</span><div class="pj-tpls">${saved.map(row).join("")}</div>` : ""}
     </div>
     <label class="pj-field"><span>Frame rate</span><select id="pjNewFps">
       <option value="">${t.fps ? `${+(+t.fps).toFixed(3)} fps (template)` : "Template's"}</option>
-      ${[23.976, 24, 25, 29.97, 30, 50, 59.94, 60].map((f) => `<option value="${f}">${f} fps</option>`).join("")}
+      ${[23.976, 24, 25, 29.97, 30, 50, 59.94, 60].map((f) => `<option value="${escapeHtml(f)}">${escapeHtml(f)} fps</option>`).join("")}
     </select></label>
     <div class="pj-actions">
       <button type="button" class="btn" data-pj-act="new-cancel">Cancel</button>
@@ -4763,13 +4792,13 @@ function pjVersionsHtml() {
   const p = pj.list.find((x) => x.id === pj.verOf) || { name: "Project" };
   const rows = pj.versions.map((v) => {
     const diff = pj.verDiff.get(v.v);
-    return `<div class="ver-row${v.final ? " final" : ""}" data-ver="${v.v}">
+    return `<div class="ver-row${v.final ? " final" : ""}" data-ver="${escapeHtml(v.v)}">
       <div class="ver-main">
-        <span class="ver-num">v${v.v}</span>
+        <span class="ver-num">v${escapeHtml(v.v)}</span>
         <span class="ver-name" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</span>
         ${v.final ? `<span class="ver-badge final">Final</span>` : ""}
-        ${VER_KIND[v.kind] ? `<span class="ver-badge">${VER_KIND[v.kind]}</span>` : ""}
-        <span class="ver-meta dim">${pjAgo(v.created)} · ${pjFmtDur(v.duration)} · ${v.clips} clip${v.clips === 1 ? "" : "s"}</span>
+        ${VER_KIND[v.kind] ? `<span class="ver-badge">${escapeHtml(VER_KIND[v.kind])}</span>` : ""}
+        <span class="ver-meta dim">${pjAgo(v.created)} · ${pjFmtDur(v.duration)} · ${escapeHtml(v.clips)} clip${v.clips === 1 ? "" : "s"}</span>
       </div>
       ${v.note ? `<div class="ver-note">${escapeHtml(v.note)}</div>` : ""}
       ${diff ? `<ul class="ver-diff">${diff.length ? diff.map((l) => `<li>${escapeHtml(l)}</li>`).join("") : "<li>Same as now.</li>"}</ul>` : ""}
@@ -4778,7 +4807,7 @@ function pjVersionsHtml() {
         <button type="button" class="btn tiny" data-ver-act="restore" title="Put this version back. What is there now is saved as a version first.">Restore…</button>
         <button type="button" class="btn tiny" data-ver-act="final">${v.final ? "Unmark final" : "Mark final"}</button>
         <button type="button" class="btn tiny" data-ver-act="rename">Rename</button>
-        <a class="btn tiny" href="/api/versions/file?project=${encodeURIComponent(pj.verOf)}&version=${v.v}" download>Download</a>
+        <a class="btn tiny" href="/api/versions/file?project=${escapeHtml(encodeURIComponent(pj.verOf))}&version=${escapeHtml(v.v)}" download>Download</a>
         <button type="button" class="btn tiny danger-ghost" data-ver-act="delete"${v.final ? ` disabled title="Unmark it as final first"` : ""}>Delete…</button>
       </div>
     </div>`;
@@ -6243,12 +6272,12 @@ function buildTrackDOM() {
     h.dataset.track = t.id;
     h.style.height = t.h + "px";
     h.innerHTML =
-      `<button type="button" class="track-toggle" aria-pressed="${on}" ` +
+      `<button type="button" class="track-toggle" aria-pressed="${escapeHtml(on)}" ` +
       `title="${on ? "Disable track" : "Enable track"}" style="color:${t.color}">` +
       `${trackToggleIcon(t.kind)}</button>` +
       `<button type="button" class="track-id">${escapeHtml(t.id)}</button>` +
       `<button type="button" class="track-lock" aria-pressed="false">${TRACK_LOCK_ICON}</button>` +
-      `<button type="button" class="track-solo${solo ? " on" : ""}" aria-pressed="${solo}" ` +
+      `<button type="button" class="track-solo${solo ? " on" : ""}" aria-pressed="${escapeHtml(solo)}" ` +
       `title="${solo ? "Unsolo track" : "Solo track (mute all others)"}">S</button>`;
     h.querySelector(".track-toggle").addEventListener("click", (ev) => {
       ev.preventDefault();
@@ -6320,8 +6349,8 @@ function gapMarksHtml(c) {
     const x = (from - inSrc) / speed * state.pps, words = escapeHtml(MontClipView.flvGapMark(lang, g));
     const w = Math.min(Math.max(2, (to - from) / speed * state.pps), clipW);
     html += g.big
-      ? `<div class="gap-mark big" style="left:${Math.max(0, Math.min(x, clipW - w))}px;width:${w}px" title="${words}"><span>${words}</span></div>`
-      : `<div class="gap-mark small" style="left:${x}px" title="${words}"></div>`;
+      ? `<div class="gap-mark big" style="left:${Math.max(0, Math.min(x, clipW - w))}px;width:${escapeHtml(w)}px" title="${words}"><span>${words}</span></div>`
+      : `<div class="gap-mark small" style="left:${escapeHtml(x)}px" title="${words}"></div>`;
   }
   return html;
 }
@@ -6343,21 +6372,21 @@ function transitionMarksHtml(c, trackH) {
         const g = audioFadeGain(tr.curve, u) ?? EASE["ease-out"](u);
         pts.push(`${(w * i / N).toFixed(1)},${(bot * (1 - g)).toFixed(1)}`);
       }
-      html += `<div class="trans-mark ${side}${focused}" style="width:${w}px" data-side="${side}">` +
-        `<svg viewBox="0 0 ${w} ${clipH}" preserveAspectRatio="none" aria-hidden="true">` +
-        `<polygon points="${pts.join(" ")}"/></svg>` +
+      html += `<div class="trans-mark ${escapeHtml(side)}${escapeHtml(focused)}" style="width:${escapeHtml(w)}px" data-side="${escapeHtml(side)}">` +
+        `<svg viewBox="0 0 ${escapeHtml(w)} ${escapeHtml(clipH)}" preserveAspectRatio="none" aria-hidden="true">` +
+        `<polygon points="${escapeHtml(pts.join(" "))}"/></svg>` +
         `<div class="trans-dur-handle" title="Drag to adjust duration"></div></div>`;
       return;
     }
     if (side === "in") {
-      html += `<div class="trans-mark in${focused}" style="width:${w}px" data-side="in">` +
-        `<svg viewBox="0 0 ${w} ${clipH}" preserveAspectRatio="none" aria-hidden="true">` +
-        `<polygon points="0,0 ${w},0 0,${bot}"/></svg>` +
+      html += `<div class="trans-mark in${escapeHtml(focused)}" style="width:${escapeHtml(w)}px" data-side="in">` +
+        `<svg viewBox="0 0 ${escapeHtml(w)} ${escapeHtml(clipH)}" preserveAspectRatio="none" aria-hidden="true">` +
+        `<polygon points="0,0 ${escapeHtml(w)},0 0,${escapeHtml(bot)}"/></svg>` +
         `<div class="trans-dur-handle" title="Drag to adjust duration"></div></div>`;
     } else {
-      html += `<div class="trans-mark out${focused}" style="width:${w}px" data-side="out">` +
-        `<svg viewBox="0 0 ${w} ${clipH}" preserveAspectRatio="none" aria-hidden="true">` +
-        `<polygon points="0,0 ${w},0 ${w},${bot}"/></svg>` +
+      html += `<div class="trans-mark out${escapeHtml(focused)}" style="width:${escapeHtml(w)}px" data-side="out">` +
+        `<svg viewBox="0 0 ${escapeHtml(w)} ${escapeHtml(clipH)}" preserveAspectRatio="none" aria-hidden="true">` +
+        `<polygon points="0,0 ${escapeHtml(w)},0 ${escapeHtml(w)},${escapeHtml(bot)}"/></svg>` +
         `<div class="trans-dur-handle" title="Drag to adjust duration"></div></div>`;
     }
   };
@@ -6395,7 +6424,7 @@ function clipKeyframesHtml(c) {
     const label = keys.join(", ") + " @ " + fmt(c.start + t);
     const badge = keys.length > 1 ? `<span class="clip-kf-n">${keys.length}</span>` : "";
     const multi = keys.length > 1 ? " multi" : "";
-    html += `<div class="clip-kf${multi}" style="left:${pct}%" data-t="${t}" title="${label}">${badge}</div>`;
+    html += `<div class="clip-kf${escapeHtml(multi)}" style="left:${escapeHtml(pct)}%" data-t="${escapeHtml(t)}" title="${escapeHtml(label)}">${badge}</div>`;
   }
   return html + `</div>`;
 }
@@ -6526,7 +6555,7 @@ function rebuildClips() {
     let body = "";
     if (c.kind === "video" && trackSizeShowsThumbs()) {
       const thumb = runtime.mediaAux.get(c.mediaId)?.thumb;
-      if (thumb) body += `<div class="thumbs" style="background-image:url('${thumb}')"></div>`;
+      if (thumb) body += `<div class="thumbs" style="background-image:url('${escapeHtml(thumb)}')"></div>`;
     }
     const hasWave = c.kind === "audio" && !!wavePeaksFor(c);
     if (hasWave) body += `<canvas class="wave"></canvas>`;
@@ -6545,7 +6574,7 @@ function rebuildClips() {
       : c.kind === "audio" ? chTag + (c.name || "")
       : (c.name || "");
     body += `<div class="fade"></div>
-      <div class="clip-label">${badge}${escapeHtml(label)}</div>`;
+      <div class="clip-label">${escapeHtml(badge)}${escapeHtml(label)}</div>`;
     if (c.kind === "comp") {
       // say on hover how to get inside (wide enough clips show it in the clip, every one in its tooltip)
       const comp = getComp(c.compId);
@@ -6730,15 +6759,15 @@ function volBandHtml(c, trackH) {
       const v = volumeAtLocal(c, lt) * dbToGain(kfChannel(c, "duck", lt, 0));
       dp.push(`${(W * i / n).toFixed(1)},${y(v)}`);
     }
-    duck = `<polyline class="vol-duck" points="${dp.join(" ")}"/>`;
+    duck = `<polyline class="vol-duck" points="${escapeHtml(dp.join(" "))}"/>`;
   }
   const line = pts.join(" ");
-  let html = `<svg class="vol-band" width="${W.toFixed(1)}" height="${clipH}" aria-hidden="true">${duck}` +
-    `<polyline class="vol-line" points="${line}"/>` +
-    `<polyline class="vol-hit" points="${line}"><title>Volume — drag to change · Ctrl/Cmd-click: add keyframe</title></polyline></svg>`;
+  let html = `<svg class="vol-band" width="${W.toFixed(1)}" height="${escapeHtml(clipH)}" aria-hidden="true">${duck}` +
+    `<polyline class="vol-line" points="${escapeHtml(line)}"/>` +
+    `<polyline class="vol-hit" points="${escapeHtml(line)}"><title>Volume — drag to change · Ctrl/Cmd-click: add keyframe</title></polyline></svg>`;
   if (kfs?.length) for (let i = 0; i < kfs.length; i++) {
     const k = kfs[i];
-    html += `<div class="vol-pt" data-i="${i}" style="left:${(k.t * state.pps).toFixed(1)}px;top:${y(k.v)}px" ` +
+    html += `<div class="vol-pt" data-i="${escapeHtml(i)}" style="left:${(k.t * state.pps).toFixed(1)}px;top:${escapeHtml(y(k.v))}px" ` +
       `title="${fmtDb(volToDb(k.v))} @ ${fmt(c.start + k.t)} — drag · Alt-click: remove"></div>`;
   }
   return html;
@@ -7129,7 +7158,7 @@ function openSnapMenu(anchor) {
   const on = snapTargets();
   menu.innerHTML = `<div class="snap-menu-head dim">${escapeHtml(uiText("own.snap-to"))}</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${escapeHtml(k)}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -7811,7 +7840,7 @@ function openMarkerEditor(mk, clientX, clientY) {
   const menu = document.createElement("div");
   menu.className = "ctx-menu marker-pop";
   const swatches = Object.entries(MARKER_COLORS).map(([name, hex]) =>
-    `<button type="button" class="marker-swatch" data-color="${name}" title="${name}" aria-label="${name}" style="--c:${hex}"></button>`).join("");
+    `<button type="button" class="marker-swatch" data-color="${escapeHtml(name)}" title="${escapeHtml(name)}" aria-label="${escapeHtml(name)}" style="--c:${escapeHtml(hex)}"></button>`).join("");
   menu.innerHTML =
     `<div class="marker-pop-head"><span class="timecode">${fmt(mk.t)}</span><span class="dim">Marker</span></div>` +
     `<input type="text" class="marker-name" maxlength="80" placeholder="Name (optional)" spellcheck="false">` +
@@ -7855,15 +7884,15 @@ function openMarkerList(anchor) {
   menu.className = "ctx-menu marker-list";
   const list = project.markers || [];
   if (!list.length) {
-    menu.innerHTML = `<div class="marker-empty dim">${uiText("own.markers-empty")}</div>`; // repo-authored, with its <kbd>
+    menu.innerHTML = `<div class="marker-empty dim">${escapeHtml(uiText("own.markers-empty"))}</div>`; // repo-authored, with its <kbd>
   } else {
     menu.innerHTML = list.map((m, i) =>
-      `<div class="marker-row" data-i="${i}">` +
-      `<button type="button" class="ctx-item marker-go" data-i="${i}">` +
-      `<span class="marker-dot" style="--c:${markerColor(m)}"></span>` +
+      `<div class="marker-row" data-i="${escapeHtml(i)}">` +
+      `<button type="button" class="ctx-item marker-go" data-i="${escapeHtml(i)}">` +
+      `<span class="marker-dot" style="--c:${escapeHtml(markerColor(m))}"></span>` +
       `<span class="timecode">${fmt(m.t)}</span>` +
       `<span class="marker-label${m.label ? "" : " dim"}">${m.label ? escapeHtml(m.label) : "—"}</span></button>` +
-      `<button type="button" class="btn tiny marker-edit" data-i="${i}" title="Rename / colour">✎</button></div>`,
+      `<button type="button" class="btn tiny marker-edit" data-i="${escapeHtml(i)}" title="Rename / colour">✎</button></div>`,
     ).join("") +
       `<button type="button" class="ctx-item marker-clear"><span>Clear all markers</span></button>`;
   }
@@ -8126,7 +8155,7 @@ function clipStatusBar(c) {
   const linked = !!(c.linkGroup || c.linkedId);
   const canLink = !linked && (c.kind === "video" || c.kind === "audio") && c.unlinked === true;
   const b = (cmd, on, label, title, extra = "") =>
-    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${cmd}" aria-pressed="${on}" title="${shortcutTitle(title)}"${extra}>${label}</button>`;
+    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${escapeHtml(cmd)}" aria-pressed="${escapeHtml(on)}" title="${escapeHtml(shortcutTitle(title))}"${extra}>${escapeHtml(label)}</button>`;
   return `<div class="clip-flags">` +
     b("disable", disabled, disabled ? "Disabled" : "Enabled",
       disabled ? "Hidden from preview and export — click to enable (Shift+E)" : "Click to disable: hide from preview and export without deleting (Shift+E)") +
@@ -8256,9 +8285,9 @@ function captionQuickHtml(scope) {
   if (!list.length) return "";
   const Q = MontClipCaptionQuick, cur = Q.current(list, project.width, project.height), n = list.length;
   const say = (k, v) => escapeHtml(uiText("own." + k, v));
-  const pill = (k, v) => `<button type="button" class="btn tiny${cur[k] === v ? " on" : ""}" data-cq-k="${k}" data-cq-v="${v}" aria-pressed="${cur[k] === v}">${say("cq-" + v)}</button>`;
+  const pill = (k, v) => `<button type="button" class="btn tiny${cur[k] === v ? " on" : ""}" data-cq-k="${escapeHtml(k)}" data-cq-v="${escapeHtml(v)}" aria-pressed="${escapeHtml(cur[k] === v)}">${say("cq-" + v)}</button>`;
   const mixed = (on, k) => (on ? `<span class="cq-mixed" data-cq-mixed>${say(k)}</span>` : "");
-  return `<div class="cq-panel" data-cq-panel data-cq-scope="${scope}"><b data-cq-who>${say(scope === "all" ? "cq-who-all" : "cq-who-selected", { n })}</b>
+  return `<div class="cq-panel" data-cq-panel data-cq-scope="${escapeHtml(scope)}"><b data-cq-who>${say(scope === "all" ? "cq-who-all" : "cq-who-selected", { n })}</b>
     <div class="cq-row"><span class="cq-lbl">${say("cq-size")}</span><span class="cq-pills">${Q.SIZES.map((v) => pill("size", v)).join("")}</span>${mixed(cur.mixedSize, "cq-mixed-size")}</div>
     <div class="cq-row"><span class="cq-lbl">${say("cq-pos")}</span><span class="cq-pills">${Q.POSITIONS.map((v) => pill("pos", v)).join("")}</span>${mixed(cur.mixedPos, "cq-mixed-pos")}</div>
     <p class="cq-desc" data-cq-desc>${say("cq-desc", { n })}</p></div>`;
@@ -8324,7 +8353,7 @@ function renderInspector(lite) {
   const kfCtl = (k) => {
     if (!ANIMATABLE.includes(k)) return "";
     const n = kfCount(k), on = !!kfAtPlayhead(c, k);
-    return `<span class="kf-ctl"><button class="kf-btn${n ? " has" : ""}${on ? " on" : ""}" data-kf="${k}" title="${on ? "Remove keyframe at playhead" : "Set keyframe at playhead"}">◆${n || ""}</button>${n ? `<button class="kf-btn" data-kfclear="${k}" title="Clear keyframes">✕</button>` : ""}</span>`;
+    return `<span class="kf-ctl"><button class="kf-btn${n ? " has" : ""}${on ? " on" : ""}" data-kf="${escapeHtml(k)}" title="${on ? "Remove keyframe at playhead" : "Set keyframe at playhead"}">◆${escapeHtml(n || "")}</button>${n ? `<button class="kf-btn" data-kfclear="${escapeHtml(k)}" title="Clear keyframes">✕</button>` : ""}</span>`;
   };
   /* Label carries two affordances that key off different click modifiers:
      plain click toggles the keyframe graph (animatable props), Ctrl/Cmd-click
@@ -8335,7 +8364,7 @@ function renderInspector(lite) {
     const list = (Array.isArray(keys) ? keys : String(keys || "").split(",")).map((s) => s.trim()).filter(Boolean);
     const canReset = list.some((rk) => Object.hasOwn(DEFAULT_PROPS, rk) || rk === "transIn" || rk === "transOut");
     const isGraph = !!k && ANIMATABLE.includes(k);
-    if (!isGraph && !canReset) return `<label>${label}</label>`;
+    if (!isGraph && !canReset) return `<label>${escapeHtml(label)}</label>`;
     const cls = [
       isGraph ? "kf-graph-toggle" : "",
       isGraph && state.kfGraphs.has(k) ? "on" : "",
@@ -8347,32 +8376,32 @@ function renderInspector(lite) {
       ? "Click: keyframe graph · Ctrl-click: reset channel · Shift-click: reset at playhead / remove keyframe"
       : isGraph ? "Show / hide keyframe graph"
         : "Ctrl-click: reset channel · Shift-click: reset at playhead / remove keyframe";
-    return `<label class="${cls}"${attrs} title="${title}">${label}</label>`;
+    return `<label class="${escapeHtml(cls)}"${attrs} title="${escapeHtml(title)}">${escapeHtml(label)}</label>`;
   };
   const row = (label, inner, k = "", reset) =>
     `<div class="insp-row">${propLabel(label, k, reset)}${inner}${k ? kfCtl(k) : ""}</div>`;
   const slider = (k, min, max, step, val, unit = "") => {
     const shown = fmtInspNum(val, step);
     return row(k[0].toUpperCase() + k.slice(1),
-      `<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${shown}" title="Ctrl/Cmd-click: reset to default">
-       <span class="val" data-val="${k}" data-unit="${unit}">${shown}${unit}</span>`, k);
+      `<input type="range" data-k="${escapeHtml(k)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(shown)}" title="Ctrl/Cmd-click: reset to default">
+       <span class="val" data-val="${escapeHtml(k)}" data-unit="${escapeHtml(unit)}">${escapeHtml(shown)}${escapeHtml(unit)}</span>`, k);
   };
   let html = captionQuickHtml("selected") + (state.selIds.size > 1
     ? `<div class="insp-multi">${state.selIds.size} clips selected — drag moves them together, Del deletes all. Fields below edit the primary (white-outlined) clip.</div>`
-    : "") + clipStatusBar(c) + `<div class="insp-section"><h3>Clip — ${c.kind}</h3>
+    : "") + clipStatusBar(c) + `<div class="insp-section"><h3>Clip — ${escapeHtml(c.kind)}</h3>
     ${row(uiText("term.name"), `<input type="text" data-k="name" value="${escapeHtml(c.name || "")}">`)}
     ${c.mediaId ? row("Source", `<button type="button" class="btn tiny style-picker-btn" data-media-open title="Replace this clip's media — keeps position, trim, keyframes and effects">${escapeHtml((getMedia(c.mediaId) || {}).name || "Missing media")} ▾</button>`) : ""}
     ${row("Start (s)", `<input type="number" data-k="start" step="0.01" value="${c.start.toFixed(2)}">`)}
     ${row("Length (s)", `<input type="number" data-k="duration" step="0.01" value="${c.duration.toFixed(2)}">`)}
   </div>`;
   const sel = (label, k, opts, cur) => row(label,
-    `<select data-k="${k}">${opts.map((o) => `<option value="${o}" ${String(o) === String(cur) ? "selected" : ""}>${o}</option>`).join("")}</select>`, k);
-  const check = (label, k, on) => row(label, `<input type="checkbox" data-k="${k}" ${on ? "checked" : ""}>`, k);
+    `<select data-k="${escapeHtml(k)}">${opts.map((o) => `<option value="${escapeHtml(o)}" ${String(o) === String(cur) ? "selected" : ""}>${escapeHtml(o)}</option>`).join("")}</select>`, k);
+  const check = (label, k, on) => row(label, `<input type="checkbox" data-k="${escapeHtml(k)}" ${on ? "checked" : ""}>`, k);
   // track matte: the mode, and the track it comes from (auto = the video track above)
   const matteRows = () => {
     const others = videoTrackIds().filter((id) => id !== c.track), auto = Mask.matteTrackFor({ ...c, props: { matte: "alpha" } }, videoTrackIds());
-    const opts = (cur) => [`<option value="" ${!cur ? "selected" : ""}>Above (${auto || "none"})</option>`, ...others.map((id) => `<option value="${id}" ${cur === id ? "selected" : ""}>${id}</option>`)].join("");
-    return row("Track matte", `<select data-k="matte">${["none", ...Mask.MATTES].map((o) => `<option value="${o}" ${(p.matte || "none") === o ? "selected" : ""}>${o.replace("-", " ")}</option>`).join("")}</select>`, "matte")
+    const opts = (cur) => [`<option value="" ${!cur ? "selected" : ""}>Above (${escapeHtml(auto || "none")})</option>`, ...others.map((id) => `<option value="${escapeHtml(id)}" ${cur === id ? "selected" : ""}>${escapeHtml(id)}</option>`)].join("");
+    return row("Track matte", `<select data-k="matte">${["none", ...Mask.MATTES].map((o) => `<option value="${escapeHtml(o)}" ${(p.matte || "none") === o ? "selected" : ""}>${escapeHtml(o.replace("-", " "))}</option>`).join("")}</select>`, "matte")
       + (p.matte ? row("Matte track", `<select data-k="matteTrack">${opts(p.matteTrack)}</select>`, "matteTrack")
         + (clipMatte(c) ? "" : `<div class="insp-note">No video track above to take the matte from — pick one.</div>`) : "");
   };
@@ -8392,7 +8421,7 @@ function renderInspector(lite) {
       ${parentRowHtml(c)}
     </div>`;
   } else if (c.kind !== "audio") {
-    html += `<div class="insp-section"><h3>${uiText("term.transform")}</h3>
+    html += `<div class="insp-section"><h3>${escapeHtml(uiText("term.transform"))}</h3>
       ${row("Position X", `<input type="number" data-k="x" value="${fmtInspNum(p.x)}">`, "x")}
       ${row("Position Y", `<input type="number" data-k="y" value="${fmtInspNum(p.y)}">`, "y")}
       ${slider("scale", 0.1, 4, 0.01, p.scale)}
@@ -8409,10 +8438,10 @@ function renderInspector(lite) {
   if (c.kind === "video" || c.kind === "image" || c.kind === "svg" || c.kind === "comp") {
     html += `<div class="insp-section"><h3>Layout</h3>
       ${sel("Fit", "fit", ["contain", "cover", "stretch", "none"], p.fit)}
-      ${row("Crop L/R %", `<input type="number" data-k="cropL" min="0" max="95" value="${p.cropL}" style="max-width:58px">
-                           <input type="number" data-k="cropR" min="0" max="95" value="${p.cropR}" style="max-width:58px">`, "", "cropL,cropR")}
-      ${row("Crop T/B %", `<input type="number" data-k="cropT" min="0" max="95" value="${p.cropT}" style="max-width:58px">
-                           <input type="number" data-k="cropB" min="0" max="95" value="${p.cropB}" style="max-width:58px">`, "", "cropT,cropB")}
+      ${row("Crop L/R %", `<input type="number" data-k="cropL" min="0" max="95" value="${escapeHtml(p.cropL)}" style="max-width:58px">
+                           <input type="number" data-k="cropR" min="0" max="95" value="${escapeHtml(p.cropR)}" style="max-width:58px">`, "", "cropL,cropR")}
+      ${row("Crop T/B %", `<input type="number" data-k="cropT" min="0" max="95" value="${escapeHtml(p.cropT)}" style="max-width:58px">
+                           <input type="number" data-k="cropB" min="0" max="95" value="${escapeHtml(p.cropB)}" style="max-width:58px">`, "", "cropT,cropB")}
       ${slider("cornerRadius", 0, 300, 1, p.cornerRadius, "px")}
       ${check("Flip H", "flipH", p.flipH)}
       ${check("Flip V", "flipV", p.flipV)}
@@ -8425,9 +8454,9 @@ function renderInspector(lite) {
       const note = p.reframe === "follow" ? `Follows the subject${c.keyframes?.x?.length || c.keyframes?.y?.length ? ` (${(c.keyframes.x || c.keyframes.y).length} keys)` : " (one steady position)"}`
         : p.reframe === "centre" ? "Fitted and centred" : "This picture is another shape than the canvas.";
       html += `<div class="insp-section"><h3>Reframe</h3>
-        <div class="insp-note">${note}</div>
+        <div class="insp-note">${escapeHtml(note)}</div>
         ${reframeRun.busy
-          ? row("", `<span class="insp-ctrls"><span style="opacity:.75">Looking at the footage… ${reframeRun.done + 1}/${reframeRun.of}${reframeRun.frac ? ` · ${Math.round(reframeRun.frac * 100)}%` : ""}</span>
+          ? row("", `<span class="insp-ctrls"><span style="opacity:.75">Looking at the footage… ${escapeHtml(reframeRun.done + 1)}/${escapeHtml(reframeRun.of)}${reframeRun.frac ? ` · ${Math.round(reframeRun.frac * 100)}%` : ""}</span>
             <button type="button" class="btn tiny" data-rf-cancel>Cancel</button></span>`)
           : row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-rf-follow title="Fit it to cover the canvas and key its position to keep the subject in view (the selected clips; one undo step)">Follow subject</button>
             <button type="button" class="btn tiny" data-rf-centre title="Fit it to cover the canvas, centred">Centre</button>
@@ -8459,7 +8488,7 @@ function renderInspector(lite) {
   }
   if (c.kind === "video" || c.kind === "image") {
     html += `<div class="insp-section"><h3>Keying / Cut-out</h3>
-      ${row("Key color", `<input type="color" data-k="chromaKey" value="${p.chromaKey || "#00ff00"}">
+      ${row("Key color", `<input type="color" data-k="chromaKey" value="${escapeHtml(p.chromaKey || "#00ff00")}">
         <button class="btn tiny${p.chromaKey ? "" : " toggle on"}" data-action="keyoff" title="Disable chroma key">off</button>`, "", "chromaKey")}
       ${slider("chromaTolerance", 0, 100, 1, p.chromaTolerance)}
       ${slider("chromaSoftness", 0, 100, 1, p.chromaSoftness)}
@@ -8470,18 +8499,18 @@ function renderInspector(lite) {
     const chLabel = audioChannelLong(c.props?.audioChannel);
     const nt = normalizeTarget();
     html += `<div class="insp-section"><h3>Audio / Time</h3>
-      ${chLabel ? row("Channel", `<span style="opacity:.75">${chLabel}</span>`)
+      ${chLabel ? row("Channel", `<span style="opacity:.75">${escapeHtml(chLabel)}</span>`)
         : row("Channels", `<select data-k="channelMode" title="Stereo: as recorded · Mono: fold L+R to one channel · Left / Right: use one side only · Swap: exchange L and R">${CHANNEL_MODES.map((o) =>
-          `<option value="${o}" ${o === clipChannelMode(c) ? "selected" : ""}>${o[0].toUpperCase() + o.slice(1)}</option>`).join("")}</select>`, "", "channelMode")}
+          `<option value="${escapeHtml(o)}" ${o === clipChannelMode(c) ? "selected" : ""}>${escapeHtml(o[0].toUpperCase() + o.slice(1))}</option>`).join("")}</select>`, "", "channelMode")}
       ${row("Gain", `<input type="range" data-k="gain" min="-24" max="24" step="0.1" value="${fmtInspNum(clipGainDb(c), 0.1)}" title="Clip gain, applied before volume — Ctrl/Cmd-click: reset">
          <span class="val" data-val="gain" data-unit=" dB">${fmtInspNum(clipGainDb(c), 0.1)} dB</span>`, "", "gain")}
       ${row("Normalize", `<span class="insp-ctrls"><select data-norm-target title="Loudness target">${NORMALIZE_TARGETS.map((t) =>
-        `<option value="${t.id}" ${t.id === nt.id ? "selected" : ""}>${t.label}</option>`).join("")}</select>
+        `<option value="${escapeHtml(t.id)}" ${t.id === nt.id ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("")}</select>
         <button type="button" class="btn tiny" data-norm-run title="Measure the selected clips and set their gain to hit this target (linked stems share one gain)">Apply</button></span>`)}
       ${row("Noise", `<span class="insp-ctrls"><select data-denoise title="${state.connected && state.ffmpeg
         ? "Noise reduction (ffmpeg FFT denoiser) — renders a cleaned copy of the file; Off switches back to the original"
         : "Noise reduction needs the server with MontClip's bundled FFmpeg"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
-        `<option value="${v}" ${v === clipDenoise(c) ? "selected" : ""}>${v[0].toUpperCase() + v.slice(1)}</option>`).join("")}</select></span>`)}
+        `<option value="${escapeHtml(v)}" ${v === clipDenoise(c) ? "selected" : ""}>${escapeHtml(v[0].toUpperCase() + v.slice(1))}</option>`).join("")}</select></span>`)}
       ${slider("volume", 0, 2, 0.01, p.volume)}
       ${slider("pan", -1, 1, 0.01, p.pan)}
       ${slider("speed", 0.25, 4, 0.05, p.speed, "×")}
@@ -8489,7 +8518,7 @@ function renderInspector(lite) {
   }
   if ((c.kind === "video" || c.kind === "audio") && typeof MontClipSilence !== "undefined") {
     const so = silenceOptions(), found = state.silence;
-    const num = (k, lo, hi, step, unit, title) => `<span class="insp-ctrls"><input type="number" data-sil="${k}" min="${lo}" max="${hi}" step="${step}" value="${so[k]}" title="${title}" style="max-width:64px"> ${unit}</span>`;
+    const num = (k, lo, hi, step, unit, title) => `<span class="insp-ctrls"><input type="number" data-sil="${escapeHtml(k)}" min="${escapeHtml(lo)}" max="${escapeHtml(hi)}" step="${escapeHtml(step)}" value="${escapeHtml(so[k])}" title="${escapeHtml(title)}" style="max-width:64px"> ${escapeHtml(unit)}</span>`;
     html += `<div class="insp-section"><h3>Silence</h3>
       ${row("Below", num("threshold", -80, -10, 1, "dB", "Quieter than this counts as silence (dBFS). Raise it toward −30 in a noisy room"))}
       ${row("At least", num("minSilence", 0.1, 10, 0.1, "s", "Shorter pauses are left alone"))}
@@ -8513,11 +8542,11 @@ function renderInspector(lite) {
         <button type="button" class="btn tiny" data-beat-clear title="Stop listening">Cancel</button></span>`
         : `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-find title="Listen to this clip's music and show its beat on the timeline">Find beats</button>
         ${bt ? `<button type="button" class="btn tiny" data-beat-clear title="Hide the beat">Clear</button>` : ""}</span>`)}
-      ${bt ? `<div class="insp-note">${bt.bpm != null ? bt.bpm + " BPM · " : ""}${bt.grid.length} beats, ${fmt(bt.grid[0])} → ${fmt(bt.grid[bt.grid.length - 1])}${bt.drop != null ? ` · the drop at ${fmt(bt.drop)}` : ""}</div>
+      ${bt ? `<div class="insp-note">${escapeHtml(bt.bpm != null ? bt.bpm + " BPM · " : "")}${bt.grid.length} beats, ${fmt(bt.grid[0])} → ${fmt(bt.grid[bt.grid.length - 1])}${bt.drop != null ? ` · the drop at ${fmt(bt.drop)}` : ""}</div>
       ${row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-mark title="A cyan marker on every beat (other markers stay)">Mark</button>
         <button type="button" class="btn tiny" data-beat-snap title="Roll each cut on the targeted video tracks to the nearest beat — nothing else moves">Snap cuts</button></span>`)}
-      ${lanes.length ? row("Re-cut", `<span class="insp-ctrls"><select data-beat-track title="The track whose clips go on the beat" style="width:auto;min-width:4.2em">${lanes.map((id) => `<option>${id}</option>`).join("")}</select>
-        every <select data-beat-every title="Beats per shot" style="width:auto;min-width:3.6em">${MontClipBeats.EVERY.map((n) => `<option value="${n}" ${n === bs.every ? "selected" : ""}>${n}</option>`).join("")}</select> beats</span>`) +
+      ${lanes.length ? row("Re-cut", `<span class="insp-ctrls"><select data-beat-track title="The track whose clips go on the beat" style="width:auto;min-width:4.2em">${lanes.map((id) => `<option>${escapeHtml(id)}</option>`).join("")}</select>
+        every <select data-beat-every title="Beats per shot" style="width:auto;min-width:3.6em">${MontClipBeats.EVERY.map((n) => `<option value="${escapeHtml(n)}" ${n === bs.every ? "selected" : ""}>${escapeHtml(n)}</option>`).join("")}</select> beats</span>`) +
         row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-retime title="Lay that track's clips back to back on the beat, from the music's start (one undo step)">Re-cut</button></span>`) : ""}` : ""}
     </div>`;
   }
@@ -8529,22 +8558,22 @@ function renderInspector(lite) {
     const lanes = audioTrackIds().filter((id) => id !== c.track);
     html += `<div class="insp-section"><h3>Auto-duck</h3>
       ${row("Under", `<select data-duck-under title="Lower this clip wherever there is sound on these tracks (dialogue / VO)">
-        <option value="">All other audio tracks</option>${lanes.map((id) => `<option value="${id}">${id}</option>`).join("")}</select>`)}
-      ${row("Amount", `<span class="insp-ctrls"><input type="number" data-duck-amount min="-40" max="-1" step="1" value="${duckAmount()}" title="How far to dip, dB" style="max-width:64px"> dB
+        <option value="">All other audio tracks</option>${lanes.map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`).join("")}</select>`)}
+      ${row("Amount", `<span class="insp-ctrls"><input type="number" data-duck-amount min="-40" max="-1" step="1" value="${escapeHtml(duckAmount())}" title="How far to dip, dB" style="max-width:64px"> dB
         <button type="button" class="btn tiny" data-duck-run title="Write duck keyframes on the selected clips">Apply</button>
         ${duckN ? `<button type="button" class="btn tiny" data-duck-clear title="Remove the ducking">Clear</button>` : ""}</span>`)}
-      ${duckN ? `<div class="insp-note">${duckN} duck keyframe${duckN === 1 ? "" : "s"} — the dashed line on the clip shows the ducked level.</div>` : ""}
+      ${duckN ? `<div class="insp-note">${escapeHtml(duckN)} duck keyframe${duckN === 1 ? "" : "s"} — the dashed line on the clip shows the ducked level.</div>` : ""}
     </div>`;
   }
   const tsel = (label, key, tr) => {
     const active = state.transFocus === (key === "transIn" ? "in" : "out");
-    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${key}" title="Ctrl-click or Shift-click: remove the transition">${label}</label>
-      <span class="insp-ctrls"><select data-k="${key}">${TRANSITIONS.map((x) => `<option ${x === (tr?.type || "none") ? "selected" : ""}>${x}</option>`).join("")}</select>
-       <input type="number" class="insp-dur" data-k="${key}Dur" step="0.1" min="0.1" value="${tr?.duration ?? 1}"></span></div>`;
+    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${escapeHtml(key)}" title="Ctrl-click or Shift-click: remove the transition">${escapeHtml(label)}</label>
+      <span class="insp-ctrls"><select data-k="${escapeHtml(key)}">${TRANSITIONS.map((x) => `<option ${x === (tr?.type || "none") ? "selected" : ""}>${escapeHtml(x)}</option>`).join("")}</select>
+       <input type="number" class="insp-dur" data-k="${escapeHtml(key)}Dur" step="0.1" min="0.1" value="${escapeHtml(tr?.duration ?? 1)}"></span></div>`;
   };
   const curveSel = (label, k, tr) => tr?.type === "fade" && c.kind === "audio"
-    ? row(label, `<select data-k="${k}" title="Fade shape (audio)">${[["", "Smooth (eased)"], ...Object.entries(AUDIO_FADE_CURVES)].map(([v, l]) =>
-      `<option value="${v}" ${(tr.curve || "") === v ? "selected" : ""}>${l}</option>`).join("")}</select>`) : "";
+    ? row(label, `<select data-k="${escapeHtml(k)}" title="Fade shape (audio)">${[["", "Smooth (eased)"], ...Object.entries(AUDIO_FADE_CURVES)].map(([v, l]) =>
+      `<option value="${escapeHtml(v)}" ${(tr.curve || "") === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select>`) : "";
   if (c.kind === "text") html += textPathSectionHtml(c, p, row);
   if (isVisualClip(c)) html += motionSectionHtml(c, p, row);
   if (c.kind !== "audio" && c.kind !== "null") html += maskSectionHtml(c);
@@ -8556,18 +8585,18 @@ function renderInspector(lite) {
     ${curveSel("Out curve", "curveOut", c.transitionOut)}
   </div>`;
   if (c.kind === "text") {
-    html += `<div class="insp-section"><h3>${uiText("term.text")}</h3>
-      ${row("Content", `<textarea data-k="text">${p.text}</textarea>`, "", "text")}
+    html += `<div class="insp-section"><h3>${escapeHtml(uiText("term.text"))}</h3>
+      ${row("Content", `<textarea data-k="text">${escapeHtml(p.text)}</textarea>`, "", "text")}
       ${row(hasTextBox(p) && p.boxFit ? "Max size" : "Font size",
         `<input type="range" data-k="fontSize" min="12" max="300" step="1" value="${fmtInspNum(p.fontSize, 1)}" title="Ctrl/Cmd-click: reset to default">
          <span class="val" data-val="fontSize" data-unit="px">${fmtInspNum(p.fontSize, 1)}px</span>`, "fontSize")}
       ${row("Box W/H", `<span class="insp-ctrls">
-        <input type="number" data-k="boxW" min="0" step="1" value="${p.boxW || 0}" title="Width in px (0 = no box — hug content)" style="max-width:64px">
-        <input type="number" data-k="boxH" min="0" step="1" value="${p.boxH || 0}" title="Height in px (0 = no box — hug content)" style="max-width:64px">
+        <input type="number" data-k="boxW" min="0" step="1" value="${escapeHtml(p.boxW || 0)}" title="Width in px (0 = no box — hug content)" style="max-width:64px">
+        <input type="number" data-k="boxH" min="0" step="1" value="${escapeHtml(p.boxH || 0)}" title="Height in px (0 = no box — hug content)" style="max-width:64px">
       </span>`, "", "boxW,boxH")}
       ${hasTextBox(p) ? check("Scale to fit", "boxFit", !!p.boxFit) : ""}
-      ${row("Color", `<span class="insp-ctrls"><input type="color" data-k="color" value="${p.color}">
-                      <input type="color" data-k="color2" value="${p.color2 || p.color}" title="Gradient bottom color">
+      ${row("Color", `<span class="insp-ctrls"><input type="color" data-k="color" value="${escapeHtml(p.color)}">
+                      <input type="color" data-k="color2" value="${escapeHtml(p.color2 || p.color)}" title="Gradient bottom color">
                       <button class="btn tiny${p.color2 ? "" : " toggle on"}" data-action="grad-off" title="Disable gradient">flat</button></span>`, "", "color,color2")}
       ${sel("Align", "align", ["left", "center", "right", "justify"], p.align)}
       ${hasTextBox(p) ? sel("V-align", "vAlign", ["top", "middle", "bottom"], p.vAlign || "middle") : ""}
@@ -8584,19 +8613,19 @@ function renderInspector(lite) {
     </div>
     <div class="insp-section"><h3>Text style</h3>
       ${slider("strokeWidth", 0, 20, 0.5, p.strokeWidth, "px")}
-      ${row("Stroke col.", `<input type="color" data-k="strokeColor" value="${p.strokeColor}">`, "", "strokeColor")}
-      ${row("Bg color", `<input type="color" data-k="bgColor" value="${p.bgColor}">`, "", "bgColor")}
+      ${row("Stroke col.", `<input type="color" data-k="strokeColor" value="${escapeHtml(p.strokeColor)}">`, "", "strokeColor")}
+      ${row("Bg color", `<input type="color" data-k="bgColor" value="${escapeHtml(p.bgColor)}">`, "", "bgColor")}
       ${slider("bgOpacity", 0, 1, 0.05, p.bgOpacity)}
       ${slider("textShadow", 0, 40, 1, p.textShadow)}
       ${slider("glow", 0, 100, 1, p.glow)}
-      ${row("Glow color", `<input type="color" data-k="glowColor" value="${p.glowColor || p.color}">
+      ${row("Glow color", `<input type="color" data-k="glowColor" value="${escapeHtml(p.glowColor || p.color)}">
         <button class="btn tiny${p.glowColor ? "" : " toggle on"}" data-action="glow-auto" title="Glow uses the text color">auto</button>`, "", "glowColor")}
     </div>
     <div class="insp-section"><h3>Title &amp; caption</h3>
-      ${row("Title style", `<button type="button" class="btn tiny style-picker-btn" data-style-open title="Pick a style — hover to preview it live">${(TITLE_STYLES[c.styleName] || {}).label || "Choose…"} ▾</button>
+      ${row("Title style", `<button type="button" class="btn tiny style-picker-btn" data-style-open title="Pick a style — hover to preview it live">${escapeHtml((TITLE_STYLES[c.styleName] || {}).label || "Choose…")} ▾</button>
         <button class="btn tiny" data-action="title-shuffle" title="Random style">Shuffle</button>`)}
-      ${row("Animation", `<select data-k="textAnim">${TEXT_ANIMS.map((a) => `<option ${a === p.textAnim ? "selected" : ""}>${a}</option>`).join("")}</select>`, "", "textAnim")}
-      ${p.textAnim === "highlight" ? row("Highlight", `<input type="color" data-k="highlightColor" value="${p.highlightColor || "#ffd166"}" title="The colour of the word being said">`, "", "highlightColor") : ""}
+      ${row("Animation", `<select data-k="textAnim">${TEXT_ANIMS.map((a) => `<option ${a === p.textAnim ? "selected" : ""}>${escapeHtml(a)}</option>`).join("")}</select>`, "", "textAnim")}
+      ${p.textAnim === "highlight" ? row("Highlight", `<input type="color" data-k="highlightColor" value="${escapeHtml(p.highlightColor || "#ffd166")}" title="The colour of the word being said">`, "", "highlightColor") : ""}
       ${Array.isArray(p.wordTimes) && p.wordTimes.length ? `<div class="insp-note">${p.caption ? "Caption: its" : "Its"} ${p.wordTimes.length} words follow the speech${
         String(p.text || "").split(/\s+/).filter(Boolean).length === p.wordTimes.length ? ", so Word rate doesn't apply"
           : " — the text now has another number of words, so they are spread over the clip; Add captions again to re-time them"}.</div>`
@@ -8962,9 +8991,9 @@ function renderKfGraphsPanel() {
   root.hidden = false;
   root.innerHTML = keys.map((k) => {
     const label = KF_GRAPH_LABEL[k] || k;
-    return `<div class="kf-graph" data-kfgraph-card="${k}">
-      <div class="kf-graph-head"><span>${label}</span>
-        <button type="button" data-kfgraph-close="${k}" title="Close graph">✕</button></div>
+    return `<div class="kf-graph" data-kfgraph-card="${escapeHtml(k)}">
+      <div class="kf-graph-head"><span>${escapeHtml(label)}</span>
+        <button type="button" data-kfgraph-close="${escapeHtml(k)}" title="Close graph">✕</button></div>
       <canvas width="160" height="52"></canvas>
     </div>`;
   }).join("");
@@ -10798,7 +10827,7 @@ function paintAsrSetup() {
     const [title, text, again] = { net: ["setup-net-title", h("asr-interrupted"), "asr-resume"],
       space: ["setup-space-title", h("asr-no-space", { drive: asrState.space ? asrState.space.drive : "?", free: mbText(asrState.space ? asrState.space.free : 0) }), "asr-resume"],
       bad: ["setup-bad-title", asrState.phase === "failed" ? h("asr-download-failed", { why: asrState.why || "?" }) : h("asr-check-failed"), "asr-again"] }[st];
-    html = `<h2 id="asrSetupTitle">${h(title)}</h2><p class="asr-warn">${text}</p>
+    html = `<h2 id="asrSetupTitle">${h(title)}</h2><p class="asr-warn">${escapeHtml(text)}</p>
       <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h(again)}</button>${later}</div>`;
   }
   asrSetup.dialog.innerHTML = html;
@@ -10976,31 +11005,31 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-asr-cancel hidden data-i18n="own.asr-download-cancel">${escapeHtml(uiText("own.asr-download-cancel"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-later hidden data-i18n="own.asr-later">${escapeHtml(uiText("own.asr-later"))}</button></div>` : ""}
       ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
-        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
+        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${escapeHtml(uiText("term.cancel"))}</button></div>` : ""}
       <div class="tr-row">
-        <input type="search" data-tr-find placeholder="${uiText("term.find-words")}" data-i18n-placeholder="term.find-words" spellcheck="false" title="A word or phrase; case and punctuation don't matter. Enter goes to the next one">
+        <input type="search" data-tr-find placeholder="${escapeHtml(uiText("term.find-words"))}" data-i18n-placeholder="term.find-words" spellcheck="false" title="A word or phrase; case and punctuation don't matter. Enter goes to the next one">
         <span class="tr-count" data-tr-count></span>
-        <button type="button" class="btn tiny" data-tr-cut-found disabled title="Extract every place it is said, on the targeted tracks (one undo step)">${uiText("own.cut-all")}</button>
-        <button type="button" class="btn tiny" data-tr-copy title="Copy the transcript as text, with timecodes" data-i18n="own.copy">${uiText("own.copy")}</button>
+        <button type="button" class="btn tiny" data-tr-cut-found disabled title="Extract every place it is said, on the targeted tracks (one undo step)">${escapeHtml(uiText("own.cut-all"))}</button>
+        <button type="button" class="btn tiny" data-tr-copy title="Copy the transcript as text, with timecodes" data-i18n="own.copy">${escapeHtml(uiText("own.copy"))}</button>
       </div>
       <div class="tr-row">
-        <span class="tr-lbl" data-i18n="term.captions">${uiText("term.captions")}</span>
+        <span class="tr-lbl" data-i18n="term.captions">${escapeHtml(uiText("term.captions"))}</span>
         <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(MontClipCaptions.STYLES).map(([k, st]) =>
-          `<option value="${k}" ${k === (set.captionStyle || MontClipCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
+          `<option value="${escapeHtml(k)}" ${k === (set.captionStyle || MontClipCaptions.DEFAULT_STYLE) ? "selected" : ""}>${escapeHtml(st.label)}</option>`).join("")}</select>
         <button type="button" class="btn tiny" data-tr-cap-quick${captionQuickTargets("all").length ? "" : " hidden"} data-i18n="own.cq-open">${escapeHtml(uiText("own.cq-open"))}</button>
         <button type="button" class="btn tiny" data-tr-cap-lyrics title="${escapeHtml(uiText("own.ly-open-title"))}" data-i18n="own.ly-open" data-i18n-title="own.ly-open-title">${escapeHtml(uiText("own.ly-open"))}</button>
-        ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>` : ""}
+        ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${escapeHtml(uiText("term.add-captions"))}</button>` : ""}
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
-        <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${uiText("term.import-2")}</button>
+        <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${escapeHtml(uiText("term.import-2"))}</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
         <input type="file" accept=".xml,text/xml,application/xml" data-tr-danmaku-input hidden>
       </div>
-      <div class="tr-note" data-i18n="own.caption-last">${uiText("own.caption-last")}</div>
+      <div class="tr-note" data-i18n="own.caption-last">${escapeHtml(uiText("own.caption-last"))}</div>
     </div>
     <div class="tr-body" data-tr-body tabindex="0"></div>
     <div class="tr-foot hidden" data-tr-foot><span data-tr-sel></span>
-      <button type="button" class="btn tiny" data-tr-cut-sel title="Extract the selected words and the pause after them, on the targeted tracks (Delete)" data-i18n="term.cut">${uiText("term.cut")}</button></div>`;
+      <button type="button" class="btn tiny" data-tr-cut-sel title="Extract the selected words and the pause after them, on the targeted tracks (Delete)" data-i18n="term.cut">${escapeHtml(uiText("term.cut"))}</button></div>`;
   const q = (s) => root.querySelector(s);
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
@@ -11126,13 +11155,13 @@ function trGapsHtml(groups) {
   spots.sort((x, y) => x.t - y.t);
   // the 自动出切片 cards' time format (0:15–0:22), not the tab's frame timecode, which reads as minutes; a button each, so Tab
   // reaches it and Enter goes there (VV on #95 d95ab21)
-  const shown = spots.slice(0, 20).map((x) => `<button type="button" class="tr-gap-go" data-t="${x.t}">${escapeHtml(MontClipAutoSlices.hms(x.t))}–${escapeHtml(MontClipAutoSlices.hms(x.u))}</button>`).join(" ");
+  const shown = spots.slice(0, 20).map((x) => `<button type="button" class="tr-gap-go" data-t="${escapeHtml(x.t)}">${escapeHtml(MontClipAutoSlices.hms(x.t))}–${escapeHtml(MontClipAutoSlices.hms(x.u))}</button>`).join(" ");
   const more = spots.length > 20 ? " " + escapeHtml(uiText("own.tr-gaps-more", { more: spots.length - 20 })) : "";
   return `<div class="tr-note tr-gaps" data-tr-gaps>${escapeHtml(uiText("own.tr-gaps-note", { n: spots.length, dur: trGapDur(total) }))} ${shown}${more}</div>`;
 }
 function renderTranscript(force = false) {
   if (!trState.open || !els.transcriptPage) return;
-  if (typeof MontClipTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
+  if (typeof MontClipTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${escapeHtml(uiText("own.tr-module-missing"))}</div>`; return; }
   if (!trState.built) buildTranscriptPage();
   const groups = transcriptGroups();
   for (const g of groups) {
@@ -11154,18 +11183,18 @@ function renderTranscript(force = false) {
     : groups.length ? "Every file on the timeline has a transcript — select clips to transcribe them again" : "Put clips with speech on the timeline first";
   const missing = [...new Set(groups.map((g) => getMedia(g[0].mediaId)).filter((m) => transcriptCache.get(audioKey(m)) === false).map((m) => m.name || m.src))];
   let html = "";
-  if (!groups.length) html = `<div class="tr-empty">${uiText("own.tr-empty")}</div>`;
+  if (!groups.length) html = `<div class="tr-empty">${escapeHtml(uiText("own.tr-empty"))}</div>`;
   else {
     if (missing.length) {
       const names = missing.slice(0, 6).map(escapeHtml).join(mcView.get().language === "zh-CN" ? "、" : ", ") + (missing.length > 6 ? escapeHtml(uiText("own.tr-more", { n: missing.length - 6 })) : "");
       html += `<div class="tr-note">${escapeHtml(uiText("own.tr-missing", { names: "\u0000" })).replace("\u0000", names)}</div>`;
     }
     html += trGapsHtml(groups);
-    if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
+    if (!words.length && !missing.length) html += `<div class="tr-empty">${escapeHtml(uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words"))}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
-      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? MontClipTranscribe.gap(words[k - 1].w, words[k].w) : "") + `<span class="tw" data-k="${k}">${escapeHtml(words[k].w)}</span>`;
-      html += `<p class="tr-seg"><span class="tr-tc" data-t="${s.from}" title="Go to ${fmt(s.from)}">${fmt(s.from)}</span>${p}</p>`;
+      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? MontClipTranscribe.gap(words[k - 1].w, words[k].w) : "") + `<span class="tw" data-k="${escapeHtml(k)}">${escapeHtml(words[k].w)}</span>`;
+      html += `<p class="tr-seg"><span class="tr-tc" data-t="${escapeHtml(s.from)}" title="Go to ${fmt(s.from)}">${fmt(s.from)}</span>${p}</p>`;
     }
   }
   E.body.innerHTML = html;
@@ -11629,7 +11658,7 @@ function autoBuild() {
   const d = document.createElement("dialog");
   d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open")); d.tabIndex = -1;
   d.innerHTML = `<div class="as-head"><b>${autoSay("as-open")}</b>
-      <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${s}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
+      <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${escapeHtml(s)}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
       <span class="as-spacer"></span><span class="as-keep">${autoSay("as-keep")}</span>
       <button type="button" class="btn tiny" data-as-close>${autoSay("as-close")}</button></div>
     <div class="as-body" data-as-body></div>
@@ -11702,13 +11731,13 @@ function autoStartHtml() {
   // the dialog opened before the import kept an empty pick)
   if (recs.length === 1 && st.soloTicked !== recs[0].id) { if (!st.picked.size) st.picked.add(recs[0].id); st.soloTicked = recs[0].id; }
   const recList = (recs.length ? recs.map((m) => { const on = st.picked.has(m.id), dm = autoDanmaku(m).length;
-      return `<div class="as-rec${on ? " on" : ""}" role="checkbox" aria-checked="${on}" tabindex="0" data-as-act="rec" data-as-id="${escapeHtml(m.id)}">
+      return `<div class="as-rec${on ? " on" : ""}" role="checkbox" aria-checked="${escapeHtml(on)}" tabindex="0" data-as-act="rec" data-as-id="${escapeHtml(m.id)}">
         <div class="as-t">${escapeHtml(m.name || m.src)}</div><div class="as-small">${escapeHtml(autoDur(m.duration))}</div>
         <span class="as-chip ${dm ? "ok" : "warn"}">${autoSay(dm ? "as-dm-yes" : "as-dm-no")}</span></div>`; }).join("")
     : IMPORTING.size ? "" : `<p class="as-muted">${autoSay("as-no-recs")}</p>`) + importingHtml("as-rec as-importing");
   // the same import as the main 〔+ 导入〕 (VV: the empty list said 先导入 with no way to from here)
   const importBtn = `<button type="button" class="btn tiny" data-as-act="import">${autoSay("as-import")}</button>`;
-  const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${name}" data-as-v="${v}" class="${cur === v ? "on" : ""}">${autoSay(autoSongKey("as-" + name + "-" + v))}</button>`).join("");
+  const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${escapeHtml(name)}" data-as-v="${escapeHtml(v)}" class="${cur === v ? "on" : ""}">${autoSay(autoSongKey("as-" + name + "-" + v))}</button>`).join("");
   const pickedDm = recs.filter((m) => st.picked.has(m.id)).reduce((x, m) => x + autoDanmaku(m).length, 0);
   return `<h1>${autoSay("as-start-title")}</h1><p class="as-sub">${autoSay("as-start-sub")}</p>
     <section class="as-card-box"><h2>${autoSay("as-recs")}</h2><div class="as-recs">${recList}</div><p class="as-small">${autoSay("as-recs-multi")}</p>
@@ -11716,7 +11745,7 @@ function autoStartHtml() {
     <section class="as-card-box"><h2>${autoSay("as-kind-title")}</h2><div class="as-seg">${seg("kind", MontClipAutoSlices.KINDS, st.kind)}</div>
       <p class="as-small" data-as-kind-hint>${autoSay(autoKindHintKey(st.kind, pickedDm))}</p></section>
     <details class="as-more"><summary>${autoSay("as-more")}</summary>
-      <div class="as-opt"><span>${autoSay("as-count")}</span><div><select data-as-count>${MontClipAutoSlices.COUNTS.map((n) => `<option${n === st.count ? " selected" : ""}>${n}</option>`).join("")}</select>
+      <div class="as-opt"><span>${autoSay("as-count")}</span><div><select data-as-count>${MontClipAutoSlices.COUNTS.map((n) => `<option${n === st.count ? " selected" : ""}>${escapeHtml(n)}</option>`).join("")}</select>
         <span class="as-small">${autoSay("as-count-hint")}</span></div></div>
       <div class="as-opt"><span>${autoSay("as-len")}</span><div><div class="as-seg">${seg("len", MontClipAutoSlices.LENS, st.len)}</div>
         <p class="as-small">${autoSay(autoSongKey("as-len-hint-" + st.len))}</p></div></div>
@@ -11850,9 +11879,9 @@ function autoReviewHtml() {
 }
 function autoOverviewHtml(rec, clips, startNo) {
   const o = MontClipAutoSlices.overview(rec, clips, startNo), L = rec.duration;
-  const area = o.area.length ? `<polygon class="as-ov-loud" points="0,100 ${o.area.map(([x, y]) => x + "," + y).join(" ")} 1000,100"/>` : "";
+  const area = o.area.length ? `<polygon class="as-ov-loud" points="0,100 ${escapeHtml(o.area.map(([x, y]) => x + "," + y).join(" "))} 1000,100"/>` : "";
   const ticks = o.ticks.map((t) => `<line class="as-ov-tick" x1="${(t / L * 1000).toFixed(1)}" y1="0" x2="${(t / L * 1000).toFixed(1)}" y2="100"/>`).join("");
-  const boxes = o.boxes.map((b) => `<g class="as-ov-box${b.on ? " on" : ""}" data-as-act="focus" data-as-id="${escapeHtml(b.id)}"><rect x="${b.x}" y="2" width="${b.w}" height="96" rx="2"/><text x="${(b.x + b.w / 2).toFixed(1)}" y="13" text-anchor="middle">${b.no}</text></g>`).join("");
+  const boxes = o.boxes.map((b) => `<g class="as-ov-box${b.on ? " on" : ""}" data-as-act="focus" data-as-id="${escapeHtml(b.id)}"><rect x="${escapeHtml(b.x)}" y="2" width="${escapeHtml(b.w)}" height="96" rx="2"/><text x="${(b.x + b.w / 2).toFixed(1)}" y="13" text-anchor="middle">${escapeHtml(b.no)}</text></g>`).join("");
   const m = autoMedia(rec.mediaId);
   const st = autoState(), open = st.ovOpen != null ? st.ovOpen : window.innerWidth > 700;
   return `<details class="as-ov" data-as-ov${open ? " open" : ""}><summary class="as-ov-head"><b>${autoSay("as-overview")}</b> <span class="as-small">${escapeHtml(m ? m.name : "")} · ${autoSay("as-overview-hint")}</span></summary>
@@ -11869,17 +11898,17 @@ function autoWave(c, w) {
     const y = Number.isFinite(v) ? 30 - Math.max(0, Math.min(1, (v + 60) / 60)) * 26 : 30;
     pts.push((i / 80 * 100).toFixed(1) + "," + y.toFixed(1));
   }
-  return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(" ")}"/></svg>`;
+  return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${escapeHtml(pts.join(" "))}"/></svg>`;
 }
 function autoEdgeHtml(c, w) {
   // v8: a level beside each time — 比较可能, 估的, 你调过 while moved. v12: only the tag on the card, what it means is its
   // tooltip (估的: the note said once above the cards; 你调过: none); the ± buttons on the row of the time
   const lbl = w === "s" ? "start" : "end", t = w === "s" ? c.s : c.e, level = MontClipAutoSlices.edgeLevel(c, w);
   const tip = level === "estimated" ? autoSay("as-guess-note") : level === "likely" ? autoSay("as-likely-" + lbl) : "";
-  const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${w}" data-as-d="${d}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
-  return `<div class="as-edge" data-as-edge="${w}"><div class="as-edge-row"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}"${tip ? ` title="${tip}"` : ""}>${autoSay("as-tag-" + level)}</span></div>
-    <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div></div>
-    <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div></div>`;
+  const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${escapeHtml(w)}" data-as-d="${escapeHtml(d)}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
+  return `<div class="as-edge" data-as-edge="${escapeHtml(w)}"><div class="as-edge-row"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${escapeHtml(level)}" data-as-level="${escapeHtml(level)}"${tip ? ` title="${tip}"` : ""}>${autoSay("as-tag-" + level)}</span></div>
+    <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${escapeHtml(w)}">${autoSay("as-listen-" + lbl)}</button></div></div>
+    <div class="as-strip" data-as-act="drag" data-as-w="${escapeHtml(w)}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div></div>`;
 }
 /** Can this card calibrate its subtitles from the lyrics? A song card whose part of the recording has transcript words
  *  (docs/decisions/2026-11-03-card-lyrics.md). Otherwise it shows no such button at all — never a disabled one that looks
@@ -11937,13 +11966,13 @@ function autoCardHtml(c, i) {
   // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
-      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}${autoKindLineHtml(c)}</div>
+      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${escapeHtml(i + 1)}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}${autoKindLineHtml(c)}</div>
         ${i === 0 ? `<div class="as-small" data-as-name-hint>${autoSay("as-song-name-hint")}</div>` : ""}
         ${c.added ? `<p class="as-why"><b>${autoSay("as-added-why")}</b></p>` : c.changedFrom ? `<p class="as-why"><b>${autoSay("as-marked-why")}</b></p>` : why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}${autoHabitLineHtml(c)}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
-      ${song && autoLyricsAvailable(c) ? `<button type="button" class="btn tiny" data-as-act="lyrics" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${c.lyricCues ? autoSay("as-lyrics-again-title", { n: c.lyricN || 0 }) : [subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${c.lyricCues ? autoSay("as-lyrics-again", { n: c.lyricN || 0 }) : autoSay("as-lyrics")}</button>` : ""}
+      ${song && autoLyricsAvailable(c) ? `<button type="button" class="btn tiny" data-as-act="lyrics" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${escapeHtml(c.lyricCues ? autoSay("as-lyrics-again-title", { n: c.lyricN || 0 }) : [subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n"))}">${c.lyricCues ? autoSay("as-lyrics-again", { n: c.lyricN || 0 }) : autoSay("as-lyrics")}</button>` : ""}
       <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
 /* ── 记住我的剪辑习惯 (frozen v12; Deja, 2026-11-03): the streamer's corrections, kept on this computer by the main process
@@ -12037,7 +12066,7 @@ function autoHabitLineHtml(c) {
       edge: uiText("own.as-habit-edge-" + w), dir: uiText(later ? "own.as-habit-dir-later" : "own.as-habit-dir-earlier") }));
   }
   if (!parts.length) return "";
-  return `<p class="as-small as-habit" data-as-habit><span aria-hidden="true">↺</span>${autoSay("as-habit-lead")}${parts.join("，")} · <button type="button" class="as-link" data-as-act="not-now">${autoSay("as-habit-not-now")}</button> · <button type="button" class="as-link" data-as-act="learn-settings">${autoSay("as-habit-settings")}</button></p>`;
+  return `<p class="as-small as-habit" data-as-habit><span aria-hidden="true">↺</span>${autoSay("as-habit-lead")}${escapeHtml(parts.join("，"))} · <button type="button" class="as-link" data-as-act="not-now">${autoSay("as-habit-not-now")}</button> · <button type="button" class="as-link" data-as-act="learn-settings">${autoSay("as-habit-settings")}</button></p>`;
 }
 /** 补一段: the IN–OUT of the main timeline, inside one clip of a searched recording (speed 1) → that recording's part. */
 function autoAddSpan() {
@@ -12100,7 +12129,7 @@ function autoAddOpen(kind) {
   const hms = MontClipAutoSlices.hms, hintKey = !kind ? "as-add-hint-none" : kind === "song" ? "as-add-hint-song" : kind === "interaction" ? "as-add-hint-interaction" : "as-add-hint-moment";
   d.dataset.kind = kind || "";
   d.innerHTML = `<h2>${autoSay("as-add")}</h2><p>${autoSay("as-add-from")}<b>${escapeHtml(hms(sp.s))} → ${escapeHtml(hms(sp.e))}</b>${autoSay("as-add-total", { len: autoDur(sp.e - sp.s) })}<span class="as-add-rec" data-as-add-rec>${autoSay("as-add-rec", { name: m ? m.name : "" })}</span></p>
-    <div class="as-small">${autoSay("as-add-what")}</div><div class="as-seg">${MontClipSegmentEdits.ADD_ORDER.map((k) => `<button type="button" data-as-add-kind="${k}"${k === kind ? ' class="on"' : ""}>${autoKindName(k)}</button>`).join("")}</div>
+    <div class="as-small">${autoSay("as-add-what")}</div><div class="as-seg">${MontClipSegmentEdits.ADD_ORDER.map((k) => `<button type="button" data-as-add-kind="${escapeHtml(k)}"${k === kind ? ' class="on"' : ""}>${escapeHtml(autoKindName(k))}</button>`).join("")}</div>
     <p class="as-small">${autoSay(hintKey)}</p>
     <label class="dlv-f as-add-namefield"><span>${autoSay("as-add-name")}</span><input type="text" id="asAddName" data-as-add-name maxlength="80" placeholder="${escapeHtml(autoName({ kind: "moment", s: sp.s, e: sp.e, at: sp.s, no: null }))}"></label>
     <div class="as-row"><button type="button" class="btn primary" data-as-add-ok${kind ? "" : " disabled"}>${autoSay(kind ? "as-add-ok" : "as-add-pick-first")}</button><button type="button" class="btn" data-as-add-no>${autoSay("as-add-cancel")}</button></div>`;
@@ -12172,8 +12201,8 @@ function autoFooter() {
   const words = (k, n) => `<span class="as-long">${autoSay(k, { n })}</span>`, short = (k, n) => ` data-short="${escapeHtml(uiText("own." + k + "-short", { n }))}"`;
   f.innerHTML = `${sum}
     <span class="as-spacer"></span>
-    <button type="button" class="btn primary" data-as-act="place" title="${autoSay("as-place-title")}"${short("as-place", t.n)}${t.n ? "" : " disabled"}>${words("as-place", t.n)}</button>
-    <button type="button" class="btn" data-as-act="export"${short("as-export", t.n)}${t.n ? "" : " disabled"}>${words("as-export", t.n)}</button>`;
+    <button type="button" class="btn primary" data-as-act="place" title="${autoSay("as-place-title")}"${escapeHtml(short("as-place", t.n))}${t.n ? "" : " disabled"}>${words("as-place", t.n)}</button>
+    <button type="button" class="btn" data-as-act="export"${escapeHtml(short("as-export", t.n))}${t.n ? "" : " disabled"}>${words("as-export", t.n)}</button>`;
 }
 /* the dialog's own undo: card edits (tick, move, rename, take out) — not the timeline's */
 function autoSnap(extra) {
@@ -12492,11 +12521,11 @@ function autoDoneHtml() {
     : escapeHtml(blank ? MontClipView.errorText(lang, failed[0]).text
       : MontClipView.exportResult(lang, { done: done.length, failed: failed.length, why: failed.length ? MontClipView.batchReason(lang, failed[0]) : "" }));
   const say = (k) => escapeHtml(uiText(k));
-  const copyBtn = (q) => `<button type="button" class="btn" data-as-act="copy-problem"${q ? ` data-q="${q.id}"` : ""}>${say("btnCopyProblem")}</button>`;
+  const copyBtn = (q) => `<button type="button" class="btn" data-as-act="copy-problem"${q ? ` data-q="${escapeHtml(q.id)}"` : ""}>${say("btnCopyProblem")}</button>`;
   return `<h1>${title}</h1><p class="as-sub">${busy || !done.length ? "" : autoSay("as-done-sub")}</p>
     <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
     ${!busy && failed.length && done.length ? `<section class="as-card-box as-warn" data-as-failed>${failed.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b>：${escapeHtml(MontClipView.batchReason(lang, q))}</span>
-      <button type="button" class="btn" data-as-act="retry-one" data-q="${q.id}">${say("btnRetryThis")}</button>${MontClipView.errorText(lang, q).copy ? copyBtn(q) : ""}</div>`).join("")}</section>` : ""}
+      <button type="button" class="btn" data-as-act="retry-one" data-q="${escapeHtml(q.id)}">${say("btnRetryThis")}</button>${MontClipView.errorText(lang, q).copy ? copyBtn(q) : ""}</div>`).join("")}</section>` : ""}
     ${!busy && failed.length && !done.length ? `<section class="as-card-box as-warn" data-as-failed><div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${say("btnRetry")}</button>
       ${copyBtn(null)}</div><p class="as-small">${say("copyProblemNote")}</p></section>` : ""}
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
@@ -12954,9 +12983,9 @@ function renderMixer() {
     s.dataset.strip = id;
     if (color) s.style.setProperty("--strip-color", color);
     s.innerHTML = `
-      <div class="mix-name" title="${isMaster ? "Master bus — everything you hear and export" : isBus ? `Submix bus ${id} — double-click to rename` : `Track ${id}`}">${escapeHtml(label)}</div>
+      <div class="mix-name" title="${isMaster ? "Master bus — everything you hear and export" : isBus ? `Submix bus ${escapeHtml(id)} — double-click to rename` : `Track ${escapeHtml(id)}`}">${escapeHtml(label)}</div>
       ${!isMaster && !isBus ? `<select class="mix-out" title="Where this track goes: the master, or a submix bus"><option value="">→ Master</option>${buses.map((b) =>
-        `<option value="${b.id}">→ ${escapeHtml(busLabel(b))}</option>`).join("")}</select>` : ""}
+        `<option value="${escapeHtml(b.id)}">→ ${escapeHtml(busLabel(b))}</option>`).join("")}</select>` : ""}
       ${isMaster ? `<div class="mix-pan-row mix-lufs" title="Momentary loudness of the mix (post-fader)">— LUFS</div>`
         : `<div class="mix-pan-row"><input type="range" class="mix-pan" min="-1" max="1" step="0.01" title="Track pan — double-click: center"><span class="mix-pan-val"></span></div>`}
       <div class="mix-body">
@@ -12964,7 +12993,7 @@ function renderMixer() {
         <input type="range" class="mix-fader" min="0" max="1" step="0.001" title="${isMaster ? "Master" : "Track"} fader — double-click: 0 dB">
       </div>
       <input type="text" class="mix-db" spellcheck="false" title="Type a level in dB (e.g. -6, +2, -inf)">
-      <button type="button" class="mix-fx" title="${isMaster ? "Master" : isBus ? `Bus ${id}` : `Track ${id}`} effects">FX</button>
+      <button type="button" class="mix-fx" title="${isMaster ? "Master" : isBus ? `Bus ${escapeHtml(id)}` : `Track ${escapeHtml(id)}`} effects">FX</button>
       ${isMaster ? "" : isBus ? `<div class="mix-btns"><button type="button" class="mix-m" title="Mute the bus">M</button><button type="button" class="mix-x" title="Remove the bus — its tracks go back to the master">✕</button></div>`
         : `<div class="mix-btns"><button type="button" class="mix-m" title="Mute (track output on/off)">M</button><button type="button" class="mix-s" title="Solo">S</button></div>`}`;
     s.querySelector(".mix-fx").addEventListener("click", () => { mixerState.fxTarget = id; renderMixer(); });
@@ -13099,20 +13128,20 @@ function fxEditorHtml(list, at = null) {
   for (const [id, p] of Object.entries(F.PRESETS)) (groups[p.group] = groups[p.group] || []).push([id, p.label]);
   let html = `<div class="fx-tools-row">
     <select data-fx-preset title="Replace the chain with a preset — tweak it afterwards"><option value="">Preset…</option>${Object.entries(groups).map(([g, items]) =>
-      `<optgroup label="${g}">${items.map(([id, label]) => `<option value="${id}">${label}</option>`).join("")}</optgroup>`).join("")}</select>
+      `<optgroup label="${escapeHtml(g)}">${items.map(([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`).join("")}</optgroup>`).join("")}</select>
     <select data-fx-add title="Add an effect to the end of the chain"><option value="">+ Add effect…</option>${F.FX_TYPES.map((t) =>
-      `<option value="${t}">${F.FX_DEFS[t].label}</option>`).join("")}</select>
+      `<option value="${escapeHtml(t)}">${escapeHtml(F.FX_DEFS[t].label)}</option>`).join("")}</select>
     ${list?.length ? `<button type="button" class="btn tiny" data-fx-clear title="Remove every effect">Clear</button>` : ""}
   </div>`;
   if (!list?.length) return html + `<div class="insp-note">No effects. Pick a preset or add one.</div>`;
   list.forEach((e, i) => {
     const def = F.FX_DEFS[e.type];
     const ev = at != null ? F.evalEffect(e, at) : e;
-    html += `<div class="fx-card${e.on === false ? " off" : ""}" data-fx-i="${i}">
-      <div class="fx-head"><label title="On / bypass"><input type="checkbox" data-fx-on ${e.on === false ? "" : "checked"}> ${def.label}</label>
+    html += `<div class="fx-card${e.on === false ? " off" : ""}" data-fx-i="${escapeHtml(i)}">
+      <div class="fx-head"><label title="On / bypass"><input type="checkbox" data-fx-on ${e.on === false ? "" : "checked"}> ${escapeHtml(def.label)}</label>
         <span class="fx-btns"><button type="button" data-fx-move="-1" title="Earlier in the chain" ${i ? "" : "disabled"}>▲</button><button type="button" data-fx-move="1" title="Later in the chain" ${i < list.length - 1 ? "" : "disabled"}>▼</button><button type="button" data-fx-del title="Remove">✕</button></span></div>
-      ${Object.entries(def.params).map(([k, d]) => `<div class="fx-param"><span>${d.label}</span>
-        <input type="range" data-fx-p="${k}" min="${d.unit === "Hz" ? 0 : d.min}" max="${d.unit === "Hz" ? 1000 : d.max}" step="${d.unit === "Hz" ? 1 : d.step}" value="${fxToSlider(ev[k], d)}" title="Double-click: default">
+      ${Object.entries(def.params).map(([k, d]) => `<div class="fx-param"><span>${escapeHtml(d.label)}</span>
+        <input type="range" data-fx-p="${escapeHtml(k)}" min="${escapeHtml(d.unit === "Hz" ? 0 : d.min)}" max="${escapeHtml(d.unit === "Hz" ? 1000 : d.max)}" step="${escapeHtml(d.unit === "Hz" ? 1 : d.step)}" value="${escapeHtml(fxToSlider(ev[k], d))}" title="Double-click: default">
         <span class="fx-val">${fxFmt(ev[k], d)}</span>${d.fixed ? "<span></span>" : fxKeyBtn(e, k, at)}</div>`).join("")}
     </div>`;
   });
@@ -13124,7 +13153,7 @@ function fxKeyBtn(e, k, at) {
   const on = at != null && ks.some((x) => Math.abs(x.t - at) < kfTimeEps());
   const title = at == null ? "Move the playhead over the clip to automate this"
     : on ? "Remove the key at the playhead" : "Set a key at the playhead";
-  return `<button type="button" class="kf-btn fx-kf${n ? " has" : ""}${on ? " on" : ""}" data-fx-kf="${k}" title="${title}"${at == null ? " disabled" : ""}>◆${n || ""}</button>`;
+  return `<button type="button" class="kf-btn fx-kf${n ? " has" : ""}${on ? " on" : ""}" data-fx-kf="${escapeHtml(k)}" title="${escapeHtml(title)}"${at == null ? " disabled" : ""}>◆${escapeHtml(n || "")}</button>`;
 }
 /* Live effects editors, so automated sliders follow the playhead. */
 const fxEditors = new Set();
@@ -13233,7 +13262,7 @@ function renderMixerFx(root, id) {
   if (!isMaster && !t) { mixerState.fxTarget = null; renderMixer(); return; }
   root.innerHTML = `<div class="mixer-fx">
     <div class="mixer-fx-head"><button type="button" class="btn tiny" data-fx-back>← Mixer</button>
-      <span>${isMaster ? "Master" : id} effects</span></div>
+      <span>${escapeHtml(isMaster ? "Master" : id)} effects</span></div>
     <div class="mixer-fx-body">${fxEditorHtml(isMaster ? masterFx() : t.fx, state.time)}</div></div>`;
   root.querySelector("[data-fx-back]").addEventListener("click", () => { mixerState.fxTarget = null; renderMixer(); });
   bindFxEditor(root, () => isMaster ? masterFx() : t.fx, (fx) => {
@@ -14217,7 +14246,7 @@ const shiftKF = MontClipEdit.shiftKF;
    authors set `--d: 0.4s` on an element instead of a literal animation-delay. */
 function parseSvgSize(txt) {
   const num = (s) => { const v = parseFloat(s); return isFinite(v) && v > 0 ? v : 0; };
-  const attr = (name) => (txt.match(new RegExp(`<svg[^>]*\\s${name}="([^"%]+)"`, "i")) || [])[1];
+  const attr = (name) => (txt.match(new RegExp(`<svg[^>]*\\s${escapeHtml(name)}="([^"%]+)"`, "i")) || [])[1];
   let w = num(attr("width")), h = num(attr("height"));
   if (!w || !h) {
     const vb = (txt.match(/<svg[^>]*\sviewBox="([^"]+)"/i) || [])[1];
@@ -15178,7 +15207,7 @@ function syncCompCrumb() {
   const names = x.path.map((id) => (CompLib.getComp(x.root, id) || { name: id }).name);
   el.innerHTML = `<button type="button" class="btn tiny" data-crumb="${x.path.length}" title="Back to the timeline">◀ ${escapeHtml(openSequenceName())}</button>` +
     names.map((n, i) => `<span class="crumb-sep">›</span>` + (i < names.length - 1
-      ? `<button type="button" class="btn tiny" data-crumb="${x.path.length - 1 - i}">${escapeHtml(n)}</button>`
+      ? `<button type="button" class="btn tiny" data-crumb="${escapeHtml(x.path.length - 1 - i)}">${escapeHtml(n)}</button>`
       : `<b title="You are editing this composition — Esc or ◀ goes back">${escapeHtml(n)}</b>`)).join("");
   for (const b of el.querySelectorAll("[data-crumb]")) b.addEventListener("click", () => exitComp(+b.dataset.crumb));
 }
@@ -15323,7 +15352,7 @@ function showSequenceMenu(x, y) {
     // the open one's live numbers are on the timeline (or the root, while a comp is open)
     const w = row.active ? r.width : row.width, h = row.active ? r.height : row.height;
     const len = row.active ? (state.compCtx ? row.duration : projDur()) : row.duration;
-    const b = item(`<span class="seq-check">${row.active ? "✓" : ""}</span><span class="seq-row-name">${escapeHtml(shownName(row.name))}</span><kbd>${w}×${h} · ${fmt(len)}</kbd>`,
+    const b = item(`<span class="seq-check">${row.active ? "✓" : ""}</span><span class="seq-row-name">${escapeHtml(shownName(row.name))}</span><kbd>${escapeHtml(w)}×${escapeHtml(h)} · ${fmt(len)}</kbd>`,
       () => openSequence(row.id));
     if (row.active) b.classList.add("on");
   }
@@ -15349,7 +15378,7 @@ function promptNewSequence(x, y) {
   pop.innerHTML = `<label class="bin-pop-label" for="seqNewName">New sequence</label>
     <input type="text" class="bin-pop-input" id="seqNewName" maxlength="120" spellcheck="false">
     <label class="bin-pop-label" for="seqNewSize">Canvas</label>
-    <select id="seqNewSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${i}">${escapeHtml(s.label)}</option>`).join("")}</select>
+    <select id="seqNewSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${escapeHtml(i)}">${escapeHtml(s.label)}</option>`).join("")}</select>
     <label class="seq-new-copy"><input type="checkbox" id="seqNewCopy"> Start from a copy of “${escapeHtml(openSequenceName())}”</label>
     <label class="seq-new-copy" title="Each full-frame shot is fitted to the new shape and keyed to keep what matters in it in view (Inspector → Reframe)"><input type="checkbox" id="seqNewFollow" checked> Follow the subject in each shot</label>
     <div class="bin-pop-hint">Media and compositions are shared by every sequence. Each has its own timeline, canvas, frame rate, mix and delivery settings.</div>
@@ -15395,9 +15424,9 @@ function promptHighlights(x, y) {
   const pop = document.createElement("div");
   pop.className = "ctx-menu bin-pop seq-new";
   pop.innerHTML = `<label class="bin-pop-label" for="hlLen">${escapeHtml(uiText("own.hl-title"))}</label>
-    <select id="hlLen" class="bin-pop-input">${[15, 30, 60, 90].map((s) => `<option value="${s}" ${s === 30 ? "selected" : ""}>${s} s</option>`).join("")}</select>
+    <select id="hlLen" class="bin-pop-input">${[15, 30, 60, 90].map((s) => `<option value="${escapeHtml(s)}" ${s === 30 ? "selected" : ""}>${escapeHtml(s)} s</option>`).join("")}</select>
     <label class="bin-pop-label" for="hlSize">Canvas</label>
-    <select id="hlSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${i}">${escapeHtml(s.label)}</option>`).join("")}</select>
+    <select id="hlSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${escapeHtml(i)}">${escapeHtml(s.label)}</option>`).join("")}</select>
     <label class="seq-new-copy" title="Each shot is fitted to the new shape and keyed to keep what matters in it in view (Inspector → Reframe)"><input type="checkbox" id="hlFollow" checked> Follow the subject in each shot</label>
     <div class="bin-pop-hint" data-hl-status>${escapeHtml(uiText("own.hl-desc"))}</div>
     <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>${escapeHtml(uiText("term.cancel"))}</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>${escapeHtml(uiText("own.hl-make"))}</button></div>`;
@@ -15484,7 +15513,7 @@ function makeCompItem(comp) {
   item.draggable = true;
   const used = CompLib.usages(state.compCtx ? state.compCtx.root : project, comp.id).length;
   item.innerHTML = `<div class="bin-thumb comp-thumb">▣</div>
-    <div class="bin-meta"><div class="bin-name"></div><div class="bin-sub">Composition · ${comp.width}×${comp.height} · ${comp.duration}s${used ? ` · used ${used}×` : ""}</div></div>
+    <div class="bin-meta"><div class="bin-name"></div><div class="bin-sub">Composition · ${escapeHtml(comp.width)}×${escapeHtml(comp.height)} · ${escapeHtml(comp.duration)}s${used ? ` · used ${escapeHtml(used)}×` : ""}</div></div>
     <button class="btn tiny accent lib-add" title="Add at the playhead">＋</button>`;
   item.querySelector(".bin-name").textContent = comp.name;
   item.title = "Drag onto the timeline · double-click to open and edit";
@@ -15528,9 +15557,9 @@ function compSectionHtml(c, row) {
   if (!comp) return `<div class="insp-section"><h3>Composition</h3><p class="cl-note">Its composition (${escapeHtml(c.compId || "?")}) is missing.</p></div>`;
   return `<div class="insp-section" data-comp-section><h3>Composition</h3>
     ${row("Comp", `<span class="insp-ctrls"><input type="text" data-comp-name value="${escapeHtml(comp.name)}" maxlength="80" title="The composition's name (every clip using it shows it)"> <button type="button" class="btn tiny" data-comp-open title="Open it on the timeline (or double-click the clip)">Open</button></span>`)}
-    ${row("Size", `<span class="insp-ctrls"><input type="number" data-comp-w min="16" max="8192" value="${comp.width}" style="max-width:72px"> × <input type="number" data-comp-h min="16" max="8192" value="${comp.height}" style="max-width:72px"></span>`)}
-    ${row("Length (s)", `<input type="number" data-comp-dur min="0.05" step="0.01" value="${comp.duration}">`)}
-    ${row("Background", `<span class="insp-ctrls"><input type="color" data-comp-bg value="${comp.background || "#000000"}"><button type="button" class="btn tiny${comp.background ? "" : " toggle on"}" data-comp-bgoff title="Transparent: what is under the comp clip shows through">None</button></span>`)}
+    ${row("Size", `<span class="insp-ctrls"><input type="number" data-comp-w min="16" max="8192" value="${escapeHtml(comp.width)}" style="max-width:72px"> × <input type="number" data-comp-h min="16" max="8192" value="${escapeHtml(comp.height)}" style="max-width:72px"></span>`)}
+    ${row("Length (s)", `<input type="number" data-comp-dur min="0.05" step="0.01" value="${escapeHtml(comp.duration)}">`)}
+    ${row("Background", `<span class="insp-ctrls"><input type="color" data-comp-bg value="${escapeHtml(comp.background || "#000000")}"><button type="button" class="btn tiny${comp.background ? "" : " toggle on"}" data-comp-bgoff title="Transparent: what is under the comp clip shows through">None</button></span>`)}
     <p class="cl-note">The clip shows the comp from its In point (${(+c.in || 0).toFixed(2)} s). Every clip using this comp changes when you edit it.</p>
   </div>`;
 }
@@ -15642,14 +15671,14 @@ function templateSectionHtml(c, row) {
   const fields = (tpl.fields || []).map((f) => {
     const v = Tpl.fieldValue(comp, f), label = escapeHtml(f.label);
     if (f.type === "text") return row(label, `<textarea data-tf="${escapeHtml(f.key)}" rows="${String(v || "").length > 28 ? 2 : 1}" maxlength="2000">${escapeHtml(v || "")}</textarea>`);
-    if (f.type === "color") return row(label, `<input type="color" data-tf="${escapeHtml(f.key)}" value="${/^#[0-9a-f]{6}/i.test(v || "") ? v.slice(0, 7) : "#ffffff"}">`);
-    return row(label, `<select data-tf="${escapeHtml(f.key)}" title="Import your picture (or drop it in the bin), then pick it here">${pics.map((m) => `<option value="${m.id}" ${m.id === v ? "selected" : ""}>${escapeHtml(m.name)}</option>`).join("")}</select>`);
+    if (f.type === "color") return row(label, `<input type="color" data-tf="${escapeHtml(f.key)}" value="${escapeHtml(/^#[0-9a-f]{6}/i.test(v || "") ? v.slice(0, 7) : "#ffffff")}">`);
+    return row(label, `<select data-tf="${escapeHtml(f.key)}" title="Import your picture (or drop it in the bin), then pick it here">${pics.map((m) => `<option value="${escapeHtml(m.id)}" ${m.id === v ? "selected" : ""}>${escapeHtml(m.name)}</option>`).join("")}</select>`);
   }).join("");
   const sameShape = Math.abs(comp.width / comp.height - project.width / project.height) < 0.01;
   return `<div class="insp-section" data-tpl-section><h3>Template</h3>
     ${fields}
-    ${row("Length (s)", `<input type="number" data-tf-dur min="0.5" step="0.1" value="${comp.duration}" title="Longer holds longer — the exit keeps its timing at the end">`)}
-    ${sameShape || state.compCtx ? "" : row("Canvas", `<button type="button" class="btn tiny" data-tf-canvas title="Make the project canvas ${comp.width}×${comp.height}, the size this template was made for">Use ${comp.width}×${comp.height}</button>`)}
+    ${row("Length (s)", `<input type="number" data-tf-dur min="0.5" step="0.1" value="${escapeHtml(comp.duration)}" title="Longer holds longer — the exit keeps its timing at the end">`)}
+    ${sameShape || state.compCtx ? "" : row("Canvas", `<button type="button" class="btn tiny" data-tf-canvas title="Make the project canvas ${escapeHtml(comp.width)}×${escapeHtml(comp.height)}, the size this template was made for">Use ${escapeHtml(comp.width)}×${escapeHtml(comp.height)}</button>`)}
     <p class="cl-note">These fields belong to this copy (its comp "${escapeHtml(comp.name)}"). Open it to change anything else.</p>
   </div>`;
 }
@@ -15704,13 +15733,13 @@ function presetRowsHtml(c, row) {
   const opts = (anchor, first) => {
     const own = savedLib.presets.filter((p) => p.anchor === anchor);
     const list = (l) => l.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
-    return `<select data-preset="${anchor}"><option value="">${first}</option>${list(Tpl.PRESETS.filter((p) => p.anchor === anchor))}${own.length ? `<optgroup label="Saved">${list(own)}</optgroup>` : ""}</select>`;
+    return `<select data-preset="${escapeHtml(anchor)}"><option value="">${escapeHtml(first)}</option>${list(Tpl.PRESETS.filter((p) => p.anchor === anchor))}${own.length ? `<optgroup label="Saved">${list(own)}</optgroup>` : ""}</select>`;
   };
   return row(uiOr("term.preset", "Presets"), `<span class="insp-ctrls">${opts("in", "In…")}${opts("out", "Out…")}</span>`)
     + row("", `<span class="insp-ctrls">${opts("at", "At playhead…")}${opts("whole", "Loop…")}</span>`)
-    + row(uiText("term.save-as-preset"), `<span class="insp-ctrls"><input type="text" data-preset-name maxlength="60" placeholder="${uiText("term.name")}" style="max-width:110px">
+    + row(uiText("term.save-as-preset"), `<span class="insp-ctrls"><input type="text" data-preset-name maxlength="60" placeholder="${escapeHtml(uiText("term.name"))}" style="max-width:110px">
       <select data-preset-anchor title="In: from the clip's start · Out: up to its end · Loop: the whole clip"><option value="in">In</option><option value="out">Out</option><option value="whole">Loop</option></select>
-      <button type="button" class="btn tiny" data-preset-save title="Save this clip's keyframes to library/presets — every project can use it">${uiText("term.save")}</button></span>`);
+      <button type="button" class="btn tiny" data-preset-save title="Save this clip's keyframes to library/presets — every project can use it">${escapeHtml(uiText("term.save"))}</button></span>`);
 }
 function bindPresetControls(c) {
   for (const s of els.inspector.querySelectorAll("[data-preset]")) s.addEventListener("change", () => {
@@ -16983,7 +17012,7 @@ function trackSectionHtml(c) {
   if (trackUi.clip !== c.id) Object.assign(trackUi, { clip: c.id, sel: -1, tool: null });
   const list = clipTracks(c), tr = list[trackUi.sel], run = trackUi.run && trackUi.run.clip === c.id ? trackUi.run : null;
   const others = project.clips.filter((x) => x.id !== c.id && isVisualClip(x) && x.start < c.start + c.duration && c.start < x.start + x.duration);
-  const chips = list.map((x, j) => `<button type="button" class="btn tiny cl-chip${j === trackUi.sel ? " toggle on" : ""}" data-tsel="${j}" title="${escapeHtml(Tracker.describe([x]))}">${escapeHtml(x.name)}</button>`).join("");
+  const chips = list.map((x, j) => `<button type="button" class="btn tiny cl-chip${j === trackUi.sel ? " toggle on" : ""}" data-tsel="${escapeHtml(j)}" title="${escapeHtml(Tracker.describe([x]))}">${escapeHtml(x.name)}</button>`).join("");
   let html = `<div class="insp-section" data-track-section><h3>Tracking</h3>
     <div class="cl-row"><button type="button" class="btn tiny${trackUi.tool === "point" ? " toggle on" : ""}" data-tact="point" ${run ? "disabled" : ""} title="Click a spot on the monitor to follow it from the playhead to the clip's end">+ Track point</button>
       <button type="button" class="btn tiny${trackUi.scale ? " toggle on" : ""}" data-tact="scale" title="Also follow the region's size (tracking, and attaching)">Scale</button>
@@ -16998,7 +17027,7 @@ function trackSectionHtml(c) {
     html += `<div class="cl-row"><button type="button" class="btn tiny" data-tact="back" ${run ? "disabled" : ""} title="Track from the playhead back to the clip's start">◀ Track back</button>
         <button type="button" class="btn tiny" data-tact="fwd" ${run ? "disabled" : ""} title="Track from the playhead to the clip's end">Track on ▶</button>
         <button type="button" class="btn tiny" data-tact="del" title="Delete this track (what follows it keeps its keys)">Delete</button></div>
-      <div class="insp-row"><label title="A clip to pin to this track">Attach</label><select data-tattach title="A clip to pin to this track"><option value="">Pick a clip…</option>${others.map((x) => `<option value="${x.id}">${escapeHtml(x.track + " · " + (x.kind === "text" ? (x.props.text || "").split("\n")[0] : x.name || x.kind))}</option>`).join("")}</select></div>
+      <div class="insp-row"><label title="A clip to pin to this track">Attach</label><select data-tattach title="A clip to pin to this track"><option value="">Pick a clip…</option>${others.map((x) => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.track + " · " + (x.kind === "text" ? (x.props.text || "").split("\n")[0] : x.name || x.kind))}</option>`).join("")}</select></div>
       <div class="cl-row"><button type="button" class="btn tiny" data-tact="attach" ${others.length ? "" : "disabled"} title="Key the clip's position (and scale / rotation when those are on) so it rides on the track, keeping where it is at the playhead">Attach to the track</button></div>
       <p class="cl-note">${S.length} samples, ${S[0][0].toFixed(2)}–${S[S.length - 1][0].toFixed(2)} s of the clip. Attaching writes keyframes — edit them like any others.</p>`;
   }
@@ -17083,10 +17112,10 @@ window.addEventListener("keydown", (e) => {
 }, true);
 function maskSectionHtml(c) {
   const ui = maskUiFor(c), list = maskList(c), i = ui.sel, m = i >= 0 ? maskNowAt(c, i) : null, raw = list[i];
-  const tool = (k, label, title) => `<button type="button" class="btn tiny${ui.tool === k ? " toggle on" : ""}" data-mtool="${k}" title="${title}" ${list.length >= Mask.MAX_MASKS ? "disabled" : ""}>${label}</button>`;
-  const chips = list.map((mk, j) => `<button type="button" class="btn tiny cl-chip${j === i ? " toggle on" : ""}${mk.on === false ? " off" : ""}" data-msel="${j}"
+  const tool = (k, label, title) => `<button type="button" class="btn tiny${ui.tool === k ? " toggle on" : ""}" data-mtool="${escapeHtml(k)}" title="${escapeHtml(title)}" ${list.length >= Mask.MAX_MASKS ? "disabled" : ""}>${escapeHtml(label)}</button>`;
+  const chips = list.map((mk, j) => `<button type="button" class="btn tiny cl-chip${j === i ? " toggle on" : ""}${mk.on === false ? " off" : ""}" data-msel="${escapeHtml(j)}"
     title="${escapeHtml(mk.shape + (mk.mode !== "add" ? " · " + mk.mode : "") + (mk.invert ? " · inverted" : ""))} — click to edit on the monitor">${escapeHtml(mk.name || `Mask ${j + 1}`)}</button>`).join("");
-  let html = `<div class="insp-section" data-mask-section><h3>${uiText("term.masks")}</h3>
+  let html = `<div class="insp-section" data-mask-section><h3>${escapeHtml(uiText("term.masks"))}</h3>
     <div class="cl-row">${tool("rect", "+ Rect", "Add a rectangle mask")}${tool("ellipse", "+ Ellipse", "Add an ellipse mask")}${tool("pen", uiText("term.pen"), "Click points on the monitor (drag to pull curve handles); click the first point or press Enter to close")}${tool("draw", uiText("term.draw"), "Drag a free-hand outline on the monitor — it becomes an editable bezier")}
       ${list.length ? `<button type="button" class="btn tiny${runtime.maskView ? " toggle on" : ""}" data-mact="view" title="Show the matte in the monitor (white = visible)">Matte</button>` : ""}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point or press Enter to close. Ctrl+Z / Backspace removes the last point, Ctrl+Shift+Z puts it back, Esc cancels.</p>` : ""}
@@ -17096,20 +17125,20 @@ function maskSectionHtml(c) {
     const keyed = raw.keys ? raw.keys.length : 0, onKey = maskKeyIndex(raw, maskLocalT(c)) >= 0;
     const mrow = (p) => {
       const [lab, min, max, step] = MASK_ROWS_UI[p];
-      return `<div class="insp-row cp-row"><label class="cp-label">${lab}</label>
-        <input type="range" data-mk="${p}" min="${min}" max="${max}" step="${step}" value="${m[p]}">
-        <input type="number" class="cp-num" data-mknum="${p}" step="${step}" value="${fmtG(m[p], step)}"></div>`;
+      return `<div class="insp-row cp-row"><label class="cp-label">${escapeHtml(lab)}</label>
+        <input type="range" data-mk="${escapeHtml(p)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(m[p])}">
+        <input type="number" class="cp-num" data-mknum="${escapeHtml(p)}" step="${escapeHtml(step)}" value="${fmtG(m[p], step)}"></div>`;
     };
-    html += `<div class="cl-row"><input type="text" class="cl-name" data-mname value="${escapeHtml(raw.name || "")}" placeholder="Mask ${i + 1}" maxlength="40" title="Mask name">
+    html += `<div class="cl-row"><input type="text" class="cl-name" data-mname value="${escapeHtml(raw.name || "")}" placeholder="Mask ${escapeHtml(i + 1)}" maxlength="40" title="Mask name">
         <button type="button" class="btn tiny${raw.on === false ? "" : " toggle on"}" data-mact="on" title="Mask on / off">${raw.on === false ? "Off" : "On"}</button>
         <button type="button" class="btn tiny" data-mact="up" ${i === 0 ? "disabled" : ""} title="Move down the stack (combined earlier)">↑</button>
         <button type="button" class="btn tiny" data-mact="down" ${i >= list.length - 1 ? "disabled" : ""} title="Move up the stack (combined later)">↓</button>
         <button type="button" class="btn tiny" data-mact="dup" ${list.length >= Mask.MAX_MASKS ? "disabled" : ""} title="Duplicate">Copy</button>
         <button type="button" class="btn tiny" data-mact="del" title="Delete this mask">Delete</button></div>
-      <div class="cl-row"><select data-mmode title="How this mask combines with the masks before it">${Mask.MODES.map((md) => `<option value="${md}" ${raw.mode === md ? "selected" : ""}>${MASK_MODE_LABEL[md]}</option>`).join("")}</select>
+      <div class="cl-row"><select data-mmode title="How this mask combines with the masks before it">${Mask.MODES.map((md) => `<option value="${escapeHtml(md)}" ${raw.mode === md ? "selected" : ""}>${escapeHtml(MASK_MODE_LABEL[md])}</option>`).join("")}</select>
         <button type="button" class="btn tiny${raw.invert ? " toggle on" : ""}" data-mact="invert" title="Use everything outside the shape">Invert</button>
         <button type="button" class="btn tiny${onKey ? " toggle on" : ""}" data-mact="key" title="${onKey ? "Remove the key at the playhead" : "Key the mask at the playhead — with keys, every change keys"}">◆ Key</button>
-        <span class="cl-note">${keyed ? `${keyed} key${keyed > 1 ? "s" : ""}` : ""}</span>
+        <span class="cl-note">${keyed ? `${escapeHtml(keyed)} key${keyed > 1 ? "s" : ""}` : ""}</span>
         ${keyed ? `<button type="button" class="btn tiny" data-mact="clearkeys" title="Remove every key (keeps the mask as it is at the playhead)">Clear keys</button>` : ""}</div>
       ${c.kind === "video" ? `<div class="cl-row"><span class="cl-note">Track</span>
         <button type="button" class="btn tiny" data-mtrack="-1" ${trackUi.run ? "disabled" : ""} title="Follow what the mask covers from the playhead back to the clip's start — keys its position">◀ Back</button>
@@ -17650,9 +17679,9 @@ function parentCandidates(c) {
 const clipShortLabel = (x) => x.track + " · " + (x.kind === "text" ? shownName((x.props.text || "").split("\n")[0]) : x.name || x.kind);
 function parentRowHtml(c) {
   const cands = parentCandidates(c), cur = c.parent && getClip(c.parent);
-  const opts = [`<option value="">${uiText("term.none")}</option>`, ...cands.map((x) => `<option value="${x.id}" ${x.id === c.parent ? "selected" : ""}>${escapeHtml(clipShortLabel(x))}${x.kind === "null" ? " (null)" : ""}</option>`)];
+  const opts = [`<option value="">${escapeHtml(uiText("term.none"))}</option>`, ...cands.map((x) => `<option value="${escapeHtml(x.id)}" ${x.id === c.parent ? "selected" : ""}>${escapeHtml(clipShortLabel(x))}${x.kind === "null" ? " (null)" : ""}</option>`)];
   if (c.parent && !cur) opts.push(`<option value="${escapeHtml(c.parent)}" selected>Missing clip</option>`);
-  return `<div class="insp-row"><label title="Move, turn and scale with another clip (its opacity and effects are not inherited)">Parent</label><select data-parent>${opts.join("")}</select></div>`;
+  return `<div class="insp-row"><label title="Move, turn and scale with another clip (its opacity and effects are not inherited)">Parent</label><select data-parent>${escapeHtml(opts.join(""))}</select></div>`;
 }
 function anchorRowsHtml(c, p, row) {
   return `<div class="insp-row"><label>Anchor</label><span class="insp-ctrls">
@@ -17739,19 +17768,19 @@ function toggleShapeKey(c, path, k) {
 function shapeItemLabel(it, path) { return it.name || `${it.type[0].toUpperCase() + it.type.slice(1)} ${path.map((i) => i + 1).join(".")}`; }
 function shapeSectionHtml(c, p, row) {
   const ui = shapeUiFor(c), list = shapeList(c), full = Motion.countItems(list) >= Motion.MAX_ITEMS;
-  const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
+  const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${escapeHtml(title)}" ${dis ? "disabled" : ""}>${escapeHtml(label)}</button>`;
   const chips = Motion.itemPaths(list).map((path) => {
     const it = Motion.getItem(list, path);
-    return `<button type="button" class="btn tiny cl-chip${samePath(path, ui.sel) ? " toggle on" : ""}${it.on === false ? " off" : ""}" data-ssel="${pathKey(path)}"
+    return `<button type="button" class="btn tiny cl-chip${samePath(path, ui.sel) ? " toggle on" : ""}${it.on === false ? " off" : ""}" data-ssel="${escapeHtml(pathKey(path))}"
       title="${escapeHtml(it.type)} — click to edit on the monitor">${"› ".repeat(path.length - 1)}${escapeHtml(shapeItemLabel(it, path))}</button>`;
   }).join("");
   const slider = (k, min, max, step, unit = "") => {
     const shown = fmtInspNum(p[k], step);
-    return row(KF_GRAPH_LABEL[k], `<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${shown}" title="Ctrl/Cmd-click: reset to default">
-      <span class="val" data-val="${k}" data-unit="${unit}">${shown}${unit}</span>`, k);
+    return row(KF_GRAPH_LABEL[k], `<input type="range" data-k="${escapeHtml(k)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(shown)}" title="Ctrl/Cmd-click: reset to default">
+      <span class="val" data-val="${escapeHtml(k)}" data-unit="${escapeHtml(unit)}">${escapeHtml(shown)}${escapeHtml(unit)}</span>`, k);
   };
   let html = `<div class="insp-section" data-shape-section><h3>Shape layer</h3>
-    <div class="cl-row">${Object.entries(SHAPE_PRESETS).map(([k, pre]) => btn(`data-sadd="${k}"`, "+ " + pre.label, `Add a ${pre.label.toLowerCase()} to this layer`, false, full)).join("")}
+    <div class="cl-row">${Object.entries(SHAPE_PRESETS).map(([k, pre]) => btn(`data-sadd="${escapeHtml(k)}"`, "+ " + pre.label, `Add a ${escapeHtml(pre.label.toLowerCase())} to this layer`, false, full)).join("")}
       ${btn('data-stool="pen"', uiText("term.pen"), "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point to close, Enter keeps the path open. Backspace / Ctrl+Z removes the last point, Esc cancels.</p>` : ""}
     ${list.length ? `<div class="cl-row shape-items">${chips}</div>` : ui.tool ? "" : `<p class="cl-note">No shapes yet — add one above.</p>`}
@@ -17759,16 +17788,16 @@ function shapeSectionHtml(c, p, row) {
   const raw = ui.sel && Motion.getItem(list, ui.sel), now = raw && shapeNow(c);
   if (raw && now) {
     const t = shapeLocalT(c), j = shapeKeyIndex(raw.keys, t);
-    const kbtn = (k) => `<button type="button" class="kf-btn${isAnimated(raw, k) ? " has" : ""}${j >= 0 && raw.keys[j][k] != null ? " on" : ""}" data-skey="${k}" title="Key this value at the playhead / remove the key there">◆</button>`;
+    const kbtn = (k) => `<button type="button" class="kf-btn${isAnimated(raw, k) ? " has" : ""}${j >= 0 && raw.keys[j][k] != null ? " on" : ""}" data-skey="${escapeHtml(k)}" title="Key this value at the playhead / remove the key there">◆</button>`;
     const srow = (k) => {
       const [lab, min, max, step] = SHAPE_ROWS_UI[k];
-      return `<div class="insp-row cp-row"><label class="cp-label">${lab}</label>
-        <input type="range" data-sk="${k}" min="${min}" max="${max}" step="${step}" value="${now[k]}">
-        <input type="number" class="cp-num" data-sknum="${k}" step="${step}" value="${fmtG(now[k], step)}">${kbtn(k)}</div>`;
+      return `<div class="insp-row cp-row"><label class="cp-label">${escapeHtml(lab)}</label>
+        <input type="range" data-sk="${escapeHtml(k)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(now[k])}">
+        <input type="number" class="cp-num" data-sknum="${escapeHtml(k)}" step="${escapeHtml(step)}" value="${fmtG(now[k], step)}">${kbtn(k)}</div>`;
     };
-    const color = (k, lab) => `<div class="insp-row"><label>${lab}</label><span class="insp-ctrls">
-        <input type="color" data-scolor="${k}" value="${now[k] && now[k] !== "none" ? now[k].slice(0, 7) : "#ffffff"}">
-        ${btn(`data-snone="${k}"`, "None", `No ${lab.toLowerCase()}`, now[k] === "none")}${kbtn(k)}</span></div>`;
+    const color = (k, lab) => `<div class="insp-row"><label>${escapeHtml(lab)}</label><span class="insp-ctrls">
+        <input type="color" data-scolor="${escapeHtml(k)}" value="${escapeHtml(now[k] && now[k] !== "none" ? now[k].slice(0, 7) : "#ffffff")}">
+        ${btn(`data-snone="${escapeHtml(k)}"`, "None", `No ${escapeHtml(lab.toLowerCase())}`, now[k] === "none")}${kbtn(k)}</span></div>`;
     const path = ui.sel, inGroup = path.length > 1, siblings = inGroup ? Motion.getItem(list, path.slice(0, -1)).items : list, i = path[path.length - 1];
     const own = Motion.OWN[raw.type];
     html += `<div class="cl-row"><input type="text" class="cl-name" data-sname value="${escapeHtml(raw.name || "")}" placeholder="${escapeHtml(shapeItemLabel({ type: raw.type }, path))}" maxlength="40" title="Item name">
@@ -17783,12 +17812,12 @@ function shapeSectionHtml(c, p, row) {
         ${raw.keys ? btn('data-sact="clearkeys"', "Clear keys", "Remove every key (keeps the item as it is at the playhead)") : ""}</div>
       ${srow("x")}${srow("y")}${srow("rotation")}${srow("scale")}${srow("opacity")}
       ${own.includes("w") ? srow("w") + srow("h") : ""}${own.includes("radius") ? srow("radius") : ""}
-      ${own.includes("sides") ? `<div class="insp-row"><label>Points</label><input type="number" data-ssides min="3" max="64" step="1" value="${raw.sides}"></div>` : ""}
+      ${own.includes("sides") ? `<div class="insp-row"><label>Points</label><input type="number" data-ssides min="3" max="64" step="1" value="${escapeHtml(raw.sides)}"></div>` : ""}
       ${own.includes("inner") ? srow("inner") : ""}
       ${raw.type === "path" ? `<div class="insp-row"><label>Closed</label><input type="checkbox" data-sclosed ${raw.closed !== false ? "checked" : ""}>${kbtn("points")}</div>` : ""}
       ${raw.type !== "group" ? color("fill", "Fill") + color("stroke", "Stroke") + srow("strokeWidth") +
-        `<div class="insp-row"><label>Ends / joins</label><span class="insp-ctrls"><select data-scap>${Motion.CAPS.map((v) => `<option ${raw.lineCap === v ? "selected" : ""}>${v}</option>`).join("")}</select>
-          <select data-sjoin>${Motion.JOINS.map((v) => `<option ${raw.lineJoin === v ? "selected" : ""}>${v}</option>`).join("")}</select></span></div>` : ""}
+        `<div class="insp-row"><label>Ends / joins</label><span class="insp-ctrls"><select data-scap>${Motion.CAPS.map((v) => `<option ${raw.lineCap === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>
+          <select data-sjoin>${Motion.JOINS.map((v) => `<option ${raw.lineJoin === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select></span></div>` : ""}
       ${srow("trimStart")}${srow("trimEnd")}${srow("trimOffset")}
       <p class="cl-note">On the monitor: drag the item to move it, the knob turns it (Shift: 15° steps), the corners resize it${raw.type === "line" || raw.type === "path"
         ? "; drag a point to move it, its handles to curve it (Alt: break the pair), Alt-drag a point to pull new handles" + (raw.type === "path" ? ", Ctrl-click the outline to add a point, double-click a point to remove it" : "")
@@ -18384,14 +18413,14 @@ function drawTextOnPath(c, p, local) {
 }
 function textPathSectionHtml(c, p, row) {
   const has = !!clipTextPath(c), editing = has && shapeUi.clip === c.id && samePath(shapeUi.sel, [0]);
-  const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
+  const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${escapeHtml(title)}" ${dis ? "disabled" : ""}>${escapeHtml(label)}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
-    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
+    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${escapeHtml(k)}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${escapeHtml(pre.label.toLowerCase())}`)).join("")}
       ${btn('data-tpath="pen"', uiText("term.pen"), "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
         <span class="val" data-val="pathOffset" data-unit="%">${fmtInspNum(p.pathOffset, 0.5)}%</span>`, "pathOffset")}
-      ${row("Align", `<select data-k="pathAlign">${["start", "center", "end"].map((v) => `<option value="${v}" ${(p.pathAlign || "start") === v ? "selected" : ""}>${v}</option>`).join("")}</select>`, "pathAlign")}
+      ${row("Align", `<select data-k="pathAlign">${["start", "center", "end"].map((v) => `<option value="${escapeHtml(v)}" ${(p.pathAlign || "start") === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>`, "pathAlign")}
       <p class="cl-note">Each line runs along the path, the next one a line below it. Every text animation plays along the path.</p>`
     : `<p class="cl-note">Set the title along a line, an arc, a circle, a wave or a path you draw.</p>`}
   </div>`;
@@ -18570,12 +18599,12 @@ els.preview.addEventListener("dblclick", (e) => {
 /** The Inspector's Motion section: motion path, auto-orient and motion blur. */
 function motionSectionHtml(c, p, row) {
   const keys = Motion.posKeys(c).length, curved = Motion.hasPathHandles(c);
-  const btn = (attr, label, title, dis) => `<button type="button" class="btn tiny" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
+  const btn = (attr, label, title, dis) => `<button type="button" class="btn tiny" ${attr} title="${escapeHtml(title)}" ${dis ? "disabled" : ""}>${escapeHtml(label)}</button>`;
   return `<div class="insp-section" data-motion-section><h3>Motion</h3>
     <div class="insp-row"><label title="Position keys (X and Y keyed at the same time) make a path you can bend on the monitor">Path</label><span class="insp-ctrls">
       ${btn("data-path-act=\"smooth\"", "Smooth", "Curve the path smoothly through every position key", keys < 2)}
       ${btn("data-path-act=\"straight\"", "Straight", "Straight lines between the position keys", !curved)}
-      <span class="cl-note">${keys >= 2 ? `${keys} position keys${curved ? ", curved" : ""}` : "key X and Y at two times"}</span></span></div>
+      <span class="cl-note">${keys >= 2 ? `${escapeHtml(keys)} position keys${curved ? ", curved" : ""}` : "key X and Y at two times"}</span></span></div>
     ${row("Auto-orient", `<input type="checkbox" data-k="autoOrient" ${p.autoOrient ? "checked" : ""} title="Turn the clip with its direction of travel (its Rotation adds on top)">`, "autoOrient")}
     ${c.kind !== "null" ? row("Motion blur", `<input type="range" data-k="motionBlur" min="0" max="720" step="15" value="${+p.motionBlur || 0}" title="Shutter angle — 180° is the film look, 0 is off">
       <span class="val" data-val="motionBlur" data-unit="°">${+p.motionBlur || 0}°</span>`, "motionBlur")
@@ -19288,7 +19317,7 @@ function askNetConsent(kind, titleText, lines, denyText, allowText) {
 function fontFamilyRowsHtml(p, row) {
   const desk = fontDesktop();
   const fontGroup = (label, fonts) => fonts.length
-    ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
+    ? `<optgroup label="${escapeHtml(label)}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${escapeHtml(f)}</option>`).join("")}</optgroup>` : "";
   const google = [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])]
     .filter((f) => !desk || (!runtime.customFonts.includes(f) && fontHere(f)));
   const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...google];
@@ -19296,7 +19325,7 @@ function fontFamilyRowsHtml(p, row) {
         ${fontGroup("System", SYSTEM_FONTS)}
         ${fontGroup("Library fonts", runtime.customFonts)}
         ${fontGroup("Google fonts", google)}
-        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
+        ${known.includes(p.font) ? "" : `<option selected>${escapeHtml(p.font)}</option>`}
       </select>`, "", "font")}
       ${desk ? "" : row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
         <button class="btn tiny" data-action="gfont-load">Load</button>`)}`;
@@ -19615,7 +19644,7 @@ function populateExportProfileSelect() {
   if (choice.kind === "profile" && !ids.includes(choice.id)) ids.unshift(choice.id);
   html += `<optgroup label="Encoding profiles (encoding-profiles.json)">${ids.map((id) => {
     const p = encodeProfiles.profiles[id];
-    return opt("p:" + id, p ? (p.label || id) : `${id} (not defined on the server)`);
+    return opt("p:" + id, p ? (p.label || id) : `${escapeHtml(id)} (not defined on the server)`);
   }).join("")}</optgroup>`;
   sel.innerHTML = html;
   sel.value = cur;
@@ -21501,23 +21530,23 @@ function renderQueue() {
             : q.status === "cancelled" ? uiText("qStopped") : uiText("qWaiting");
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
-      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
-      q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${q.id}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
-      q.bg && q.status === "running" ? `<button type="button" class="btn tiny" data-q-bgcancel="${q.id}">${escapeHtml(uiText("term.cancel"))}</button>` : "",
+      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${escapeHtml(q.id)}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
+      q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${escapeHtml(q.id)}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
+      q.bg && q.status === "running" ? `<button type="button" class="btn tiny" data-q-bgcancel="${escapeHtml(q.id)}">${escapeHtml(uiText("term.cancel"))}</button>` : "",
       // a background export is started again from Export (a new copy of the timeline), not from here
-      !q.bg && (q.status === "failed" || q.status === "cancelled") ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
-      blank ? `<button type="button" class="btn tiny" data-q-copy="${q.id}" title="${escapeHtml(uiText("copyProblemNote"))}">${escapeHtml(uiText("btnCopyProblem"))}</button>` : "",
-      q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
+      !q.bg && (q.status === "failed" || q.status === "cancelled") ? `<button type="button" class="btn tiny" data-q-retry="${escapeHtml(q.id)}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
+      blank ? `<button type="button" class="btn tiny" data-q-copy="${escapeHtml(q.id)}" title="${escapeHtml(uiText("copyProblemNote"))}">${escapeHtml(uiText("btnCopyProblem"))}</button>` : "",
+      q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${escapeHtml(q.id)}" title="Remove from the queue">✕</button>` : "",
     ].join("");
-    return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
+    return `<li class="${escapeHtml(q.status)}" data-q="${escapeHtml(q.id)}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
       `<span class="xq-sub">${escapeHtml(sub)} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(exportReportLine(q.report))}</span>` : "") +
       (q.note ? `<span class="xq-note">${escapeHtml(q.note)}</span>` : "") +
       (q.report && q.report.checks.some((c) => !c.ok && c.code === "AUDIO_ONE_SIDED" && oneSidedWarning(c).ids)
-        ? `<button type="button" class="btn tiny" data-q-fix="${q.id}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
-      `</div><div class="xq-actions">${actions}</div></li>`;
+        ? `<button type="button" class="btn tiny" data-q-fix="${escapeHtml(q.id)}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
+      `</div><div class="xq-actions">${escapeHtml(actions)}</div></li>`;
   }).join("");
 }
 function renderQueueProgress() {
@@ -22905,7 +22934,7 @@ function syncAspectSel() {
   if (!els.aspectSel) return;
   const i = ASPECT_PRESETS.findIndex((a) => a.w === project.width && a.h === project.height);
   els.aspectSel.innerHTML =
-    ASPECT_PRESETS.map((a, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${a.label}</option>`).join("") +
+    ASPECT_PRESETS.map((a, j) => `<option value="${escapeHtml(j)}" ${j === i ? "selected" : ""}>${escapeHtml(a.label)}</option>`).join("") +
     // the size comes from project.json, which an agent, another tool or a backup can write: escaped (as the project cards, #68)
     (i < 0 ? `<option value="custom" selected>${escapeHtml(`Custom · ${project.width}×${project.height}`)}</option>` : "");
 }
@@ -22914,9 +22943,9 @@ function syncFpsSel() {
   const fps = Number(project.fps);
   const i = FPS_PRESETS.findIndex((v) => v === fps);
   els.fpsSel.innerHTML =
-    FPS_PRESETS.map((v, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${v} fps</option>`).join("") +
+    FPS_PRESETS.map((v, j) => `<option value="${escapeHtml(j)}" ${j === i ? "selected" : ""}>${escapeHtml(v)} fps</option>`).join("") +
     (i < 0 && Number.isFinite(fps) && fps > 0
-      ? `<option value="custom" selected>Custom · ${fps} fps</option>`
+      ? `<option value="custom" selected>Custom · ${escapeHtml(fps)} fps</option>`
       : "");
 }
 els.aspectSel.addEventListener("change", () => {
@@ -23815,9 +23844,9 @@ function renderColorPage(force = false) {
   const g = Color.fullGrade(targetGrade(c)), P = Color.GRADE_PARAMS, locked = isGroupLocked(c), allOn = c.props.grade?.on !== false;
   const num = (k) => {
     const d = P[k];
-    return `<div class="insp-row cp-row"><label class="cp-label" data-greset="${k}" title="Double-click: reset">${d.label}</label>
-      <input type="range" data-g="${k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${g[k]}">
-      <input type="number" class="cp-num" data-gnum="${k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${fmtG(g[k], d.step)}"></div>`;
+    return `<div class="insp-row cp-row"><label class="cp-label" data-greset="${escapeHtml(k)}" title="Double-click: reset">${escapeHtml(d.label)}</label>
+      <input type="range" data-g="${escapeHtml(k)}" min="${escapeHtml(d.min)}" max="${escapeHtml(d.max)}" step="${escapeHtml(d.step)}" value="${escapeHtml(g[k])}">
+      <input type="number" class="cp-num" data-gnum="${escapeHtml(k)}" min="${escapeHtml(d.min)}" max="${escapeHtml(d.max)}" step="${escapeHtml(d.step)}" value="${fmtG(g[k], d.step)}"></div>`;
   };
   const nSel = selectedClips().filter(isGradable).length;
   root.innerHTML = `
@@ -23828,17 +23857,17 @@ function renderColorPage(force = false) {
     </div>
     <div class="cp-head cp-tools">
       <button type="button" class="btn tiny" data-gact="copy" title="Copy this clip's grade">Copy</button>
-      <button type="button" class="btn tiny" data-gact="paste" ${colorState.clipboard ? "" : "disabled"} title="Paste the copied grade onto the selected clips">Paste${nSel > 1 ? ` → ${nSel}` : ""}</button>
+      <button type="button" class="btn tiny" data-gact="paste" ${colorState.clipboard ? "" : "disabled"} title="Paste the copied grade onto the selected clips">Paste${nSel > 1 ? ` → ${escapeHtml(nSel)}` : ""}</button>
       <button type="button" class="btn tiny" data-gact="reset" title="Reset the whole grade, layers included">Reset all</button>
     </div>
     ${layersStripHtml(c)}
     ${layerSectionsHtml(c)}
     <div class="cp-wheels">${Color.WHEELS.map((w) => `
-      <div class="cw" data-wheel="${w}">
-        <div class="cw-head"><span class="cp-label" data-wreset="${w}" title="Double-click: reset">${WHEEL_LABEL[w]}</span></div>
-        <canvas class="cw-disc" data-wdisc="${w}" width="200" height="200" title="Drag to tint (Shift: fine) · double-click: reset colour"></canvas>
-        <input type="range" class="cw-master" data-wmaster="${w}" min="${-WHEEL_MASTER[w]}" max="${WHEEL_MASTER[w]}" step="0.005" value="${g[w][3]}" title="Master · double-click: reset">
-        <div class="cw-vals" data-wvals="${w}"></div>
+      <div class="cw" data-wheel="${escapeHtml(w)}">
+        <div class="cw-head"><span class="cp-label" data-wreset="${escapeHtml(w)}" title="Double-click: reset">${escapeHtml(WHEEL_LABEL[w])}</span></div>
+        <canvas class="cw-disc" data-wdisc="${escapeHtml(w)}" width="200" height="200" title="Drag to tint (Shift: fine) · double-click: reset colour"></canvas>
+        <input type="range" class="cw-master" data-wmaster="${escapeHtml(w)}" min="${escapeHtml(-WHEEL_MASTER[w])}" max="${escapeHtml(WHEEL_MASTER[w])}" step="0.005" value="${escapeHtml(g[w][3])}" title="Master · double-click: reset">
+        <div class="cw-vals" data-wvals="${escapeHtml(w)}"></div>
       </div>`).join("")}
     </div>
     <div class="insp-section"><h3>Exposure &amp; balance</h3>${num("exposure")}${num("temp")}${num("tint")}</div>
@@ -24093,10 +24122,10 @@ function curvesSectionHtml() {
   const tab = colorState.curveTab, ch = colorState.curveCh;
   return `<div class="insp-section cp-curves"><h3>Curves</h3>
     <div class="cv-tabs">${Object.entries(CURVE_TABS).map(([k, l]) =>
-      `<button type="button" class="btn tiny${k === tab ? " toggle on" : ""}" data-cvtab="${k}">${l}</button>`).join("")}</div>
+      `<button type="button" class="btn tiny${k === tab ? " toggle on" : ""}" data-cvtab="${escapeHtml(k)}">${escapeHtml(l)}</button>`).join("")}</div>
     <div class="cv-bar">
       ${tab === "curves" ? Color.CURVE_CHANNELS.map((k) =>
-        `<button type="button" class="btn tiny cv-ch${k === ch ? " toggle on" : ""}" data-cvch="${k}" style="--cv:${CURVE_COLORS[k]}" title="${k === "y" ? "Luma — brightness only, colour kept" : k.toUpperCase() + " channel"}">${k.toUpperCase()}</button>`).join("") : `<span class="cv-label">${Color.HUE_CURVES[tab].label}</span>`}
+        `<button type="button" class="btn tiny cv-ch${k === ch ? " toggle on" : ""}" data-cvch="${escapeHtml(k)}" style="--cv:${escapeHtml(CURVE_COLORS[k])}" title="${escapeHtml(k === "y" ? "Luma — brightness only, colour kept" : k.toUpperCase() + " channel")}">${escapeHtml(k.toUpperCase())}</button>`).join("") : `<span class="cv-label">${escapeHtml(Color.HUE_CURVES[tab].label)}</span>`}
       <span class="cv-sp"></span>
       <button type="button" class="btn tiny${colorState.curvePick ? " toggle on" : ""}" data-cvact="pick" title="Click the monitor to mark that colour's ${tab === "curves" ? "level" : tab === "satLuma" ? "saturation" : "hue"} on the curve">Pick</button>
       <button type="button" class="btn tiny" data-cvact="reset" title="Reset this curve">Reset</button>
@@ -24326,9 +24355,9 @@ function writeMask(c, set) {
 }
 function layersStripHtml(c) {
   const ls = gradeLayers(c), k = colorState.layer;
-  const chip = (i, label, off) => `<button type="button" class="btn tiny cl-chip${i === k ? " toggle on" : ""}${off ? " off" : ""}" data-layer="${i}"
+  const chip = (i, label, off) => `<button type="button" class="btn tiny cl-chip${i === k ? " toggle on" : ""}${off ? " off" : ""}" data-layer="${escapeHtml(i)}"
     title="${i < 0 ? "The primary grade — the whole picture" : "Layer: graded where its qualifier and mask select"}">${escapeHtml(label)}</button>`;
-  return `<div class="cp-layers">${chip(-1, "Primary")}${ls.map((l, i) => chip(i, l.name || `Layer ${i + 1}`, l.on === false)).join("")}
+  return `<div class="cp-layers">${chip(-1, "Primary")}${ls.map((l, i) => chip(i, l.name || `Layer ${escapeHtml(i + 1)}`, l.on === false)).join("")}
     <button type="button" class="btn tiny" data-lact="add" ${ls.length >= Color.MAX_LAYERS ? "disabled" : ""} title="Add a layer: a correction limited by a qualifier and / or a mask">+ Layer</button></div>`;
 }
 function layerSectionsHtml(c) {
@@ -24337,17 +24366,17 @@ function layerSectionsHtml(c) {
   const q = l.qualifier || {}, m = maskNow(c), i = colorState.layer, n = gradeLayers(c).length;
   const qrow = (key) => {
     const on = !!q[key], vals = q[key] || QUAL_DEFAULT[key];
-    return `<div class="cq-block${on ? "" : " off"}"><label class="cq-on"><input type="checkbox" data-qon="${key}" ${on ? "checked" : ""}> ${QUAL_LABEL[key]}</label>
-      ${QUAL_ROWS[key].map(([lab, min, max, step], j) => `<div class="insp-row cp-row"><label class="cp-label">${lab}</label>
-        <input type="range" class="${key === "hue" && j === 0 ? "cq-hue" : ""}" data-q="${key}.${j}" min="${min}" max="${max}" step="${step}" value="${vals[j]}" ${on ? "" : "disabled"}>
-        <input type="number" class="cp-num" data-qnum="${key}.${j}" min="${min}" max="${max}" step="${step}" value="${vals[j]}" ${on ? "" : "disabled"}></div>`).join("")}</div>`;
+    return `<div class="cq-block${on ? "" : " off"}"><label class="cq-on"><input type="checkbox" data-qon="${escapeHtml(key)}" ${on ? "checked" : ""}> ${escapeHtml(QUAL_LABEL[key])}</label>
+      ${QUAL_ROWS[key].map(([lab, min, max, step], j) => `<div class="insp-row cp-row"><label class="cp-label">${escapeHtml(lab)}</label>
+        <input type="range" class="${key === "hue" && j === 0 ? "cq-hue" : ""}" data-q="${escapeHtml(key)}.${escapeHtml(j)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(vals[j])}" ${on ? "" : "disabled"}>
+        <input type="number" class="cp-num" data-qnum="${escapeHtml(key)}.${escapeHtml(j)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(vals[j])}" ${on ? "" : "disabled"}></div>`).join("")}</div>`;
   };
   const keyed = m && l.mask.keys ? l.mask.keys.length : 0, onKey = m && maskKeyAt(l.mask, clipLocalT(c)) >= 0;
   const mrow = (p) => {
     const [lab, min, max, step] = MASK_ROWS[p];
-    return `<div class="insp-row cp-row"><label class="cp-label">${lab}</label>
-      <input type="range" data-m="${p}" min="${min}" max="${max}" step="${step}" value="${m[p]}">
-      <input type="number" class="cp-num" data-mnum="${p}" min="${min}" max="${max}" step="${step}" value="${fmtG(m[p], step)}"></div>`;
+    return `<div class="insp-row cp-row"><label class="cp-label">${escapeHtml(lab)}</label>
+      <input type="range" data-m="${escapeHtml(p)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(m[p])}">
+      <input type="number" class="cp-num" data-mnum="${escapeHtml(p)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${fmtG(m[p], step)}"></div>`;
   };
   return `<div class="insp-section cp-layer">
       <div class="cl-row"><input type="text" class="cl-name" data-lname value="${escapeHtml(l.name || "")}" maxlength="40" title="Layer name">
@@ -24364,11 +24393,11 @@ function layerSectionsHtml(c) {
       ${qrow("hue")}${qrow("sat")}${qrow("luma")}
     </div>
     <div class="insp-section cp-mask"><h3>Mask</h3>
-      <div class="cl-row">${["none", "ellipse", "rect", "poly"].map((s) => `<button type="button" class="btn tiny${(m ? m.shape : "none") === s ? " toggle on" : ""}" data-mshape="${s}">${s === "none" ? "None" : s === "rect" ? "Rect" : s[0].toUpperCase() + s.slice(1)}</button>`).join("")}
-        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">${uiText("term.draw")}</button>
+      <div class="cl-row">${["none", "ellipse", "rect", "poly"].map((s) => `<button type="button" class="btn tiny${(m ? m.shape : "none") === s ? " toggle on" : ""}" data-mshape="${escapeHtml(s)}">${escapeHtml(s === "none" ? "None" : s === "rect" ? "Rect" : s[0].toUpperCase() + s.slice(1))}</button>`).join("")}
+        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">${escapeHtml(uiText("term.draw"))}</button>
         ${m ? `<button type="button" class="btn tiny${m.invert ? " toggle on" : ""}" data-mact="invert" title="Grade outside the shape">Invert</button>` : ""}</div>
       ${m ? `<div class="cl-row"><button type="button" class="btn tiny${onKey ? " toggle on" : ""}" data-mact="key" title="${onKey ? "Remove the key at the playhead" : "Key the shape at the playhead — with keys, every change keys"}">◆ Key</button>
-        <span class="cl-note">${keyed ? `${keyed} key${keyed > 1 ? "s" : ""}` : "not animated"}</span>
+        <span class="cl-note">${keyed ? `${escapeHtml(keyed)} key${keyed > 1 ? "s" : ""}` : "not animated"}</span>
         ${keyed ? `<button type="button" class="btn tiny" data-mact="clearkeys" title="Remove every key (keeps the shape at the playhead)">Clear keys</button>` : ""}</div>
       ${mrow("x")}${mrow("y")}${m.shape !== "poly" ? mrow("w") + mrow("h") : ""}${mrow("rotation")}${mrow("feather")}
       <p class="cl-note">Drag it on the monitor: inside moves, handles resize, the knob rotates${m.points ? "; Ctrl-click adds a point, double-click one removes it" : ""}.</p>` : colorState.maskDraw ? `<p class="cl-note">Drag around what this layer should grade. Esc cancels.</p>` : ""}
@@ -24748,7 +24777,7 @@ function buildScopeSlots() {
   scopes.built = true;
   scopes.els = [...document.querySelectorAll("#scopesPanel .scope-slot")].map((el, i) => {
     el.innerHTML = `<div class="scope-head"><select data-scope-kind aria-label="Scope">${Object.entries(SCOPE_KINDS).map(([k, l]) =>
-      `<option value="${k}"${k === scopes.slots[i] ? " selected" : ""}>${l}</option>`).join("")}</select></div><canvas class="scope-cv"></canvas>`;
+      `<option value="${escapeHtml(k)}"${k === scopes.slots[i] ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div><canvas class="scope-cv"></canvas>`;
     const sel = el.querySelector("select");
     sel.addEventListener("change", () => {
       scopes.slots[i] = sel.value;

@@ -1,0 +1,359 @@
+{
+ "about": "#366: the HTML check's reviewed exceptions (test/html-check.js). numeric: formatters that only turn numbers into digits. allow: one place each — the expression, the text just before it in its template, and why it is safe.",
+ "files": {
+  "app/app.js": {
+   "numeric": [
+    "fmt",
+    "fmtInspNum",
+    "fmtG",
+    "fmtDb",
+    "pjFmtDur",
+    "pjAgo",
+    "MediaLib.fmtSize",
+    "fxFmt"
+   ],
+   "allow": [
+    {
+     "expr": "favHtml",
+     "at": "bin-cell bin-cell-name\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "slowMark",
+     "at": "s=\"bin-thumb sm\"></span>",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "offlineHtml",
+     "at": "",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "tracksHtml",
+     "at": "class=\"bin-name\"></span>",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "usesHtml",
+     "at": "=\"bin-cell num c-usage\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "incomplete",
+     "at": "and its clips)\">✕</span>",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "slowMark",
+     "at": "v> <div class=\"bin-sub\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "offline ? offlineHtml + \" \" : \"\"",
+     "at": "",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "tracksHtml",
+     "at": "</div> ",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "favHtml",
+     "at": "> <div class=\"bin-side\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "usesHtml",
+     "at": "",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "inner",
+     "at": "\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "k",
+     "at": "<dt>",
+     "why": "fact()'s label: every fact(label, value) call passes escaped text (checked)",
+     "callers": {
+      "fn": "fact",
+      "arg": 0
+     }
+    },
+    {
+     "expr": "v",
+     "at": "</dt><dd>",
+     "why": "fact()'s value: every fact(label, value) call passes escaped text (checked)",
+     "callers": {
+      "fn": "fact",
+      "arg": 1
+     }
+    },
+    {
+     "expr": "rows || `<div class=\"pj-empty dim\">No versions yet. Save one to have a point to come back to.</div>`",
+     "at": "</p> ",
+     "why": "the version rows built just above from templates this check covers, or fixed text"
+    },
+    {
+     "expr": "TRACK_LOCK_ICON",
+     "at": "k\" aria-pressed=\"false\">",
+     "why": "an icon of the app's own: fixed SVG markup written in the code"
+    },
+    {
+     "expr": "words",
+     "at": "px\" title=\"",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "words",
+     "at": "\"><span>",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "badge",
+     "at": "\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "body",
+     "at": "<div class=\"clip-body\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "duck",
+     "at": "\" aria-hidden=\"true\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "swatches",
+     "at": "class=\"marker-swatches\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "extra",
+     "at": "\"",
+     "why": "b()'s extra attributes: every call passes fixed attribute text or nothing (checked)",
+     "callers": {
+      "fn": "b",
+      "arg": 4
+     }
+    },
+    {
+     "expr": "attrs",
+     "at": "\"",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "inner",
+     "at": "",
+     "why": "row()'s markup parameter: every row(label, markup) call passes markup this check covers (checked below)",
+     "callers": {
+      "fn": "row",
+      "arg": 1
+     }
+    },
+    {
+     "expr": "later",
+     "at": "</button>",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "shown",
+     "at": " ",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "more",
+     "at": "",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "p",
+     "at": "</span>",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "recList",
+     "at": "h2><div class=\"as-recs\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "importBtn",
+     "at": " <div class=\"as-import\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "head",
+     "at": "class=\"as-row\"><div><h1>",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "evidence",
+     "at": "\">",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "cards",
+     "at": " <div data-as-cards>",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "ticks",
+     "at": "\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "area",
+     "at": "",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "boxes",
+     "at": "",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "tip",
+     "at": " title=\"",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "lbl",
+     "at": "line\" data-as-kind-line>",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "tag",
+     "at": "",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "hint",
+     "at": "small\" data-as-add-hint>",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "why",
+     "at": "<span class=\"as-sum\">",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "sum",
+     "at": "",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "title",
+     "at": "<h1>",
+     "why": "text escaped where it is made (autoSay / escapeHtml), so wrapping it again would show the entities"
+    },
+    {
+     "expr": "TEMPLATE_ICONS[t.group] || TEMPLATE_ICONS.Saved",
+     "at": " 24\" aria-hidden=\"true\">",
+     "why": "an icon of the app's own: fixed SVG markup written in the code"
+    },
+    {
+     "expr": "fields",
+     "at": "ction><h3>Template</h3> ",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "chips",
+     "at": "<div class=\"cl-row\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "SHAPE_ICONS[r.k]",
+     "at": " 24\" aria-hidden=\"true\">",
+     "why": "an icon of the app's own: fixed SVG markup written in the code"
+    },
+    {
+     "expr": "attr",
+     "at": "\" ",
+     "why": "btn()'s attribute text: every btn('data-…', …) call passes a fixed attribute (checked)",
+     "callers": {
+      "fn": "btn",
+      "arg": 0
+     }
+    },
+    {
+     "expr": "chips",
+     "at": "ss=\"cl-row shape-items\">",
+     "why": "markup this file builds just above from templates this check covers — never text from outside"
+    },
+    {
+     "expr": "escapeHtml(uiText(\"own.tr-missing\", { names: \"\\u0000\" })).replace(\"\\u0000\", names)",
+     "at": "<div class=\"tr-note\">",
+     "why": "the sentence is escaped (escapeHtml) and then filled with names: file names escaped one by one two lines up"
+    }
+   ]
+  },
+  "templates.js": {
+   "numeric": [
+    "fmt",
+    "fmtInspNum",
+    "fmtG",
+    "fmtDb",
+    "pjFmtDur",
+    "pjAgo",
+    "MediaLib.fmtSize",
+    "fxFmt"
+   ],
+   "allow": [
+    {
+     "expr": "id",
+     "at": "template ",
+     "why": "a template file's error message, not markup (the <clip id> in it is words): it is thrown as an Error and shown with textContent (toast)"
+    },
+    {
+     "expr": "key",
+     "at": ": field ",
+     "why": "a template file's error message, not markup (the <clip id> in it is words): it is thrown as an Error and shown with textContent (toast)"
+    }
+   ]
+  },
+  "problem-redact.js": {
+   "numeric": [
+    "fmt",
+    "fmtInspNum",
+    "fmtG",
+    "fmtDb",
+    "pjFmtDur",
+    "pjAgo",
+    "MediaLib.fmtSize",
+    "fxFmt"
+   ],
+   "allow": [
+    {
+     "expr": "m[1].toLowerCase()",
+     "at": "<path .",
+     "why": "the <path .ext> placeholder is text the redactor writes, and m[1] is 1-5 letters or digits ([A-Za-z0-9]{1,5}): nothing to escape"
+    }
+   ]
+  },
+  "ui-preferences.js": {
+   "numeric": [
+    "fmt",
+    "fmtInspNum",
+    "fmtG",
+    "fmtDb",
+    "pjFmtDur",
+    "pjAgo",
+    "MediaLib.fmtSize",
+    "fxFmt"
+   ],
+   "allow": [
+    {
+     "sink": "s || el.dataset.i18nHtmlOrig",
+     "at": "8nHtml); el.innerHTML = ",
+     "why": "the editor's own dictionary HTML for data-i18n-html cells (repo-authored strings), or the cell's own original markup stashed just before"
+    }
+   ]
+  }
+ },
+ "exclude": {
+  "app/cindy-official.js": "a generated bundle of pinned Apache-2.0 Cindy components (docs/decisions/2026-11-01-official-cindy-port.md: upstream bytes unchanged); its innerHTML uses are its renderer's internals, and it is not edited here"
+ }
+}

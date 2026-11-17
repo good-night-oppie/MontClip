@@ -65,6 +65,7 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 | `agent-outgoing-smoke.cjs` | `OUTGOING_PASS` | 在用 |
 | `agent-off-smoke.cjs` | `AGENT_OFF_PASS` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |
+| `injection-366-smoke.cjs` | `INJECTION_PASS` | 在用；仅合成工程；打开一个值里带标记的工程（#366 A：关键帧名、文字、字体、颜色、合成的尺寸和时长），页面里由工程值生成的元素 0 个、执行的脚本 0 个 |
 | `review-send-smoke.cjs` | `REVIEW_SEND_PASS` | 在用 |
 | `review-count-smoke.cjs` | `REVIEW_COUNT_PASS` | 在用：发送确认框一打开（第一帧）就要写对引用的字幕条数 |
 | `sentence-button-smoke.cjs` | `SENTENCE_BUTTON_COMPLETE` | 在用 |
