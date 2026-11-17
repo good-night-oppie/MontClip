@@ -8383,25 +8383,25 @@ function renderInspector(lite) {
   const slider = (k, min, max, step, val, unit = "") => {
     const shown = fmtInspNum(val, step);
     return row(k[0].toUpperCase() + k.slice(1),
-      `<input type="range" data-k="${escapeHtml(k)}" min="${min}" max="${max}" step="${step}" value="${shown}" title="Ctrl/Cmd-click: reset to default">
-       <span class="val" data-val="${k}" data-unit="${unit}">${shown}${unit}</span>`, k);
+      `<input type="range" data-k="${escapeHtml(k)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(shown)}" title="Ctrl/Cmd-click: reset to default">
+       <span class="val" data-val="${escapeHtml(k)}" data-unit="${escapeHtml(unit)}">${escapeHtml(shown)}${escapeHtml(unit)}</span>`, k);
   };
   let html = captionQuickHtml("selected") + (state.selIds.size > 1
     ? `<div class="insp-multi">${state.selIds.size} clips selected — drag moves them together, Del deletes all. Fields below edit the primary (white-outlined) clip.</div>`
-    : "") + clipStatusBar(c) + `<div class="insp-section"><h3>Clip — ${c.kind}</h3>
+    : "") + clipStatusBar(c) + `<div class="insp-section"><h3>Clip — ${escapeHtml(c.kind)}</h3>
     ${row(uiText("term.name"), `<input type="text" data-k="name" value="${escapeHtml(c.name || "")}">`)}
     ${c.mediaId ? row("Source", `<button type="button" class="btn tiny style-picker-btn" data-media-open title="Replace this clip's media — keeps position, trim, keyframes and effects">${escapeHtml((getMedia(c.mediaId) || {}).name || "Missing media")} ▾</button>`) : ""}
     ${row("Start (s)", `<input type="number" data-k="start" step="0.01" value="${c.start.toFixed(2)}">`)}
     ${row("Length (s)", `<input type="number" data-k="duration" step="0.01" value="${c.duration.toFixed(2)}">`)}
   </div>`;
   const sel = (label, k, opts, cur) => row(label,
-    `<select data-k="${k}">${opts.map((o) => `<option value="${o}" ${String(o) === String(cur) ? "selected" : ""}>${o}</option>`).join("")}</select>`, k);
-  const check = (label, k, on) => row(label, `<input type="checkbox" data-k="${k}" ${on ? "checked" : ""}>`, k);
+    `<select data-k="${escapeHtml(k)}">${opts.map((o) => `<option value="${escapeHtml(o)}" ${String(o) === String(cur) ? "selected" : ""}>${escapeHtml(o)}</option>`).join("")}</select>`, k);
+  const check = (label, k, on) => row(label, `<input type="checkbox" data-k="${escapeHtml(k)}" ${on ? "checked" : ""}>`, k);
   // track matte: the mode, and the track it comes from (auto = the video track above)
   const matteRows = () => {
     const others = videoTrackIds().filter((id) => id !== c.track), auto = Mask.matteTrackFor({ ...c, props: { matte: "alpha" } }, videoTrackIds());
-    const opts = (cur) => [`<option value="" ${!cur ? "selected" : ""}>Above (${auto || "none"})</option>`, ...others.map((id) => `<option value="${id}" ${cur === id ? "selected" : ""}>${id}</option>`)].join("");
-    return row("Track matte", `<select data-k="matte">${["none", ...Mask.MATTES].map((o) => `<option value="${o}" ${(p.matte || "none") === o ? "selected" : ""}>${o.replace("-", " ")}</option>`).join("")}</select>`, "matte")
+    const opts = (cur) => [`<option value="" ${!cur ? "selected" : ""}>Above (${escapeHtml(auto || "none")})</option>`, ...others.map((id) => `<option value="${escapeHtml(id)}" ${cur === id ? "selected" : ""}>${escapeHtml(id)}</option>`)].join("");
+    return row("Track matte", `<select data-k="matte">${["none", ...Mask.MATTES].map((o) => `<option value="${escapeHtml(o)}" ${(p.matte || "none") === o ? "selected" : ""}>${escapeHtml(o.replace("-", " "))}</option>`).join("")}</select>`, "matte")
       + (p.matte ? row("Matte track", `<select data-k="matteTrack">${opts(p.matteTrack)}</select>`, "matteTrack")
         + (clipMatte(c) ? "" : `<div class="insp-note">No video track above to take the matte from — pick one.</div>`) : "");
   };
@@ -8421,7 +8421,7 @@ function renderInspector(lite) {
       ${parentRowHtml(c)}
     </div>`;
   } else if (c.kind !== "audio") {
-    html += `<div class="insp-section"><h3>${uiText("term.transform")}</h3>
+    html += `<div class="insp-section"><h3>${escapeHtml(uiText("term.transform"))}</h3>
       ${row("Position X", `<input type="number" data-k="x" value="${fmtInspNum(p.x)}">`, "x")}
       ${row("Position Y", `<input type="number" data-k="y" value="${fmtInspNum(p.y)}">`, "y")}
       ${slider("scale", 0.1, 4, 0.01, p.scale)}
@@ -8438,10 +8438,10 @@ function renderInspector(lite) {
   if (c.kind === "video" || c.kind === "image" || c.kind === "svg" || c.kind === "comp") {
     html += `<div class="insp-section"><h3>Layout</h3>
       ${sel("Fit", "fit", ["contain", "cover", "stretch", "none"], p.fit)}
-      ${row("Crop L/R %", `<input type="number" data-k="cropL" min="0" max="95" value="${p.cropL}" style="max-width:58px">
-                           <input type="number" data-k="cropR" min="0" max="95" value="${p.cropR}" style="max-width:58px">`, "", "cropL,cropR")}
-      ${row("Crop T/B %", `<input type="number" data-k="cropT" min="0" max="95" value="${p.cropT}" style="max-width:58px">
-                           <input type="number" data-k="cropB" min="0" max="95" value="${p.cropB}" style="max-width:58px">`, "", "cropT,cropB")}
+      ${row("Crop L/R %", `<input type="number" data-k="cropL" min="0" max="95" value="${escapeHtml(p.cropL)}" style="max-width:58px">
+                           <input type="number" data-k="cropR" min="0" max="95" value="${escapeHtml(p.cropR)}" style="max-width:58px">`, "", "cropL,cropR")}
+      ${row("Crop T/B %", `<input type="number" data-k="cropT" min="0" max="95" value="${escapeHtml(p.cropT)}" style="max-width:58px">
+                           <input type="number" data-k="cropB" min="0" max="95" value="${escapeHtml(p.cropB)}" style="max-width:58px">`, "", "cropT,cropB")}
       ${slider("cornerRadius", 0, 300, 1, p.cornerRadius, "px")}
       ${check("Flip H", "flipH", p.flipH)}
       ${check("Flip V", "flipV", p.flipV)}
@@ -8454,9 +8454,9 @@ function renderInspector(lite) {
       const note = p.reframe === "follow" ? `Follows the subject${c.keyframes?.x?.length || c.keyframes?.y?.length ? ` (${(c.keyframes.x || c.keyframes.y).length} keys)` : " (one steady position)"}`
         : p.reframe === "centre" ? "Fitted and centred" : "This picture is another shape than the canvas.";
       html += `<div class="insp-section"><h3>Reframe</h3>
-        <div class="insp-note">${note}</div>
+        <div class="insp-note">${escapeHtml(note)}</div>
         ${reframeRun.busy
-          ? row("", `<span class="insp-ctrls"><span style="opacity:.75">Looking at the footage… ${reframeRun.done + 1}/${reframeRun.of}${reframeRun.frac ? ` · ${Math.round(reframeRun.frac * 100)}%` : ""}</span>
+          ? row("", `<span class="insp-ctrls"><span style="opacity:.75">Looking at the footage… ${escapeHtml(reframeRun.done + 1)}/${escapeHtml(reframeRun.of)}${reframeRun.frac ? ` · ${Math.round(reframeRun.frac * 100)}%` : ""}</span>
             <button type="button" class="btn tiny" data-rf-cancel>Cancel</button></span>`)
           : row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-rf-follow title="Fit it to cover the canvas and key its position to keep the subject in view (the selected clips; one undo step)">Follow subject</button>
             <button type="button" class="btn tiny" data-rf-centre title="Fit it to cover the canvas, centred">Centre</button>
@@ -8488,7 +8488,7 @@ function renderInspector(lite) {
   }
   if (c.kind === "video" || c.kind === "image") {
     html += `<div class="insp-section"><h3>Keying / Cut-out</h3>
-      ${row("Key color", `<input type="color" data-k="chromaKey" value="${p.chromaKey || "#00ff00"}">
+      ${row("Key color", `<input type="color" data-k="chromaKey" value="${escapeHtml(p.chromaKey || "#00ff00")}">
         <button class="btn tiny${p.chromaKey ? "" : " toggle on"}" data-action="keyoff" title="Disable chroma key">off</button>`, "", "chromaKey")}
       ${slider("chromaTolerance", 0, 100, 1, p.chromaTolerance)}
       ${slider("chromaSoftness", 0, 100, 1, p.chromaSoftness)}
@@ -8499,18 +8499,18 @@ function renderInspector(lite) {
     const chLabel = audioChannelLong(c.props?.audioChannel);
     const nt = normalizeTarget();
     html += `<div class="insp-section"><h3>Audio / Time</h3>
-      ${chLabel ? row("Channel", `<span style="opacity:.75">${chLabel}</span>`)
+      ${chLabel ? row("Channel", `<span style="opacity:.75">${escapeHtml(chLabel)}</span>`)
         : row("Channels", `<select data-k="channelMode" title="Stereo: as recorded · Mono: fold L+R to one channel · Left / Right: use one side only · Swap: exchange L and R">${CHANNEL_MODES.map((o) =>
-          `<option value="${o}" ${o === clipChannelMode(c) ? "selected" : ""}>${o[0].toUpperCase() + o.slice(1)}</option>`).join("")}</select>`, "", "channelMode")}
+          `<option value="${escapeHtml(o)}" ${o === clipChannelMode(c) ? "selected" : ""}>${escapeHtml(o[0].toUpperCase() + o.slice(1))}</option>`).join("")}</select>`, "", "channelMode")}
       ${row("Gain", `<input type="range" data-k="gain" min="-24" max="24" step="0.1" value="${fmtInspNum(clipGainDb(c), 0.1)}" title="Clip gain, applied before volume — Ctrl/Cmd-click: reset">
          <span class="val" data-val="gain" data-unit=" dB">${fmtInspNum(clipGainDb(c), 0.1)} dB</span>`, "", "gain")}
       ${row("Normalize", `<span class="insp-ctrls"><select data-norm-target title="Loudness target">${NORMALIZE_TARGETS.map((t) =>
-        `<option value="${t.id}" ${t.id === nt.id ? "selected" : ""}>${t.label}</option>`).join("")}</select>
+        `<option value="${escapeHtml(t.id)}" ${t.id === nt.id ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("")}</select>
         <button type="button" class="btn tiny" data-norm-run title="Measure the selected clips and set their gain to hit this target (linked stems share one gain)">Apply</button></span>`)}
       ${row("Noise", `<span class="insp-ctrls"><select data-denoise title="${state.connected && state.ffmpeg
         ? "Noise reduction (ffmpeg FFT denoiser) — renders a cleaned copy of the file; Off switches back to the original"
         : "Noise reduction needs the server with MontClip's bundled FFmpeg"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
-        `<option value="${v}" ${v === clipDenoise(c) ? "selected" : ""}>${v[0].toUpperCase() + v.slice(1)}</option>`).join("")}</select></span>`)}
+        `<option value="${escapeHtml(v)}" ${v === clipDenoise(c) ? "selected" : ""}>${escapeHtml(v[0].toUpperCase() + v.slice(1))}</option>`).join("")}</select></span>`)}
       ${slider("volume", 0, 2, 0.01, p.volume)}
       ${slider("pan", -1, 1, 0.01, p.pan)}
       ${slider("speed", 0.25, 4, 0.05, p.speed, "×")}
@@ -8518,7 +8518,7 @@ function renderInspector(lite) {
   }
   if ((c.kind === "video" || c.kind === "audio") && typeof MontClipSilence !== "undefined") {
     const so = silenceOptions(), found = state.silence;
-    const num = (k, lo, hi, step, unit, title) => `<span class="insp-ctrls"><input type="number" data-sil="${k}" min="${lo}" max="${hi}" step="${step}" value="${so[k]}" title="${title}" style="max-width:64px"> ${unit}</span>`;
+    const num = (k, lo, hi, step, unit, title) => `<span class="insp-ctrls"><input type="number" data-sil="${escapeHtml(k)}" min="${escapeHtml(lo)}" max="${escapeHtml(hi)}" step="${escapeHtml(step)}" value="${escapeHtml(so[k])}" title="${escapeHtml(title)}" style="max-width:64px"> ${escapeHtml(unit)}</span>`;
     html += `<div class="insp-section"><h3>Silence</h3>
       ${row("Below", num("threshold", -80, -10, 1, "dB", "Quieter than this counts as silence (dBFS). Raise it toward −30 in a noisy room"))}
       ${row("At least", num("minSilence", 0.1, 10, 0.1, "s", "Shorter pauses are left alone"))}
@@ -8542,11 +8542,11 @@ function renderInspector(lite) {
         <button type="button" class="btn tiny" data-beat-clear title="Stop listening">Cancel</button></span>`
         : `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-find title="Listen to this clip's music and show its beat on the timeline">Find beats</button>
         ${bt ? `<button type="button" class="btn tiny" data-beat-clear title="Hide the beat">Clear</button>` : ""}</span>`)}
-      ${bt ? `<div class="insp-note">${bt.bpm != null ? bt.bpm + " BPM · " : ""}${bt.grid.length} beats, ${fmt(bt.grid[0])} → ${fmt(bt.grid[bt.grid.length - 1])}${bt.drop != null ? ` · the drop at ${fmt(bt.drop)}` : ""}</div>
+      ${bt ? `<div class="insp-note">${escapeHtml(bt.bpm != null ? bt.bpm + " BPM · " : "")}${bt.grid.length} beats, ${fmt(bt.grid[0])} → ${fmt(bt.grid[bt.grid.length - 1])}${bt.drop != null ? ` · the drop at ${fmt(bt.drop)}` : ""}</div>
       ${row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-mark title="A cyan marker on every beat (other markers stay)">Mark</button>
         <button type="button" class="btn tiny" data-beat-snap title="Roll each cut on the targeted video tracks to the nearest beat — nothing else moves">Snap cuts</button></span>`)}
-      ${lanes.length ? row("Re-cut", `<span class="insp-ctrls"><select data-beat-track title="The track whose clips go on the beat" style="width:auto;min-width:4.2em">${lanes.map((id) => `<option>${id}</option>`).join("")}</select>
-        every <select data-beat-every title="Beats per shot" style="width:auto;min-width:3.6em">${MontClipBeats.EVERY.map((n) => `<option value="${n}" ${n === bs.every ? "selected" : ""}>${n}</option>`).join("")}</select> beats</span>`) +
+      ${lanes.length ? row("Re-cut", `<span class="insp-ctrls"><select data-beat-track title="The track whose clips go on the beat" style="width:auto;min-width:4.2em">${lanes.map((id) => `<option>${escapeHtml(id)}</option>`).join("")}</select>
+        every <select data-beat-every title="Beats per shot" style="width:auto;min-width:3.6em">${MontClipBeats.EVERY.map((n) => `<option value="${escapeHtml(n)}" ${n === bs.every ? "selected" : ""}>${escapeHtml(n)}</option>`).join("")}</select> beats</span>`) +
         row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-retime title="Lay that track's clips back to back on the beat, from the music's start (one undo step)">Re-cut</button></span>`) : ""}` : ""}
     </div>`;
   }
@@ -8558,22 +8558,22 @@ function renderInspector(lite) {
     const lanes = audioTrackIds().filter((id) => id !== c.track);
     html += `<div class="insp-section"><h3>Auto-duck</h3>
       ${row("Under", `<select data-duck-under title="Lower this clip wherever there is sound on these tracks (dialogue / VO)">
-        <option value="">All other audio tracks</option>${lanes.map((id) => `<option value="${id}">${id}</option>`).join("")}</select>`)}
-      ${row("Amount", `<span class="insp-ctrls"><input type="number" data-duck-amount min="-40" max="-1" step="1" value="${duckAmount()}" title="How far to dip, dB" style="max-width:64px"> dB
+        <option value="">All other audio tracks</option>${lanes.map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`).join("")}</select>`)}
+      ${row("Amount", `<span class="insp-ctrls"><input type="number" data-duck-amount min="-40" max="-1" step="1" value="${escapeHtml(duckAmount())}" title="How far to dip, dB" style="max-width:64px"> dB
         <button type="button" class="btn tiny" data-duck-run title="Write duck keyframes on the selected clips">Apply</button>
         ${duckN ? `<button type="button" class="btn tiny" data-duck-clear title="Remove the ducking">Clear</button>` : ""}</span>`)}
-      ${duckN ? `<div class="insp-note">${duckN} duck keyframe${duckN === 1 ? "" : "s"} — the dashed line on the clip shows the ducked level.</div>` : ""}
+      ${duckN ? `<div class="insp-note">${escapeHtml(duckN)} duck keyframe${duckN === 1 ? "" : "s"} — the dashed line on the clip shows the ducked level.</div>` : ""}
     </div>`;
   }
   const tsel = (label, key, tr) => {
     const active = state.transFocus === (key === "transIn" ? "in" : "out");
-    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${key}" title="Ctrl-click or Shift-click: remove the transition">${label}</label>
-      <span class="insp-ctrls"><select data-k="${key}">${TRANSITIONS.map((x) => `<option ${x === (tr?.type || "none") ? "selected" : ""}>${x}</option>`).join("")}</select>
-       <input type="number" class="insp-dur" data-k="${key}Dur" step="0.1" min="0.1" value="${tr?.duration ?? 1}"></span></div>`;
+    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${escapeHtml(key)}" title="Ctrl-click or Shift-click: remove the transition">${escapeHtml(label)}</label>
+      <span class="insp-ctrls"><select data-k="${escapeHtml(key)}">${TRANSITIONS.map((x) => `<option ${x === (tr?.type || "none") ? "selected" : ""}>${escapeHtml(x)}</option>`).join("")}</select>
+       <input type="number" class="insp-dur" data-k="${escapeHtml(key)}Dur" step="0.1" min="0.1" value="${escapeHtml(tr?.duration ?? 1)}"></span></div>`;
   };
   const curveSel = (label, k, tr) => tr?.type === "fade" && c.kind === "audio"
-    ? row(label, `<select data-k="${k}" title="Fade shape (audio)">${[["", "Smooth (eased)"], ...Object.entries(AUDIO_FADE_CURVES)].map(([v, l]) =>
-      `<option value="${v}" ${(tr.curve || "") === v ? "selected" : ""}>${l}</option>`).join("")}</select>`) : "";
+    ? row(label, `<select data-k="${escapeHtml(k)}" title="Fade shape (audio)">${[["", "Smooth (eased)"], ...Object.entries(AUDIO_FADE_CURVES)].map(([v, l]) =>
+      `<option value="${escapeHtml(v)}" ${(tr.curve || "") === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select>`) : "";
   if (c.kind === "text") html += textPathSectionHtml(c, p, row);
   if (isVisualClip(c)) html += motionSectionHtml(c, p, row);
   if (c.kind !== "audio" && c.kind !== "null") html += maskSectionHtml(c);
@@ -8585,18 +8585,18 @@ function renderInspector(lite) {
     ${curveSel("Out curve", "curveOut", c.transitionOut)}
   </div>`;
   if (c.kind === "text") {
-    html += `<div class="insp-section"><h3>${uiText("term.text")}</h3>
-      ${row("Content", `<textarea data-k="text">${p.text}</textarea>`, "", "text")}
+    html += `<div class="insp-section"><h3>${escapeHtml(uiText("term.text"))}</h3>
+      ${row("Content", `<textarea data-k="text">${escapeHtml(p.text)}</textarea>`, "", "text")}
       ${row(hasTextBox(p) && p.boxFit ? "Max size" : "Font size",
         `<input type="range" data-k="fontSize" min="12" max="300" step="1" value="${fmtInspNum(p.fontSize, 1)}" title="Ctrl/Cmd-click: reset to default">
          <span class="val" data-val="fontSize" data-unit="px">${fmtInspNum(p.fontSize, 1)}px</span>`, "fontSize")}
       ${row("Box W/H", `<span class="insp-ctrls">
-        <input type="number" data-k="boxW" min="0" step="1" value="${p.boxW || 0}" title="Width in px (0 = no box — hug content)" style="max-width:64px">
-        <input type="number" data-k="boxH" min="0" step="1" value="${p.boxH || 0}" title="Height in px (0 = no box — hug content)" style="max-width:64px">
+        <input type="number" data-k="boxW" min="0" step="1" value="${escapeHtml(p.boxW || 0)}" title="Width in px (0 = no box — hug content)" style="max-width:64px">
+        <input type="number" data-k="boxH" min="0" step="1" value="${escapeHtml(p.boxH || 0)}" title="Height in px (0 = no box — hug content)" style="max-width:64px">
       </span>`, "", "boxW,boxH")}
       ${hasTextBox(p) ? check("Scale to fit", "boxFit", !!p.boxFit) : ""}
-      ${row("Color", `<span class="insp-ctrls"><input type="color" data-k="color" value="${p.color}">
-                      <input type="color" data-k="color2" value="${p.color2 || p.color}" title="Gradient bottom color">
+      ${row("Color", `<span class="insp-ctrls"><input type="color" data-k="color" value="${escapeHtml(p.color)}">
+                      <input type="color" data-k="color2" value="${escapeHtml(p.color2 || p.color)}" title="Gradient bottom color">
                       <button class="btn tiny${p.color2 ? "" : " toggle on"}" data-action="grad-off" title="Disable gradient">flat</button></span>`, "", "color,color2")}
       ${sel("Align", "align", ["left", "center", "right", "justify"], p.align)}
       ${hasTextBox(p) ? sel("V-align", "vAlign", ["top", "middle", "bottom"], p.vAlign || "middle") : ""}
@@ -8613,19 +8613,19 @@ function renderInspector(lite) {
     </div>
     <div class="insp-section"><h3>Text style</h3>
       ${slider("strokeWidth", 0, 20, 0.5, p.strokeWidth, "px")}
-      ${row("Stroke col.", `<input type="color" data-k="strokeColor" value="${p.strokeColor}">`, "", "strokeColor")}
-      ${row("Bg color", `<input type="color" data-k="bgColor" value="${p.bgColor}">`, "", "bgColor")}
+      ${row("Stroke col.", `<input type="color" data-k="strokeColor" value="${escapeHtml(p.strokeColor)}">`, "", "strokeColor")}
+      ${row("Bg color", `<input type="color" data-k="bgColor" value="${escapeHtml(p.bgColor)}">`, "", "bgColor")}
       ${slider("bgOpacity", 0, 1, 0.05, p.bgOpacity)}
       ${slider("textShadow", 0, 40, 1, p.textShadow)}
       ${slider("glow", 0, 100, 1, p.glow)}
-      ${row("Glow color", `<input type="color" data-k="glowColor" value="${p.glowColor || p.color}">
+      ${row("Glow color", `<input type="color" data-k="glowColor" value="${escapeHtml(p.glowColor || p.color)}">
         <button class="btn tiny${p.glowColor ? "" : " toggle on"}" data-action="glow-auto" title="Glow uses the text color">auto</button>`, "", "glowColor")}
     </div>
     <div class="insp-section"><h3>Title &amp; caption</h3>
-      ${row("Title style", `<button type="button" class="btn tiny style-picker-btn" data-style-open title="Pick a style — hover to preview it live">${(TITLE_STYLES[c.styleName] || {}).label || "Choose…"} ▾</button>
+      ${row("Title style", `<button type="button" class="btn tiny style-picker-btn" data-style-open title="Pick a style — hover to preview it live">${escapeHtml((TITLE_STYLES[c.styleName] || {}).label || "Choose…")} ▾</button>
         <button class="btn tiny" data-action="title-shuffle" title="Random style">Shuffle</button>`)}
-      ${row("Animation", `<select data-k="textAnim">${TEXT_ANIMS.map((a) => `<option ${a === p.textAnim ? "selected" : ""}>${a}</option>`).join("")}</select>`, "", "textAnim")}
-      ${p.textAnim === "highlight" ? row("Highlight", `<input type="color" data-k="highlightColor" value="${p.highlightColor || "#ffd166"}" title="The colour of the word being said">`, "", "highlightColor") : ""}
+      ${row("Animation", `<select data-k="textAnim">${TEXT_ANIMS.map((a) => `<option ${a === p.textAnim ? "selected" : ""}>${escapeHtml(a)}</option>`).join("")}</select>`, "", "textAnim")}
+      ${p.textAnim === "highlight" ? row("Highlight", `<input type="color" data-k="highlightColor" value="${escapeHtml(p.highlightColor || "#ffd166")}" title="The colour of the word being said">`, "", "highlightColor") : ""}
       ${Array.isArray(p.wordTimes) && p.wordTimes.length ? `<div class="insp-note">${p.caption ? "Caption: its" : "Its"} ${p.wordTimes.length} words follow the speech${
         String(p.text || "").split(/\s+/).filter(Boolean).length === p.wordTimes.length ? ", so Word rate doesn't apply"
           : " — the text now has another number of words, so they are spread over the clip; Add captions again to re-time them"}.</div>`
@@ -8991,9 +8991,9 @@ function renderKfGraphsPanel() {
   root.hidden = false;
   root.innerHTML = keys.map((k) => {
     const label = KF_GRAPH_LABEL[k] || k;
-    return `<div class="kf-graph" data-kfgraph-card="${k}">
-      <div class="kf-graph-head"><span>${label}</span>
-        <button type="button" data-kfgraph-close="${k}" title="Close graph">✕</button></div>
+    return `<div class="kf-graph" data-kfgraph-card="${escapeHtml(k)}">
+      <div class="kf-graph-head"><span>${escapeHtml(label)}</span>
+        <button type="button" data-kfgraph-close="${escapeHtml(k)}" title="Close graph">✕</button></div>
       <canvas width="160" height="52"></canvas>
     </div>`;
   }).join("");
@@ -10827,7 +10827,7 @@ function paintAsrSetup() {
     const [title, text, again] = { net: ["setup-net-title", h("asr-interrupted"), "asr-resume"],
       space: ["setup-space-title", h("asr-no-space", { drive: asrState.space ? asrState.space.drive : "?", free: mbText(asrState.space ? asrState.space.free : 0) }), "asr-resume"],
       bad: ["setup-bad-title", asrState.phase === "failed" ? h("asr-download-failed", { why: asrState.why || "?" }) : h("asr-check-failed"), "asr-again"] }[st];
-    html = `<h2 id="asrSetupTitle">${h(title)}</h2><p class="asr-warn">${text}</p>
+    html = `<h2 id="asrSetupTitle">${h(title)}</h2><p class="asr-warn">${escapeHtml(text)}</p>
       <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h(again)}</button>${later}</div>`;
   }
   asrSetup.dialog.innerHTML = html;
@@ -11005,31 +11005,31 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-asr-cancel hidden data-i18n="own.asr-download-cancel">${escapeHtml(uiText("own.asr-download-cancel"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-later hidden data-i18n="own.asr-later">${escapeHtml(uiText("own.asr-later"))}</button></div>` : ""}
       ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
-        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
+        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${escapeHtml(uiText("term.cancel"))}</button></div>` : ""}
       <div class="tr-row">
-        <input type="search" data-tr-find placeholder="${uiText("term.find-words")}" data-i18n-placeholder="term.find-words" spellcheck="false" title="A word or phrase; case and punctuation don't matter. Enter goes to the next one">
+        <input type="search" data-tr-find placeholder="${escapeHtml(uiText("term.find-words"))}" data-i18n-placeholder="term.find-words" spellcheck="false" title="A word or phrase; case and punctuation don't matter. Enter goes to the next one">
         <span class="tr-count" data-tr-count></span>
-        <button type="button" class="btn tiny" data-tr-cut-found disabled title="Extract every place it is said, on the targeted tracks (one undo step)">${uiText("own.cut-all")}</button>
-        <button type="button" class="btn tiny" data-tr-copy title="Copy the transcript as text, with timecodes" data-i18n="own.copy">${uiText("own.copy")}</button>
+        <button type="button" class="btn tiny" data-tr-cut-found disabled title="Extract every place it is said, on the targeted tracks (one undo step)">${escapeHtml(uiText("own.cut-all"))}</button>
+        <button type="button" class="btn tiny" data-tr-copy title="Copy the transcript as text, with timecodes" data-i18n="own.copy">${escapeHtml(uiText("own.copy"))}</button>
       </div>
       <div class="tr-row">
-        <span class="tr-lbl" data-i18n="term.captions">${uiText("term.captions")}</span>
+        <span class="tr-lbl" data-i18n="term.captions">${escapeHtml(uiText("term.captions"))}</span>
         <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(MontClipCaptions.STYLES).map(([k, st]) =>
-          `<option value="${k}" ${k === (set.captionStyle || MontClipCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
+          `<option value="${escapeHtml(k)}" ${k === (set.captionStyle || MontClipCaptions.DEFAULT_STYLE) ? "selected" : ""}>${escapeHtml(st.label)}</option>`).join("")}</select>
         <button type="button" class="btn tiny" data-tr-cap-quick${captionQuickTargets("all").length ? "" : " hidden"} data-i18n="own.cq-open">${escapeHtml(uiText("own.cq-open"))}</button>
         <button type="button" class="btn tiny" data-tr-cap-lyrics title="${escapeHtml(uiText("own.ly-open-title"))}" data-i18n="own.ly-open" data-i18n-title="own.ly-open-title">${escapeHtml(uiText("own.ly-open"))}</button>
-        ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>` : ""}
+        ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${escapeHtml(uiText("term.add-captions"))}</button>` : ""}
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
-        <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${uiText("term.import-2")}</button>
+        <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${escapeHtml(uiText("term.import-2"))}</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
         <input type="file" accept=".xml,text/xml,application/xml" data-tr-danmaku-input hidden>
       </div>
-      <div class="tr-note" data-i18n="own.caption-last">${uiText("own.caption-last")}</div>
+      <div class="tr-note" data-i18n="own.caption-last">${escapeHtml(uiText("own.caption-last"))}</div>
     </div>
     <div class="tr-body" data-tr-body tabindex="0"></div>
     <div class="tr-foot hidden" data-tr-foot><span data-tr-sel></span>
-      <button type="button" class="btn tiny" data-tr-cut-sel title="Extract the selected words and the pause after them, on the targeted tracks (Delete)" data-i18n="term.cut">${uiText("term.cut")}</button></div>`;
+      <button type="button" class="btn tiny" data-tr-cut-sel title="Extract the selected words and the pause after them, on the targeted tracks (Delete)" data-i18n="term.cut">${escapeHtml(uiText("term.cut"))}</button></div>`;
   const q = (s) => root.querySelector(s);
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
@@ -11155,13 +11155,13 @@ function trGapsHtml(groups) {
   spots.sort((x, y) => x.t - y.t);
   // the 自动出切片 cards' time format (0:15–0:22), not the tab's frame timecode, which reads as minutes; a button each, so Tab
   // reaches it and Enter goes there (VV on #95 d95ab21)
-  const shown = spots.slice(0, 20).map((x) => `<button type="button" class="tr-gap-go" data-t="${x.t}">${escapeHtml(MontClipAutoSlices.hms(x.t))}–${escapeHtml(MontClipAutoSlices.hms(x.u))}</button>`).join(" ");
+  const shown = spots.slice(0, 20).map((x) => `<button type="button" class="tr-gap-go" data-t="${escapeHtml(x.t)}">${escapeHtml(MontClipAutoSlices.hms(x.t))}–${escapeHtml(MontClipAutoSlices.hms(x.u))}</button>`).join(" ");
   const more = spots.length > 20 ? " " + escapeHtml(uiText("own.tr-gaps-more", { more: spots.length - 20 })) : "";
   return `<div class="tr-note tr-gaps" data-tr-gaps>${escapeHtml(uiText("own.tr-gaps-note", { n: spots.length, dur: trGapDur(total) }))} ${shown}${more}</div>`;
 }
 function renderTranscript(force = false) {
   if (!trState.open || !els.transcriptPage) return;
-  if (typeof MontClipTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
+  if (typeof MontClipTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${escapeHtml(uiText("own.tr-module-missing"))}</div>`; return; }
   if (!trState.built) buildTranscriptPage();
   const groups = transcriptGroups();
   for (const g of groups) {
@@ -11183,18 +11183,18 @@ function renderTranscript(force = false) {
     : groups.length ? "Every file on the timeline has a transcript — select clips to transcribe them again" : "Put clips with speech on the timeline first";
   const missing = [...new Set(groups.map((g) => getMedia(g[0].mediaId)).filter((m) => transcriptCache.get(audioKey(m)) === false).map((m) => m.name || m.src))];
   let html = "";
-  if (!groups.length) html = `<div class="tr-empty">${uiText("own.tr-empty")}</div>`;
+  if (!groups.length) html = `<div class="tr-empty">${escapeHtml(uiText("own.tr-empty"))}</div>`;
   else {
     if (missing.length) {
       const names = missing.slice(0, 6).map(escapeHtml).join(mcView.get().language === "zh-CN" ? "、" : ", ") + (missing.length > 6 ? escapeHtml(uiText("own.tr-more", { n: missing.length - 6 })) : "");
       html += `<div class="tr-note">${escapeHtml(uiText("own.tr-missing", { names: "\u0000" })).replace("\u0000", names)}</div>`;
     }
     html += trGapsHtml(groups);
-    if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
+    if (!words.length && !missing.length) html += `<div class="tr-empty">${escapeHtml(uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words"))}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
-      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? MontClipTranscribe.gap(words[k - 1].w, words[k].w) : "") + `<span class="tw" data-k="${k}">${escapeHtml(words[k].w)}</span>`;
-      html += `<p class="tr-seg"><span class="tr-tc" data-t="${s.from}" title="Go to ${fmt(s.from)}">${fmt(s.from)}</span>${p}</p>`;
+      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? MontClipTranscribe.gap(words[k - 1].w, words[k].w) : "") + `<span class="tw" data-k="${escapeHtml(k)}">${escapeHtml(words[k].w)}</span>`;
+      html += `<p class="tr-seg"><span class="tr-tc" data-t="${escapeHtml(s.from)}" title="Go to ${fmt(s.from)}">${fmt(s.from)}</span>${p}</p>`;
     }
   }
   E.body.innerHTML = html;
@@ -11658,7 +11658,7 @@ function autoBuild() {
   const d = document.createElement("dialog");
   d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open")); d.tabIndex = -1;
   d.innerHTML = `<div class="as-head"><b>${autoSay("as-open")}</b>
-      <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${s}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
+      <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${escapeHtml(s)}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
       <span class="as-spacer"></span><span class="as-keep">${autoSay("as-keep")}</span>
       <button type="button" class="btn tiny" data-as-close>${autoSay("as-close")}</button></div>
     <div class="as-body" data-as-body></div>
@@ -11731,13 +11731,13 @@ function autoStartHtml() {
   // the dialog opened before the import kept an empty pick)
   if (recs.length === 1 && st.soloTicked !== recs[0].id) { if (!st.picked.size) st.picked.add(recs[0].id); st.soloTicked = recs[0].id; }
   const recList = (recs.length ? recs.map((m) => { const on = st.picked.has(m.id), dm = autoDanmaku(m).length;
-      return `<div class="as-rec${on ? " on" : ""}" role="checkbox" aria-checked="${on}" tabindex="0" data-as-act="rec" data-as-id="${escapeHtml(m.id)}">
+      return `<div class="as-rec${on ? " on" : ""}" role="checkbox" aria-checked="${escapeHtml(on)}" tabindex="0" data-as-act="rec" data-as-id="${escapeHtml(m.id)}">
         <div class="as-t">${escapeHtml(m.name || m.src)}</div><div class="as-small">${escapeHtml(autoDur(m.duration))}</div>
         <span class="as-chip ${dm ? "ok" : "warn"}">${autoSay(dm ? "as-dm-yes" : "as-dm-no")}</span></div>`; }).join("")
     : IMPORTING.size ? "" : `<p class="as-muted">${autoSay("as-no-recs")}</p>`) + importingHtml("as-rec as-importing");
   // the same import as the main 〔+ 导入〕 (VV: the empty list said 先导入 with no way to from here)
   const importBtn = `<button type="button" class="btn tiny" data-as-act="import">${autoSay("as-import")}</button>`;
-  const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${name}" data-as-v="${v}" class="${cur === v ? "on" : ""}">${autoSay(autoSongKey("as-" + name + "-" + v))}</button>`).join("");
+  const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${escapeHtml(name)}" data-as-v="${escapeHtml(v)}" class="${cur === v ? "on" : ""}">${autoSay(autoSongKey("as-" + name + "-" + v))}</button>`).join("");
   const pickedDm = recs.filter((m) => st.picked.has(m.id)).reduce((x, m) => x + autoDanmaku(m).length, 0);
   return `<h1>${autoSay("as-start-title")}</h1><p class="as-sub">${autoSay("as-start-sub")}</p>
     <section class="as-card-box"><h2>${autoSay("as-recs")}</h2><div class="as-recs">${recList}</div><p class="as-small">${autoSay("as-recs-multi")}</p>
@@ -11745,7 +11745,7 @@ function autoStartHtml() {
     <section class="as-card-box"><h2>${autoSay("as-kind-title")}</h2><div class="as-seg">${seg("kind", MontClipAutoSlices.KINDS, st.kind)}</div>
       <p class="as-small" data-as-kind-hint>${autoSay(autoKindHintKey(st.kind, pickedDm))}</p></section>
     <details class="as-more"><summary>${autoSay("as-more")}</summary>
-      <div class="as-opt"><span>${autoSay("as-count")}</span><div><select data-as-count>${MontClipAutoSlices.COUNTS.map((n) => `<option${n === st.count ? " selected" : ""}>${n}</option>`).join("")}</select>
+      <div class="as-opt"><span>${autoSay("as-count")}</span><div><select data-as-count>${MontClipAutoSlices.COUNTS.map((n) => `<option${n === st.count ? " selected" : ""}>${escapeHtml(n)}</option>`).join("")}</select>
         <span class="as-small">${autoSay("as-count-hint")}</span></div></div>
       <div class="as-opt"><span>${autoSay("as-len")}</span><div><div class="as-seg">${seg("len", MontClipAutoSlices.LENS, st.len)}</div>
         <p class="as-small">${autoSay(autoSongKey("as-len-hint-" + st.len))}</p></div></div>
@@ -11879,9 +11879,9 @@ function autoReviewHtml() {
 }
 function autoOverviewHtml(rec, clips, startNo) {
   const o = MontClipAutoSlices.overview(rec, clips, startNo), L = rec.duration;
-  const area = o.area.length ? `<polygon class="as-ov-loud" points="0,100 ${o.area.map(([x, y]) => x + "," + y).join(" ")} 1000,100"/>` : "";
+  const area = o.area.length ? `<polygon class="as-ov-loud" points="0,100 ${escapeHtml(o.area.map(([x, y]) => x + "," + y).join(" "))} 1000,100"/>` : "";
   const ticks = o.ticks.map((t) => `<line class="as-ov-tick" x1="${(t / L * 1000).toFixed(1)}" y1="0" x2="${(t / L * 1000).toFixed(1)}" y2="100"/>`).join("");
-  const boxes = o.boxes.map((b) => `<g class="as-ov-box${b.on ? " on" : ""}" data-as-act="focus" data-as-id="${escapeHtml(b.id)}"><rect x="${b.x}" y="2" width="${b.w}" height="96" rx="2"/><text x="${(b.x + b.w / 2).toFixed(1)}" y="13" text-anchor="middle">${b.no}</text></g>`).join("");
+  const boxes = o.boxes.map((b) => `<g class="as-ov-box${b.on ? " on" : ""}" data-as-act="focus" data-as-id="${escapeHtml(b.id)}"><rect x="${escapeHtml(b.x)}" y="2" width="${escapeHtml(b.w)}" height="96" rx="2"/><text x="${(b.x + b.w / 2).toFixed(1)}" y="13" text-anchor="middle">${escapeHtml(b.no)}</text></g>`).join("");
   const m = autoMedia(rec.mediaId);
   const st = autoState(), open = st.ovOpen != null ? st.ovOpen : window.innerWidth > 700;
   return `<details class="as-ov" data-as-ov${open ? " open" : ""}><summary class="as-ov-head"><b>${autoSay("as-overview")}</b> <span class="as-small">${escapeHtml(m ? m.name : "")} · ${autoSay("as-overview-hint")}</span></summary>
@@ -11898,15 +11898,15 @@ function autoWave(c, w) {
     const y = Number.isFinite(v) ? 30 - Math.max(0, Math.min(1, (v + 60) / 60)) * 26 : 30;
     pts.push((i / 80 * 100).toFixed(1) + "," + y.toFixed(1));
   }
-  return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(" ")}"/></svg>`;
+  return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${escapeHtml(pts.join(" "))}"/></svg>`;
 }
 function autoEdgeHtml(c, w) {
   // v8: a level beside each time — 比较可能, 估的, 你调过 while moved. v12: only the tag on the card, what it means is its
   // tooltip (估的: the note said once above the cards; 你调过: none); the ± buttons on the row of the time
   const lbl = w === "s" ? "start" : "end", t = w === "s" ? c.s : c.e, level = MontClipAutoSlices.edgeLevel(c, w);
   const tip = level === "estimated" ? autoSay("as-guess-note") : level === "likely" ? autoSay("as-likely-" + lbl) : "";
-  const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${w}" data-as-d="${d}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
-  return `<div class="as-edge" data-as-edge="${w}"><div class="as-edge-row"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}"${tip ? ` title="${tip}"` : ""}>${autoSay("as-tag-" + level)}</span></div>
+  const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${escapeHtml(w)}" data-as-d="${escapeHtml(d)}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
+  return `<div class="as-edge" data-as-edge="${escapeHtml(w)}"><div class="as-edge-row"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}"${tip ? ` title="${tip}"` : ""}>${autoSay("as-tag-" + level)}</span></div>
     <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div></div>
     <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div></div>`;
 }
