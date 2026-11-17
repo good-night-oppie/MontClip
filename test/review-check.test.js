@@ -28,7 +28,8 @@ function fakeDoc() {
     get textContent() { return this._text + this.children.map((c) => c.textContent).join(''); }
     get innerHTML() { throw new Error('innerHTML is never used'); }
     set innerHTML(v) { throw new Error('innerHTML is never used'); }
-    appendChild(c) { this.children.push(c); return c; }
+    appendChild(c) { this.children.push(c); c.parentNode = this; return c; }
+    insertBefore(c, ref) { const i = this.children.indexOf(ref); this.children.splice(i < 0 ? this.children.length : i, 0, c); c.parentNode = this; return c; }
     setAttribute(k, v) { this.attrs[k] = String(v); }
     addEventListener(n, fn) { (this.listeners[n] = this.listeners[n] || []).push(fn); }
     click() { if (!this.disabled) for (const fn of this.listeners.click || []) fn({}); }
@@ -99,15 +100,16 @@ test('a check (#328): prepare is local, status is read until the clip is ready, 
 
 test("the box says what is sent, to whom, and that it may train a model", async () => {
   const m = R.confirmModel(await readyView(), 'zh-CN');
-  a.equal(m.lines[0], '联网只发生在你自己打开的功能里，发之前先给你看。点「发送检查」后，这 10 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查，可能用于训练。');
+  a.equal(m.lines[0], '点「检查这 10 秒」就会发出去，不会再问你一次。这 10 秒的画面和声音，还有和这一段有重叠的字幕文字和剪辑时间点，会发给 AI 做检查。');
   a.equal(m.to, '发给：OpenRouter（openrouter.ai，未验证）');
-  a.equal(m.training, '对方可能用这段内容训练模型');
+  a.equal(m.training, '发的时候会要求对方不拿这段内容训练模型。这是发出去时带上的要求，我们没法核实对方一定照做。');
   a.deepEqual(m.buttons.map((b) => b.label), ['先看要发的内容', '发送检查', '只发这 10 秒', '不发了'], 'the four buttons as before');
   a.ok(m.canSend && m.buttons.every((b) => b.enabled));
   a.deepEqual(m.lines.slice(1), [
     '点「发送检查」会发出去：0:17–0:30 的画面和声音（13 秒），和这一段有重叠的字幕文字、剪辑时间点。',
     '与这段画面相交的字幕会整条发送，可能包含片段前后的文字。',
-    '点「只发这 10 秒」会发出去：0:17–0:30 的画面和声音（13 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。',
+    '打开「只发这 10 秒」后，会发出去的是：0:17–0:30 的画面和声音（13 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。',
+    '声音会单独作为一条音轨一起发出去，视频里不带声音。',
     '两个按钮发的画面和声音里，都有前面多带的 3 秒（0:17–0:20），让 AI 知道前面在说什么。',
     '画面里如果有观众昵称、弹幕，会原样发出去。']);
   const taste = R.confirmModel(await readyView({ taste: 4 }), 'zh-CN');
@@ -131,7 +133,7 @@ test("Deja #328: a domain nobody confirmed says 「未验证」 beside it and is
   const u = R.unverifiedModel(s.state.dest, 'zh-CN', s.state.range);
   a.equal(u.to, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com，未验证）');
   a.ok(u.lines.includes('这个地址还没有人确认过，所以先不发。请等有人确认后再试。'));
-  a.equal(u.training, '对方可能用这段内容训练模型');
+  a.equal(u.training, '发的时候会要求对方不拿这段内容训练模型。这是发出去时带上的要求，我们没法核实对方一定照做。');
   a.deepEqual(u.buttons.map((b) => [b.label, b.enabled]), [['先看要发的内容', false], ['发送检查', false], ['只发这 10 秒', false], ['不发了', true]]);
   a.equal(await s.send('full'), false);
   a.deepEqual(api.calls.map((c) => c[0]), ['prepare'], 'nothing made, nothing sent');
@@ -366,7 +368,7 @@ function allPass() { return { fact: { state: 'passed', reason: '' }, subtitle: {
 test("the result: no_result is never a pass; a problem in the checked stretch or in any of the four dimensions is never a pass", () => {
   const m = (raw, n) => R.resultModel(raw, 'zh-CN', n);
   const f = (o) => ({ id: 0, t: 24.2, type: 'speaker_swapped', text: 'x', suggestion: '', inLead: false, ...o });
-  a.equal(m({ status: 'passed', findings: [], dimensions: allPass() }, 10).headline, '这 10 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。');
+  a.equal(m({ status: 'passed', findings: [], dimensions: allPass(), audio: true, audioVerified: true }, 10).headline, '这 10 秒检查没有发现问题。这只是 AI 的判断，请你自己也看一遍、听一遍。');
   a.ok(!/没问题|放心/.test(zh('passed', { n: 10 })));
   a.equal(m({ status: 'no_result', reason: 'TIMEOUT', findings: [] }).headline, '这次没有检查出结果。这不代表没问题。');
   a.equal(m({ status: 'no_result', reason: 'NO_BRIDGE' }).headline, '这台电脑上暂时用不了这个检查。');
@@ -377,7 +379,7 @@ test("the result: no_result is never a pass; a problem in the checked stretch or
     a.equal(m(raw).passed, false, JSON.stringify(raw));
   const r1 = m({ status: 'passed', findings: [f()], dimensions: allPass() });
   a.equal(r1.status, 'issues'); a.equal(r1.headline, '检查完了，发现 1 处可能有问题。');
-  const r2 = m({ status: 'passed', findings: [f({ inLead: true, t: 18.5 })], dimensions: allPass() }, 10);
+  const r2 = m({ status: 'passed', findings: [f({ inLead: true, t: 18.5 })], dimensions: allPass(), audio: true, audioVerified: true }, 10);
   a.equal(r2.passed, true, 'a lead finding does not change the checked stretch');
   a.equal(r2.items[0].label, '说话人可能标反了（在前面多带的那几秒里）');
   const r4 = m({ status: 'passed', findings: [], dimensions: { ...allPass(), packaging: { state: 'issues', reason: '花字把笑点说破了。' } } }, 10);
@@ -447,7 +449,7 @@ test('in the page: the box shows the receiver and the training line before eithe
   a.equal(w.overlay.classList.contains('hidden'), false);
   const to = w.byReview('to')[0], tr = w.byReview('training')[0], full = w.byReview('full')[0], win = w.byReview('window')[0];
   a.equal(to.textContent, '发给：OpenRouter（openrouter.ai，未验证）');
-  a.equal(tr.textContent, '对方可能用这段内容训练模型');
+  a.equal(tr.textContent, '发的时候会要求对方不拿这段内容训练模型。这是发出去时带上的要求，我们没法核实对方一定照做。');
   const order = w.nodes();
   a.ok(order.indexOf(to) < order.indexOf(full) && order.indexOf(tr) < order.indexOf(win), 'above the buttons');
   a.deepEqual(api.calls.map((c) => c[0]), ['available', 'prepare', 'status'], 'nothing sent yet');
@@ -472,7 +474,7 @@ test('in the page: an unconfirmed receiver shows 「未验证」 and nothing can
   await settle(); wu.button.click(); await settle();
   a.equal(wu.byReview('to')[0].textContent, '发给：Google Gemini（daily-cloudcode-pa.googleapis.com，未验证）');
   a.ok(wu.byReview('to')[0].classList.contains('review-warn'));
-  a.equal(wu.byReview('training')[0].textContent, '对方可能用这段内容训练模型');
+  a.equal(wu.byReview('training')[0].textContent, '发的时候会要求对方不拿这段内容训练模型。这是发出去时带上的要求，我们没法核实对方一定照做。');
   a.deepEqual(['preview', 'full', 'window', 'cancel'].map((id) => wu.byReview(id)[0].disabled), [true, true, true, false]);
   wu.byReview('full')[0].click(); await settle();
   a.deepEqual(un.calls.map((c) => c[0]), ['available', 'prepare'], 'nothing made, nothing sent');
@@ -558,7 +560,7 @@ test('PG #321 6871936322: the examples are said to live only while running; a po
   const m = R.confirmModel(await readyView({ taste: 2 }), 'zh-CN');
   const i = m.lines.indexOf('点「发送检查」还会把之前记下的 2 条好坏例子（认可的和不认可的）一起发出去。');
   a.ok(i > 0);
-  a.equal(m.lines[i + 1], '好坏例子的文字只在本次运行保留，重启后需重新填写。');
+  a.equal(m.lines[i + 1], '好坏例子的文字只在这次打开 MontClip 期间保留，关掉就没了，下次要重新填。');
   a.ok(!R.confirmModel(await readyView(), 'zh-CN').lines.some((l) => l.includes('重启后')), 'said only when there are examples');
   a.deepEqual(m.payload.notes.map((x) => [x.kind, x.aspect]), [['positive', 'subtitle'], ['negative', null]]);
   // the page shows them: 「认可（字幕）：…」, 「不认可：…」
@@ -676,7 +678,7 @@ test("#328 85d9e8d1 / PG #321 6872395398: in the Cindy plugin or a browser no se
 });
 
 test("PG #321 6872473697: the page picks the sentence by scope; 「只发这 N 秒」 is JJ's final sentence; the English one is #328's willSend.what sentence word for word", async () => {
-  const JJ = '点「只发这 10 秒」会发出去：0:20–0:30 的画面和声音（10 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。';
+  const JJ = '打开「只发这 10 秒」后，会发出去的是：0:20–0:30 的画面和声音（10 秒），不额外附带字幕文字、剪辑时间点和好坏例子；画面里已有的字幕仍会随视频发出。';
   // #328 fb0de17c review-service.js what(): the window part, as test/review-api.test.js there locks it
   const ENGINE = 'No subtitle text, edit points, or good/bad examples are attached; subtitles already burned into the picture still go out with the video.';
   const noLead = async (scope) => { const v = await readyView({}, { start: 20, end: 30 }, scope); return { ...v, willSend: { ...v.willSend, seconds: 10, leadIn: null }, lead: 0 }; };
@@ -689,7 +691,7 @@ test("PG #321 6872473697: the page picks the sentence by scope; 「只发这 N �
   a.ok(full.lines.includes(zh('whatFull')) && full.lines.includes(zh('whatEdge')) && full.lines.includes(JJ));
   a.ok(full.lines.indexOf(zh('whatFull')) < full.lines.indexOf(JJ));
   // English: the window sentence carries the engine's sentence unchanged
-  const en = R.confirmModel(w0, 'en').lines.find((l) => l.startsWith('Clicking “Send only these 10 s”'));
+  const en = R.confirmModel(w0, 'en').lines.find((l) => l.startsWith('With “Send only these 10 s” on, what goes out is:'));
   a.ok(en && en.endsWith(' ' + ENGINE), en);
 });
 
@@ -729,7 +731,7 @@ test('#347: a click the main process does not count as real (NEEDS_CLICK) sends 
   const m = R.resultModel(s2.state.raw, 'zh-CN', 10);
   a.equal(m.status, 'no_result');
   a.ok(!m.headline.includes('不确定内容有没有已经发到'), 'refused before the request: never 「may have been sent」');
-  a.ok(m.notes.includes('今天的检查额度用完了，什么都没有发出去。明天再检查。'));
+  a.ok(m.notes.includes('今天的检查次数用完了，什么都没有发出去。明天再检查。'));
 });
 
 test('#321 (PG 6922461279): a stretch already checked gets that result, nothing is prepared or sent; 「再检查一次」 asks for a new check', async () => {
@@ -753,4 +755,215 @@ test('#347: the destination is the owner-authorised one (confirmed), shown with 
   await s2.check({ start: 20, end: 30 });
   const m2 = R.confirmModel(s2.state.prep, 'zh-CN');
   a.equal(m2.canSend, false); a.ok(m2.lines.includes('这个地址还没有人确认过，所以先不发。请等有人确认后再试。'));
+});
+
+/* ── QQ #326 5927365621 item 2 (owner #321 6888246693 / 6926823489: clicking 「检查」 is the consent) ── */
+const phasesOf = (s) => { const seen = []; s.on((st) => { if (seen[seen.length - 1] !== st.phase) seen.push(st.phase); }); return seen; };
+
+test('QQ #326 5927365621 ②: in the desktop window one click checks — the main process prepares and sends, no box, no second click', async () => {
+  const api = R.stubApi({ direct: true }), s = session(api), seen = phasesOf(s);
+  await s.check({ start: 20, end: 30 });
+  a.equal(s.state.phase, 'result');
+  a.deepEqual(seen, ['preparing', 'sending', 'result'], 'never the confirm box');
+  a.deepEqual(api.calls.filter((c) => c[0] === 'checkNow').map((c) => c[1]), [{ start: 20, end: 30, recheck: false, scope: 'full' }]);
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0, 'the page itself sends nothing: the main process does');
+  a.equal(api.calls.filter((c) => c[0] === 'prepare').length, 1, 'one clip, made by the main process');
+  a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).status, 'issues');
+});
+
+test('QQ #326 ②: refused before anything was made (no real click, switch off, no key) — nothing went out, never 「may have been sent」', async () => {
+  for (const code of ['NEEDS_CLICK', 'REVIEW_SEND_OFF', 'NO_KEY']) {
+    const api = R.stubApi({ direct: true, checkRefused: code }), s = session(api);
+    await s.check({ start: 20, end: 30 });
+    a.equal(s.state.phase, 'result');
+    a.notEqual(s.state.raw.sendError, true, code);
+    a.equal(api.calls.filter((c) => c[0] === 'prepare' || c[0] === 'send').length, 0, code + ': no clip, no send');
+    a.ok(!R.resultModel(s.state.raw, 'zh-CN', 10).headline.includes('不确定'), code);
+  }
+  const off = session(R.stubApi({ direct: true, checkRefused: 'REVIEW_SEND_OFF' }));
+  await off.check({ start: 20, end: 30 });
+  a.ok(R.resultModel(off.state.raw, 'zh-CN', 10).notes.length >= 1, 'the switch being off is said plainly');
+});
+
+test('QQ #326 ②: a failure after the clip was ready may have reached the receiver — said as such; a refusal the engine names before the request is not', async () => {
+  const s = session(R.stubApi({ direct: true, sendFails: 'SEND_FAILED' }));
+  await s.check({ start: 20, end: 30 });
+  a.equal(s.state.raw.sendError, true);
+  a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).headline, zh('sendFailed'));
+  const s2 = session(R.stubApi({ direct: true, sendFails: 'DAILY_LIMIT' }));
+  await s2.check({ start: 20, end: 30 });
+  a.notEqual(s2.state.raw.sendError, true);
+  a.ok(R.resultModel(s2.state.raw, 'zh-CN', 10).notes.includes('今天的检查次数用完了，什么都没有发出去。明天再检查。'));
+  const s3 = session(R.stubApi({ direct: true, renderFails: true }));
+  await s3.check({ start: 20, end: 30 });
+  a.equal(R.resultModel(s3.state.raw, 'zh-CN', 10).headline, zh('prepareFailed', { n: 10 }), 'the clip was never made: nothing sent');
+});
+
+test('QQ #326 ②: a stretch already checked shows that result at once; 「再检查一次」 asks the main process again with recheck', async () => {
+  const api = R.stubApi({ direct: true, reused: true }), s = session(api);
+  await s.check({ start: 20, end: 30 });
+  a.equal(s.state.phase, 'result'); a.equal(s.state.raw.reused, true);
+  await s.recheck();
+  a.equal(s.state.phase, 'result');
+  a.deepEqual(api.calls.filter((c) => c[0] === 'checkNow').map((c) => c[1].recheck), [false, true]);
+});
+
+test('QQ #326 ②: 「取消」 while it is being made cancels it in the engine; nothing more is shown', async () => {
+  const api = R.stubApi({ direct: true, renderPolls: 5 }), s = session(R.stubApi({ direct: true }));
+  const slow = R.createSession(api, { pollMs: 0, wait: () => new Promise((r) => setTimeout(r, 5)) });
+  const p = slow.check({ start: 20, end: 30 });
+  await new Promise((r) => setTimeout(r, 12));
+  a.equal(slow.state.phase, 'preparing');
+  await slow.cancel(); await p;
+  a.equal(slow.state.phase, 'closed');
+  a.ok(api.calls.some((c) => c[0] === 'cancel'));
+  void s;
+});
+
+test('QQ #326 ②: the bridge gets the stretch only — no token, no hash, no assistant flag; without the bridge the box (view-only) stays', async () => {
+  const got = [];
+  globalThis.montclipReview = { send: async () => ({ ok: false, code: 'X' }), check: async (v) => { got.push(v); return got.length === 1 ? { ok: true, reviewId: 'r_9' } : { ok: false, code: 'NEEDS_CLICK' }; } };
+  try {
+    const api = R.httpApi(async () => ({ ok: true, status: 200, json: async () => ({}) }));
+    a.equal(api.direct(), true);
+    a.deepEqual(await api.checkNow({ start: 3, end: 9 }, false), { reviewId: 'r_9', reused: false });
+    a.deepEqual(got[0], { start: 3, end: 9, recheck: false, scope: 'full' });
+    await a.rejects(api.checkNow({ start: 3, end: 9 }), (e) => e.code === 'NEEDS_CLICK' && e.notSent === true);
+  } finally { delete globalThis.montclipReview; }
+  a.equal(R.httpApi(async () => ({ ok: true, status: 200, json: async () => ({}) })).direct(), false, 'a browser tab or Cindy: no one-click path');
+});
+
+test('QQ #326 ②: in the page, the button goes straight to the result — no send buttons are ever shown', async () => {
+  const api = R.stubApi({ direct: true }), w = mountWith(api);
+  await settle();
+  const shown = new Set();
+  w.ui.session.on(() => { for (const id of ['full', 'window', 'preview']) if (w.byReview(id).length) shown.add(id); });
+  w.button.click(); await settle(20);
+  a.equal(w.ui.session.state.phase, 'result');
+  a.equal(shown.size, 0, 'no 「发送检查」/「只发这 N 秒」/preview buttons');
+  a.ok(w.byReview('headline').length === 1);
+});
+
+test('QQ #326 ②: the main process takes the real click before it asks the engine for anything, and sends only checks it was clicked for', () => {
+  const main = read('desktop/main.js'), pre = read('desktop/view-preload.js');
+  const h = main.slice(main.indexOf('ipcMain.handle("montclip:review:check"'));
+  const body = h.slice(0, h.indexOf('\n  });'));
+  const g = body.indexOf('takeReviewGesture()'), p = body.indexOf('/api/review/prepare');
+  a.ok(g > 0 && p > g, 'the gesture is taken before prepare');
+  a.ok(body.indexOf('REVIEW_SEND_OFF') < g && body.indexOf('NO_KEY') < g, 'switch and key are checked first');
+  a.ok(!/assistant/.test(body), 'no page-reported assistant flag');
+  const sw = main.slice(main.indexOf('const sendWhenReady'), main.indexOf('ipcMain.handle("montclip:review:check"'));
+  a.ok(/clickedChecks\.has\(id\)/.test(sw) && /reviewSender\.permit\(/.test(sw) && /reviewSender\.revoke\(/.test(sw), 'permit only for a clicked check, revoked after');
+  a.ok(/check:v=>ipcRenderer\.invoke\('montclip:review:check',\{start:Number\(v\?\.start\),end:Number\(v\?\.end\),recheck:v\?\.recheck===true,scope:v\?\.scope==='window'\?'window':'full'\}\)/.test(pre), 'the preload passes the stretch and the switch only');
+});
+
+/* ── #326 after QQ 5927365621 and JJ 6928950807: the 「只发这 N 秒」 switch, the 「先看要发的内容」 page, the sound's three states ── */
+test('JJ 6928950807 (5): 「只发这 N 秒」 is a switch chosen before the click — the one click then sends only those seconds (scope window)', async () => {
+  const api = R.stubApi({ direct: true }), s = session(api);
+  await s.setWindowOnly(true);
+  a.equal(api.calls.length, 0, 'flipping the switch asks for nothing and sends nothing');
+  await s.check({ start: 20, end: 30 });
+  a.deepEqual(api.calls.filter((c) => c[0] === 'checkNow').map((c) => c[1].scope), ['window']);
+  a.deepEqual(api.calls.filter((c) => c[0] === 'prepare').map((c) => c[1].scope), ['window']);
+  a.ok(R.resultModel(s.state.raw, 'zh-CN', 10).notes.includes('这次只检查了这 10 秒，没有结合字幕文字。'));
+  await s.setWindowOnly(false); await s.check({ start: 20, end: 30 });
+  a.deepEqual(api.calls.filter((c) => c[0] === 'checkNow').map((c) => c[1].scope), ['window', 'full']);
+});
+
+test('#326: the 「先看要发的内容」 page in the desktop window — JJ final lines, the switch with its line, one 「检查这 N 秒」, no send buttons; nothing is sent from it', async () => {
+  const api = R.stubApi({ direct: true }), w = mountWith(api);
+  await settle();
+  await w.ui.session.look({ start: 20, end: 30 }); await settle();
+  a.equal(w.ui.session.state.phase, 'confirm');
+  const t = w.text();
+  a.ok(t.includes('点「检查这 10 秒」就会发出去，不会再问你一次。'), 'intro (JJ 1)');
+  a.ok(t.includes('发的时候会要求对方不拿这段内容训练模型。这是发出去时带上的要求，我们没法核实对方一定照做。'), 'training (JJ 2)');
+  a.ok(t.includes('声音会单独作为一条音轨一起发出去，视频里不带声音。'), 'sound (JJ 6a)');
+  a.equal(w.byReview('windowSwitch').length, 1);
+  a.ok(t.includes('打开后只发这 10 秒的画面和声音，不另外发字幕文字、剪辑时间点和好坏例子；画面里已经有的字幕仍会随视频发出。'), 'the line under the switch (JJ 5)');
+  a.equal(w.byReview('full').length + w.byReview('window').length, 0, 'no 「发送检查」 / 「只发这 N 秒」 buttons');
+  a.equal(w.byReview('check').length, 1); a.equal(w.byReview('check')[0].textContent, '检查这 10 秒');
+  a.equal(api.calls.filter((c) => c[0] === 'send' || c[0] === 'checkNow').length, 0, 'looking sends nothing');
+  // the switch remakes the clip for its choice, and still sends nothing
+  const cb = w.byReview('windowOnly')[0]; cb.checked = true; for (const fn of cb.listeners.change) fn({}); await settle(20);
+  a.equal(w.ui.session.state.phase, 'confirm'); a.equal(w.ui.session.state.prep.scope, 'window');
+  a.ok(w.text().includes('打开「只发这 10 秒」后，会发出去的是：'));
+  a.ok(!w.text().includes('与这段画面相交的字幕会整条发送'), 'a window clip does not promise the subtitles');
+  a.equal(api.calls.filter((c) => c[0] === 'send' || c[0] === 'checkNow').length, 0);
+  // the one button: the main process makes and sends the switch's choice; the clip on show is let go
+  w.byReview('check')[0].click(); await settle(30);
+  a.equal(w.ui.session.state.phase, 'result');
+  a.deepEqual(api.calls.filter((c) => c[0] === 'checkNow').map((c) => c[1].scope), ['window']);
+  a.equal(api.calls.filter((c) => c[0] === 'send').length, 0, 'the page never sends itself');
+  a.equal(await w.ui.session.send('full'), false, 'and has no send of its own in the desktop window');
+});
+
+test('#326: the 「先看要发的内容」 button sits beside 「检查这 N 秒」 with the v3 §5 words and opens the page; a browser tab keeps its view-only page', async () => {
+  const doc0 = fakeDoc(), bar = doc0.createElement('div'), button = doc0.createElement('button'); bar.appendChild(button); doc0.body.appendChild(bar);
+  const ui = R.mount({ doc: doc0, button, api: R.stubApi({ direct: true }), lang: () => 'zh-CN', time: () => 42, duration: () => 200, inOut: () => ({}), seek: () => {}, setInterval: () => {}, ...fast });
+  await settle();
+  const look = ui.lookButton;
+  a.ok(look && bar.children[1] === look, 'right after the check button');
+  a.equal(look.title, '先看要发的内容'); a.equal(look.attrs['aria-label'], '先看要发的内容');
+  a.ok(!look.classList.contains('hidden'));
+  look.click(); await settle(20);
+  a.equal(ui.session.state.phase, 'confirm');
+  const web = mountWith(R.stubApi());
+  await settle(); web.button.click(); await settle(20);
+  a.equal(web.ui.session.state.phase, 'confirm', 'a browser tab: the page as before (view-only rules unchanged)');
+});
+
+test('JJ 6928950807 (6): the sound in the result — three states, right after the headline; the pass sentence only when the sound was heard too; never 「声音没问题」', () => {
+  const dims = { fact: { state: 'passed' }, subtitle: { state: 'passed' }, pacing: { state: 'passed' }, packaging: { state: 'passed' } };
+  const m = (x) => R.resultModel({ status: 'passed', findings: [], dimensions: dims, ...x }, 'zh-CN', 10);
+  const heard = m({ audio: true, audioVerified: true });
+  a.equal(heard.status, 'passed'); a.equal(heard.headline, zh('passed', { n: 10 }));
+  a.equal(heard.notes[0], '声音也发出去了，对方听过这段声音。');
+  const unclear = m({ audio: true, audioVerified: false });
+  a.equal(unclear.passed, false, 'not heard for sure: never the pass sentence');
+  a.equal(unclear.notes[0], '声音发出去了，但这次没说清听没听出来，声音这一项没有结论。');
+  const none = m({ audio: false });
+  a.equal(none.passed, false); a.equal(none.notes[0], '这次没有把声音发出去，所以声音没有检查。');
+  for (const r of [heard, unclear, none]) a.ok(![r.headline, ...r.notes].some((x) => x.includes('声音没问题')));
+  const issues = R.resultModel({ status: 'issues', findings: [], dimensions: { ...dims, pacing: { state: 'issues', reason: 'x' } }, audio: true, audioVerified: false }, 'zh-CN', 10);
+  a.equal(issues.notes[0], '声音发出去了，但这次没说清听没听出来，声音这一项没有结论。');
+  a.ok(issues.dims.some((d) => d.line.includes('没发现问题')));
+  a.equal(R.resultModel({ status: 'no_result', findings: [], audio: true, sendError: true }, 'zh-CN', 10).notes.some((x) => x.includes('声音')), false, 'a send that may have failed says nothing about the sound');
+  a.equal(R.t('en', 'soundUnclear'), 'The sound went out, but the reply did not say whether it was heard, so there is no conclusion about the sound.');
+});
+
+test('JJ 6928950807: the finalized words are used word for word; no line says it shows what is sent before the click', () => {
+  const T = { buttonTip: '让 AI 看一看、听一听这 {n} 秒有没有问题。点下去就会发出去。',
+    why_DESTINATION_BLOCKED: '上次发出去以后，回来的结果不是我们指定的那个服务，所以这个项目先停发了。这次什么都没有发出去。',
+    why_DAILY_LIMIT: '今天的检查次数用完了，什么都没有发出去。明天再检查。',
+    why_CHECK_BUDGET: '这一次要发的东西超过了一次能发的上限，什么都没有发出去。',
+    tasteMemory: '好坏例子的文字只在这次打开 MontClip 期间保留，关掉就没了，下次要重新填。', windowToggle: '只发这 {n} 秒' };
+  for (const [k, v] of Object.entries(T)) a.equal(R.text['zh-CN'][k], v, k);
+  a.equal(R.text.en.buttonTip, 'Have the AI look and listen to these {n} seconds. Clicking sends it.');
+  a.ok(!/发之前先给你看|发出去之前会先给你看|可能用于训练/.test(Object.values(R.text['zh-CN']).join('\n')));
+});
+
+test('#326: the main process sends the switch scope only, and remembers a clicked check for 10 minutes', () => {
+  const main = read('desktop/main.js');
+  const h = main.slice(main.indexOf('ipcMain.handle("montclip:review:check"')), body = h.slice(0, h.indexOf('\n  });'));
+  a.ok(/checkRequest\(value\)/.test(body) && /"\/api\/review\/prepare", body\)/.test(body));
+  const { checkRequest } = require('../desktop/review-sender');
+  a.deepEqual(checkRequest({ start: 3, end: 9, scope: 'window', token: 'x', hash: 'y', assistant: true }), { start: 3, end: 9, scope: 'window' });
+  a.deepEqual(checkRequest({ start: 3, end: 9, scope: 'all', recheck: true }), { start: 3, end: 9, scope: 'full', recheck: true });
+  for (const bad of [null, {}, { start: -1, end: 2 }, { start: 5, end: 5 }, { start: 'x', end: 9 }]) a.equal(checkRequest(bad), null);
+  const sw = main.slice(main.indexOf('const sendWhenReady'), main.indexOf('ipcMain.handle("montclip:review:check"'));
+  a.ok(/10 \* 60 \* 1000/.test(sw));
+});
+
+test('#326 smoke: 「检查这 N 秒」 on the look page waits for the shown clip to be let go — an engine still busy with it never sees the new check (not 「现在正在忙别的」)', async () => {
+  const api = R.stubApi({ direct: true, cancelDelay: 30 }), live = api.live, prep = api.prepare;
+  api.prepare = async (b) => { if ([...live.values()].some((r) => r.state === 'ready' || r.state === 'rendering')) { const e = new Error('busy'); e.code = 'BUSY'; throw e; } return prep.call(api, b); };
+  const s = session(api);
+  await s.look({ start: 20, end: 30 });
+  a.equal(s.state.phase, 'confirm');
+  await s.checkFromLook();
+  a.equal(s.state.phase, 'result');
+  a.notEqual(s.state.raw.reason, 'BUSY');
+  a.equal(R.resultModel(s.state.raw, 'zh-CN', 10).status, 'issues');
+  a.equal(api.calls.filter((c) => c[0] === 'checkNow').length, 1);
 });
