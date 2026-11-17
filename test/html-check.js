@@ -312,7 +312,8 @@ function exprEnd(src, start) {
   }
   return src.length;
 }
-/** every HTML sink of `file` whose markup does not pass: x.innerHTML / x.outerHTML (= or +=), insertAdjacentHTML(pos, markup),
+/** every HTML sink of `file` whose markup does not pass: x.innerHTML / x.outerHTML / x.srcdoc (= or +=), insertAdjacentHTML(pos, markup),
+ *  setHTMLUnsafe(markup), parseFromString(markup, …), createContextualFragment(markup),
  *  document.write(markup). A variable passes when every assignment to it from its declaration down to the sink passes.
  *  opts.allow / opts.numeric as for findings(); a sink entry is {sink: <the sink's markup expression>, at, why}. */
 function sinkFindings(file, opts = {}) {
@@ -332,7 +333,9 @@ function sinkFindings(file, opts = {}) {
   const entries = (opts.allow || []).filter((a) => a.sink).map((a) => ({ ...a, sink: a.sink.replace(/\s+/g, ' ').trim(), used: 0 }));
   const lineOf = (pos) => src.slice(0, pos).split('\n').length;
   const out = [];
-  const re = /\.(?:innerHTML|outerHTML)\s*\+?=(?!=)\s*|\binsertAdjacentHTML\(\s*(?:"[^"]*"|'[^']*'|[\w$.]+)\s*,\s*|\bdocument\.write(?:ln)?\(\s*/g;
+  // also the newer and the less common ones (QQ, #373 review): setHTMLUnsafe(markup), DOMParser.parseFromString(markup, …),
+  // Range.createContextualFragment(markup) and an iframe's srcdoc
+  const re = /\.(?:innerHTML|outerHTML|srcdoc)\s*\+?=(?!=)\s*|\binsertAdjacentHTML\(\s*(?:"[^"]*"|'[^']*'|[\w$.]+)\s*,\s*|\bdocument\.write(?:ln)?\(\s*|\.(?:setHTMLUnsafe|parseFromString|createContextualFragment)\(\s*/g;
   let m;
   while ((m = re.exec(src))) {
     const st = m.index + m[0].length, en = exprEnd(src, st), rhs = src.slice(st, en).trim();
