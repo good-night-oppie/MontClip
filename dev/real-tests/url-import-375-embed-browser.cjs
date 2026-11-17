@@ -14,6 +14,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const http = require("node:http");
 const https = require("node:https");
 const crypto = require("node:crypto");
 const { spawn, execFileSync } = require("node:child_process");
@@ -51,8 +52,15 @@ test("#375 (2) in the real page: 「不要」, Esc and 「下载」 on the assis
   const exited = new Promise((r) => child.on("exit", r));
   t.after(async () => { endTree(child); await exited; });
   const base = `http://127.0.0.1:${port}`;
+  // wait for the engine (a plain request to 127.0.0.1 only — the network scan in scripts/pr-sop reads it as local)
+  const workerHeaders = { "X-MontClip-Session": token };
+  const status = () => new Promise((resolve) => {
+    const req = http.get({ host: "127.0.0.1", port, path: "/api/project", headers: workerHeaders });
+    req.on("response", (res) => { res.resume(); resolve(res.statusCode); });
+    req.on("error", () => resolve(0));
+  });
   for (let i = 0; i < 400; i++) {
-    try { if ((await fetch(base + "/api/project", { headers: { "X-MontClip-Session": token } })).status === 200) break; } catch { }
+    if ((await status()) === 200) break;
     await new Promise((r) => setTimeout(r, 50));
   }
   // the assistant's MCP process, embedded the same way
