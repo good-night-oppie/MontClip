@@ -25,7 +25,7 @@ const JOB_HEARTBEAT_MS = 5_000;
 const TAB_SILENT_MS = 20_000;
 const STALL_MS = 120_000;            // a headless page (nothing throttles it) reports at least every few seconds
 const KEEP_MS = 60 * 60 * 1000;
-const KIND_NAME = { scopes: "scope reading", track: "tracking job", transcribe: "transcription", lyrics: "lyrics card", export: "export" };
+const KIND_NAME = { scopes: "scope reading", track: "tracking job", transcribe: "transcription", lyrics: "lyrics card", importurl: "download question", export: "export" };
 
 /* MontClip#320, a safety net and not the fix (#348 is the fix): the headless export's browser grew without bound, and
    on europa one export took the whole machine (31 GiB, no swap) with it five times in a day. A runaway browser now ends
@@ -299,11 +299,13 @@ function createExportJobs(opts) {
      *  when she agrees (fablecut_lyrics_apply) — always in an open tab: a headless page has no one to ask.
      *  A scopes job's `image` flag also returns that still as a JPEG data URL,
      *  which is how fablecut_frame shows an agent the composed program picture. */
-    request({ project = null, session = null, kind = "export", range, preview = false, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
+    request({ project = null, session = null, kind = "export", range, preview = false, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, importUrl = null, image = false }) {
       if (!["auto", "tab", "headless"].includes(where)) throw Object.assign(new Error("where must be auto, tab or headless"), { code: 400 });
       assertWhere(where);
-      if (!["export", "scopes", "track", "transcribe", "lyrics"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track, transcribe or lyrics"), { code: 400 });
-      if (kind === "lyrics" && where === "headless") throw Object.assign(new Error("the lyrics card needs an open editor window: someone has to answer it"), { code: 409, errorCode: "EDITOR_NOT_READY" });
+      if (!["export", "scopes", "track", "transcribe", "lyrics", "importurl"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track, transcribe, lyrics or importurl"), { code: 400 });
+      const asks = kind === "lyrics" || kind === "importurl";   // a card the streamer answers: an open editor window, never headless
+      if (asks && where === "headless") throw Object.assign(new Error(`the ${KIND_NAME[kind]} needs an open editor window: someone has to answer it`), { code: 409, errorCode: "EDITOR_NOT_READY" });
+      if (kind === "importurl" && !(importUrl && typeof importUrl.url === "string" && typeof importUrl.host === "string")) throw Object.assign(new Error("an importurl job needs {url, host}"), { code: 400 });
       if (time != null && !(Number.isFinite(time) && time >= 0)) throw Object.assign(new Error("time must be seconds ≥ 0"), { code: 400 });
       /* #321: a quick sample takes its own seconds, {start, end} on the timeline, without touching the project's IN / OUT
          (which would make a revision and, forgotten, a cut-off export later). */
@@ -321,7 +323,7 @@ function createExportJobs(opts) {
       { code: 409, errorCode: "JOB_BUSY", busy: { id: busy.id, kind: busy.kind, status: busy.status, via: busy.via, progress: busy.progress, since: busy.created } });
       const task = session ? { project: project || null, session } : null;
       const tabs = opts.editors(task);
-      if (kind === "lyrics" && !tabs) throw Object.assign(new Error("no editor window is open — the lyrics card needs one: open the editor, then try again"), { code: 409, errorCode: "EDITOR_NOT_READY" });
+      if (asks && !tabs) throw Object.assign(new Error(`no editor window is open — the ${KIND_NAME[kind]} needs one: open the editor, then try again`), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (where === "tab" && !tabs) throw Object.assign(new Error("no editor tab is open — open the editor, or use where:\"headless\""), { code: 409 });
       const now = clock();
       const j = {
@@ -334,6 +336,7 @@ function createExportJobs(opts) {
         track: kind === "track" && track ? track : null,
         transcribe: kind === "transcribe" && transcribe ? transcribe : null,
         lyrics: kind === "lyrics" && lyrics ? lyrics : null,
+        importUrl: kind === "importurl" ? { url: importUrl.url, host: importUrl.host } : null,
         image: kind === "scopes" && !!image,
         via: where === "headless" || (where === "auto" && !tabs) ? "headless" : "tab",
         created: now, updated: now,
@@ -346,7 +349,7 @@ function createExportJobs(opts) {
     },
     get(id) { const j = jobs.get(id); return j ? view(j) : null; },
     /** What a tab needs to run the job (headless pages fetch it by id). */
-    ticket(id) { const j = jobs.get(id); return j ? { id: j.id, project: j.project, session: j.session, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, lyrics: j.lyrics || null, image: !!j.image, status: j.status } : null; },
+    ticket(id) { const j = jobs.get(id); return j ? { id: j.id, project: j.project, session: j.session, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, lyrics: j.lyrics || null, importUrl: j.importUrl || null, image: !!j.image, status: j.status } : null; },
     /** First tab to claim a pending job runs it. */
     claim(id, body = {}) {
       const { tabId, hidden } = body;
