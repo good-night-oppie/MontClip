@@ -2522,7 +2522,14 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 - `POST /api/upload?name=foo.mp4` — raw body saved into ./media, returns `{src}`. The file keeps its name,
   Chinese included; only what Windows refuses changes (`Delivery.mediaFileName`, the rule exported files follow), and
   a name already taken gets `_1`, `_2`, …. URL imports and `fablecut_import_media` name their files the same way.
-  MP4/MOV/M4V uploads are auto-remuxed with `+faststart` (needs ffmpeg on PATH).
+  MP4/MOV/M4V uploads are auto-remuxed with `+faststart` (needs ffmpeg on PATH). A name a browser would run or render
+  as a page (`.js`, `.mjs`, `.html`, `.htm`, `.xhtml`, `.xml`, `.css`, `.wasm`, …) is refused with **415**
+  `{code:"UPLOAD_TYPE_REFUSED"}` before anything is kept (#366). Whatever `media/`, `library/`, `exports/`, `previews/`
+  and the proxies hold is served with `X-Content-Type-Options: nosniff`, and with its own type only when it is footage,
+  a picture or a font — anything else goes out as `application/octet-stream`. The editor page itself (`index.html`)
+  carries a `Content-Security-Policy` in the browser and in Cindy too: its own scripts only (and the `blob:` /
+  WebAssembly MediaPipe needs), no inline script, no eval; other sites only Google Fonts and cdn.jsdelivr.net, which the
+  editor reaches only after the streamer agrees. The desktop window keeps its own, stricter policy.
   Files copied straight into ./media by external tools skip this — remux big ones
   yourself (`ffmpeg -i in.mp4 -c copy -movflags +faststart out.mp4`) or playback stalls.
 - `POST /api/import-url` — body `{url:"https://…"}` downloads the file into
