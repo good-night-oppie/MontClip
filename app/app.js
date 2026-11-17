@@ -17795,9 +17795,9 @@ function shapeSectionHtml(c, p, row) {
         <input type="range" data-sk="${escapeHtml(k)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(now[k])}">
         <input type="number" class="cp-num" data-sknum="${escapeHtml(k)}" step="${escapeHtml(step)}" value="${fmtG(now[k], step)}">${kbtn(k)}</div>`;
     };
-    const color = (k, lab) => `<div class="insp-row"><label>${lab}</label><span class="insp-ctrls">
-        <input type="color" data-scolor="${k}" value="${now[k] && now[k] !== "none" ? now[k].slice(0, 7) : "#ffffff"}">
-        ${btn(`data-snone="${k}"`, "None", `No ${lab.toLowerCase()}`, now[k] === "none")}${kbtn(k)}</span></div>`;
+    const color = (k, lab) => `<div class="insp-row"><label>${escapeHtml(lab)}</label><span class="insp-ctrls">
+        <input type="color" data-scolor="${escapeHtml(k)}" value="${escapeHtml(now[k] && now[k] !== "none" ? now[k].slice(0, 7) : "#ffffff")}">
+        ${btn(`data-snone="${escapeHtml(k)}"`, "None", `No ${escapeHtml(lab.toLowerCase())}`, now[k] === "none")}${kbtn(k)}</span></div>`;
     const path = ui.sel, inGroup = path.length > 1, siblings = inGroup ? Motion.getItem(list, path.slice(0, -1)).items : list, i = path[path.length - 1];
     const own = Motion.OWN[raw.type];
     html += `<div class="cl-row"><input type="text" class="cl-name" data-sname value="${escapeHtml(raw.name || "")}" placeholder="${escapeHtml(shapeItemLabel({ type: raw.type }, path))}" maxlength="40" title="Item name">
@@ -17812,12 +17812,12 @@ function shapeSectionHtml(c, p, row) {
         ${raw.keys ? btn('data-sact="clearkeys"', "Clear keys", "Remove every key (keeps the item as it is at the playhead)") : ""}</div>
       ${srow("x")}${srow("y")}${srow("rotation")}${srow("scale")}${srow("opacity")}
       ${own.includes("w") ? srow("w") + srow("h") : ""}${own.includes("radius") ? srow("radius") : ""}
-      ${own.includes("sides") ? `<div class="insp-row"><label>Points</label><input type="number" data-ssides min="3" max="64" step="1" value="${raw.sides}"></div>` : ""}
+      ${own.includes("sides") ? `<div class="insp-row"><label>Points</label><input type="number" data-ssides min="3" max="64" step="1" value="${escapeHtml(raw.sides)}"></div>` : ""}
       ${own.includes("inner") ? srow("inner") : ""}
       ${raw.type === "path" ? `<div class="insp-row"><label>Closed</label><input type="checkbox" data-sclosed ${raw.closed !== false ? "checked" : ""}>${kbtn("points")}</div>` : ""}
       ${raw.type !== "group" ? color("fill", "Fill") + color("stroke", "Stroke") + srow("strokeWidth") +
-        `<div class="insp-row"><label>Ends / joins</label><span class="insp-ctrls"><select data-scap>${Motion.CAPS.map((v) => `<option ${raw.lineCap === v ? "selected" : ""}>${v}</option>`).join("")}</select>
-          <select data-sjoin>${Motion.JOINS.map((v) => `<option ${raw.lineJoin === v ? "selected" : ""}>${v}</option>`).join("")}</select></span></div>` : ""}
+        `<div class="insp-row"><label>Ends / joins</label><span class="insp-ctrls"><select data-scap>${Motion.CAPS.map((v) => `<option ${raw.lineCap === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>
+          <select data-sjoin>${Motion.JOINS.map((v) => `<option ${raw.lineJoin === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select></span></div>` : ""}
       ${srow("trimStart")}${srow("trimEnd")}${srow("trimOffset")}
       <p class="cl-note">On the monitor: drag the item to move it, the knob turns it (Shift: 15° steps), the corners resize it${raw.type === "line" || raw.type === "path"
         ? "; drag a point to move it, its handles to curve it (Alt: break the pair), Alt-drag a point to pull new handles" + (raw.type === "path" ? ", Ctrl-click the outline to add a point, double-click a point to remove it" : "")
@@ -18413,14 +18413,14 @@ function drawTextOnPath(c, p, local) {
 }
 function textPathSectionHtml(c, p, row) {
   const has = !!clipTextPath(c), editing = has && shapeUi.clip === c.id && samePath(shapeUi.sel, [0]);
-  const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
+  const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${escapeHtml(title)}" ${dis ? "disabled" : ""}>${escapeHtml(label)}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
-    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
+    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${escapeHtml(k)}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${escapeHtml(pre.label.toLowerCase())}`)).join("")}
       ${btn('data-tpath="pen"', uiText("term.pen"), "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
         <span class="val" data-val="pathOffset" data-unit="%">${fmtInspNum(p.pathOffset, 0.5)}%</span>`, "pathOffset")}
-      ${row("Align", `<select data-k="pathAlign">${["start", "center", "end"].map((v) => `<option value="${v}" ${(p.pathAlign || "start") === v ? "selected" : ""}>${v}</option>`).join("")}</select>`, "pathAlign")}
+      ${row("Align", `<select data-k="pathAlign">${["start", "center", "end"].map((v) => `<option value="${escapeHtml(v)}" ${(p.pathAlign || "start") === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>`, "pathAlign")}
       <p class="cl-note">Each line runs along the path, the next one a line below it. Every text animation plays along the path.</p>`
     : `<p class="cl-note">Set the title along a line, an arc, a circle, a wave or a path you draw.</p>`}
   </div>`;
@@ -18599,12 +18599,12 @@ els.preview.addEventListener("dblclick", (e) => {
 /** The Inspector's Motion section: motion path, auto-orient and motion blur. */
 function motionSectionHtml(c, p, row) {
   const keys = Motion.posKeys(c).length, curved = Motion.hasPathHandles(c);
-  const btn = (attr, label, title, dis) => `<button type="button" class="btn tiny" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
+  const btn = (attr, label, title, dis) => `<button type="button" class="btn tiny" ${attr} title="${escapeHtml(title)}" ${dis ? "disabled" : ""}>${escapeHtml(label)}</button>`;
   return `<div class="insp-section" data-motion-section><h3>Motion</h3>
     <div class="insp-row"><label title="Position keys (X and Y keyed at the same time) make a path you can bend on the monitor">Path</label><span class="insp-ctrls">
       ${btn("data-path-act=\"smooth\"", "Smooth", "Curve the path smoothly through every position key", keys < 2)}
       ${btn("data-path-act=\"straight\"", "Straight", "Straight lines between the position keys", !curved)}
-      <span class="cl-note">${keys >= 2 ? `${keys} position keys${curved ? ", curved" : ""}` : "key X and Y at two times"}</span></span></div>
+      <span class="cl-note">${keys >= 2 ? `${escapeHtml(keys)} position keys${curved ? ", curved" : ""}` : "key X and Y at two times"}</span></span></div>
     ${row("Auto-orient", `<input type="checkbox" data-k="autoOrient" ${p.autoOrient ? "checked" : ""} title="Turn the clip with its direction of travel (its Rotation adds on top)">`, "autoOrient")}
     ${c.kind !== "null" ? row("Motion blur", `<input type="range" data-k="motionBlur" min="0" max="720" step="15" value="${+p.motionBlur || 0}" title="Shutter angle — 180° is the film look, 0 is off">
       <span class="val" data-val="motionBlur" data-unit="°">${+p.motionBlur || 0}°</span>`, "motionBlur")
@@ -19317,7 +19317,7 @@ function askNetConsent(kind, titleText, lines, denyText, allowText) {
 function fontFamilyRowsHtml(p, row) {
   const desk = fontDesktop();
   const fontGroup = (label, fonts) => fonts.length
-    ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
+    ? `<optgroup label="${escapeHtml(label)}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${escapeHtml(f)}</option>`).join("")}</optgroup>` : "";
   const google = [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])]
     .filter((f) => !desk || (!runtime.customFonts.includes(f) && fontHere(f)));
   const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...google];
@@ -19325,7 +19325,7 @@ function fontFamilyRowsHtml(p, row) {
         ${fontGroup("System", SYSTEM_FONTS)}
         ${fontGroup("Library fonts", runtime.customFonts)}
         ${fontGroup("Google fonts", google)}
-        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
+        ${known.includes(p.font) ? "" : `<option selected>${escapeHtml(p.font)}</option>`}
       </select>`, "", "font")}
       ${desk ? "" : row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
         <button class="btn tiny" data-action="gfont-load">Load</button>`)}`;
@@ -19644,7 +19644,7 @@ function populateExportProfileSelect() {
   if (choice.kind === "profile" && !ids.includes(choice.id)) ids.unshift(choice.id);
   html += `<optgroup label="Encoding profiles (encoding-profiles.json)">${ids.map((id) => {
     const p = encodeProfiles.profiles[id];
-    return opt("p:" + id, p ? (p.label || id) : `${id} (not defined on the server)`);
+    return opt("p:" + id, p ? (p.label || id) : `${escapeHtml(id)} (not defined on the server)`);
   }).join("")}</optgroup>`;
   sel.innerHTML = html;
   sel.value = cur;
@@ -21530,23 +21530,23 @@ function renderQueue() {
             : q.status === "cancelled" ? uiText("qStopped") : uiText("qWaiting");
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
-      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
-      q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${q.id}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
-      q.bg && q.status === "running" ? `<button type="button" class="btn tiny" data-q-bgcancel="${q.id}">${escapeHtml(uiText("term.cancel"))}</button>` : "",
+      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${escapeHtml(q.id)}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
+      q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${escapeHtml(q.id)}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
+      q.bg && q.status === "running" ? `<button type="button" class="btn tiny" data-q-bgcancel="${escapeHtml(q.id)}">${escapeHtml(uiText("term.cancel"))}</button>` : "",
       // a background export is started again from Export (a new copy of the timeline), not from here
-      !q.bg && (q.status === "failed" || q.status === "cancelled") ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
-      blank ? `<button type="button" class="btn tiny" data-q-copy="${q.id}" title="${escapeHtml(uiText("copyProblemNote"))}">${escapeHtml(uiText("btnCopyProblem"))}</button>` : "",
-      q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
+      !q.bg && (q.status === "failed" || q.status === "cancelled") ? `<button type="button" class="btn tiny" data-q-retry="${escapeHtml(q.id)}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
+      blank ? `<button type="button" class="btn tiny" data-q-copy="${escapeHtml(q.id)}" title="${escapeHtml(uiText("copyProblemNote"))}">${escapeHtml(uiText("btnCopyProblem"))}</button>` : "",
+      q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${escapeHtml(q.id)}" title="Remove from the queue">✕</button>` : "",
     ].join("");
-    return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
+    return `<li class="${escapeHtml(q.status)}" data-q="${escapeHtml(q.id)}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
       `<span class="xq-sub">${escapeHtml(sub)} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(exportReportLine(q.report))}</span>` : "") +
       (q.note ? `<span class="xq-note">${escapeHtml(q.note)}</span>` : "") +
       (q.report && q.report.checks.some((c) => !c.ok && c.code === "AUDIO_ONE_SIDED" && oneSidedWarning(c).ids)
-        ? `<button type="button" class="btn tiny" data-q-fix="${q.id}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
-      `</div><div class="xq-actions">${actions}</div></li>`;
+        ? `<button type="button" class="btn tiny" data-q-fix="${escapeHtml(q.id)}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
+      `</div><div class="xq-actions">${escapeHtml(actions)}</div></li>`;
   }).join("");
 }
 function renderQueueProgress() {
@@ -22934,7 +22934,7 @@ function syncAspectSel() {
   if (!els.aspectSel) return;
   const i = ASPECT_PRESETS.findIndex((a) => a.w === project.width && a.h === project.height);
   els.aspectSel.innerHTML =
-    ASPECT_PRESETS.map((a, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${a.label}</option>`).join("") +
+    ASPECT_PRESETS.map((a, j) => `<option value="${escapeHtml(j)}" ${j === i ? "selected" : ""}>${escapeHtml(a.label)}</option>`).join("") +
     // the size comes from project.json, which an agent, another tool or a backup can write: escaped (as the project cards, #68)
     (i < 0 ? `<option value="custom" selected>${escapeHtml(`Custom · ${project.width}×${project.height}`)}</option>` : "");
 }
@@ -22943,9 +22943,9 @@ function syncFpsSel() {
   const fps = Number(project.fps);
   const i = FPS_PRESETS.findIndex((v) => v === fps);
   els.fpsSel.innerHTML =
-    FPS_PRESETS.map((v, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${v} fps</option>`).join("") +
+    FPS_PRESETS.map((v, j) => `<option value="${escapeHtml(j)}" ${j === i ? "selected" : ""}>${escapeHtml(v)} fps</option>`).join("") +
     (i < 0 && Number.isFinite(fps) && fps > 0
-      ? `<option value="custom" selected>Custom · ${fps} fps</option>`
+      ? `<option value="custom" selected>Custom · ${escapeHtml(fps)} fps</option>`
       : "");
 }
 els.aspectSel.addEventListener("change", () => {
@@ -23844,9 +23844,9 @@ function renderColorPage(force = false) {
   const g = Color.fullGrade(targetGrade(c)), P = Color.GRADE_PARAMS, locked = isGroupLocked(c), allOn = c.props.grade?.on !== false;
   const num = (k) => {
     const d = P[k];
-    return `<div class="insp-row cp-row"><label class="cp-label" data-greset="${k}" title="Double-click: reset">${d.label}</label>
-      <input type="range" data-g="${k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${g[k]}">
-      <input type="number" class="cp-num" data-gnum="${k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${fmtG(g[k], d.step)}"></div>`;
+    return `<div class="insp-row cp-row"><label class="cp-label" data-greset="${escapeHtml(k)}" title="Double-click: reset">${escapeHtml(d.label)}</label>
+      <input type="range" data-g="${escapeHtml(k)}" min="${escapeHtml(d.min)}" max="${escapeHtml(d.max)}" step="${escapeHtml(d.step)}" value="${escapeHtml(g[k])}">
+      <input type="number" class="cp-num" data-gnum="${escapeHtml(k)}" min="${escapeHtml(d.min)}" max="${escapeHtml(d.max)}" step="${escapeHtml(d.step)}" value="${fmtG(g[k], d.step)}"></div>`;
   };
   const nSel = selectedClips().filter(isGradable).length;
   root.innerHTML = `
@@ -23857,17 +23857,17 @@ function renderColorPage(force = false) {
     </div>
     <div class="cp-head cp-tools">
       <button type="button" class="btn tiny" data-gact="copy" title="Copy this clip's grade">Copy</button>
-      <button type="button" class="btn tiny" data-gact="paste" ${colorState.clipboard ? "" : "disabled"} title="Paste the copied grade onto the selected clips">Paste${nSel > 1 ? ` → ${nSel}` : ""}</button>
+      <button type="button" class="btn tiny" data-gact="paste" ${colorState.clipboard ? "" : "disabled"} title="Paste the copied grade onto the selected clips">Paste${nSel > 1 ? ` → ${escapeHtml(nSel)}` : ""}</button>
       <button type="button" class="btn tiny" data-gact="reset" title="Reset the whole grade, layers included">Reset all</button>
     </div>
     ${layersStripHtml(c)}
     ${layerSectionsHtml(c)}
     <div class="cp-wheels">${Color.WHEELS.map((w) => `
-      <div class="cw" data-wheel="${w}">
-        <div class="cw-head"><span class="cp-label" data-wreset="${w}" title="Double-click: reset">${WHEEL_LABEL[w]}</span></div>
-        <canvas class="cw-disc" data-wdisc="${w}" width="200" height="200" title="Drag to tint (Shift: fine) · double-click: reset colour"></canvas>
-        <input type="range" class="cw-master" data-wmaster="${w}" min="${-WHEEL_MASTER[w]}" max="${WHEEL_MASTER[w]}" step="0.005" value="${g[w][3]}" title="Master · double-click: reset">
-        <div class="cw-vals" data-wvals="${w}"></div>
+      <div class="cw" data-wheel="${escapeHtml(w)}">
+        <div class="cw-head"><span class="cp-label" data-wreset="${escapeHtml(w)}" title="Double-click: reset">${escapeHtml(WHEEL_LABEL[w])}</span></div>
+        <canvas class="cw-disc" data-wdisc="${escapeHtml(w)}" width="200" height="200" title="Drag to tint (Shift: fine) · double-click: reset colour"></canvas>
+        <input type="range" class="cw-master" data-wmaster="${escapeHtml(w)}" min="${escapeHtml(-WHEEL_MASTER[w])}" max="${escapeHtml(WHEEL_MASTER[w])}" step="0.005" value="${escapeHtml(g[w][3])}" title="Master · double-click: reset">
+        <div class="cw-vals" data-wvals="${escapeHtml(w)}"></div>
       </div>`).join("")}
     </div>
     <div class="insp-section"><h3>Exposure &amp; balance</h3>${num("exposure")}${num("temp")}${num("tint")}</div>
@@ -24122,10 +24122,10 @@ function curvesSectionHtml() {
   const tab = colorState.curveTab, ch = colorState.curveCh;
   return `<div class="insp-section cp-curves"><h3>Curves</h3>
     <div class="cv-tabs">${Object.entries(CURVE_TABS).map(([k, l]) =>
-      `<button type="button" class="btn tiny${k === tab ? " toggle on" : ""}" data-cvtab="${k}">${l}</button>`).join("")}</div>
+      `<button type="button" class="btn tiny${k === tab ? " toggle on" : ""}" data-cvtab="${escapeHtml(k)}">${escapeHtml(l)}</button>`).join("")}</div>
     <div class="cv-bar">
       ${tab === "curves" ? Color.CURVE_CHANNELS.map((k) =>
-        `<button type="button" class="btn tiny cv-ch${k === ch ? " toggle on" : ""}" data-cvch="${k}" style="--cv:${CURVE_COLORS[k]}" title="${k === "y" ? "Luma — brightness only, colour kept" : k.toUpperCase() + " channel"}">${k.toUpperCase()}</button>`).join("") : `<span class="cv-label">${Color.HUE_CURVES[tab].label}</span>`}
+        `<button type="button" class="btn tiny cv-ch${k === ch ? " toggle on" : ""}" data-cvch="${escapeHtml(k)}" style="--cv:${escapeHtml(CURVE_COLORS[k])}" title="${escapeHtml(k === "y" ? "Luma — brightness only, colour kept" : k.toUpperCase() + " channel")}">${escapeHtml(k.toUpperCase())}</button>`).join("") : `<span class="cv-label">${escapeHtml(Color.HUE_CURVES[tab].label)}</span>`}
       <span class="cv-sp"></span>
       <button type="button" class="btn tiny${colorState.curvePick ? " toggle on" : ""}" data-cvact="pick" title="Click the monitor to mark that colour's ${tab === "curves" ? "level" : tab === "satLuma" ? "saturation" : "hue"} on the curve">Pick</button>
       <button type="button" class="btn tiny" data-cvact="reset" title="Reset this curve">Reset</button>
@@ -24355,9 +24355,9 @@ function writeMask(c, set) {
 }
 function layersStripHtml(c) {
   const ls = gradeLayers(c), k = colorState.layer;
-  const chip = (i, label, off) => `<button type="button" class="btn tiny cl-chip${i === k ? " toggle on" : ""}${off ? " off" : ""}" data-layer="${i}"
+  const chip = (i, label, off) => `<button type="button" class="btn tiny cl-chip${i === k ? " toggle on" : ""}${off ? " off" : ""}" data-layer="${escapeHtml(i)}"
     title="${i < 0 ? "The primary grade — the whole picture" : "Layer: graded where its qualifier and mask select"}">${escapeHtml(label)}</button>`;
-  return `<div class="cp-layers">${chip(-1, "Primary")}${ls.map((l, i) => chip(i, l.name || `Layer ${i + 1}`, l.on === false)).join("")}
+  return `<div class="cp-layers">${chip(-1, "Primary")}${ls.map((l, i) => chip(i, l.name || `Layer ${escapeHtml(i + 1)}`, l.on === false)).join("")}
     <button type="button" class="btn tiny" data-lact="add" ${ls.length >= Color.MAX_LAYERS ? "disabled" : ""} title="Add a layer: a correction limited by a qualifier and / or a mask">+ Layer</button></div>`;
 }
 function layerSectionsHtml(c) {
@@ -24366,17 +24366,17 @@ function layerSectionsHtml(c) {
   const q = l.qualifier || {}, m = maskNow(c), i = colorState.layer, n = gradeLayers(c).length;
   const qrow = (key) => {
     const on = !!q[key], vals = q[key] || QUAL_DEFAULT[key];
-    return `<div class="cq-block${on ? "" : " off"}"><label class="cq-on"><input type="checkbox" data-qon="${key}" ${on ? "checked" : ""}> ${QUAL_LABEL[key]}</label>
-      ${QUAL_ROWS[key].map(([lab, min, max, step], j) => `<div class="insp-row cp-row"><label class="cp-label">${lab}</label>
-        <input type="range" class="${key === "hue" && j === 0 ? "cq-hue" : ""}" data-q="${key}.${j}" min="${min}" max="${max}" step="${step}" value="${vals[j]}" ${on ? "" : "disabled"}>
-        <input type="number" class="cp-num" data-qnum="${key}.${j}" min="${min}" max="${max}" step="${step}" value="${vals[j]}" ${on ? "" : "disabled"}></div>`).join("")}</div>`;
+    return `<div class="cq-block${on ? "" : " off"}"><label class="cq-on"><input type="checkbox" data-qon="${escapeHtml(key)}" ${on ? "checked" : ""}> ${escapeHtml(QUAL_LABEL[key])}</label>
+      ${QUAL_ROWS[key].map(([lab, min, max, step], j) => `<div class="insp-row cp-row"><label class="cp-label">${escapeHtml(lab)}</label>
+        <input type="range" class="${key === "hue" && j === 0 ? "cq-hue" : ""}" data-q="${escapeHtml(key)}.${escapeHtml(j)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(vals[j])}" ${on ? "" : "disabled"}>
+        <input type="number" class="cp-num" data-qnum="${escapeHtml(key)}.${escapeHtml(j)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(vals[j])}" ${on ? "" : "disabled"}></div>`).join("")}</div>`;
   };
   const keyed = m && l.mask.keys ? l.mask.keys.length : 0, onKey = m && maskKeyAt(l.mask, clipLocalT(c)) >= 0;
   const mrow = (p) => {
     const [lab, min, max, step] = MASK_ROWS[p];
-    return `<div class="insp-row cp-row"><label class="cp-label">${lab}</label>
-      <input type="range" data-m="${p}" min="${min}" max="${max}" step="${step}" value="${m[p]}">
-      <input type="number" class="cp-num" data-mnum="${p}" min="${min}" max="${max}" step="${step}" value="${fmtG(m[p], step)}"></div>`;
+    return `<div class="insp-row cp-row"><label class="cp-label">${escapeHtml(lab)}</label>
+      <input type="range" data-m="${escapeHtml(p)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${escapeHtml(m[p])}">
+      <input type="number" class="cp-num" data-mnum="${escapeHtml(p)}" min="${escapeHtml(min)}" max="${escapeHtml(max)}" step="${escapeHtml(step)}" value="${fmtG(m[p], step)}"></div>`;
   };
   return `<div class="insp-section cp-layer">
       <div class="cl-row"><input type="text" class="cl-name" data-lname value="${escapeHtml(l.name || "")}" maxlength="40" title="Layer name">
@@ -24393,11 +24393,11 @@ function layerSectionsHtml(c) {
       ${qrow("hue")}${qrow("sat")}${qrow("luma")}
     </div>
     <div class="insp-section cp-mask"><h3>Mask</h3>
-      <div class="cl-row">${["none", "ellipse", "rect", "poly"].map((s) => `<button type="button" class="btn tiny${(m ? m.shape : "none") === s ? " toggle on" : ""}" data-mshape="${s}">${s === "none" ? "None" : s === "rect" ? "Rect" : s[0].toUpperCase() + s.slice(1)}</button>`).join("")}
-        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">${uiText("term.draw")}</button>
+      <div class="cl-row">${["none", "ellipse", "rect", "poly"].map((s) => `<button type="button" class="btn tiny${(m ? m.shape : "none") === s ? " toggle on" : ""}" data-mshape="${escapeHtml(s)}">${escapeHtml(s === "none" ? "None" : s === "rect" ? "Rect" : s[0].toUpperCase() + s.slice(1))}</button>`).join("")}
+        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">${escapeHtml(uiText("term.draw"))}</button>
         ${m ? `<button type="button" class="btn tiny${m.invert ? " toggle on" : ""}" data-mact="invert" title="Grade outside the shape">Invert</button>` : ""}</div>
       ${m ? `<div class="cl-row"><button type="button" class="btn tiny${onKey ? " toggle on" : ""}" data-mact="key" title="${onKey ? "Remove the key at the playhead" : "Key the shape at the playhead — with keys, every change keys"}">◆ Key</button>
-        <span class="cl-note">${keyed ? `${keyed} key${keyed > 1 ? "s" : ""}` : "not animated"}</span>
+        <span class="cl-note">${keyed ? `${escapeHtml(keyed)} key${keyed > 1 ? "s" : ""}` : "not animated"}</span>
         ${keyed ? `<button type="button" class="btn tiny" data-mact="clearkeys" title="Remove every key (keeps the shape at the playhead)">Clear keys</button>` : ""}</div>
       ${mrow("x")}${mrow("y")}${m.shape !== "poly" ? mrow("w") + mrow("h") : ""}${mrow("rotation")}${mrow("feather")}
       <p class="cl-note">Drag it on the monitor: inside moves, handles resize, the knob rotates${m.points ? "; Ctrl-click adds a point, double-click one removes it" : ""}.</p>` : colorState.maskDraw ? `<p class="cl-note">Drag around what this layer should grade. Esc cancels.</p>` : ""}
@@ -24777,7 +24777,7 @@ function buildScopeSlots() {
   scopes.built = true;
   scopes.els = [...document.querySelectorAll("#scopesPanel .scope-slot")].map((el, i) => {
     el.innerHTML = `<div class="scope-head"><select data-scope-kind aria-label="Scope">${Object.entries(SCOPE_KINDS).map(([k, l]) =>
-      `<option value="${k}"${k === scopes.slots[i] ? " selected" : ""}>${l}</option>`).join("")}</select></div><canvas class="scope-cv"></canvas>`;
+      `<option value="${escapeHtml(k)}"${k === scopes.slots[i] ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div><canvas class="scope-cv"></canvas>`;
     const sel = el.querySelector("select");
     sel.addEventListener("change", () => {
       scopes.slots[i] = sel.value;
