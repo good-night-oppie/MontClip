@@ -1841,7 +1841,7 @@ function syncExportFrameSel() {
   const i = exportFrameAspectIndex(ef);
   let html = EXPORT_FRAME_ASPECTS.map((a, j) => {
     const sel = ef ? (i === j) : (j === 0);
-    return `<option value="${j}" ${sel ? "selected" : ""}>${escapeHtml(uiText("own." + a.key))}</option>`;
+    return `<option value="${escapeHtml(j)}" ${sel ? "selected" : ""}>${escapeHtml(uiText("own." + a.key))}</option>`;
   }).join("");
   if (ef && i < 0)
     html += `<option value="custom" selected>${escapeHtml(uiText("own.ef-custom", { w: ef.w, h: ef.h }))}</option>`;
@@ -1859,7 +1859,36 @@ function exportFrameNames(sel = els.exportFrameSel) {
     sel?.querySelector('option[value="' + n + '"]')?.textContent || '']));
   return { dropdown: (sel && sel.getAttribute("aria-label")) || "", option: (opt && opt.textContent) || "", options };
 }
+/* #366 ② (QQ 6930008236): what a project file says is checked before anything is drawn from it — a project can come from an
+   import, a backup, a template, another tool or an agent. Sizes are whole numbers 16…8192 (else the default), times and
+   lengths are finite seconds (else 0, or 1 s for a length), track ids are V<n> / A<n> (a clip on anything else goes to V1 / A1,
+   a track list entry is dropped) and a composition needs a short plain id. Nothing else about the document changes. */
+const LOAD_TRACK_ID = /^[VA][1-9]\d?$/;
+const LOAD_COMP_ID = /^[\w.-]{1,80}$/;
+const loadDim = (v, d) => { const n = Number(v); return Number.isFinite(n) && n >= 16 && n <= 8192 ? Math.round(n) : d; };
+const loadSec = (v, d) => { const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN; return Number.isFinite(n) ? n : d; };
+function loadClip(c) {
+  if (!c || typeof c !== "object") return c;
+  const out = { ...c, start: loadSec(c.start, 0), in: loadSec(c.in, 0), duration: loadSec(c.duration, 1) };
+  if (typeof out.track !== "string" || !LOAD_TRACK_ID.test(out.track)) out.track = out.kind === "audio" ? "A1" : "V1";
+  return out;
+}
+function sanitizeLoaded(data) {
+  if (!data || typeof data !== "object") return data;
+  const w = loadDim(data.width, 1280), h = loadDim(data.height, 720);
+  const out = { ...data, width: w, height: h };
+  if (Array.isArray(data.clips)) out.clips = data.clips.filter((c) => c && typeof c === "object").map(loadClip);
+  if (Array.isArray(data.tracks)) out.tracks = data.tracks.filter((d) => d && typeof d.id === "string" && LOAD_TRACK_ID.test(d.id));
+  if (Array.isArray(data.comps)) out.comps = data.comps.filter((cp) => cp && typeof cp.id === "string" && LOAD_COMP_ID.test(cp.id)).map((cp) => ({
+    ...cp, width: loadDim(cp.width, w), height: loadDim(cp.height, h),
+    duration: loadSec(cp.duration, 5) > 0 ? loadSec(cp.duration, 5) : 5,
+    ...(Array.isArray(cp.tracks) ? { tracks: cp.tracks.filter((d) => d && typeof d.id === "string" && LOAD_TRACK_ID.test(d.id)) } : {}),
+    clips: Array.isArray(cp.clips) ? cp.clips.filter((c) => c && typeof c === "object").map(loadClip) : [],
+  }));
+  return out;
+}
 function applyProject(data, opts = {}) {
+  data = sanitizeLoaded(data);
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
     // another sequence was opened (an agent, another tab): the comp was opened from the old one
     state.compCtx = null;
@@ -2538,7 +2567,7 @@ function importingEnd(ticket) {
   renderBin(); autoAfterImport();
 }
 function importingHtml(cls) {
-  return [...IMPORTING].map(([ticket, it]) => `<div class="${cls}" data-importing="${ticket}" role="status">
+  return [...IMPORTING].map(([ticket, it]) => `<div class="${escapeHtml(cls)}" data-importing="${escapeHtml(ticket)}" role="status">
     <span class="bin-importing-name">${escapeHtml(it.name)}</span>
     <span class="bin-importing-pct" data-importing-pct>${escapeHtml(uiText("own.bin-importing", { pct: MediaLib.importPercent(it) }))}</span></div>`).join("");
 }
@@ -2948,7 +2977,7 @@ function renderBin() {
     const thumbSrc = aux.thumb || (m.kind === "image" || m.kind === "svg" ? m.src : null);
     const uses = ctx.usage.get(m.id) || 0;
     const folder = flat && m.folderId ? getFolder(m.folderId) : null;
-    const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
+    const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${escapeHtml(uses)}× — click to find every instance` : "Not used on the timeline"}">${escapeHtml(uses)}</button>`;
     // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
     const rep = repairing.get(m.id);
     const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
@@ -2959,7 +2988,7 @@ function renderBin() {
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     const tracksHtml = trackBadgeHtml(m);
     if (binView.list) {
-      const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
+      const cell = (v, cls = "") => `<span class="bin-cell${escapeHtml(cls)}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
         <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${slowMark}${offlineHtml}<span class="bin-name"></span>${tracksHtml}</span>
         ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(mediaResolution(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
@@ -3048,10 +3077,10 @@ function renderBin() {
       row.style.setProperty("--bin-depth", depth);
       const count = mediaInFolder(f.id).length + folderChildren(f.id).length;
       row.innerHTML = `
-        <button type="button" class="bin-folder-twist" title="${f.open ? "Collapse" : "Expand"}" aria-expanded="${f.open}">${f.open ? "▼" : "▶"}</button>
+        <button type="button" class="bin-folder-twist" title="${f.open ? "Collapse" : "Expand"}" aria-expanded="${escapeHtml(f.open)}">${f.open ? "▼" : "▶"}</button>
         <span class="bin-folder-icon">📁</span>
         <span class="bin-folder-name"></span>
-        <span class="bin-folder-count">${count}</span>
+        <span class="bin-folder-count">${escapeHtml(count)}</span>
         <button type="button" class="bin-folder-add" title="New subfolder">+</button>
         <button type="button" class="bin-del bin-folder-del" title="Delete folder (keeps media)">✕</button>`;
       const nameEl = row.querySelector(".bin-folder-name");
@@ -3192,7 +3221,7 @@ function makeFilterBar(n) {
   const bar = document.createElement("div");
   bar.className = "bin-filterbar";
   const col = binView.filter.startsWith("col:") ? getCollection(binView.filter.slice(4)) : null;
-  bar.innerHTML = `<span class="bin-filter-count">${n} of ${project.media.length}</span>` +
+  bar.innerHTML = `<span class="bin-filter-count">${escapeHtml(n)} of ${project.media.length}</span>` +
     (col ? `<span class="bin-filter-name" title="Collection">▣ ${escapeHtml(col.name)}</span>
       <button type="button" class="btn tiny" data-col-rename>Rename</button>
       <button type="button" class="btn tiny" data-col-delete title="Delete the collection (keeps the media)">Delete</button>` : "") +
@@ -3386,7 +3415,7 @@ function promptBinText(x, y, label, value, onOk, opts = {}) {
   const pop = document.createElement("div");
   pop.className = "ctx-menu bin-pop";
   pop.innerHTML = `<label class="bin-pop-label">${escapeHtml(label)}</label>
-    <input type="text" class="bin-pop-input" maxlength="${opts.max || 80}" spellcheck="false">
+    <input type="text" class="bin-pop-input" maxlength="${escapeHtml(opts.max || 80)}" spellcheck="false">
     ${opts.hint ? `<div class="bin-pop-hint">${escapeHtml(opts.hint)}</div>` : ""}
     <div class="bin-pop-chips"></div>
     <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>Cancel</button><button type="button" class="btn tiny accent" data-ok>${escapeHtml(opts.ok || "OK")}</button></div>`;
@@ -4222,8 +4251,8 @@ function renderBinProxyBadges() {
 function proxyBadgeHtml(m) {
   const s = proxyStatus.get(m.id);
   if (!s || m.kind !== "video") return "";
-  if (s.state === "ready") return `<span class="bin-proxy ready${proxiesOn() ? " on" : ""}" title="Proxy ready (${s.width ? s.width + "×" : ""}${s.height}p, ${MediaLib.fmtSize(s.size)})${proxiesOn() ? " — playing it while you edit" : " — the Proxy button is off"}">P</span>`;
-  if (s.state === "running" || s.state === "queued") return `<span class="bin-proxy busy" title="Making a ${s.height}p proxy">P ${s.state === "running" ? Math.round((s.progress || 0) * 100) + "%" : "…"}</span>`;
+  if (s.state === "ready") return `<span class="bin-proxy ready${proxiesOn() ? " on" : ""}" title="Proxy ready (${escapeHtml(s.width ? s.width + "×" : "")}${escapeHtml(s.height)}p, ${MediaLib.fmtSize(s.size)})${proxiesOn() ? " — playing it while you edit" : " — the Proxy button is off"}">P</span>`;
+  if (s.state === "running" || s.state === "queued") return `<span class="bin-proxy busy" title="Making a ${escapeHtml(s.height)}p proxy">P ${s.state === "running" ? Math.round((s.progress || 0) * 100) + "%" : "…"}</span>`;
   if (s.state === "failed") return `<span class="bin-proxy failed" title="Proxy failed: ${escapeHtml(s.error || "")}">P ✕</span>`;
   return "";
 }
@@ -4383,7 +4412,7 @@ function renderLibrary() {
     els.libList.innerHTML = `<div class="bin-empty">
       <div class="bin-empty-icon">${dir === "sfx" ? "🔊" : dir === "svg" ? "✨" : "🧩"}</div>
       <p>No assets yet.</p>
-      <p class="hint">Drop files into<br><b>library/${dir}/</b><br>— this list live-updates.</p></div>`;
+      <p class="hint">Drop files into<br><b>library/${escapeHtml(dir)}/</b><br>— this list live-updates.</p></div>`;
     return;
   }
   for (const f of files) {
@@ -4544,9 +4573,9 @@ function pjVisible() {
 function pjThumbHtml(p, big) {
   const ar = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : "16 / 9";
   const inner = p.thumb
-    ? `<img src="/api/projects/thumb?id=${encodeURIComponent(p.id)}&v=${p.thumb}" alt="" loading="lazy" draggable="false">`
-    : `<span>${p.width ? escapeHtml(`${p.width}×${p.height}`) : "?"}</span>`;
-  return `<div class="pj-thumb${big ? " big" : ""}"><div class="pj-frame" style="aspect-ratio:${ar}">${inner}</div></div>`;
+    ? `<img src="/api/projects/thumb?id=${escapeHtml(encodeURIComponent(p.id))}&v=${escapeHtml(p.thumb)}" alt="" loading="lazy" draggable="false">`
+    : `<span>${escapeHtml(p.width ? `${p.width}×${p.height}` : "?")}</span>`;
+  return `<div class="pj-thumb${big ? " big" : ""}"><div class="pj-frame" style="aspect-ratio:${escapeHtml(ar)}">${inner}</div></div>`;
 }
 function renderProjects() {
   renderProjectGrid();
@@ -4578,12 +4607,12 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${escapeHtml(uiText("term.name"))}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
       ${fact(escapeHtml(uiText("own.pj-modified")), escapeHtml(pjAgo(p.modified)))}
-      ${fact(escapeHtml(uiText("own.pj-opened")), p.active ? uiText("own.pj-open-now") : escapeHtml(pjAgo(p.opened)))}
+      ${fact(escapeHtml(uiText("own.pj-opened")), p.active ? escapeHtml(uiText("own.pj-open-now")) : escapeHtml(pjAgo(p.opened)))}
       ${fact(escapeHtml(uiText("own.pj-created")), escapeHtml(pjAgo(p.created)))}
       ${tpl ? fact("Template", escapeHtml(tpl.name)) : ""}
     </dl>
@@ -4600,7 +4629,7 @@ function pjDetailHtml(p) {
     </div>
     <div class="pj-actions">
       <button type="button" class="btn" data-pj-act="versions" title="Saved versions of this project: compare, restore, mark the final cut">${escapeHtml(uiText("own.pj-versions"))}</button>
-      <a class="btn" href="/api/projects/backup?id=${encodeURIComponent(p.id)}" download${p.active ? " data-pj-backup" : ""} title="The project and all its versions as one file. Import… restores it">${escapeHtml(uiText("own.pj-download-backup"))}</a>
+      <a class="btn" href="/api/projects/backup?id=${escapeHtml(encodeURIComponent(p.id))}" download${p.active ? " data-pj-backup" : ""} title="The project and all its versions as one file. Import… restores it">${escapeHtml(uiText("own.pj-download-backup"))}</a>
     </div>
     <div class="pj-inline hidden" id="pjTplRow">
       <input type="text" id="pjTplName" value="${escapeHtml(p.name)}" maxlength="120" aria-label="Template name" spellcheck="false">
@@ -4617,19 +4646,19 @@ function pjNewHtml() {
   };
   const row = (x) => `<button type="button" class="pj-tpl${x.id === pj.tpl ? " on" : ""}" data-pj-tpl="${escapeHtml(x.id)}">
       ${shape(x)}<span class="pj-tpl-name">${escapeHtml(x.name)}</span>
-      <span class="pj-tpl-meta dim">${x.width}×${x.height}${x.builtin ? "" : ` · ${x.clips} clip${x.clips === 1 ? "" : "s"}`}</span>
+      <span class="pj-tpl-meta dim">${escapeHtml(x.width)}×${escapeHtml(x.height)}${x.builtin ? "" : ` · ${escapeHtml(x.clips)} clip${x.clips === 1 ? "" : "s"}`}</span>
       ${x.builtin ? "" : `<span class="pj-tpl-del" data-pj-tpldel="${escapeHtml(x.id)}" role="button" tabindex="0" title="Delete this template">✕</span>`}
     </button>`;
   const saved = tpls.filter((x) => !x.builtin);
   return `<h3>New project</h3>
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${escapeHtml(uiText("term.name"))}</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
     <div class="pj-field"><span>Start from</span>
       <div class="pj-tpls">${tpls.filter((x) => x.builtin).map(row).join("")}</div>
       ${saved.length ? `<span class="pj-sub">Saved templates</span><div class="pj-tpls">${saved.map(row).join("")}</div>` : ""}
     </div>
     <label class="pj-field"><span>Frame rate</span><select id="pjNewFps">
       <option value="">${t.fps ? `${+(+t.fps).toFixed(3)} fps (template)` : "Template's"}</option>
-      ${[23.976, 24, 25, 29.97, 30, 50, 59.94, 60].map((f) => `<option value="${f}">${f} fps</option>`).join("")}
+      ${[23.976, 24, 25, 29.97, 30, 50, 59.94, 60].map((f) => `<option value="${escapeHtml(f)}">${escapeHtml(f)} fps</option>`).join("")}
     </select></label>
     <div class="pj-actions">
       <button type="button" class="btn" data-pj-act="new-cancel">Cancel</button>
@@ -4763,13 +4792,13 @@ function pjVersionsHtml() {
   const p = pj.list.find((x) => x.id === pj.verOf) || { name: "Project" };
   const rows = pj.versions.map((v) => {
     const diff = pj.verDiff.get(v.v);
-    return `<div class="ver-row${v.final ? " final" : ""}" data-ver="${v.v}">
+    return `<div class="ver-row${v.final ? " final" : ""}" data-ver="${escapeHtml(v.v)}">
       <div class="ver-main">
-        <span class="ver-num">v${v.v}</span>
+        <span class="ver-num">v${escapeHtml(v.v)}</span>
         <span class="ver-name" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</span>
         ${v.final ? `<span class="ver-badge final">Final</span>` : ""}
-        ${VER_KIND[v.kind] ? `<span class="ver-badge">${VER_KIND[v.kind]}</span>` : ""}
-        <span class="ver-meta dim">${pjAgo(v.created)} · ${pjFmtDur(v.duration)} · ${v.clips} clip${v.clips === 1 ? "" : "s"}</span>
+        ${VER_KIND[v.kind] ? `<span class="ver-badge">${escapeHtml(VER_KIND[v.kind])}</span>` : ""}
+        <span class="ver-meta dim">${pjAgo(v.created)} · ${pjFmtDur(v.duration)} · ${escapeHtml(v.clips)} clip${v.clips === 1 ? "" : "s"}</span>
       </div>
       ${v.note ? `<div class="ver-note">${escapeHtml(v.note)}</div>` : ""}
       ${diff ? `<ul class="ver-diff">${diff.length ? diff.map((l) => `<li>${escapeHtml(l)}</li>`).join("") : "<li>Same as now.</li>"}</ul>` : ""}
@@ -4778,7 +4807,7 @@ function pjVersionsHtml() {
         <button type="button" class="btn tiny" data-ver-act="restore" title="Put this version back. What is there now is saved as a version first.">Restore…</button>
         <button type="button" class="btn tiny" data-ver-act="final">${v.final ? "Unmark final" : "Mark final"}</button>
         <button type="button" class="btn tiny" data-ver-act="rename">Rename</button>
-        <a class="btn tiny" href="/api/versions/file?project=${encodeURIComponent(pj.verOf)}&version=${v.v}" download>Download</a>
+        <a class="btn tiny" href="/api/versions/file?project=${escapeHtml(encodeURIComponent(pj.verOf))}&version=${escapeHtml(v.v)}" download>Download</a>
         <button type="button" class="btn tiny danger-ghost" data-ver-act="delete"${v.final ? ` disabled title="Unmark it as final first"` : ""}>Delete…</button>
       </div>
     </div>`;
@@ -6243,12 +6272,12 @@ function buildTrackDOM() {
     h.dataset.track = t.id;
     h.style.height = t.h + "px";
     h.innerHTML =
-      `<button type="button" class="track-toggle" aria-pressed="${on}" ` +
+      `<button type="button" class="track-toggle" aria-pressed="${escapeHtml(on)}" ` +
       `title="${on ? "Disable track" : "Enable track"}" style="color:${t.color}">` +
       `${trackToggleIcon(t.kind)}</button>` +
       `<button type="button" class="track-id">${escapeHtml(t.id)}</button>` +
       `<button type="button" class="track-lock" aria-pressed="false">${TRACK_LOCK_ICON}</button>` +
-      `<button type="button" class="track-solo${solo ? " on" : ""}" aria-pressed="${solo}" ` +
+      `<button type="button" class="track-solo${solo ? " on" : ""}" aria-pressed="${escapeHtml(solo)}" ` +
       `title="${solo ? "Unsolo track" : "Solo track (mute all others)"}">S</button>`;
     h.querySelector(".track-toggle").addEventListener("click", (ev) => {
       ev.preventDefault();
@@ -6320,8 +6349,8 @@ function gapMarksHtml(c) {
     const x = (from - inSrc) / speed * state.pps, words = escapeHtml(MontClipView.flvGapMark(lang, g));
     const w = Math.min(Math.max(2, (to - from) / speed * state.pps), clipW);
     html += g.big
-      ? `<div class="gap-mark big" style="left:${Math.max(0, Math.min(x, clipW - w))}px;width:${w}px" title="${words}"><span>${words}</span></div>`
-      : `<div class="gap-mark small" style="left:${x}px" title="${words}"></div>`;
+      ? `<div class="gap-mark big" style="left:${Math.max(0, Math.min(x, clipW - w))}px;width:${escapeHtml(w)}px" title="${words}"><span>${words}</span></div>`
+      : `<div class="gap-mark small" style="left:${escapeHtml(x)}px" title="${words}"></div>`;
   }
   return html;
 }
@@ -6343,21 +6372,21 @@ function transitionMarksHtml(c, trackH) {
         const g = audioFadeGain(tr.curve, u) ?? EASE["ease-out"](u);
         pts.push(`${(w * i / N).toFixed(1)},${(bot * (1 - g)).toFixed(1)}`);
       }
-      html += `<div class="trans-mark ${side}${focused}" style="width:${w}px" data-side="${side}">` +
-        `<svg viewBox="0 0 ${w} ${clipH}" preserveAspectRatio="none" aria-hidden="true">` +
-        `<polygon points="${pts.join(" ")}"/></svg>` +
+      html += `<div class="trans-mark ${escapeHtml(side)}${escapeHtml(focused)}" style="width:${escapeHtml(w)}px" data-side="${escapeHtml(side)}">` +
+        `<svg viewBox="0 0 ${escapeHtml(w)} ${escapeHtml(clipH)}" preserveAspectRatio="none" aria-hidden="true">` +
+        `<polygon points="${escapeHtml(pts.join(" "))}"/></svg>` +
         `<div class="trans-dur-handle" title="Drag to adjust duration"></div></div>`;
       return;
     }
     if (side === "in") {
-      html += `<div class="trans-mark in${focused}" style="width:${w}px" data-side="in">` +
-        `<svg viewBox="0 0 ${w} ${clipH}" preserveAspectRatio="none" aria-hidden="true">` +
-        `<polygon points="0,0 ${w},0 0,${bot}"/></svg>` +
+      html += `<div class="trans-mark in${escapeHtml(focused)}" style="width:${escapeHtml(w)}px" data-side="in">` +
+        `<svg viewBox="0 0 ${escapeHtml(w)} ${escapeHtml(clipH)}" preserveAspectRatio="none" aria-hidden="true">` +
+        `<polygon points="0,0 ${escapeHtml(w)},0 0,${escapeHtml(bot)}"/></svg>` +
         `<div class="trans-dur-handle" title="Drag to adjust duration"></div></div>`;
     } else {
-      html += `<div class="trans-mark out${focused}" style="width:${w}px" data-side="out">` +
-        `<svg viewBox="0 0 ${w} ${clipH}" preserveAspectRatio="none" aria-hidden="true">` +
-        `<polygon points="0,0 ${w},0 ${w},${bot}"/></svg>` +
+      html += `<div class="trans-mark out${escapeHtml(focused)}" style="width:${escapeHtml(w)}px" data-side="out">` +
+        `<svg viewBox="0 0 ${escapeHtml(w)} ${escapeHtml(clipH)}" preserveAspectRatio="none" aria-hidden="true">` +
+        `<polygon points="0,0 ${escapeHtml(w)},0 ${escapeHtml(w)},${escapeHtml(bot)}"/></svg>` +
         `<div class="trans-dur-handle" title="Drag to adjust duration"></div></div>`;
     }
   };
@@ -6395,7 +6424,7 @@ function clipKeyframesHtml(c) {
     const label = keys.join(", ") + " @ " + fmt(c.start + t);
     const badge = keys.length > 1 ? `<span class="clip-kf-n">${keys.length}</span>` : "";
     const multi = keys.length > 1 ? " multi" : "";
-    html += `<div class="clip-kf${multi}" style="left:${pct}%" data-t="${t}" title="${label}">${badge}</div>`;
+    html += `<div class="clip-kf${escapeHtml(multi)}" style="left:${escapeHtml(pct)}%" data-t="${escapeHtml(t)}" title="${escapeHtml(label)}">${badge}</div>`;
   }
   return html + `</div>`;
 }
@@ -6526,7 +6555,7 @@ function rebuildClips() {
     let body = "";
     if (c.kind === "video" && trackSizeShowsThumbs()) {
       const thumb = runtime.mediaAux.get(c.mediaId)?.thumb;
-      if (thumb) body += `<div class="thumbs" style="background-image:url('${thumb}')"></div>`;
+      if (thumb) body += `<div class="thumbs" style="background-image:url('${escapeHtml(thumb)}')"></div>`;
     }
     const hasWave = c.kind === "audio" && !!wavePeaksFor(c);
     if (hasWave) body += `<canvas class="wave"></canvas>`;
@@ -6545,7 +6574,7 @@ function rebuildClips() {
       : c.kind === "audio" ? chTag + (c.name || "")
       : (c.name || "");
     body += `<div class="fade"></div>
-      <div class="clip-label">${badge}${escapeHtml(label)}</div>`;
+      <div class="clip-label">${escapeHtml(badge)}${escapeHtml(label)}</div>`;
     if (c.kind === "comp") {
       // say on hover how to get inside (wide enough clips show it in the clip, every one in its tooltip)
       const comp = getComp(c.compId);
@@ -6730,15 +6759,15 @@ function volBandHtml(c, trackH) {
       const v = volumeAtLocal(c, lt) * dbToGain(kfChannel(c, "duck", lt, 0));
       dp.push(`${(W * i / n).toFixed(1)},${y(v)}`);
     }
-    duck = `<polyline class="vol-duck" points="${dp.join(" ")}"/>`;
+    duck = `<polyline class="vol-duck" points="${escapeHtml(dp.join(" "))}"/>`;
   }
   const line = pts.join(" ");
-  let html = `<svg class="vol-band" width="${W.toFixed(1)}" height="${clipH}" aria-hidden="true">${duck}` +
-    `<polyline class="vol-line" points="${line}"/>` +
-    `<polyline class="vol-hit" points="${line}"><title>Volume — drag to change · Ctrl/Cmd-click: add keyframe</title></polyline></svg>`;
+  let html = `<svg class="vol-band" width="${W.toFixed(1)}" height="${escapeHtml(clipH)}" aria-hidden="true">${duck}` +
+    `<polyline class="vol-line" points="${escapeHtml(line)}"/>` +
+    `<polyline class="vol-hit" points="${escapeHtml(line)}"><title>Volume — drag to change · Ctrl/Cmd-click: add keyframe</title></polyline></svg>`;
   if (kfs?.length) for (let i = 0; i < kfs.length; i++) {
     const k = kfs[i];
-    html += `<div class="vol-pt" data-i="${i}" style="left:${(k.t * state.pps).toFixed(1)}px;top:${y(k.v)}px" ` +
+    html += `<div class="vol-pt" data-i="${escapeHtml(i)}" style="left:${(k.t * state.pps).toFixed(1)}px;top:${escapeHtml(y(k.v))}px" ` +
       `title="${fmtDb(volToDb(k.v))} @ ${fmt(c.start + k.t)} — drag · Alt-click: remove"></div>`;
   }
   return html;
@@ -7129,7 +7158,7 @@ function openSnapMenu(anchor) {
   const on = snapTargets();
   menu.innerHTML = `<div class="snap-menu-head dim">${escapeHtml(uiText("own.snap-to"))}</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${escapeHtml(k)}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -7811,7 +7840,7 @@ function openMarkerEditor(mk, clientX, clientY) {
   const menu = document.createElement("div");
   menu.className = "ctx-menu marker-pop";
   const swatches = Object.entries(MARKER_COLORS).map(([name, hex]) =>
-    `<button type="button" class="marker-swatch" data-color="${name}" title="${name}" aria-label="${name}" style="--c:${hex}"></button>`).join("");
+    `<button type="button" class="marker-swatch" data-color="${escapeHtml(name)}" title="${escapeHtml(name)}" aria-label="${escapeHtml(name)}" style="--c:${escapeHtml(hex)}"></button>`).join("");
   menu.innerHTML =
     `<div class="marker-pop-head"><span class="timecode">${fmt(mk.t)}</span><span class="dim">Marker</span></div>` +
     `<input type="text" class="marker-name" maxlength="80" placeholder="Name (optional)" spellcheck="false">` +
@@ -7855,15 +7884,15 @@ function openMarkerList(anchor) {
   menu.className = "ctx-menu marker-list";
   const list = project.markers || [];
   if (!list.length) {
-    menu.innerHTML = `<div class="marker-empty dim">${uiText("own.markers-empty")}</div>`; // repo-authored, with its <kbd>
+    menu.innerHTML = `<div class="marker-empty dim">${escapeHtml(uiText("own.markers-empty"))}</div>`; // repo-authored, with its <kbd>
   } else {
     menu.innerHTML = list.map((m, i) =>
-      `<div class="marker-row" data-i="${i}">` +
-      `<button type="button" class="ctx-item marker-go" data-i="${i}">` +
-      `<span class="marker-dot" style="--c:${markerColor(m)}"></span>` +
+      `<div class="marker-row" data-i="${escapeHtml(i)}">` +
+      `<button type="button" class="ctx-item marker-go" data-i="${escapeHtml(i)}">` +
+      `<span class="marker-dot" style="--c:${escapeHtml(markerColor(m))}"></span>` +
       `<span class="timecode">${fmt(m.t)}</span>` +
       `<span class="marker-label${m.label ? "" : " dim"}">${m.label ? escapeHtml(m.label) : "—"}</span></button>` +
-      `<button type="button" class="btn tiny marker-edit" data-i="${i}" title="Rename / colour">✎</button></div>`,
+      `<button type="button" class="btn tiny marker-edit" data-i="${escapeHtml(i)}" title="Rename / colour">✎</button></div>`,
     ).join("") +
       `<button type="button" class="ctx-item marker-clear"><span>Clear all markers</span></button>`;
   }
@@ -8126,7 +8155,7 @@ function clipStatusBar(c) {
   const linked = !!(c.linkGroup || c.linkedId);
   const canLink = !linked && (c.kind === "video" || c.kind === "audio") && c.unlinked === true;
   const b = (cmd, on, label, title, extra = "") =>
-    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${cmd}" aria-pressed="${on}" title="${shortcutTitle(title)}"${extra}>${label}</button>`;
+    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${escapeHtml(cmd)}" aria-pressed="${escapeHtml(on)}" title="${escapeHtml(shortcutTitle(title))}"${extra}>${escapeHtml(label)}</button>`;
   return `<div class="clip-flags">` +
     b("disable", disabled, disabled ? "Disabled" : "Enabled",
       disabled ? "Hidden from preview and export — click to enable (Shift+E)" : "Click to disable: hide from preview and export without deleting (Shift+E)") +
@@ -8256,9 +8285,9 @@ function captionQuickHtml(scope) {
   if (!list.length) return "";
   const Q = MontClipCaptionQuick, cur = Q.current(list, project.width, project.height), n = list.length;
   const say = (k, v) => escapeHtml(uiText("own." + k, v));
-  const pill = (k, v) => `<button type="button" class="btn tiny${cur[k] === v ? " on" : ""}" data-cq-k="${k}" data-cq-v="${v}" aria-pressed="${cur[k] === v}">${say("cq-" + v)}</button>`;
+  const pill = (k, v) => `<button type="button" class="btn tiny${cur[k] === v ? " on" : ""}" data-cq-k="${escapeHtml(k)}" data-cq-v="${escapeHtml(v)}" aria-pressed="${escapeHtml(cur[k] === v)}">${say("cq-" + v)}</button>`;
   const mixed = (on, k) => (on ? `<span class="cq-mixed" data-cq-mixed>${say(k)}</span>` : "");
-  return `<div class="cq-panel" data-cq-panel data-cq-scope="${scope}"><b data-cq-who>${say(scope === "all" ? "cq-who-all" : "cq-who-selected", { n })}</b>
+  return `<div class="cq-panel" data-cq-panel data-cq-scope="${escapeHtml(scope)}"><b data-cq-who>${say(scope === "all" ? "cq-who-all" : "cq-who-selected", { n })}</b>
     <div class="cq-row"><span class="cq-lbl">${say("cq-size")}</span><span class="cq-pills">${Q.SIZES.map((v) => pill("size", v)).join("")}</span>${mixed(cur.mixedSize, "cq-mixed-size")}</div>
     <div class="cq-row"><span class="cq-lbl">${say("cq-pos")}</span><span class="cq-pills">${Q.POSITIONS.map((v) => pill("pos", v)).join("")}</span>${mixed(cur.mixedPos, "cq-mixed-pos")}</div>
     <p class="cq-desc" data-cq-desc>${say("cq-desc", { n })}</p></div>`;
@@ -8324,7 +8353,7 @@ function renderInspector(lite) {
   const kfCtl = (k) => {
     if (!ANIMATABLE.includes(k)) return "";
     const n = kfCount(k), on = !!kfAtPlayhead(c, k);
-    return `<span class="kf-ctl"><button class="kf-btn${n ? " has" : ""}${on ? " on" : ""}" data-kf="${k}" title="${on ? "Remove keyframe at playhead" : "Set keyframe at playhead"}">◆${n || ""}</button>${n ? `<button class="kf-btn" data-kfclear="${k}" title="Clear keyframes">✕</button>` : ""}</span>`;
+    return `<span class="kf-ctl"><button class="kf-btn${n ? " has" : ""}${on ? " on" : ""}" data-kf="${escapeHtml(k)}" title="${on ? "Remove keyframe at playhead" : "Set keyframe at playhead"}">◆${escapeHtml(n || "")}</button>${n ? `<button class="kf-btn" data-kfclear="${escapeHtml(k)}" title="Clear keyframes">✕</button>` : ""}</span>`;
   };
   /* Label carries two affordances that key off different click modifiers:
      plain click toggles the keyframe graph (animatable props), Ctrl/Cmd-click
@@ -8335,7 +8364,7 @@ function renderInspector(lite) {
     const list = (Array.isArray(keys) ? keys : String(keys || "").split(",")).map((s) => s.trim()).filter(Boolean);
     const canReset = list.some((rk) => Object.hasOwn(DEFAULT_PROPS, rk) || rk === "transIn" || rk === "transOut");
     const isGraph = !!k && ANIMATABLE.includes(k);
-    if (!isGraph && !canReset) return `<label>${label}</label>`;
+    if (!isGraph && !canReset) return `<label>${escapeHtml(label)}</label>`;
     const cls = [
       isGraph ? "kf-graph-toggle" : "",
       isGraph && state.kfGraphs.has(k) ? "on" : "",
@@ -8347,14 +8376,14 @@ function renderInspector(lite) {
       ? "Click: keyframe graph · Ctrl-click: reset channel · Shift-click: reset at playhead / remove keyframe"
       : isGraph ? "Show / hide keyframe graph"
         : "Ctrl-click: reset channel · Shift-click: reset at playhead / remove keyframe";
-    return `<label class="${cls}"${attrs} title="${title}">${label}</label>`;
+    return `<label class="${escapeHtml(cls)}"${attrs} title="${escapeHtml(title)}">${escapeHtml(label)}</label>`;
   };
   const row = (label, inner, k = "", reset) =>
     `<div class="insp-row">${propLabel(label, k, reset)}${inner}${k ? kfCtl(k) : ""}</div>`;
   const slider = (k, min, max, step, val, unit = "") => {
     const shown = fmtInspNum(val, step);
     return row(k[0].toUpperCase() + k.slice(1),
-      `<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${shown}" title="Ctrl/Cmd-click: reset to default">
+      `<input type="range" data-k="${escapeHtml(k)}" min="${min}" max="${max}" step="${step}" value="${shown}" title="Ctrl/Cmd-click: reset to default">
        <span class="val" data-val="${k}" data-unit="${unit}">${shown}${unit}</span>`, k);
   };
   let html = captionQuickHtml("selected") + (state.selIds.size > 1
