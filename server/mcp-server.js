@@ -24,6 +24,7 @@ const {
   APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, PREVIEWS_DIR, ANALYSIS_DIR, LIBRARY_DIR, PROJECT_FILE, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
+const UrlImportPolicy = require("./url-import-policy");
 const { prepareMedia } = require("./prepare-media");
 const MediaLib = require("../media-lib");
 const Danmaku = require("../danmaku");
@@ -88,6 +89,7 @@ function scopedProjectFile() {
   return taskProjects.activeId() === id ? PROJECT_FILE : path.join(taskProjects.DIR, id, 'project.json');
 }
 const callSignal = () => callScope.getStore()?.signal || null;
+const callSession = () => callScope.getStore()?.session || null;   // the Cindy task that made this call (the plugin worker passes it)
 function napOrAbort(ms, signal) {
   return new Promise((r) => {
     if (!signal) return setTimeout(r, ms);
@@ -1656,6 +1658,28 @@ async function lyricsTool(args) {
   for (const f of old) try { fs.unlinkSync(path.join(LYRICS_DIR, f)); } catch {}
   return lyricsReply(p, { proposalId: id });
 }
+/* #375 (PG 6937788935): embedded in Cindy, the assistant's URL import asks the streamer first — a card on her task's editor
+   window: 「下载」 / 「不要」, focus on 「不要」. A yes for a URL holds for this task while this process runs; a no (or the
+   card closed, or no answer) stays a no for that URL — never asked again, never retried (IMPORT_URL_DECLINED). There is
+   no "always allow". Nothing is downloaded before the yes. */
+const urlAnswers = new Map();   // "<session>\n<url>" → "yes" | "no"
+async function confirmUrlImport(url) {
+  const host = UrlImportPolicy.importHost(url);
+  const key = (callSession() || "") + "\n" + url;
+  const declined = () => Object.assign(new Error(`IMPORT_URL_DECLINED: the streamer did not agree to download from ${host}. Nothing was downloaded. ` +
+    "Do not ask again or try another way: tell her, and ask her to import the file herself if she wants it."), { code: "IMPORT_URL_DECLINED" });
+  if (urlAnswers.get(key) === "yes") return;
+  if (urlAnswers.get(key) === "no") throw declined();
+  if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT} — nothing was downloaded`);
+  const r0 = await apiJSON("POST", "/api/import-url/confirm", { url, ...(callSession() ? { session: callSession() } : {}) });
+  if (r0.status !== 200) throw Object.assign(new Error(`${r0.body?.code ? r0.body.code + ": " : ""}${r0.body?.error || `the download question could not be shown (${r0.status})`} — nothing was downloaded`), { code: r0.body?.code || undefined });
+  const job = await waitJob(r0.body, { every: 500, timeout: 600, what: "download question",
+    timeoutError: "the streamer did not answer the download question in time — nothing was downloaded" });
+  const allowed = job.status === "done" && job.result && job.result.allowed === true;
+  urlAnswers.set(key, allowed ? "yes" : "no");
+  if (!allowed) throw declined();
+}
+
 async function lyricsApplyTool(args) {
   const LT = require("../lyrics-track.js");
   const id = String(args.proposalId || "");
@@ -1704,10 +1728,11 @@ async function dispatchTool(name, args, opts = {}) {
     const projectId = o.project || taskProjects.activeId();
     const scope = JSON.stringify([o.session || null, projectId]);
     const result = await toolTasks.call({ scope, name, args: input, key: idempotency_key, taskId, wait_ms, waitForCompletion: !LONG_TOOLS.has(name) },
-      update => callScope.run({ projectId, update }, () => runTool(name, input, o.attempt || 0)));
+      update => callScope.run({ projectId, update, session: o.session || null }, () => runTool(name, input, o.attempt || 0)));
     return JSON.stringify(result);
   }
-  if (o.signal && callSignal() !== o.signal) return callScope.run({ signal: o.signal }, () => runTool(name, args, o.attempt || 0));
+  if ((o.signal && callSignal() !== o.signal) || (o.session && callSession() !== o.session))
+    return callScope.run({ ...callScope.getStore(), signal: o.signal || callSignal(), session: o.session || callSession() }, () => runTool(name, args, o.attempt || 0));
   return runTool(name, args, o.attempt || 0);
 }
 async function runTool(name, args, attempt = 0) {
@@ -2112,7 +2137,12 @@ async function runTool(name, args, attempt = 0) {
       let target, kind;
       if (/^https?:\/\//i.test(src)) {
         if (!/^https:\/\//i.test(src)) throw new Error("URL must be https");
-        const got = await downloadImportUrl(src, MEDIA_DIR);
+        // #375: the desktop app imports local files only — the same judgment as the server's /api/import-url
+        const refused = UrlImportPolicy.urlImportRefusal({ env: process.env, dataDir: DATA_DIR });
+        if (refused) throw Object.assign(new Error(`${refused.code}: ${refused.error} Nothing was downloaded.`), { code: refused.code });
+        // #375 (PG 6937788935): embedded in Cindy, the streamer says yes to this URL first, on her editor window
+        if (UrlImportPolicy.confirmNeeded()) await confirmUrlImport(src);
+        const got = await downloadImportUrl(src, MEDIA_DIR, { allowLoopback: process.env.FABLECUT_TEST_IMPORT_ALLOW_PRIVATE === "1" });
         target = got.target;
         kind = kindFromName(got.name);
         await maybeFaststart(target);
