@@ -2383,7 +2383,8 @@ A project can come from anywhere — an import, a backup, a template, another to
 HTML. Every value the editor writes into its own markup goes through `escapeHtml` (quotes included, so it is right inside
 attributes too); only numbers, fixed text and markup the editor builds itself go in as they are. `test/html-sinks.test.js`
 keeps it that way: it reads every script the editor page loads (and `desktop/`), and fails on any `${…}` of an HTML template,
-or any `innerHTML` / `outerHTML` / `insertAdjacentHTML` / `document.write`, that is not escaped, a number, fixed text or markup
+or any `innerHTML` / `outerHTML` / `srcdoc` / `insertAdjacentHTML` / `document.write` / `setHTMLUnsafe` /
+`parseFromString` / `createContextualFragment`, that is not escaped, a number, fixed text or markup
 the check itself covers — except the reviewed places listed in `test/html-allow.json`, each with its reason. The rule is in
 `test/html-check.js`. Show text with `textContent`, or wrap it in `escapeHtml(…)` when it goes into a template.
 

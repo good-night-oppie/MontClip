@@ -6794,7 +6794,7 @@ function mirrorVolume(c) {
   }
 }
 function volBandRect(c) {
-  return els.tracks.querySelector(`.clip[data-id="${c.id}"] .vol-band`)?.getBoundingClientRect() || null;
+  return els.tracks.querySelector(`.clip[data-id="${CSS.escape(c.id)}"] .vol-band`)?.getBoundingClientRect() || null;
 }
 function endVolEdit(c) {
   hideTrimReadout();
@@ -7884,7 +7884,7 @@ function openMarkerList(anchor) {
   menu.className = "ctx-menu marker-list";
   const list = project.markers || [];
   if (!list.length) {
-    menu.innerHTML = `<div class="marker-empty dim">${escapeHtml(uiText("own.markers-empty"))}</div>`; // repo-authored, with its <kbd>
+    menu.innerHTML = `<div class="marker-empty dim">${uiText("own.markers-empty")}</div>`; // the dictionary's own HTML (its <kbd>M</kbd>), no parameters: test/html-allow.json
   } else {
     menu.innerHTML = list.map((m, i) =>
       `<div class="marker-row" data-i="${escapeHtml(i)}">` +

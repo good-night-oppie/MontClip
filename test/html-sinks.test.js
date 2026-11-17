@@ -1,6 +1,7 @@
 'use strict';
 // #366 (QQ 6930219147 2): no outside text reaches the page as HTML. Every `${…}` of a template that builds HTML, and every
-// innerHTML / outerHTML / insertAdjacentHTML / document.write, in every script the editor page loads and in desktop/, must pass
+// innerHTML / outerHTML / srcdoc / insertAdjacentHTML / document.write / setHTMLUnsafe / parseFromString /
+// createContextualFragment, in every script the editor page loads and in desktop/, must pass
 // the rule in test/html-check.js — escaped, a number, fixed text, markup the check itself covers — or be one of the reviewed
 // places in test/html-allow.json (each with its reason). A new bare interpolation turns this test red.
 const { test } = require('node:test');
@@ -60,6 +61,12 @@ test('the rule: a bare value in markup is caught; escaped values, numbers, fixed
   assert.deepEqual(check(t, 'let h = "<i>" + p.name + "</i>"; el.innerHTML = h;'), ['sink h']);
   assert.deepEqual(check(t, 'let h = `<i>x</i>`; h += `<b>${escapeHtml(n)}</b>`; el.innerHTML = h;'), []);
   assert.deepEqual(check(t, 'el.insertAdjacentHTML("beforeend", "<i>" + who);'), ['sink "<i>" + who']);
+  // the newer and less common sinks (QQ, #373 review)
+  assert.deepEqual(check(t, 'el.setHTMLUnsafe(p.text);'), ['sink p.text']);
+  assert.deepEqual(check(t, 'new DOMParser().parseFromString(p.text, "text/html");'), ['sink p.text']);
+  assert.deepEqual(check(t, 'document.createRange().createContextualFragment("<i>" + who);'), ['sink "<i>" + who']);
+  assert.deepEqual(check(t, 'frame.srcdoc = p.text;'), ['sink p.text']);
+  assert.deepEqual(check(t, 'el.setHTMLUnsafe(`<b>${escapeHtml(p.text)}</b>`); frame.srcdoc = "<p>fixed</p>";'), []);
   // a builder's markup parameter: its callers are checked
   const builder = 'const row = (label, inner) => `<div>${escapeHtml(label)}${inner}</div>`;\n';
   const allow = [{ expr: 'inner', at: '', why: 'test', callers: { fn: 'row', arg: 1 } }];
