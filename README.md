@@ -8,13 +8,14 @@ Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT)
 
 <p align="center">
   <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="One frame from the MontClip demo: on the left, the original picture of a synthetic live room; on the right, the MontClip export after cropping, zooming in and hiding one area. The footage is synthetic, not a real recording.">
-  <br><sub>Demo (22 seconds, synthetic footage, not a real recording). <a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-07">Watch the demo video</a></sub>
+  <br><sub>Demo (15 seconds, synthetic footage, not a real recording). <a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-16-15s">Watch the demo video</a></sub>
 </p>
 
 ## What it can do today
 
 - **Import local recordings**: add video files from your computer to a project.
 - **Export MP4**: export the finished clip as MP4.
+- **Crop, zoom in and cover**: in a clip's properties, crop the picture's edges by percentage, zoom in with Scale, or put an opaque shape over an area; the export includes them.
 
 Your recordings are processed on your computer by default. Going online only happens inside features you turn on yourself, and you see what will be sent before it goes out.
 
