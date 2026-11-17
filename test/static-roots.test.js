@@ -23,7 +23,7 @@ test("the page's files sit where index.html and app.js ask for them (app/ for th
   const scripts = [...read("index.html").matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
   assert.equal(scripts.length, 54, "index.html loads 54 scripts");
   assert.equal(scripts.filter((s) => s.startsWith("app/")).length, 20, "20 of them are the page's own, in app/");
-  for (const w of ["app/ruler-worker.js", "app/fx-worklet.js", "app/meter-worklet.js"]) assert.ok(files.includes(w), w + " is started by name");
+  for (const w of ["app/ruler-worker.js", "app/jpeg-worker.js", "app/fx-worklet.js", "app/meter-worklet.js"]) assert.ok(files.includes(w), w + " is started by name");
   const missing = files.filter((f) => !fs.existsSync(path.join(ROOT, f)));
   assert.deepEqual(missing, [], "every file the page loads exists");
   // nothing the page loads is under server/ (AS.1: the page's prefixes are the root, app/, icons/)

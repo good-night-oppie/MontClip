@@ -55,7 +55,7 @@ test('(b) one path to the speech engine, behind the switch; downloads only throu
   // (the one CDN address left in app.js is MediaPipe's portrait cut-out, which the desktop session blocks anyway)
   a.ok(!/https?:\/\/[^"'\s]*(hf-mirror|github|huggingface|paraformer|sherpa|whisper|transformers)/i.test(app), 'no speech model address in the page');
   a.match(app, /window\.montclipAsr\.download\(/); a.match(app, /window\.montclipAsr\.import\(/);
-  a.match(read('desktop/main.js'), /ses\.webRequest\.onBeforeRequest\(\(details, callback\) => \{\s*const embedded = \/\^\(blob:\|data:\)\/\.test\(details\.url\);\s*callback\(\{ cancel: !local\(details\.url\) && !embedded \}\);/);
+  a.match(read('desktop/main.js'), /ses\.webRequest\.onBeforeRequest\(\(details, callback\) => \{\s*const embedded = \/\^\(blob:\|data:\)\/\.test\(details\.url\);[\s\S]{0,400}?const offPath = local\(details\.url\) && nonCanonicalApi\([^\n]*\);[\s\S]{0,900}?callback\(\{ cancel: \(!local\(details\.url\) && !embedded\) \|\| offPath \|\| \(local\(details\.url\) && !fromWindow\) \}\);/);   // offPath and fromWindow only cancel more (#326 review, server/api-path.js; #369 review)
 });
 
 test('(c) 听写 everywhere in Chinese, never 转写', () => {
