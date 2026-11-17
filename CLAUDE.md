@@ -2377,6 +2377,20 @@ user drops favourite takes on, cut into the edit from the Source monitor.
 - `bgRemove` and `chromaKey` can combine with all filters; heavy pixel work is
   automatic (only runs when those props are set).
 
+### Project values in the editor's markup (#366)
+
+A project can come from anywhere — an import, a backup, a template, another tool, an agent — so nothing it says is trusted as
+HTML. Every value the editor writes into its own markup goes through `escapeHtml` (quotes included, so it is right inside
+attributes too); only numbers, fixed text and markup the editor builds itself go in as they are. `test/html-sinks.test.js`
+keeps it that way: it reads every script the editor page loads (and `desktop/`), and fails on any `${…}` of an HTML template,
+or any `innerHTML` / `outerHTML` / `insertAdjacentHTML` / `document.write`, that is not escaped, a number, fixed text or markup
+the check itself covers — except the reviewed places listed in `test/html-allow.json`, each with its reason. The rule is in
+`test/html-check.js`. Show text with `textContent`, or wrap it in `escapeHtml(…)` when it goes into a template.
+
+As a project loads (`applyProject`), its sizes are whole numbers 16…8192 (else the default), clip and composition times are
+finite seconds, track ids are `V<n>` / `A<n>` (a clip on anything else goes to V1 / A1; a bad track entry is dropped) and a
+composition needs a short plain id. A saved template's clips must sit on `V<n>` / `A<n>` tracks, or it is refused.
+
 ## Look at the footage (`fablecut_frame`)
 
 `fablecut_analyze_reference` gives you the **ears** — where the cuts are, how hard
