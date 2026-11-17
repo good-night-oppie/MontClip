@@ -76,10 +76,15 @@ test("in a real browser, a project whose values carry markup draws them as text 
     await evaluate(`setSideTab("mixer"); true`); await new Promise((r) => setTimeout(r, 600)); await look("mixer");
     await evaluate(`setSideTab("inspector"); setSelection(["cc"]); true`); await new Promise((r) => setTimeout(r, 600)); await look("comp");
     seen.kfTitle = await evaluate(`[...document.querySelectorAll(".clip-kf")].map((e) => e.title).join("|")`);
+    // the empty marker list: the dictionary's own sentence keeps its <kbd>M</kbd> as an element (QQ, #373 review 5931510048)
+    seen.markers = await evaluate(`(() => { openMarkerList(document.body); const e = document.querySelector(".marker-list .marker-empty");
+      const r = { kbd: e ? e.querySelectorAll("kbd").length : -1, text: e ? e.textContent : null }; document.querySelector(".marker-list")?.remove(); return r; })()`);
     return seen;
   });
   assert.ok(out.load.drawn > 0, "the editor drew the hostile project");
   assert.match(out.kfTitle, /data-pwn="kfkey"/, "S6: the keyframe name is shown as text in its mark's title");
+  assert.equal(out.markers.kbd, 1, "the empty marker list shows M as a <kbd> element: " + JSON.stringify(out.markers));
+  assert.doesNotMatch(out.markers.text, /<kbd>/, "no tag written out as text");
   for (const k of ["load", "inspector", "mixer", "comp"]) {
     assert.equal(out[k].el, 0, `${k}: no element made from a project value`);
     assert.deepEqual(out[k].ran, [], `${k}: no script ran`);
