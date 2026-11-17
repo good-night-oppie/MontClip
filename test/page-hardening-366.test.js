@@ -20,6 +20,7 @@ test("the editor page has a script policy in browser mode: own scripts only, no 
     assert.match(csp, /(^|; )script-src 'self' blob: 'wasm-unsafe-eval'(;|$)/, p);
     const scriptSrc = (csp.split("; ").find((d) => d.startsWith("script-src")) || "").split(" ");
     assert.ok(!scriptSrc.includes("'unsafe-inline'") && !scriptSrc.includes("'unsafe-eval'"), "no inline script, no eval: " + csp);
+    assert.match(csp, /(^|; )worker-src 'self'(;|$)/, "workers only from the app's own files, never a blob: or data: address (QQ, #371 review)"); assert.doesNotMatch(csp, /worker-src[^;]*blob:/);
     assert.match(csp, /object-src 'none'/); assert.match(csp, /base-uri 'none'/); assert.match(csp, /form-action 'none'/);
     const hosts = [...csp.matchAll(/https:\/\/[^\s;]+/g)].map((m) => m[0]).sort();
     assert.deepEqual([...new Set(hosts)], ["https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "https://fonts.gstatic.com"], "only the consented hosts");

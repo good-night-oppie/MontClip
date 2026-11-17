@@ -80,8 +80,8 @@ const getFrame = async (base, query, headers) => {
   const buf = Buffer.from(await res.arrayBuffer());
   return { res, buf };
 };
-/* The header the MCP client sends — and only it sends — for ?path= requests. */
-const MCP_HEADER = { "X-FableCut-Client": "mcp" };
+/* #369 / #366: the key the MCP client sends — and only it can know — for ?path= requests: the server writes it into the data folder */
+const MCP_HEADER = (dir) => ({ "X-MontClip-Mcp": require("../server/mcp-key").read(dir) });
 
 test("GET /api/frame refuses a src outside /media and /library", async (t) => {
   const { dir, base } = await boot(t);
@@ -320,7 +320,7 @@ test("looking at a file outside media/ never writes into media/", { skip: !hasFf
   const file = await fixture(scratch, "elsewhere.mp4");
   assert.deepEqual(fs.readdirSync(path.join(dir, "media")), [], "media/ starts empty");
 
-  const res = await fetch(base + "/api/frame?path=" + encodeURIComponent(file) + "&t=1", { headers: MCP_HEADER });
+  const res = await fetch(base + "/api/frame?path=" + encodeURIComponent(file) + "&t=1", { headers: MCP_HEADER(dir) });
   assert.equal(res.status, 200);
   await res.arrayBuffer();
 
@@ -332,7 +332,7 @@ test("looking at a file outside media/ never writes into media/", { skip: !hasFf
 test("GET /api/frame?path rejects a path that is not a file", async (t) => {
   const { dir, base } = await boot(t);
   for (const p of ["", path.join(dir, "media"), path.join(dir, "nope.mp4"), dir]) {
-    const res = await fetch(base + "/api/frame?path=" + encodeURIComponent(p) + "&t=0", { headers: MCP_HEADER });
+    const res = await fetch(base + "/api/frame?path=" + encodeURIComponent(p) + "&t=0", { headers: MCP_HEADER(dir) });
     const body = await res.json().catch(() => ({}));
     assert.equal(res.status, 404, `path=${p} should be refused, got ${res.status}`);
     assert.match(body.error || "", /path must be an existing file|src must name/);
@@ -447,16 +447,20 @@ test("GET /api/frame?path= needs the MCP client header", async (t) => {
   ]) {
     const res = await fetch(base + "/api/frame?" + query);
     assert.equal(res.status, 403, `${query} without the header should be refused`);
-    assert.match((await res.json().catch(() => ({}))).error || "", /X-FableCut-Client/);
+    assert.match((await res.json().catch(() => ({}))).error || "", /X-MontClip-Mcp/);
   }
-  // A wrong value is the same as none.
+  // A wrong value is the same as none — and so is the old X-FableCut-Client: mcp header, which a page can set.
+  for (const h of [{ "X-FableCut-Client": "mcp" }, { "X-MontClip-Mcp": "0".repeat(64) }]) {
+    const r = await fetch(base + "/api/frame?path=" + encodeURIComponent(file) + "&t=0", { headers: h });
+    assert.equal(r.status, 403, JSON.stringify(h)); assert.equal((await r.json()).code, "MCP_KEY_REQUIRED");
+  }
   const wrong = await fetch(base + "/api/frame?path=" + encodeURIComponent(file) + "&t=0",
     { headers: { "X-FableCut-Client": "browser" } });
   assert.equal(wrong.status, 403);
 
   // With the header the endpoint behaves: 404 for a missing file…
   const missing = await fetch(base + "/api/frame?path=" + encodeURIComponent(path.join(dir, "nope.mp4")) + "&t=0",
-    { headers: MCP_HEADER });
+    { headers: MCP_HEADER(dir) });
   assert.equal(missing.status, 404);
 
   // …and src= mode never needed the header (those files are already served).

@@ -20146,37 +20146,15 @@ function snapshotExportRgba() {
     return new Uint8Array(img.data.buffer, img.data.byteOffset, img.data.byteLength);
   } catch (e) { throw canvasTaintError(e); }
 }
-const JPEG_WORKER_SRC = `"use strict";
-self.onmessage = async (e) => {
-  const { id, bmp, quality } = e.data;
-  try {
-    const c = new OffscreenCanvas(bmp.width, bmp.height);
-    const ctx = c.getContext("2d", { alpha: false });
-    ctx.drawImage(bmp, 0, 0);
-    bmp.close();
-    const blob = await c.convertToBlob({ type: "image/jpeg", quality: quality || 0.92 });
-    const buf = await blob.arrayBuffer();
-    self.postMessage({ id, buf }, [buf]);
-  } catch (err) {
-    try { bmp.close(); } catch {}
-    self.postMessage({ id, error: String(err && err.message || err) });
-  }
-};
-`;
 function createJpegWorkers(n) {
   if (typeof Worker !== "function" || typeof OffscreenCanvas !== "function") return null;
-  let url;
-  try { url = URL.createObjectURL(new Blob([JPEG_WORKER_SRC], { type: "text/javascript" })); }
-  catch { return null; }
   const workers = [];
   try {
-    for (let i = 0; i < n; i++) workers.push(new Worker(url));
+    for (let i = 0; i < n; i++) workers.push(new Worker("app/jpeg-worker.js"));   // the app's own file (the desktop window's worker-src is 'self')
   } catch {
     for (const w of workers) try { w.terminate(); } catch { }
-    URL.revokeObjectURL(url);
     return null;
   }
-  URL.revokeObjectURL(url);
   const pending = new Map();
   let nextId = 0, rr = 0;
   for (const w of workers) {

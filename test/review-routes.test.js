@@ -24,7 +24,9 @@ const srvEnv = (more = {}) => ({ MONTCLIP_REVIEW_PAGE_SECRET: PAGE_SECRET, MONTC
    and a header like Origin proves nothing: a local process can write any header). */
 const PAGE = { "Sec-Fetch-Site": "same-origin", Origin: "http://localhost", "X-MontClip-Page": PAGE_SECRET };
 const MAIN = { "X-MontClip-Page": PAGE_SECRET, "X-MontClip-Main": MAIN_SECRET };
-/* node's fetch adds neither Origin nor Sec-Fetch-Site: that is an agent (MCP / the plugin); the page's header is added by hand */
+/* #369 (QQ): an agent is only a caller with the MCP client's key, which the server writes into the data folder at start (mcp-key.js);
+   a request with no key is read like the page's, whatever else it carries */
+const AGENT = (dir) => ({ "X-MontClip-Mcp": require("../server/mcp-key").read(dir) });
 const call = (base, method, p, body, headers) => fetch(base + p, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
   .then(async (r) => ({ status: r.status, body: await r.json() }));
 const previews = (dir) => fs.existsSync(path.join(dir, "previews")) ? fs.readdirSync(path.join(dir, "previews")) : [];
@@ -56,7 +58,7 @@ test("an agent's send:true needs no owner switch but is still refused while the 
   const dir = makeDataDir(t, seedProject({ revision: 3 }));
   const { base } = await startServer(t, dir, srvEnv());
   assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, PAGE)).body.code, "CLICK_REQUIRED");
-  const prep = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab", send: true });
+  const prep = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, where: "tab", send: true }, AGENT(dir));
   assert.equal(prep.status, 409); assert.equal(prep.body.code, "REVIEW_SEND_OFF", "the streamer's switch is off: nothing is rendered or sent");
   const gate = (s, e) => call(base, "GET", `/api/review/gate?start=${s}&end=${e}`).then((r) => r.body);
   assert.equal((await gate(1, 3)).passed, false, "no check, no pass");
@@ -136,7 +138,7 @@ test("without the main process's secret (not started by the desktop app) nothing
   for (const h of [PAGE, MAIN]) assert.equal((await call(base, "POST", "/api/review/send", { id: "r_000000000000", token: "0".repeat(48), hash: "0".repeat(64) }, h)).status, 403);
 });
 
-test("the desktop main process: the page secret only on the editor window's own /api/review/ requests; its own secret only on its own requests (never added to a page's); both reach the server only through its environment", () => {
+test("the desktop main process: the page secret on every request of the editor window itself (whatever the path); its own secret only on its own requests (never added to a page's); both reach the server only through its environment", () => {
   const src = fs.readFileSync(path.join(__dirname, "..", "desktop", "main.js"), "utf8");
   assert.ok(src.includes("MONTCLIP_REVIEW_PAGE_SECRET: pageSecret"), "the server gets it in its environment");
   assert.ok(src.includes("MONTCLIP_REVIEW_MAIN_SECRET: mainSecret"), "and the main process's own secret the same way");
@@ -146,11 +148,21 @@ test("the desktop main process: the page secret only on the editor window's own 
   assert.ok(at > 0 && end > at, "the header hook is there");
   const hook = src.slice(at, end);
   assert.ok(hook.includes("X-MontClip-Page") && hook.includes("pageSecret"));
-  assert.ok(hook.includes("/api/review/"), "only for the review's path");
+  /* QQ #326 review 5927365621: not filtered by the raw path — /api/%72eview/… decoded to /api/review/… and went without it, read as an agent */
+  assert.ok(!/pathname|startsWith\(/.test(hook), "the page secret does not depend on how the page spells the path");
   assert.ok(hook.includes("webContentsId"), "only for the editor window's own contents");
+  /* #369 (QQ review 5928897982): requests from no window (SharedWorker, Service Worker) are stopped; workers only from the app's own files */
+  const req = src.slice(src.indexOf("ses.webRequest.onBeforeRequest("), src.indexOf("ses.webRequest.onBeforeSendHeaders("));
+  assert.match(req, /const fromWindow = !!\(win && !win\.isDestroyed\(\) && details\.webContentsId === win\.webContents\.id\);/);
+  assert.match(req, /\(local\(details\.url\) && !fromWindow\)/, "a local request not from the window is cancelled");
+  assert.ok(!src.includes("X-MontClip-App"), "no mark that a page could be read through: who is an agent is said by the MCP key");
+  assert.match(src, /worker-src 'self';/, "workers only from the app's own files, never a blob: or data: address");
+  assert.doesNotMatch(src, /worker-src[^;]*blob:/);
   assert.ok(!hook.includes("mainSecret") && !hook.includes("X-MontClip-Main"), "the page's requests never carry the main process's secret");
   const server = fs.readFileSync(path.join(__dirname, "..", "server", "server.js"), "utf8");
   assert.doesNotMatch(server, /reviewPageCookie|mc_review_page/, "no cookie is handed out");
+  assert.match(server, /const isAgentReq = \(req\) => McpKey\.matches\(req, MCP_KEY\);/, "an agent is the caller with the MCP key, nothing else");
+  assert.doesNotMatch(server, /isAppReq|x-montclip-app/i);
   assert.match(server, /delete process\.env\.MONTCLIP_REVIEW_MAIN_SECRET/, "nothing the server starts inherits it");
 });
 
@@ -160,7 +172,7 @@ test("no agent door to the streamer's switch or key, and none to the removed sta
   for (const p of ["/api/review/settings", "/api/review/confirm", "/api/review/dest", "/api/review/agent-send", "/api/review/switch", "/api/review/key"])
     assert.equal((await call(base, "POST", p, { MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", MONTCLIP_REVIEW_AGENT_SEND: "1", on: true }, MAIN)).status, 404, p);
   /* extra fields on prepare are ignored: the streamer's switch is still off */
-  const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, destConfirmed: true, MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", agentSend: true, sendSwitch: true, send: true });
+  const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, destConfirmed: true, MONTCLIP_REVIEW_DEST_CONFIRMED: "openrouter.ai", agentSend: true, sendSwitch: true, send: true }, AGENT(dir));
   assert.equal(r.status, 409);
   const mcp = fs.readFileSync(path.join(__dirname, "..", "server", "mcp-server.js"), "utf8");
   for (const name of ["MONTCLIP_REVIEW_DEST_CONFIRMED", "MONTCLIP_REVIEW_AGENT_SEND"]) {
@@ -212,4 +224,92 @@ test("the 60 s gate: an agent's full export of more than a minute is refused unt
   const file = fs.readdirSync(path.join(dir, "reviews")).map((f) => fs.readFileSync(path.join(dir, "reviews", f), "utf8")).join("");
   const led = JSON.parse(file); assert.equal(led.bypasses.length, 1); assert.equal(led.bypasses[0].start, 0); assert.equal(led.bypasses[0].end, 90);
   assert.ok(!file.includes("SENTINEL-NICK-7731") && !file.includes("owner said"), "the reason is not on disk");
+});
+
+/* the request line exactly as written: fetch() and URL() would tidy dot segments and some encodings before they reach the server */
+const rawCall = (base, method, rawPath, body, headers) => new Promise((resolve, reject) => {
+  const u = new URL(base), data = body === undefined ? undefined : JSON.stringify(body);
+  const req = require("node:http").request({ hostname: u.hostname, port: u.port, method, path: rawPath,
+    headers: { ...(headers || {}), ...(data ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } : {}) } }, (res) => {
+    let txt = ""; res.setEncoding("utf8"); res.on("data", (c) => { txt += c; });
+    res.on("end", () => { let j = null; try { j = JSON.parse(txt); } catch { j = null; } resolve({ status: res.statusCode, body: j || {} }); });
+  });
+  req.on("error", reject); if (data) req.write(data); req.end();
+});
+const NONCANONICAL = [
+  "/api/%72eview/prepare", "/api/review/%70repare", "/api/review%2Fprepare", "/api/%72eview/status?id=x", "/api/%65xport/request", "/api/%252eview/prepare",   // encoded
+  "/API/review/prepare", "/api/Review/prepare", "/Api/review/send", "/api/review/PREPARE",                                                                   // case
+  "//api/review/prepare", "/api//review/prepare", "/api/review//prepare",                                                                                     // doubled slashes
+  "/api/x/../review/prepare", "/api/./review/prepare", "/media/../api/review/prepare", "/%2e%2e/api/review/prepare", "/api/review/./prepare",                // dot segments
+  "/api\\review\\prepare", "/api/review\\prepare",                                                                                                             // backslashes
+];
+
+test("QQ #326 review 5927365621 / Deja: an /api/ path spelt any way but the plain one is refused (400) — encoded, upper-case, doubled slash, dot segment or backslash: with send:true it neither prepares nor sends, whatever the headers", { skip, timeout: 120_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ revision: 3 }));
+  const { base } = await startServer(t, dir, srvEnv());
+  for (const p of NONCANONICAL) {
+    for (const h of [undefined, PAGE, MAIN, AGENT(dir)]) {
+      const r = await rawCall(base, "POST", p, { start: 1, end: 3, send: true }, h);
+      assert.equal(r.status, 400, p); assert.equal(r.body.code, "NONCANONICAL_PATH", p);
+    }
+  }
+  assert.equal((await call(base, "GET", "/api/review/records")).body.records.length, 0, "no check was made");
+  assert.deepEqual(previews(dir), [], "nothing was rendered");
+  assert.equal((await rawCall(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, AGENT(dir))).body.code, "REVIEW_SEND_OFF", "the plain path still answers as before");
+  /* not touched: plain API paths with a query, and files whose names are encoded (Chinese names, spaces) */
+  assert.equal((await rawCall(base, "GET", "/api/review/status?id=%72_x")).body.code, "NO_SUCH_REVIEW", "encoding in the query is fine");
+  for (const p of ["/media/%E4%B8%AD%E6%96%87.mp4", "/media/a%20b.mp4", "/index.html"]) assert.notEqual((await rawCall(base, "GET", p)).body.code, "NONCANONICAL_PATH", p);
+});
+
+test("#369 (QQ review 5928897982 and its follow-up): an agent is only the caller with the MCP client's key — no key, a wrong key, the old client header or the app's old mark is read like the page: send:true needs the click, no token is handed out", { skip, timeout: 60_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ revision: 3 }));
+  const { base } = await startServer(t, dir, srvEnv());
+  const key = require("../server/mcp-key").read(dir);
+  assert.match(key, /^[a-f0-9]{64}$/, "the server wrote its key into the data folder");
+  const others = [undefined, { "X-MontClip-Mcp": "0".repeat(64) }, { "X-MontClip-Mcp": key.slice(0, 32) }, { "X-MontClip-Mcp": key.toUpperCase() },
+    { "X-FableCut-Client": "mcp" }, { "X-MontClip-App": PAGE_SECRET }, { "X-MontClip-Session": key }, { "Sec-Fetch-Site": "none" }];
+  for (const h of others) {
+    const r = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, h);
+    assert.equal(r.status, 403, JSON.stringify(h)); assert.equal(r.body.code, "CLICK_REQUIRED", JSON.stringify(h));
+  }
+  /* with the key: an agent, and only the streamer's switch (off here) stops it */
+  const a = await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, AGENT(dir));
+  assert.equal(a.status, 409); assert.equal(a.body.code, "REVIEW_SEND_OFF");
+  /* a new server run draws a new key: the old one counts for nothing */
+  assert.equal((await call(base, "GET", "/api/review/records")).body.records.length, 0, "no check was made");
+  assert.deepEqual(previews(dir), [], "nothing was rendered");
+  const res = await fetch(base + "/"); await res.text();
+  assert.ok(!(await (await fetch(base + "/api/project")).text()).includes(key), "the key is in no answer");
+  for (const p of ["/.montclip-mcp-key", "/media/../.montclip-mcp-key", "/media/%2e%2e/.montclip-mcp-key"]) {
+    const r = await fetch(base + p).catch(() => null);
+    if (r) { const txt = await r.text(); assert.ok(!txt.includes(key), p + " does not hand out the key"); }
+  }
+});
+
+test("#369: a new server run draws a new key; the key of the run before counts for nothing", { skip, timeout: 60_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ revision: 3 }));
+  const first = await startServer(t, dir, srvEnv());
+  const old = require("../server/mcp-key").read(dir);
+  await first.stop();
+  const { base } = await startServer(t, dir, srvEnv());
+  const now = require("../server/mcp-key").read(dir);
+  assert.notEqual(now, old);
+  assert.equal((await call(base, "POST", "/api/review/prepare", { start: 1, end: 3, send: true }, { "X-MontClip-Mcp": old })).body.code, "CLICK_REQUIRED");
+});
+
+test("#369 (Deja): the right key is an agent — the real MCP client (mcp-server.js) reads it from the data folder and its fablecut_review check gets past the click check; with the key file gone it is read like the page", { skip, timeout: 120_000 }, async (t) => {
+  const { startMcp } = require("./helpers");
+  const dir = makeDataDir(t, seedProject({ revision: 3 }));
+  const { port } = await startServer(t, dir, srvEnv());
+  const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port) });
+  await mcp.request("initialize", { protocolVersion: "2025-11-25" });
+  const run = async (args) => { try { const r = await mcp.callTool("fablecut_review", args); return String(r && (r.text || JSON.stringify(r))); } catch (e) { return String(e.message || e); } };
+  /* with the key: past the click check; the streamer's switch (off on a server with no desktop app) is what stops it */
+  const withKey = await run({ action: "check", start: 1, end: 3 });
+  assert.match(withKey, /REVIEW_SEND_OFF/, withKey); assert.doesNotMatch(withKey, /CLICK_REQUIRED/);
+  /* without it (the file the server wrote is gone): the same call is read like the page's */
+  fs.rmSync(path.join(dir, require("../server/mcp-key").FILE));
+  const without = await run({ action: "check", start: 1, end: 3 });
+  assert.match(without, /CLICK_REQUIRED/, without);
+  assert.deepEqual(previews(dir), [], "nothing was rendered");
 });
