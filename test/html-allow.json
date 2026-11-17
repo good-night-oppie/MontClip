@@ -287,6 +287,11 @@
      "expr": "escapeHtml(uiText(\"own.tr-missing\", { names: \"\\u0000\" })).replace(\"\\u0000\", names)",
      "at": "<div class=\"tr-note\">",
      "why": "the sentence is escaped (escapeHtml) and then filled with names: file names escaped one by one two lines up"
+    },
+    {
+     "expr": "uiText(\"own.markers-empty\")",
+     "at": "<div class=\"marker-empty dim\">",
+     "why": "the editor's own dictionary sentence (ui-preferences.js own.markers-empty), repo-authored HTML with its <kbd>M</kbd> and no parameters; escaping it would show the tags as text (QQ, #373 review 5931510048)"
     }
    ]
   },
