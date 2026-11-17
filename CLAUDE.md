@@ -26,6 +26,8 @@ Every Claude Code session then has these tools:
   into `./media/` and register it. The stored `src` is always `/media/…`.
   `link:true` hard-links a local file on the same drive instead of copying it
   (a several-GB recording imports at once; another drive falls back to a copy).
+  An `https://` URL is refused in the desktop app (`NETWORK_DISABLED`, as `/api/import-url`), and embedded in
+  Cindy it is asked about first on the streamer's editor window (see `/api/import-url`).
 - `fablecut_analyze_reference` — turn a reference video into an edit blueprint
   (shots, beats, BPM, energy, drop) + extract its music. See "Remake a reference video".
 - `fablecut_frame` — **look at** a moment and get back an actual image.
@@ -2560,6 +2562,17 @@ An `/api/` path must be written plainly: lower case, no percent-encoding, no `//
   port) in `media.src`: canvas CORS would taint the compositor and Fast /
   WebCodecs export cannot JPEG-encode. Import into `./media` so `src` is
   `/media/…`, or serve the remote with `Access-Control-Allow-Origin`.
+  **Where the desktop app is the engine it answers 403 `{code:"NETWORK_DISABLED"}`**, and so does
+  `fablecut_import_media` with an `https://` path, by the same judgment (`server/url-import-policy.js`): this
+  process runs as the desktop app, or the data folder's writer lock is held by a live desktop engine (#375).
+- `POST /api/import-url/confirm {url, session?}` — embedded in Cindy, the plugin worker only (#375, PG 6937788935):
+  before the assistant downloads from a URL, a card on the streamer's editor window asks with the site's name,
+  「下载」 / 「不要」 (focus on 「不要」; Esc or closing it is 「不要」). It is an `importurl` job on the editor's queue,
+  open windows only (none: 409 `EDITOR_NOT_READY`), and its result is `{allowed}`; nothing is downloaded by it.
+  `fablecut_import_media` asks it for each URL and downloads only after a yes; it remembers the answer for its task
+  while it runs — a yes is not asked again, a no stays `IMPORT_URL_DECLINED` and is not asked again. There is no
+  "always allow". A URL the streamer pastes herself (「+ URL」) is not asked about. The card's words are placeholders
+  until JJ finalizes them (`ui-preferences.js` `iu-*`).
 - `GET  /api/transcript?src=/media/x.mp4` → `{transcript}` (`null` when the file has none yet; 404 when the
   file is missing) · `POST /api/transcript?src=` (a transcript document) → `{src, words}` ·
   `POST /api/transcript/status {srcs}` → `{status:{src: {words, language, model, duration, created} | false | null}}` ·
