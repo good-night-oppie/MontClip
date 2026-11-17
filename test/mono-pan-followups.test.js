@@ -365,7 +365,7 @@ test("on purpose (a pan set by hand or keyed): no warning at all — and the but
   // the report never carries the check then (verify with panIntent, above, and the third export in mono-pan-export.test.js)
   const show = slice("function showOneSidedWarning(", "/** A check from the export report");
   assert.match(show, /if \(w\.ids\) toastActions\(w\.text, \[\[uiText\("own\.export-one-sided-fix"\), \(\) => centreMonoStems\(w\.ids, w\.side\)\]\]\);/);
-  assert.match(SRC, /data-q-fix="\$\{q\.id\}">\$\{escapeHtml\(uiText\("own\.export-one-sided-fix"\)\)\}/, "the queue row has the button too, from its key");
+  assert.match(SRC, /data-q-fix="\$\{escapeHtml\(q\.id\)\}">\$\{escapeHtml\(uiText\("own\.export-one-sided-fix"\)\)\}/, "the queue row has the button too, from its key");
   assert.match(SRC, /if \(w && w\.ids\) centreMonoStems\(w\.ids, w\.side\);/);
   assert.match(SRC, /savedMsg: oneSided \? \(\) => showOneSidedWarning\(oneSided\) :/, "a single export's toast is the warning");
 });
