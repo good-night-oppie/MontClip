@@ -210,6 +210,10 @@ catch (e) {
   if (e.code === "DATA_DIR_IN_USE") console.error("MONTCLIP_DATA_DIR_IN_USE " + JSON.stringify({ shell: e.holder?.shell || null, port: e.holder?.port || null }));
   throw e;
 }
+/* #369 / #366: the MCP client's key (mcp-key.js), new each run, in a data-folder file no page can read. It is what makes a request an
+   agent's at /api/review/, and what /api/frame?path= needs */
+const McpKey = require("./mcp-key");
+const MCP_KEY = McpKey.issue(DATA_DIR);
 const projects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
 const undoStacks = require("./undo-stacks").createUndoStacks({ dir: path.join(ANALYSIS_DIR, "undo") });
 const history = createHistory({ projects, autoMinutes: Number(process.env.FABLECUT_AUTO_VERSION_MIN) || 10 });
@@ -1073,17 +1077,22 @@ const isMainReq = (req) => { const h = req.headers["x-montclip-main"]; return !!
 const REVIEW_PAGE_SECRET = /^[a-f0-9]{64}$/.test(process.env.MONTCLIP_REVIEW_PAGE_SECRET || "") ? process.env.MONTCLIP_REVIEW_PAGE_SECRET : null;
 delete process.env.MONTCLIP_REVIEW_PAGE_SECRET;   // nothing this server starts inherits it
 const isPageReq = (req) => { const h = req.headers["x-montclip-page"]; return !!REVIEW_PAGE_SECRET && typeof h === "string" && h.length === REVIEW_PAGE_SECRET.length && sameSecret(h, REVIEW_PAGE_SECRET) && !(embed && embed.worker(req)); };
-const isAgentReq = (req) => !isPageReq(req);
+/* #369 (QQ review 5928897982 and its follow-up): who is an agent is said positively, never worked out from a missing page secret. An agent
+   is the MCP client (mcp-server.js, run on its own or inside the Cindy plugin's worker): it alone can read the key this server wrote into
+   the data folder when it started (mcp-key.js) and sends it as X-MontClip-Mcp. Everything else — the editor page, a worker, an iframe,
+   a page script, another program that does not have the key — is treated like the page: send:true needs the streamer's click. */
+const isAgentReq = (req) => McpKey.matches(req, MCP_KEY);
 const isLoopback = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket && req.socket.remoteAddress);
 
 /* Static file with HTTP Range support (required for <video> seeking) */
 /* #366 (QQ 6930008236 ③): the editor page's own policy, the desktop window's (desktop/main.js) plus only what the browser
    editor fetches after the streamer agrees to it: Google Fonts (stylesheet fetched, then a blob: stylesheet; fonts.gstatic.com
    font files) and MediaPipe (cdn.jsdelivr.net, checked and run from blob: URLs, WebAssembly). No inline script, no eval, no
-   other site: an HTML fragment that ends up in the page (a project value written into innerHTML) cannot run anything. */
+   other site; workers only from the app's own files (app/ruler-worker.js, app/jpeg-worker.js — #369 took the last blob: worker
+   out; MediaPipe runs on the page, not in a worker). An HTML fragment that ends up in the page (a project value written into innerHTML) cannot run anything. */
 const PAGE_CSP = "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' blob: data:; " +
   "media-src 'self' blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net; " +
-  "worker-src 'self' blob:; object-src 'none'; frame-src 'self'; base-uri 'none'; form-action 'none'";
+  "worker-src 'self'; object-src 'none'; frame-src 'self'; base-uri 'none'; form-action 'none'";
 /* #366 ④: what a data folder (media/, library/, exports/, previews/, proxies) hands out keeps its own type only when it is
    footage, a picture or a font; anything else (a script, a page, a style sheet, JSON, an unknown name) goes out as bytes
    the browser will not run or render. */
@@ -1132,6 +1141,7 @@ const server = http.createServer((req, res) => {
     else { try { res.end(); } catch { } }
   });
 });
+const { nonCanonicalApi } = require("./api-path");
 async function handleRequest(req, res) {
   if (embed) {
     res.setHeader("Referrer-Policy", "no-referrer");  // embedded pages never pass their address on
@@ -1141,6 +1151,11 @@ async function handleRequest(req, res) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
   }
+  /* an /api/ route is named by one plain spelling only (QQ, #326 review 5927365621): a percent-encoded (/api/%72eview/…), upper-case
+     (/API/Review/…), doubled-slash (//api/…, /api//review/…), backslash or dot-segment (/api/x/../review/…) spelling could reach — or be
+     mistaken for — a route by whoever reads the raw path differently from this server. Any request that could mean an /api/ route must
+     already be in that spelling; nothing is guessed. None of the API's paths needs encoding. */
+  if (nonCanonicalApi(req.url)) { sendJSON(res, 400, { code: "NONCANONICAL_PATH", error: "API paths must be plain: lower case, no encoding, no // or dot segments" }); return; }
   const url = new URL(req.url, "http://localhost");
   const p = decodeURIComponent(url.pathname);
   req.bodyLimit = bodyLimit(req, p);
@@ -1866,7 +1881,7 @@ async function handleRequest(req, res) {
           recheck: body.recheck === true && !agent }));   // 重新检查 is the streamer's, from the page only (#321 PG 6922461279)
       } else if (action === "status" && req.method === "GET") {
         const v = svc.status(q("id") || undefined);
-        if ((!agent || isMainReq(req)) && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);
+        if ((isPageReq(req) || isMainReq(req)) && v.state === "ready") v.sendToken = svc.tokenFor(v.reviewId);   // the window's own page only
         sendJSON(res, 200, v);
       } else if (action === "send" && req.method === "POST") {
         /* the click goes through the main process (IPC montclip:review:send with the token and the hash); a request from the page, an agent or
@@ -2328,10 +2343,11 @@ async function handleRequest(req, res) {
      `src` is a served /media/ or /library/ path. `path` is any readable path on
      this machine — it does NOT copy the file into media/, because looking at a
      clip must not change the user's project folder. `path` is answered only
-     with the `X-FableCut-Client: mcp` request header, which only the local MCP
-     client sends: without it a web page could otherwise probe which files
-     exist (`onload` vs `onerror`), make ffmpeg decode them, and fill the cache
-     below with junk. resolveSrc() remains the guard for anything that turns a
+     with the MCP client's key (`X-MontClip-Mcp`, mcp-key.js: drawn when the
+     server starts, kept in a data-folder file no page can read; #369, #366):
+     without it a web page — or a script injected into the editor page, which
+     can set any header it likes — could probe which files exist (`onload` vs
+     `onerror`), make ffmpeg decode them, and fill the cache below with junk. resolveSrc() remains the guard for anything that turns a
      request string into a path inside a served root.
 
      &text=1 returns JSON statistics instead of the image, for agents (or
@@ -2395,8 +2411,9 @@ async function handleRequest(req, res) {
        (a missing header is refused before the path is even resolved, so the
        answer leaks nothing). `src=` needs no header: those files are already
        served over HTTP at /media/ and /library/. */
-    if (pathArg && req.headers["x-fablecut-client"] !== "mcp") {
-      sendJSON(res, 403, { error: "path= needs the X-FableCut-Client: mcp request header — only the local MCP client may read files outside media/ and library/" });
+    if (pathArg && !McpKey.matches(req, MCP_KEY)) {
+      /* the old X-FableCut-Client: mcp header no longer counts — a page can set it */
+      sendJSON(res, 403, { code: "MCP_KEY_REQUIRED", error: "path= needs the MCP client's key (X-MontClip-Mcp) — only the local MCP client may read files outside media/ and library/" });
       return;
     }
     /* The path is resolved next: whether a file is readable never depends on
