@@ -642,26 +642,43 @@
       set({ previewSrc: src });
       return src;
     }
+    /** 「只发这 {n} 秒」 as a switch (#326, JJ 6928950807 (5)): kept for the next check; on the look page the clip is made again for it. */
+    async function setWindowOnly(on) {
+      const v = on === true;
+      if (s.windowOnly === v) return;
+      set({ windowOnly: v });
+      if (s.phase === "confirm" && s.prep && direct() && (s.prep.scope === "window") !== v) await switchScope(s.gen, v ? "window" : "full");
+    }
     /** 「只发这 10 秒」 needs the clip without the project's text, which is a check of its own (#328: scope is fixed at prepare). */
-    async function switchToWindow(gen) {
+    const switchToWindow = (gen) => switchScope(gen, "window");
+    async function switchScope(gen, scope) {
       const old = s.prep;
       set({ phase: "preparing", previewSrc: null });
       try { await api.cancel(old.reviewId); } catch { /* it runs out on its own; the engine may still say BUSY, which is reported, never sent */ }
       if (gen !== s.gen) return null;
-      const got = await prepareView(s.range, "window", gen);
+      const got = await prepareView(s.range, scope, gen);
       if (got.stale || gen !== s.gen) return null;
       if (got.failed) { fail(got.failed, got.dest, got.why); return null; }
       if (got.reused) { set({ phase: "result", prep: null, raw: { ...got.reused, reused: true } }); return null; }
       const a = payloadOf(old), b = payloadOf(got.view);
       const da = destinationOf(old.willSend && old.willSend.to), db = destinationOf(got.view.willSend && got.view.willSend.to);
       // what 「只发这 10 秒」 said in the box is what goes: the same seconds, receiver and number of requests, and no words (payloadOf) — else show the box again
-      const same = !!(a && b && b.scope === "window" && near_(a.video.start, b.video.start) && near_(a.video.end, b.video.end) && a.requests === b.requests
+      const same = !!(a && b && b.scope === scope && near_(a.video.start, b.video.start) && near_(a.video.end, b.video.end) && a.requests === b.requests
         && da && db && da.service === db.service && da.host === db.host && da.confirmed && db.confirmed && da.verified === db.verified);
-      set({ phase: "confirm", prep: got.view, changed: !same });
+      set({ phase: "confirm", prep: got.view, changed: scope === "window" && !direct() ? !same : false });   // a switch the streamer flipped is not 「changed」
       return null;
     }
+    async function checkFromLook() {
+      if (s.phase !== "confirm" || !direct() || !s.range) return null;
+      const old = s.prep, range = s.range, gen = ++s.gen;
+      set({ phase: "preparing", prep: null, previewSrc: null });
+      // the clip on show is let go first and its cancel waited for: an engine still busy with it would answer the new check BUSY (#326 smoke)
+      if (old && old.reviewId) { try { await api.cancel(old.reviewId); } catch { /* it runs out on its own */ } }
+      if (gen !== s.gen) return null;
+      return check(range);
+    }
     async function send(scope) {
-      if (s.phase !== "confirm" || !s.prep) return false;
+      if (s.phase !== "confirm" || !s.prep || direct()) return false;   // #326: in the desktop window only 「检查这 {n} 秒」 sends (the main process)
       if (scope !== "full" && scope !== "window") return false;
       const m = confirmModel(s.prep, "zh-CN");
       const btn = m.buttons.find((b) => b.id === scope);
@@ -689,10 +706,10 @@
       const prep = s.prep, phase = s.phase;
       s.gen++;
       set({ phase: "closed", previewSrc: null });
-      if (prep && prep.reviewId && (phase === "confirm" || phase === "preparing")) { try { await api.cancel(prep.reviewId); } catch { /* the token runs out on its own */ } }
+      if (prep && prep.reviewId && (phase === "confirm" || phase === "preparing" || phase === "sending")) { try { await api.cancel(prep.reviewId); } catch { /* the token runs out on its own */ } }
     }
     function close() {
-      if (s.phase === "confirm" || s.phase === "preparing") return cancel();
+      if (s.phase === "confirm" || s.phase === "preparing" || (s.phase === "sending" && s.prep)) return cancel();
       s.gen++;
       set({ phase: "closed", previewSrc: null });
     }
@@ -706,7 +723,7 @@
       return true;
     }
     // 「再检查一次」 is the streamer's own: it asks the engine for a new check even when this stretch already has a result (PG 6922461279)
-    return { state: s, check, preview, send, cancel, close, markFixed, recheck: () => (s.range ? check(s.range, true) : null),
+    return { state: s, check, look, checkFromLook, setWindowOnly, direct, preview, send, cancel, close, markFixed, recheck: () => (s.range ? check(s.range, true) : null),
       on(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
   }
 
@@ -747,7 +764,24 @@
         const r = live.get(id);
         if (!r) { const e = new Error("no such check"); e.code = "NO_SUCH_REVIEW"; throw e; }
         if (r.state === "rendering" && --r.polls <= 0) r.state = opts.renderFails ? "failed" : "ready";
-        return view(r);
+        else if (r.direct && r.state === "ready") r.state = "sending";   // the main process sends what it prepared (#326 one-click path)
+        else if (r.direct && r.state === "sending") {
+          if (opts.sendFails) { r.state = "failed"; r.reason = opts.sendFails; }
+          else { r.state = "done"; r.result = { reviewId: id, source: "streamer", ...result(r.scope, r.range) }; }
+        }
+        if (r.state === "done") return { reviewId: id, state: "done", result: r.result };
+        return { ...view(r), ...(r.reason ? { reason: r.reason } : {}) };
+      },
+      /** the desktop bridge's one-click check (opts.direct): what the main process does, without a window */
+      direct: () => opts.direct === true,
+      async checkNow(range, recheck, scope) {
+        const sc = scope === "window" ? "window" : "full";
+        calls.push(["checkNow", { start: range.start, end: range.end, recheck: recheck === true, scope: sc }]);
+        if (opts.checkRefused) { const e = new Error(opts.checkRefused); e.code = opts.checkRefused; e.notSent = true; throw e; }
+        const v = await this.prepare({ start: range.start, end: range.end, scope: sc, ...(recheck ? { recheck: true } : {}) });
+        if (v.reused) { live.set(v.reviewId, { id: v.reviewId, state: "done", result: v.result }); return { reviewId: v.reviewId, reused: true }; }
+        live.get(v.reviewId).direct = true;
+        return { reviewId: v.reviewId };
       },
       async send(v) {   // the main process's answer, as montclipReview.send gives it (#347)
         const id = v && v.reviewId, token = v && v.sendToken;
@@ -783,9 +817,13 @@
     overlay.appendChild(box);
     (doc.body || doc.documentElement).appendChild(overlay);
 
+    // 「先看要发的内容」 beside the button (#326): the page before a check — what goes, the 「只发这 {n} 秒」 switch; it sends nothing itself
+    const lookBtn = btn && btn.parentNode ? el(doc, "button", "btn icon review-look hidden", "ⓘ") : null;
+    if (lookBtn) { lookBtn.type = "button"; lookBtn.id = "btnReviewLook"; btn.parentNode.insertBefore(lookBtn, btn.nextSibling); }
     function labelButton() {
       if (!btn) return;
       const r = rangeNow(), n = r ? spanOf(r) : SPAN;
+      if (lookBtn) { const w = t(L(), "previewBtn"); lookBtn.title = w; lookBtn.setAttribute("aria-label", w); lookBtn.disabled = !r; }
       btn.textContent = t(L(), "button", { n });
       // 「不到 1 秒」 only when there is a timeline and the stretch really is under 1 s — never with nothing loaded (JJ #326, 833f73e4)
       const dur = num(env.duration());
@@ -795,8 +833,18 @@
     async function refresh() {
       present = await Promise.resolve().then(() => api.available()).catch(() => false);
       if (btn) btn.classList.toggle("hidden", !present);   // no review routes on this server: no button
+      if (lookBtn) lookBtn.classList.toggle("hidden", !present);
       labelButton();
       return present;
+    }
+    /** 「只发这 {n} 秒」 (JJ 6928950807 (5)): a switch with its line under it, chosen before 「检查这 {n} 秒」; nothing is sent by flipping it */
+    function windowSwitch(parent, n) {
+      const lab = el(doc, "label", "review-switch"); lab.dataset.review = "windowSwitch";
+      const cb = el(doc, "input"); cb.type = "checkbox"; cb.checked = session.state.windowOnly; cb.dataset.review = "windowOnly";
+      cb.addEventListener("change", () => { void session.setWindowOnly(cb.checked); });
+      lab.appendChild(cb); lab.appendChild(el(doc, "span", null, t(L(), "windowToggle", { n })));
+      parent.appendChild(lab);
+      const line = el(doc, "p", "dim review-note review-switch-line", t(L(), "windowToggleLine", { n })); line.dataset.review = "windowLine"; parent.appendChild(line);
     }
     function boxLines(m) {
       for (const line of m.lines) box.appendChild(el(doc, "p", "review-line", line));
@@ -820,8 +868,10 @@
         box.appendChild(el(doc, "p", "dim review-note", t(lang, "preparing", { n })));
         add("cancel", t(lang, "cancelPrep"), () => session.cancel());
       } else if (s.phase === "confirm" || s.phase === "unverified") {
-        const m = s.phase === "confirm" ? confirmModel(s.prep, lang, { fellBack, changed: s.changed }) : unverifiedModel(s.dest, lang, s.range);
+        const one = s.phase === "confirm" && session.direct();
+        const m = s.phase === "confirm" ? confirmModel(s.prep, lang, { fellBack, changed: s.changed, direct: one }) : unverifiedModel(s.dest, lang, s.range);
         boxLines(m);
+        if (one) windowSwitch(box, n);
         if (s.previewSrc) {
           const v = el(doc, "video", "review-preview"); v.controls = true; v.preload = "metadata"; v.src = s.previewSrc;
           box.appendChild(el(doc, "p", "dim review-note", t(lang, "previewNote"))); box.appendChild(v);
@@ -853,6 +903,10 @@
         }
         for (const b of m.buttons) {
           if (b.hidden) continue;   // view-only (PG #321 6872395398): a send button that cannot send is not shown at all
+          if (one && (b.id === "full" || b.id === "window")) {   // #326: no send buttons — the one 「检查这 {n} 秒」 instead, in their place
+            if (b.id === "full") { const c = add("check", t(lang, "button", { n }), () => { void session.checkFromLook(); }, "review-send"); c.disabled = !m.canSend; }
+            continue;
+          }
           const on = b.id === "preview" ? () => session.preview() : b.id === "cancel" ? () => session.cancel() : () => session.send(b.id);
           const node = add(b.id, b.label, on, b.id === "full" ? "review-send" : "");
           node.disabled = !b.enabled;
@@ -899,14 +953,16 @@
     /** 「检查这 10 秒」 and 「重新检查」: each press is a new check (prepare again; the receiver is read from the engine each time). */
     function start(r) {
       if (!r || !present || session.state.phase === "preparing" || session.state.phase === "sending") return null;
+      if (session.state.phase === "confirm" && session.direct()) return session.checkFromLook();
       return session.check(r);
     }
     if (btn) btn.addEventListener("click", () => { void start(rangeNow()); });
+    if (lookBtn) lookBtn.addEventListener("click", () => { const r = rangeNow(); if (r && present) void session.look(r); });
     overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); void session.close(); } });
     const every = env.setInterval || ((fn, ms) => setInterval(fn, ms));
     every(() => labelButton(), 500);
     void refresh();
-    return { session, refresh, overlay, render: () => render(session.state) };
+    return { session, refresh, overlay, lookButton: lookBtn, render: () => render(session.state) };
   }
 
   return { text, t, fmtTime, pickRange, destinationOf, payloadOf, confirmModel, unverifiedModel, cleanResult, resultModel, httpApi, safePreviewSrc,
